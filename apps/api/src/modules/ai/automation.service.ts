@@ -54,15 +54,21 @@ export class AutomationService {
       });
       if (!convo || !convo.contact.optIn) return;
 
-      // Un flujo "al iniciar conversación" tiene prioridad sobre el bot.
-      if (await this.flows.onCreated(conversationId)) return;
-
+      // El modo de la IA se decide antes de cualquier bienvenida: un flujo «al
+      // iniciar» no debe dejar la conversación sin Autopilot. Si el contacto ya
+      // tuvo conversaciones, la nueva hereda el modo de la última (lo fija la
+      // mensajería al crearla) y aquí no se toca.
       const bot = await this.bots.resolveForConversation(convo);
-      if (!bot) return;
-
-      if (bot.autopilotByDefault && convo.aiMode !== AiMode.AUTOPILOT) {
+      const previous = await this.prisma.conversation.count({
+        where: { contactId: convo.contactId, id: { not: conversationId } },
+      });
+      if (bot?.autopilotByDefault && previous === 0 && convo.aiMode !== AiMode.AUTOPILOT) {
         await this.messaging.setAiMode(conversationId, AiMode.AUTOPILOT);
       }
+
+      // Un flujo "al iniciar conversación" tiene prioridad sobre la bienvenida del bot.
+      if (await this.flows.onCreated(conversationId)) return;
+      if (!bot) return;
 
       if (bot.welcomeEnabled && bot.welcomeMessage?.trim()) {
         await this.messaging.queueOutbound(

@@ -250,6 +250,15 @@ export class MessagingService {
     });
     const windowExpiresAt = new Date(now.getTime() + WINDOW_MS);
     const isNewConversation = !open;
+    // Tras cerrar, el siguiente mensaje abre otra conversación: hereda el modo
+    // de la IA de la anterior (si estaba en Autopilot, sigue en Autopilot).
+    const previous = open
+      ? null
+      : await this.prisma.conversation.findFirst({
+          where: { contactId: contact.id },
+          orderBy: { createdAt: "desc" },
+          select: { aiMode: true },
+        });
     const conversation = open
       ? await this.prisma.conversation.update({
           where: { id: open.id },
@@ -273,6 +282,7 @@ export class MessagingService {
             lastMessageAt: now,
             awaitingReply: true,
             unreadCount: 1,
+            ...(previous ? { aiMode: previous.aiMode } : {}),
             // Qué anuncio abrió esta conversación (null si no vino de uno).
             ...(referral
               ? { referral: referral as unknown as Prisma.InputJsonObject }

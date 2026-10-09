@@ -20,6 +20,7 @@ import {
   type KeywordVariant,
   COUNTRIES,
   type Weekday,
+  DEFAULT_HANDOFF_MESSAGE,
 } from "@crm/shared";
 import type { PromptAssistantTarget } from "@crm/shared";
 import { createBot, updateBot } from "@/lib/bff";
@@ -66,6 +67,7 @@ type Form = {
   channelId: string | null;
   escalateOnNegativeSentiment: boolean;
   minConfidence: number;
+  handoffMessage: string;
   keywords: string;
   autopilotByDefault: boolean;
   replyDelaySec: number;
@@ -138,6 +140,7 @@ function toForm(bot: BotDto | null): Form {
       channelId: null,
       escalateOnNegativeSentiment: true,
       minConfidence: 0.75,
+      handoffMessage: DEFAULT_HANDOFF_MESSAGE,
       keywords: "humano, persona, asesor, reclamo",
       autopilotByDefault: false,
       replyDelaySec: 4,
@@ -160,6 +163,7 @@ function toForm(bot: BotDto | null): Form {
     channelId: bot.channelId,
     escalateOnNegativeSentiment: bot.escalationRules.escalateOnNegativeSentiment ?? false,
     minConfidence: bot.escalationRules.minConfidence ?? 0.6,
+    handoffMessage: bot.escalationRules.handoffMessage ?? DEFAULT_HANDOFF_MESSAGE,
     keywords: (bot.escalationRules.keywords ?? []).join(", "),
     autopilotByDefault: bot.autopilotByDefault,
     replyDelaySec: bot.replyDelaySec ?? 4,
@@ -308,6 +312,7 @@ export function BotEditor({
         escalationRules: {
           escalateOnNegativeSentiment: form.escalateOnNegativeSentiment,
           minConfidence: Number(form.minConfidence),
+          handoffMessage: form.handoffMessage.trim(),
           keywords: form.keywords
             .split(",")
             .map((k) => k.trim())
@@ -644,6 +649,23 @@ export function BotEditor({
               label="Pasar siempre el chat si el cliente está molesto"
               hint="Un cliente enfadado rara vez se calma con un bot. Recomendado."
             />
+
+            <div style={field}>
+              <span style={lbl}>Qué le dice al cliente cuando te pasa el chat</span>
+              <textarea
+                className="field"
+                style={{ minHeight: 60, resize: "vertical", fontFamily: "inherit" }}
+                value={form.handoffMessage}
+                maxLength={1000}
+                placeholder="Un momento, por favor: te paso con una persona del equipo…"
+                onChange={(e) => set("handoffMessage", e.target.value)}
+                aria-label="Mensaje al pasar el chat"
+              />
+              <Hint>
+                Así el cliente no se queda en silencio mientras alguien responde. Déjalo vacío si prefieres que no diga
+                nada. En la bandeja, el chat queda como Pendiente con una nota interna que explica el motivo.
+              </Hint>
+            </div>
           </Card>
         )}
 

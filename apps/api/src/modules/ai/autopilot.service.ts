@@ -6,12 +6,14 @@ import { QUEUE_AI_REPLY } from "../../infra/queue/queue.constants";
 import {
   AiMode,
   ConversationStatus,
+  DEFAULT_HANDOFF_MESSAGE,
   MessageAuthor,
   MessageType,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { MessagingService } from "../messaging/messaging.service";
 import { AgentService } from "./agent.service";
+import { BotService } from "./bot.service";
 import { WebhookOutService } from "../webhooks-out/webhook-out.service";
 import {
   WHATSAPP_PROVIDER,
@@ -31,6 +33,7 @@ export class AutopilotService {
   private readonly logger = new Logger("Autopilot");
 
   constructor(
+    private readonly bots: BotService,
     private readonly prisma: PrismaService,
     private readonly agent: AgentService,
     private readonly messaging: MessagingService,
@@ -125,6 +128,39 @@ export class AutopilotService {
   }
 
   /**
+   * La IA se retira: el cliente recibe el aviso configurado (si la ventana
+   * de 24 h sigue abierta) y el equipo ve una nota con el motivo. Una vez por
+   * conversación: si ya avisó, no repite.
+   */
+  private async handoff(conversationId: string, orgId: string, reason: string, windowOpen: boolean): Promise<void> {
+    try {
+      const convo = await this.prisma.conversation.findUnique({
+        where: { id: conversationId },
+        select: { channelId: true, contactId: true },
+      });
+      if (!convo) return;
+      const bot = await this.bots.resolveForConversation(convo);
+      const rules = (bot?.escalationRules as { handoffMessage?: string } | null) ?? null;
+      const text = (rules?.handoffMessage ?? DEFAULT_HANDOFF_MESSAGE).trim();
+      const already = text
+        ? await this.prisma.message.findFirst({
+            where: { conversationId, direction: "OUTBOUND", author: MessageAuthor.AI, content: text },
+            select: { id: true },
+          })
+        : null;
+      if (text && windowOpen && !already) {
+        await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text }, MessageAuthor.AI);
+      }
+      const author =
+        (await this.prisma.user.findFirst({ where: { orgId, role: "ADMIN" }, orderBy: { createdAt: "asc" } })) ??
+        (await this.prisma.user.findFirst({ where: { orgId }, orderBy: { createdAt: "asc" } }));
+      if (author) await this.messaging.addNote(conversationId, author.id, `🤖 La IA pasó el chat a una persona. Motivo: ${reason}`);
+    } catch (e) {
+      this.logger.warn(`Aviso de traspaso en ${conversationId} falló: ${(e as Error).message}`);
+    }
+  }
+
+  /**
    * Ejecuta el agente en autopilot para una conversación. Lo invoca
    * AutomationService tras pasar sus reglas (palabras clave, horario).
    */
@@ -165,9 +201,10 @@ export class AutopilotService {
             ConversationStatus.PENDING,
           );
         }
-        this.logger.log(
-          `Autopilot escaló ${conversationId}: ${res.escalationReason ?? "sin respuesta"}`,
-        );
+        const reason = res.escalationReason ?? "La IA no tuvo una respuesta.";
+        this.logger.log(`Autopilot escaló ${conversationId}: ${reason}`);
+        // Que el cliente no se quede en silencio, y que el equipo sepa por qué.
+        await this.handoff(conversationId, convo.orgId, reason, res.windowOpen);
         return;
       }
 

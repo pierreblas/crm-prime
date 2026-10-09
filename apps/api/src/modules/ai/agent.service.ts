@@ -28,6 +28,9 @@ export function estimateCostUsd(model: string, input: number, output: number): n
   return estimateAiCost(model, input, output) ?? 0;
 }
 
+// Conversaciones anteriores del contacto que entran como contexto.
+const HISTORY_DAYS = 30;
+
 @Injectable()
 export class AgentService {
   private readonly logger = new Logger("Agent");
@@ -775,12 +778,25 @@ export class AgentService {
     ].join("");
   }
 
+  /**
+   * Los últimos mensajes del contacto, también de sus conversaciones
+   * anteriores (cerradas hace poco): al «cerrar y siguiente» el cliente suele
+   * seguir el mismo hilo, y sin ese contexto la IA no sabe de qué habla.
+   */
   private async buildHistory(conversationId: string): Promise<LlmMessage[]> {
-    const rows = await this.prisma.message.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: "asc" },
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { contactId: true },
+    });
+    const since = new Date(Date.now() - HISTORY_DAYS * 86_400_000);
+    const recent = await this.prisma.message.findMany({
+      where: convo
+        ? { OR: [{ conversationId }, { conversation: { contactId: convo.contactId }, createdAt: { gte: since } }] }
+        : { conversationId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 40,
     });
+    const rows = recent.reverse();
     // Un audio o una imagen entran con lo que la IA entendió de ellos
     // (transcripción o descripción), no como un «[audio]» mudo.
     const msgs: LlmMessage[] = rows.map((m) => ({

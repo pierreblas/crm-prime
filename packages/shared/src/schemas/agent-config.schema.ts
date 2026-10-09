@@ -8,7 +8,12 @@ export const escalationRulesSchema = z.object({
   minConfidence: z.number().min(0).max(1).optional(),
   escalateOnNegativeSentiment: z.boolean().optional(),
   keywords: z.array(z.string()).optional(),
+  /** Lo que recibe el cliente cuando la IA le pasa el chat a una persona (vacío = nada). */
+  handoffMessage: z.string().max(1000).optional(),
 });
+
+/** Aviso por defecto al pasar el chat: que el cliente no se quede en silencio. */
+export const DEFAULT_HANDOFF_MESSAGE = "Un momento, por favor: te paso con una persona del equipo para ayudarte con esto.";
 export type EscalationRules = z.infer<typeof escalationRulesSchema>;
 
 // Herramienta disponible (para los checkboxes del panel).
