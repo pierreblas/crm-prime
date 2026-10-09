@@ -46,6 +46,7 @@ export type IconName =
   | "link"
   | "phone"
   | "copy"
+  | "expand"
   | "key"
   | "plug"
   | "antenna"
@@ -416,6 +417,15 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
       return (
         <svg {...p}>
           <path d="M21.5 16.9v2.8a2 2 0 0 1-2.2 2 19.6 19.6 0 0 1-8.5-3 19.3 19.3 0 0 1-6-6 19.6 19.6 0 0 1-3-8.6A2 2 0 0 1 3.8 2h2.8a2 2 0 0 1 2 1.7c.1 1 .3 1.9.7 2.8a2 2 0 0 1-.5 2.1L7.6 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.4 1.8.6 2.8.7a2 2 0 0 1 1.7 2z" />
+        </svg>
+      );
+    case "expand":
+      return (
+        <svg {...p}>
+          <path d="M15 3h6v6" />
+          <path d="M9 21H3v-6" />
+          <path d="M21 3l-7 7" />
+          <path d="M3 21l7-7" />
         </svg>
       );
     case "copy":

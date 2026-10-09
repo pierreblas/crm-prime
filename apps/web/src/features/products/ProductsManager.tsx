@@ -96,7 +96,11 @@ export function ProductsManager() {
       {fieldsOpen && <ProductFieldsDialog fields={fields} onClose={() => setFieldsOpen(false)} />}
 
       {importing && (
-        <ImportProductsDialog onClose={() => setImporting(false)} onImported={refresh} />
+        <ImportProductsDialog
+          onClose={() => setImporting(false)}
+          onImported={refresh}
+          suggestedCurrency={mostUsedCurrency(products ?? [])}
+        />
       )}
 
       {editing && (
@@ -705,3 +709,13 @@ const priceRow: React.CSSProperties = { display: "flex", gap: 8, alignItems: "ce
 const priceRowLabel: React.CSSProperties = { width: 36, fontSize: 12, color: "var(--muted)", flexShrink: 0 };
 
 const toggleRow: React.CSSProperties = { display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" };
+
+/** La moneda que más se repite en el catálogo (USD si está vacío). */
+function mostUsedCurrency(products: { currency: string }[]): string {
+  const count = new Map<string, number>();
+  for (const p of products) count.set(p.currency, (count.get(p.currency) ?? 0) + 1);
+  let best = "USD";
+  let n = 0;
+  for (const [cur, c] of count) if (c > n) [best, n] = [cur, c];
+  return best;
+}

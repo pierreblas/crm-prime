@@ -83,6 +83,11 @@ const PREFIXES: Array<[string, CountryInfo]> = [
 ];
 
 /** País de un teléfono en formato internacional, o null si no se reconoce. */
+/** Países que Driony reconoce por el prefijo telefónico, sin repetir y por nombre. */
+export const COUNTRIES: CountryInfo[] = Array.from(
+  new Map(PREFIXES.map(([, info]) => [info.code, info])).values(),
+).sort((a, b) => a.name.localeCompare(b.name, "es"));
+
 export function countryFromPhone(phone: string | null | undefined): CountryInfo | null {
   const digits = (phone ?? "").replace(/\D/g, "");
   if (!digits) return null;

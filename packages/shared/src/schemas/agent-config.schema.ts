@@ -45,13 +45,28 @@ export type BusinessHours = z.infer<typeof businessHoursSchema>;
 export const keywordActions = ["reply", "handoff", "set_off"] as const;
 export type KeywordAction = (typeof keywordActions)[number];
 
+/** Texto distinto para los clientes de un país (por el prefijo de su teléfono). */
+export const keywordVariantSchema = z.object({
+  country: z.string().length(2), // ISO 3166-1 alfa-2 (PE, MX…)
+  value: z.string().max(2000),
+});
+export type KeywordVariant = z.infer<typeof keywordVariantSchema>;
+
 export const keywordTriggerSchema = z.object({
   keywords: z.array(z.string().min(1)).min(1),
   action: z.enum(keywordActions),
   // Texto a responder (action="reply") o motivo del handoff.
   value: z.string().max(2000).optional(),
+  // action="reply": versiones por país; quien no tenga la suya recibe `value`.
+  variants: z.array(keywordVariantSchema).max(40).optional(),
 });
 export type KeywordTrigger = z.infer<typeof keywordTriggerSchema>;
+
+/** El texto que le toca a un cliente: la versión de su país, o el general. */
+export function keywordReplyFor(trigger: KeywordTrigger, countryCode: string | null | undefined): string {
+  const own = countryCode ? trigger.variants?.find((v) => v.country === countryCode && v.value.trim()) : undefined;
+  return (own?.value ?? trigger.value ?? "").trim();
+}
 
 // Configuración del agente que devuelve la API (compat: bot por defecto).
 export const agentConfigSchema = z.object({

@@ -5,7 +5,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { readSheet } from "read-excel-file/browser";
 import writeXlsxFile from "write-excel-file/browser";
 import {
-  priceColumnCurrency,
+  CURRENCIES,
+  guessPriceColumns,
   PRODUCT_IMPORT_FIELDS,
   csvToRecords,
   guessColumnMapping,
@@ -50,9 +51,12 @@ const NUMERIC_TEMPLATE_COLUMNS = new Set(["price", "price_USD", "price_MXN"]);
 export function ImportProductsDialog({
   onClose,
   onImported,
+  suggestedCurrency = "USD",
 }: {
   onClose: () => void;
   onImported: () => void;
+  /** Moneda propuesta para las filas sin moneda: la más usada en el catálogo. */
+  suggestedCurrency?: string;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [parsed, setParsed] = useState<Parsed | null>(null);
@@ -63,6 +67,9 @@ export function ImportProductsDialog({
   const { data: fields = [] } = useQuery({ queryKey: ["product-fields"], queryFn: fetchProductFields });
   // Columna elegida a mano para cada campo personalizado (si no, se adivina por el nombre).
   const [fieldPick, setFieldPick] = useState<Record<string, string | null>>({});
+  // Moneda de las filas que no la traen, y moneda asignada a mano a columnas de precio extra.
+  const [defaultCurrency, setDefaultCurrency] = useState(suggestedCurrency);
+  const [pricePick, setPricePick] = useState<Record<string, string | null>>({});
 
   const fieldColumns = useMemo(() => {
     if (!parsed || !mapping) return [];
@@ -72,14 +79,31 @@ export function ImportProductsDialog({
   }, [parsed, mapping, fields, fieldPick]);
   const usedFields = fieldColumns.filter((c) => c.column);
 
+  // Columnas del archivo que no se usan para nada más: candidatas a precio en otra moneda.
+  const extraColumns = useMemo(() => {
+    if (!parsed || !mapping) return [];
+    const used = new Set([...Object.values(mapping), ...fieldColumns.map((c) => c.column)].filter(Boolean) as string[]);
+    return parsed.headers.filter((h) => !used.has(h));
+  }, [parsed, mapping, fieldColumns]);
+  const priceColumns = useMemo(() => {
+    if (!parsed || !mapping) return {};
+    const guessed = guessPriceColumns(extraColumns, []);
+    const out: Record<string, string> = {};
+    for (const h of extraColumns) {
+      const cur = h in pricePick ? pricePick[h] : guessed[h];
+      if (cur) out[h] = cur;
+    }
+    return out;
+  }, [parsed, mapping, extraColumns, pricePick]);
+
   // Cada fila del archivo, ya convertida a producto o con su motivo de error.
   const rows = useMemo(() => {
     if (!parsed || !mapping) return [];
     return parsed.records.map((record, i) => ({
       line: i + 2, // +2: la 1 es la cabecera
-      ...toProductImportRow(record, mapping, fieldColumns),
+      ...toProductImportRow(record, mapping, fieldColumns, { defaultCurrency, priceColumns }),
     }));
-  }, [parsed, mapping, fieldColumns]);
+  }, [parsed, mapping, fieldColumns, defaultCurrency, priceColumns]);
 
   const valid = rows.filter((r) => r.ok) as {
     line: number;
@@ -129,6 +153,7 @@ export function ImportProductsDialog({
       setParsed({ fileName: file.name, headers: table.headers, records });
       setMapping(guessColumnMapping(table.headers));
       setFieldPick({});
+      setPricePick({});
     } catch (e) {
       setReadError(`No se pudo leer el archivo: ${(e as Error).message}`);
     }
@@ -157,7 +182,8 @@ export function ImportProductsDialog({
       }
     };
     const headers = [...TEMPLATE_HEADERS, ...fields.map((f) => f.label)];
-    const rows = TEMPLATE_ROWS.map((r, i) => [...r, ...fields.map((f) => (i === 0 ? sample(f) : ""))]);
+    // Los campos obligatorios van rellenos en todas las filas; los demás, solo en la primera.
+    const rows = TEMPLATE_ROWS.map((r, i) => [...r, ...fields.map((f) => (i === 0 || f.required ? sample(f) : ""))]);
     if (format === "csv") {
       const csv = toCsv(headers, rows);
       const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
@@ -296,6 +322,16 @@ export function ImportProductsDialog({
                       </select>
                     </label>
                   ))}
+                  <label style={{ display: "flex", gap: 8, alignItems: "center" }} title="Se usa en las filas que no indican moneda (o si el archivo no tiene esa columna)">
+                    <span style={{ width: 110, fontSize: 13, color: "var(--muted)" }}>Si falta la moneda</span>
+                    <select style={select} value={defaultCurrency} onChange={(e) => setDefaultCurrency(e.target.value)} aria-label="Moneda si falta">
+                      {CURRENCIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} · {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
                 {fieldColumns.length > 0 && (
                   <>
@@ -324,16 +360,35 @@ export function ImportProductsDialog({
                     </div>
                   </>
                 )}
-                {(() => {
-                  const extra = parsed.headers.filter((h) => priceColumnCurrency(h));
-                  return (
+                {extraColumns.length > 0 ? (
+                  <>
+                    <h4 style={{ margin: "16px 0 8px" }}>Otras columnas</h4>
+                    <div style={mapGrid}>
+                      {extraColumns.map((h) => (
+                        <label key={h} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ width: 110, fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={h}>
+                            {h}
+                          </span>
+                          <select style={select} value={priceColumns[h] ?? ""} onChange={(e) => setPricePick({ ...pricePick, [h]: e.target.value || null })} aria-label={`Columna ${h}`}>
+                            <option value="">— no se importa —</option>
+                            {CURRENCIES.map((c) => (
+                              <option key={c.code} value={c.code}>
+                                Precio en {c.code} · {c.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ))}
+                    </div>
                     <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "8px 0 0" }}>
-                      {extra.length
-                        ? `Precios en otras monedas: ${extra.map((h) => priceColumnCurrency(h)).join(", ")} (columnas ${extra.join(", ")}).`
-                        : "La columna currency (o moneda) da la moneda de cada producto. Para precios en otras monedas, añade columnas como price_USD o price_MXN."}
+                      Una columna llamada price_USD o precio_MXN se reconoce sola como precio en esa moneda; cualquier otra puedes marcarla aquí.
                     </p>
-                  );
-                })()}
+                  </>
+                ) : (
+                  <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "8px 0 0" }}>
+                    La columna currency (o moneda) da la moneda de cada producto. Para precios en otras monedas, añade columnas como price_USD o price_MXN.
+                  </p>
+                )}
 
                 {missingRequired.length > 0 && (
                   <p style={{ color: "#e0b766", fontSize: 13 }}>

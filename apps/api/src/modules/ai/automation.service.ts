@@ -5,6 +5,8 @@ import {
   ConversationStatus,
   MessageAuthor,
   MessageType,
+  countryFromPhone,
+  keywordReplyFor,
   type BusinessHours,
   type KeywordTrigger,
   type Weekday,
@@ -116,7 +118,7 @@ export class AutomationService {
           t.keywords.some((k) => text.includes(k.toLowerCase())),
         );
         if (hit) {
-          await this.applyTrigger(conversationId, hit);
+          await this.applyTrigger(conversationId, hit, convo.contact.phone);
           this.logger.log(`Disparador "${hit.action}" en ${conversationId}`);
           return; // el disparador resuelve el turno
         }
@@ -175,10 +177,13 @@ export class AutomationService {
   private async applyTrigger(
     conversationId: string,
     trigger: KeywordTrigger,
+    phone: string,
   ): Promise<void> {
-    if (trigger.action === "reply" && trigger.value?.trim()) {
+    // La versión del país del cliente (por su prefijo), o el texto general.
+    const text = trigger.action === "reply" ? keywordReplyFor(trigger, countryFromPhone(phone)?.code) : "";
+    if (trigger.action === "reply" && text) {
       await this.messaging.queueOutbound(
-        { conversationId, type: MessageType.TEXT, text: trigger.value.trim() },
+        { conversationId, type: MessageType.TEXT, text },
         MessageAuthor.AI,
       );
     } else if (trigger.action === "handoff") {

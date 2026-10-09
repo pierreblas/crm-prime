@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "@/lib/toast";
 import { confirmDialog } from "@/lib/confirm";
 import { NavIcon, type IconName } from "@/components/NavIcons";
@@ -16,6 +17,8 @@ import {
   type CreateBotInput,
   type KeywordAction,
   type KeywordTrigger,
+  type KeywordVariant,
+  COUNTRIES,
   type Weekday,
 } from "@crm/shared";
 import type { PromptAssistantTarget } from "@crm/shared";
@@ -277,6 +280,7 @@ export function BotEditor({
     return () => window.removeEventListener("beforeunload", onLeave);
   }, [dirty]);
   const [assist, setAssist] = useState<AssistTarget | null>(null);
+  const [promptBig, setPromptBig] = useState(false);
   const [tab, setTab] = useState<Tab>("dice");
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
@@ -443,7 +447,20 @@ export function BotEditor({
 
             <Card
               title="Cómo debe atender"
-              action={<AssistButton onClick={() => setAssist("systemPrompt")} />}
+              action={
+                <span style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() => setPromptBig(true)}
+                    style={{ ...ghostBtn, ...smBtn }}
+                    title="Abrir en grande para leerlo y editarlo cómodo"
+                    aria-label="Ampliar «Cómo debe atender»"
+                  >
+                    <NavIcon name="expand" size={13} /> Ampliar
+                  </button>
+                  <AssistButton onClick={() => setAssist("systemPrompt")} />
+                </span>
+              }
             >
               <Hint>
                 Es lo más importante del agente. Escríbelo como si le explicaras el trabajo a alguien nuevo: qué vendes y a
@@ -473,7 +490,19 @@ export function BotEditor({
                 style={{ minHeight: 220, resize: "vertical", fontFamily: "inherit", lineHeight: 1.55 }}
                 value={form.systemPrompt}
                 onChange={(e) => set("systemPrompt", e.target.value)}
+                aria-label="Cómo debe atender"
               />
+              {promptBig && (
+                <PromptOverlay
+                  value={form.systemPrompt}
+                  onChange={(v) => set("systemPrompt", v)}
+                  onClose={() => setPromptBig(false)}
+                  onAssist={() => {
+                    setPromptBig(false);
+                    setAssist("systemPrompt");
+                  }}
+                />
+              )}
               <ul className="agent-checklist" aria-label="Qué incluir">
                 {["Qué vendes y a quién", "Tono de tu marca", "Qué no debe hacer", "Cuándo pasarte el chat"].map((c) => (
                   <li key={c}>
@@ -777,6 +806,79 @@ function Hint({ children }: { children: React.ReactNode }) {
   return <span className="agent-hint">{children}</span>;
 }
 
+/**
+ * «Cómo debe atender» a pantalla grande: el mismo texto, con sitio para leerlo
+ * entero y escribir con calma. Esc o «Listo» vuelven al editor; lo escrito ya
+ * está en el formulario (se guarda con el resto).
+ */
+function PromptOverlay({
+  value,
+  onChange,
+  onClose,
+  onAssist,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onClose: () => void;
+  onAssist: () => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (el) {
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+  const words = value.trim() ? value.trim().split(/\s+/).length : 0;
+
+  // En <body>: el panel del agente crea su propio contexto de apilamiento y,
+  // dentro de él, el fondo fijo quedaba por debajo de la cabecera de la app.
+  return createPortal(
+    <div className="confirm-backdrop confirm-backdrop--top" onClick={onClose}>
+      <div className="confirm-dialog prompt-overlay" role="dialog" aria-label="Cómo debe atender, en grande" onClick={(e) => e.stopPropagation()}>
+        <header className="prompt-overlay__head">
+          <div>
+            <h3 style={{ margin: 0 }}>Cómo debe atender</h3>
+            <span className="agent-hint">Qué vendes y a quién, el tono de tu marca, qué no debe hacer y cuándo pasarte el chat.</span>
+          </div>
+          <span style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <AssistButton onClick={onAssist} />
+            <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>
+              Listo
+            </button>
+          </span>
+        </header>
+        <textarea
+          ref={ref}
+          className="field prompt-overlay__text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label="Cómo debe atender, en grande"
+          spellCheck
+        />
+        <footer className="prompt-overlay__foot">
+          <span>
+            {words} palabra{words === 1 ? "" : "s"} · {value.length} caracteres
+          </span>
+          <span>Esc para volver</span>
+        </footer>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function Switch({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
   return (
     <label className={`agent-switch${checked ? " is-on" : ""}`}>
@@ -997,23 +1099,98 @@ function KeywordTriggersEditor({ value, onChange }: { value: KeywordTrigger[]; o
             </button>
           </div>
           {t.action === "reply" && (
-            <textarea
-              className="field"
-              style={{ minHeight: 50, resize: "vertical", fontFamily: "inherit" }}
-              value={t.value ?? ""}
-              maxLength={MAX_TEXT}
-              placeholder="Texto que se responde automáticamente…"
-              onChange={(e) => update(i, { value: e.target.value })}
-            />
-          )}
-          {t.action === "reply" && (
-            <Counter value={t.value ?? ""} max={MAX_TEXT} />
+            <>
+              <div style={field}>
+                <span style={lbl}>{(t.variants ?? []).length ? "Texto general (los demás países)" : "Texto que se responde"}</span>
+                <textarea
+                  className="field"
+                  style={{ minHeight: 50, resize: "vertical", fontFamily: "inherit" }}
+                  value={t.value ?? ""}
+                  maxLength={MAX_TEXT}
+                  placeholder="Ej. Puedes pagar por transferencia a la cuenta… o con Yape al…"
+                  onChange={(e) => update(i, { value: e.target.value })}
+                  aria-label={`Respuesta ${i + 1}: texto general`}
+                />
+              </div>
+              <Counter value={t.value ?? ""} max={MAX_TEXT} />
+              <KeywordVariantsEditor
+                index={i}
+                value={t.variants ?? []}
+                onChange={(variants) => update(i, { variants })}
+              />
+            </>
           )}
         </div>
       ))}
-      <button onClick={() => onChange([...value, { keywords: [], action: "reply", value: "" }])} style={{ ...ghostBtn, alignSelf: "flex-start" }}>
+      <button onClick={() => onChange([...value, { keywords: [], action: "reply", value: "", variants: [] }])} style={{ ...ghostBtn, alignSelf: "flex-start" }}>
         <NavIcon name="plus" size={14} /> Añadir respuesta por palabra
       </button>
+    </div>
+  );
+}
+
+/**
+ * Versiones de una respuesta fija según el país del cliente (por el prefijo
+ * de su teléfono): medios de pago, direcciones, envíos… Quien no tenga la
+ * suya recibe el texto general.
+ */
+const PREFERRED_COUNTRIES = ["PE", "MX", "CO", "CL", "AR", "EC", "BO", "ES", "US"];
+
+function KeywordVariantsEditor({ index, value, onChange }: { index: number; value: KeywordVariant[]; onChange: (v: KeywordVariant[]) => void }) {
+  const taken = new Set(value.map((v) => v.country));
+  // El siguiente país propuesto: primero donde más se vende por WhatsApp, después el resto por nombre.
+  const nextCountry =
+    [...PREFERRED_COUNTRIES, ...COUNTRIES.map((c) => c.code)].find((code) => !taken.has(code)) ?? "PE";
+  const update = (i: number, patch: Partial<KeywordVariant>) => onChange(value.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
+  return (
+    <div className="agent-variants">
+      {value.map((v, i) => (
+        <div key={i} className="agent-variant" data-variant={`${index}-${i}`}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ ...lbl, marginBottom: 0 }}>Para clientes de</span>
+            <select className="field" style={{ flex: 1 }} value={v.country} onChange={(e) => update(i, { country: e.target.value })} aria-label={`Respuesta ${index + 1}: país de la versión ${i + 1}`}>
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code} disabled={c.code !== v.country && taken.has(c.code)}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => onChange(value.filter((_, idx) => idx !== i))}
+              style={{ ...ghostBtn, ...smBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+              title="Quitar esta versión"
+              aria-label="Quitar esta versión"
+            >
+              <NavIcon name="x" size={13} />
+            </button>
+          </div>
+          <textarea
+            className="field"
+            style={{ minHeight: 50, resize: "vertical", fontFamily: "inherit" }}
+            value={v.value}
+            maxLength={MAX_TEXT}
+            placeholder="Texto solo para este país…"
+            onChange={(e) => update(i, { value: e.target.value })}
+            aria-label={`Respuesta ${index + 1}: texto para ${COUNTRIES.find((c) => c.code === v.country)?.name ?? v.country}`}
+          />
+          <Counter value={v.value} max={MAX_TEXT} />
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <button
+          onClick={() => onChange([...value, { country: nextCountry, value: "" }])}
+          style={{ ...ghostBtn, ...smBtn }}
+          disabled={taken.size >= COUNTRIES.length}
+          aria-label={`Respuesta ${index + 1}: añadir versión por país`}
+        >
+          <NavIcon name="plus" size={13} /> Versión para un país
+        </button>
+        <span className="agent-hint">
+          {value.length
+            ? "Se elige por el prefijo del teléfono del cliente (+51 Perú, +52 México…)."
+            : "¿Cuentas, direcciones o envíos distintos por país? Añade una versión por país; los demás reciben el texto general."}
+        </span>
+      </div>
     </div>
   );
 }

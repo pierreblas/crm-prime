@@ -3474,3 +3474,67 @@ code {
     margin-left: 32px;
   }
 }
+
+/* ── Agente de IA: «Cómo debe atender» a pantalla grande ────── */
+.prompt-overlay {
+  width: min(1040px, calc(100vw - 32px));
+  height: calc(100dvh - 48px);
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 22px;
+}
+.prompt-overlay__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.prompt-overlay__head .agent-hint {
+  display: block;
+  margin-top: 4px;
+}
+.prompt-overlay__text {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.65;
+  padding: 16px 18px;
+}
+.prompt-overlay__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+@media (max-width: 640px) {
+  .prompt-overlay {
+    width: calc(100vw - 16px);
+    height: calc(100dvh - 16px);
+    padding: 14px;
+  }
+  .prompt-overlay__text {
+    font-size: 16px; /* evita el zoom de iOS al enfocar */
+  }
+}
+
+/* ── Agente de IA: versiones por país de una respuesta fija ── */
+.agent-variants {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+.agent-variant {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--accent) 5%, transparent);
+}

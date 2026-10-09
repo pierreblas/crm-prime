@@ -168,6 +168,29 @@ export function priceColumnCurrency(header: string): string | null {
   return m ? m[1]!.toUpperCase() : null;
 }
 
+/**
+ * Columnas del archivo que parecen precios en otra moneda (precio_MXN…),
+ * sin contar las ya usadas para otra cosa. El usuario puede corregirlas.
+ */
+export function guessPriceColumns(headers: string[], taken: (string | null)[]): Record<string, string> {
+  const used = new Set(taken.filter(Boolean) as string[]);
+  const out: Record<string, string> = {};
+  for (const h of headers) {
+    if (used.has(h)) continue;
+    const cur = priceColumnCurrency(h);
+    if (cur) out[h] = cur;
+  }
+  return out;
+}
+
+/** Opciones de la conversión de una fila del archivo. */
+export interface ProductImportOptions {
+  /** Moneda de las filas que no la indican (o si no hay columna de moneda). Por defecto USD. */
+  defaultCurrency?: string;
+  /** Columna → moneda de los precios adicionales. Si no se da, se detectan por el título (precio_MXN…). */
+  priceColumns?: Record<string, string>;
+}
+
 export const productImportRowSchema = z.object({
   name: nameField,
   sku: skuField.default(null),
@@ -371,6 +394,7 @@ export function toProductImportRow(
   record: Record<string, string>,
   mapping: Record<ProductImportField, string | null>,
   fieldColumns: ProductFieldColumn[] = [],
+  opts: ProductImportOptions = {},
 ): { ok: true; value: ProductImportRow } | { ok: false; error: string } {
   const get = (field: ProductImportField): string => {
     const column = mapping[field];
@@ -386,15 +410,16 @@ export function toProductImportRow(
   if (price < 0) return { ok: false, error: "El precio no puede ser negativo" };
 
   const rawCurrency = get("currency");
-  const currency = rawCurrency ? rawCurrency.trim().toUpperCase() : "USD";
+  const currency = (rawCurrency || opts.defaultCurrency || "USD").trim().toUpperCase();
   if (currency.length !== 3) {
     return { ok: false, error: `Moneda no válida: "${rawCurrency}" (usa USD, PEN, EUR…)` };
   }
 
-  // Precios en otras monedas: columnas precio_XXX (vacías se ignoran).
+  // Precios en otras monedas: las columnas elegidas, o las que se llaman precio_XXX (vacías se ignoran).
   const prices: { currency: string; amount: number }[] = [];
-  for (const [column, value] of Object.entries(record)) {
-    const cur = priceColumnCurrency(column);
+  const priceColumns = opts.priceColumns ?? guessPriceColumns(Object.keys(record), Object.values(mapping));
+  for (const [column, cur] of Object.entries(priceColumns)) {
+    const value = record[column];
     if (!cur || cur === currency || !value?.trim()) continue;
     const amount = parseImportPrice(value);
     if (amount === null || amount < 0) {
