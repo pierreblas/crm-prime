@@ -35,7 +35,7 @@ const TONES: { value: Tone; title: string; sample: string }[] = [
 
 /** Qué capacidades tienen sentido para cada misión. */
 const TOOLS_BY_GOAL: Record<Goal, string[]> = {
-  vender: ["search_products", "search_knowledge", "search_contact", "handoff_to_human", "move_deal_stage", "update_contact", "send_product_image"],
+  vender: ["search_products", "search_knowledge", "search_contact", "handoff_to_human", "mark_lead", "move_deal_stage", "update_contact", "send_product_image"],
   agendar: ["search_knowledge", "search_contact", "handoff_to_human", "update_contact", "assign_to_seller", "add_tag"],
   soporte: ["search_knowledge", "search_contact", "handoff_to_human", "add_tag"],
   datos: ["search_contact", "update_contact", "handoff_to_human", "assign_to_seller", "add_tag", "search_knowledge"],
@@ -540,6 +540,7 @@ const TOOL_RULES: Record<string, string> = {
   search_knowledge: "Antes de responder sobre envíos, garantías, horarios, políticas o preguntas frecuentes, busca en search_knowledge y responde con esa información.",
   search_contact: "Revisa la ficha del cliente con search_contact para no volver a preguntar lo que ya sabes.",
   update_contact: "Guarda con update_contact los datos que el cliente te confirme (nombre, ciudad, lo que busca).",
+  mark_lead: "Clasifica al cliente con mark_lead: «potential» en cuanto muestre interés real (pide precio, cotización, quiere comprar), «purchase» cuando confirme la compra o el pago, «lost» si dice que no le interesa.",
   move_deal_stage: "Mueve su oportunidad con move_deal_stage cuando avance: a negociación si pide precio, a ganado si confirma.",
   add_tag: "Etiqueta al cliente con add_tag según su interés, usando solo las etiquetas disponibles.",
   send_product_image: "Si quiere ver un producto, envía su foto con send_product_image.",

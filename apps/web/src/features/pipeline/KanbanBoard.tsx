@@ -30,6 +30,7 @@ import {
 import { useRealtimeCtx } from "@/components/RealtimeProvider";
 import { dangerBtn, ghostBtn, primaryBtn, smBtn } from "@/components/ui";
 import { TagEditor, tagColor } from "@/features/contacts/TagEditor";
+import { useCalls } from "@/features/calls/CallProvider";
 import {
   DateFilter,
   EMPTY_DATE,
@@ -416,12 +417,26 @@ export function KanbanBoard() {
                   <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {stage.isWon && <NavIcon name="trophy" size={14} />}
                     {stage.isLost && <NavIcon name="x" size={14} />}
+                    {stage.isQualified && (
+                      <span title="Potenciales: aquí manda el agente a quien muestra interés real" style={{ color: "#ffd98a", display: "inline-flex" }}>
+                        <NavIcon name="target" size={14} />
+                      </span>
+                    )}
                     {isEntry && (
                       <span title="Etapa de entrada: aquí aparecen las conversaciones nuevas de WhatsApp" style={{ color: "var(--accent-text)", display: "inline-flex" }}>
                         <NavIcon name="inbox" size={14} />
                       </span>
                     )}
                     {stage.name}
+                    {stage.automations.length > 0 && (
+                      <span
+                        title={stage.automations.map((a) => `${AUTO_TRIGGER[a.trigger] ?? a.trigger} → ${a.flowName}${a.enabled ? "" : " (pausada)"}`).join("\n")}
+                        style={{ color: "var(--accent-text)", display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, fontWeight: 600 }}
+                      >
+                        <NavIcon name="zap" size={12} />
+                        {stage.automations.length}
+                      </span>
+                    )}
                   </span>
                   <span style={{ color: "var(--muted)" }}>{deals.length}</span>
                 </div>
@@ -692,6 +707,7 @@ function DealDetail({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const phone = useCalls();
   const won = stages.find((s) => s.isWon);
   const lost = stages.find((s) => s.isLost);
   const discarded = !!deal.discardedAt;
@@ -732,6 +748,21 @@ function DealDetail({
               </div>
               <EstadoChat deal={deal} style={{ marginTop: 3 }} />
             </div>
+            <button
+              type="button"
+              style={{ ...ghostBtn, ...smBtn }}
+              title="Llamar al contacto"
+              onClick={() =>
+                phone.call(deal.contact.phone, {
+                  name: deal.contact.name,
+                  contactId: deal.contact.id,
+                  conversationId: deal.conversation?.id ?? null,
+                })
+              }
+            >
+              <NavIcon name="phone" size={14} />
+              Llamar
+            </button>
             {deal.conversation ? (
               <Link href={`/?c=${deal.conversation.id}`} style={{ ...primaryBtn, ...smBtn, textDecoration: "none" }}>
                 <NavIcon name="message" size={14} />
@@ -1091,6 +1122,14 @@ const column: React.CSSProperties = {
   borderRadius: 12,
   padding: 12,
   minHeight: 200,
+};
+
+// Etiquetas de los disparadores de las automatizaciones de etapa (tooltip de la columna).
+const AUTO_TRIGGER: Record<string, string> = {
+  enters_stage: "Entra a la etapa",
+  inbound_message: "Llega un mensaje",
+  webhook: "Llega un webhook",
+  no_reply: "Sin respuesta",
 };
 
 const columnHeader: React.CSSProperties = {

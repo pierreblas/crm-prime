@@ -26,6 +26,18 @@ export const integrationSettingsSchema = z.object({
   whatsappWebhookUrl: z.string().nullable(),
   // Si no hay app secret, la firma del webhook NO se verifica: hay que avisar.
   webhookSignatureVerified: z.boolean(),
+
+  // Llamadas telefónicas (Twilio), por empresa.
+  twilioAccountSid: z.string().nullable(),
+  twilioAuthToken: apiKeyStateSchema,
+  twilioApiKeySid: z.string().nullable(),
+  twilioApiKeySecret: apiKeyStateSchema,
+  twilioNumber: z.string().nullable(),
+  twilioRecord: z.boolean(),
+  twilioAppSid: z.string().nullable(), // TwiML App creada al activar; null = sin activar
+  twilioConfigured: z.boolean(), // credenciales completas
+  // Base pública de los webhooks (/api/v1/calls/twilio/<empresa>/…); null si el servidor no la sabe.
+  twilioWebhookBase: z.string().nullable(),
 });
 export type IntegrationSettingsDto = z.infer<typeof integrationSettingsSchema>;
 
@@ -37,6 +49,12 @@ export const updateIntegrationSettingsSchema = z.object({
   whatsappAppSecret: z.string().max(400).optional(),
   whatsappVerifyToken: z.string().max(400).optional(),
   whatsappGraphVersion: z.string().min(2).max(10).optional(),
+  twilioAccountSid: z.string().max(60).nullable().optional(),
+  twilioAuthToken: z.string().max(200).optional(),
+  twilioApiKeySid: z.string().max(60).nullable().optional(),
+  twilioApiKeySecret: z.string().max(200).optional(),
+  twilioNumber: z.string().max(30).nullable().optional(),
+  twilioRecord: z.boolean().optional(),
 });
 export type UpdateIntegrationSettingsInput = z.infer<
   typeof updateIntegrationSettingsSchema

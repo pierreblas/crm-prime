@@ -17,6 +17,8 @@ Un flujo arranca cuando pasa una de estas cosas. Se elige arriba, en el editor, 
 | **Cambia de etapa en el embudo** | Su oportunidad se mueve a una etapa, a mano, por la IA o por otro flujo. | Una etapa; vacío = cualquiera. |
 | **Se cierra la conversación** | Tu equipo cierra la conversación. Útil para una encuesta o una despedida. | — |
 | **El cliente no responde** | Pasan X horas sin que el cliente conteste a tu último mensaje (de una persona, de la IA o de un flujo). Se dispara una vez por silencio: no se repite hasta que el cliente vuelva a escribir. | Horas (1 a 720). |
+| **Llamada perdida** | Alguien llama al número de la empresa ([Twilio](/docs/llamadas)) y nadie contesta. Como el cliente quizá no te ha escrito, usa «Enviar plantilla». | — |
+| **Solo desde una etapa del embudo** | No arranca solo: lo ejecutan las [automatizaciones de una etapa](/docs/embudos) (al entrar, al escribir el cliente, por webhook o tras un silencio). | — |
 
 Dos cosas a tener en cuenta:
 
@@ -47,7 +49,9 @@ Cada flujo puede aplicar a **un número** o a todos, y hay que marcarlo **Activo
 
 ### Enlazar bloques
 
-Arrastra desde el punto ● de una salida y suelta **sobre cualquier parte del bloque** destino. Si sueltas en el vacío, aparece el menú de bloques y el que elijas queda conectado a esa salida. Cada salida admite una sola conexión; el «+» de cada salida y el «+» de cada conexión también añaden bloques ya enlazados.
+Cada salida de un bloque es un punto en su borde. Mientras está libre muestra un **+**: haz clic para elegir el bloque que sigue (queda conectado) o **arrastra** desde él y suelta **sobre cualquier parte** del bloque destino; si sueltas en el vacío, eliges ahí mismo qué bloque crear. Cada salida admite una sola conexión; al pasar el ratón por una línea aparecen **+** (insertar en medio) y **×** (quitar). **Doble clic** en el lienzo añade un bloque suelto.
+
+Los textos de **Enviar mensaje**, **Preguntar**, **Botones** y **Nota** se escriben en el propio bloque al seleccionarlo (los botones también se añaden y quitan ahí); el resto de opciones van en el panel de la derecha.
 
 ## Variables
 

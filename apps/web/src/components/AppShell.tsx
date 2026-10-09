@@ -9,6 +9,7 @@ import { MobileMenuButton } from "./MobileMenuButton";
 import { HelpMenu } from "./HelpMenu";
 import { AlertsBell } from "./AlertsBell";
 import { RealtimeProvider } from "./RealtimeProvider";
+import { CallProvider } from "@/features/calls/CallProvider";
 import { TourHost } from "@/features/onboarding/TourHost";
 import { platformConsoleUrl } from "@/lib/org";
 import { getTranslator } from "@/i18n/server";
@@ -59,6 +60,7 @@ export async function AppShell({
 
   return (
     <RealtimeProvider>
+    <CallProvider>
     <div style={shell}>
       <SideNav
         role={role}
@@ -118,6 +120,7 @@ export async function AppShell({
         <TourHost />
       </div>
     </div>
+    </CallProvider>
     </RealtimeProvider>
   );
 }

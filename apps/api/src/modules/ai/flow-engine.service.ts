@@ -129,6 +129,11 @@ export class FlowEngineService {
     );
   }
 
+  /** Llamada telefónica que nadie contestó: p. ej. escribirle por WhatsApp. */
+  async onMissedCall(contactId: string): Promise<void> {
+    await this.onContactEvent(contactId, "missed_call", () => true);
+  }
+
   async onClosed(conversationId: string): Promise<void> {
     const convo = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
@@ -222,17 +227,46 @@ export class FlowEngineService {
     await this.startIfIdle(flow, conversationId);
   }
 
+  /**
+   * Un flujo concreto para un contacto, venga de donde venga la orden
+   * (automatizaciones de etapa, webhooks). Corre en su conversación abierta
+   * más reciente o en una nueva. true si arrancó.
+   */
+  async runFlowForContact(flowId: string, contactId: string, vars: Vars = {}): Promise<boolean> {
+    const flow = await this.loadFlow(flowId);
+    if (!flow) return false;
+    const contact = await this.prisma.contact.findUnique({
+      where: { id: contactId },
+      select: { optIn: true, orgId: true },
+    });
+    if (!contact?.optIn) return false;
+    const open = await this.prisma.conversation.findFirst({
+      where: { contactId, status: { not: ConversationStatus.CLOSED } },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true },
+    });
+    const conversationId =
+      open?.id ??
+      (
+        await this.prisma.conversation.create({
+          data: { orgId: contact.orgId, contactId, status: ConversationStatus.OPEN },
+        })
+      ).id;
+    return this.startIfIdle(flow, conversationId, vars);
+  }
+
   /** Arranca el flujo salvo que otro esté a medias (esperando respuesta o un temporizador). */
-  private async startIfIdle(flow: FlowRow, conversationId: string): Promise<void> {
+  private async startIfIdle(flow: FlowRow, conversationId: string, vars: Vars = {}): Promise<boolean> {
     const session = await this.prisma.flowSession.findUnique({ where: { conversationId } });
     const busy =
       !!session &&
       (session.status === "waiting_timer" || (session.status === "running" && !!session.currentNodeId));
     if (busy) {
       this.logger.log(`Flujo "${flow.name}" no arranca en ${conversationId}: hay otro flujo a medias`);
-      return;
+      return false;
     }
-    await this.startFlow(flow, conversationId, await this.lastInboundText(conversationId));
+    await this.startFlow(flow, conversationId, await this.lastInboundText(conversationId), vars);
+    return true;
   }
 
   // ── Entrante: reanudar sesión o disparar flujo por palabra ──
@@ -277,18 +311,19 @@ export class FlowEngineService {
     flow: FlowRow,
     conversationId: string,
     lastText: string,
+    vars: Vars = {},
   ): Promise<void> {
     await this.prisma.flowSession.upsert({
       where: { conversationId },
       create: {
         conversationId,
         flowId: flow.id,
-        variables: {},
+        variables: vars,
         status: "running",
       },
       update: {
         flowId: flow.id,
-        variables: {},
+        variables: vars,
         status: "running",
         currentNodeId: null,
       },
@@ -299,7 +334,7 @@ export class FlowEngineService {
       : (flow.nodes[0]?.id ?? null);
     this.logger.log(`Flujo "${flow.name}" iniciado en ${conversationId}`);
     try {
-      await this.walk(flow, conversationId, firstId, lastText, {});
+      await this.walk(flow, conversationId, firstId, lastText, { ...vars });
     } catch (e) {
       // Un bloque que falla (p. ej. un mensaje fuera de la ventana de 24 h)
       // no deja la sesión colgada en "running": queda parada y en el log.

@@ -110,3 +110,37 @@ export function toCsv(headers: string[], rows: string[][]): string {
     .map((r) => r.map(escape).join(","))
     .join("\r\n");
 }
+
+// ── Hojas de cálculo (xlsx) ──────────────────────────────────
+
+/**
+ * Una celda de hoja de cálculo como texto, igual que vendría en un CSV:
+ * fechas como 31/12/2026 (o 18:30 si la celda era solo una hora), números
+ * sin separadores de miles ni notación local, sí/no como true/false.
+ */
+export function cellToString(v: unknown): string {
+  if (v == null) return "";
+  if (v instanceof Date) {
+    if (Number.isNaN(v.getTime())) return "";
+    const p = (n: number) => String(n).padStart(2, "0");
+    const hhmm = `${p(v.getUTCHours())}:${p(v.getUTCMinutes())}`;
+    // Excel guarda una hora suelta como fecha en su «día cero» (1899-12-30/31).
+    if (v.getUTCFullYear() < 1900) return hhmm;
+    const date = `${p(v.getUTCDate())}/${p(v.getUTCMonth() + 1)}/${v.getUTCFullYear()}`;
+    return hhmm === "00:00" ? date : `${date} ${hhmm}`;
+  }
+  if (typeof v === "number") return Number.isFinite(v) ? String(v) : "";
+  if (typeof v === "boolean") return v ? "true" : "false";
+  return String(v).trim();
+}
+
+/** Filas de una hoja (la primera son los títulos) → la misma tabla que da parseCsv. */
+export function sheetToTable(rows: unknown[][]): CsvTable {
+  const [first, ...rest] = rows;
+  const headers = (first ?? []).map(cellToString);
+  while (headers.length && !headers[headers.length - 1]) headers.pop();
+  const body = rest
+    .map((r) => headers.map((_, i) => cellToString(r?.[i])))
+    .filter((r) => r.some((c) => c !== ""));
+  return { headers, rows: body };
+}

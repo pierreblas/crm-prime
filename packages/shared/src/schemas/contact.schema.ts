@@ -8,6 +8,7 @@ export const contactOrigins = [
   "webhook",
   "manual",
   "import",
+  "call", // llamada telefónica entrante
 ] as const;
 export type ContactOrigin = (typeof contactOrigins)[number];
 
@@ -17,6 +18,7 @@ export const contactOriginLabels: Record<ContactOrigin, string> = {
   webhook: "Webhook / API",
   manual: "Alta manual",
   import: "Importado",
+  call: "Llamada",
 };
 
 // Teléfono normalizado a E.164 en la propia validación: da igual que llegue

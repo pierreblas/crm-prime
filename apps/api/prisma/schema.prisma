@@ -159,6 +159,7 @@ model Organization {
   productFields        ProductField[]
   sources              Source[]
   tags                 Tag[]
+  calls                Call[]
   conversations        Conversation[]
   messages             Message[]
   templates            Template[]
@@ -171,6 +172,8 @@ model Organization {
   webhookSubs          WebhookSubscription[]
   agentConfigs         AgentConfig[]
   flows                Flow[]
+  stageAutomations     StageAutomation[]
+  stageAutomationRuns  StageAutomationRun[]
   metaPages            MetaPage[]
   quickReplies         QuickReply[]
   aiSetting            AiSetting?
@@ -258,6 +261,7 @@ model User {
   assignedConversations Conversation[]   @relation("AssignedAgent")
   approvedToolCalls     AiToolCall[]     @relation("ApprovedBy")
   notes                 Note[]
+  calls                 Call[]           @relation("CallAgent")
   sessions              Session[]
   devices               Device[]
   idempotencyKeys       IdempotencyKey[]
@@ -395,6 +399,7 @@ model Contact {
   tags          ContactTag[]
   conversations Conversation[]
   deals         Deal[]
+  calls         Call[]
   metaLeads     MetaLead[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -592,6 +597,7 @@ model Conversation {
   assignedAgent User?               @relation("AssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
   messages      Message[]
   notes         Note[]
+  calls         Call[]
   aiRuns        AiRun[]
   aiMessages    AiMessage[]
   flowSession   FlowSession?
@@ -855,9 +861,13 @@ model Pipeline {
   inboundEnabled     Boolean  @default(false)
   inboundStageId     String?
   inboundDiscardDays Int      @default(7) // 0 = nunca
+  // Agente de IA que atiende las conversaciones cuya oportunidad está en
+  // este embudo. Null = el del número / el predeterminado. La etapa manda.
+  botId              String?
   createdAt          DateTime @default(now())
 
   stages   PipelineStage[]
+  bot      AgentConfig?         @relation("PipelineBot", fields: [botId], references: [id], onDelete: SetNull)
   channels WhatsappConnection[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -867,19 +877,21 @@ model Pipeline {
 }
 
 model PipelineStage {
-  id         String   @id @default(cuid())
-  orgId      String
-  pipelineId String
-  name       String
-  order      Int
-  isWon      Boolean  @default(false)
-  isLost     Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  orgId       String
+  pipelineId  String
+  name        String
+  order       Int
+  isWon       Boolean  @default(false)
+  isLost      Boolean  @default(false)
+  // «Potencial»: aquí llegan los que muestran interés real (mark_lead).
+  isQualified Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
-  deals Deal[]
-
-  pipeline Pipeline     @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deals       Deal[]
+  automations StageAutomation[]
+  pipeline    Pipeline          @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  org         Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([pipelineId, order])
   @@index([orgId])
@@ -905,9 +917,10 @@ model Deal {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  contact Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  stage   PipelineStage @relation(fields: [stageId], references: [id], onDelete: Restrict)
-  owner   User?         @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  contact        Contact              @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  stage          PipelineStage        @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  owner          User?                @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  automationRuns StageAutomationRun[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -955,9 +968,10 @@ model AgentConfig {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  org     Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  channel WhatsappConnection? @relation(fields: [channelId], references: [id], onDelete: SetNull)
-  runs    AiRun[]
+  org       Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  channel   WhatsappConnection? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  pipelines Pipeline[]          @relation("PipelineBot")
+  runs      AiRun[]
 
   @@index([orgId])
   @@index([isActive])
@@ -1126,9 +1140,10 @@ model Flow {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  org      Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  channel  WhatsappConnection? @relation(fields: [channelId], references: [id], onDelete: SetNull)
-  sessions FlowSession[]
+  org              Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  channel          WhatsappConnection? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  sessions         FlowSession[]
+  stageAutomations StageAutomation[]
 
   @@index([orgId])
   @@index([isActive])
@@ -1227,12 +1242,62 @@ model IntegrationSetting {
   whatsappVerifyTokenEnc String?
   whatsappGraphVersion   String  @default("v21.0")
 
+  // Llamadas telefónicas (Twilio), por empresa. El auth token firma los
+  // webhooks; la API key emite los tokens del softphone; la TwiML App la crea
+  // Driony al activar.
+  twilioAccountSid      String?
+  twilioAuthTokenEnc    String?
+  twilioApiKeySid       String?
+  twilioApiKeySecretEnc String?
+  twilioNumber          String? // E.164 del número de Twilio
+  twilioAppSid          String? // TwiML App creada por Driony
+  twilioRecord          Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@map("integration_settings")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Llamadas telefónicas (Twilio o registradas a mano)
+// ─────────────────────────────────────────────────────────────
+
+model Call {
+  id             String    @id @default(cuid())
+  orgId          String
+  contactId      String?
+  conversationId String?
+  agentId        String? // quien llamó o contestó
+  direction      String // INBOUND | OUTBOUND
+  status         String    @default("queued") // queued | ringing | in_progress | completed | missed | no_answer | busy | failed | canceled
+  provider       String    @default("twilio") // twilio | manual
+  providerSid    String?   @unique // CallSid de Twilio
+  fromNumber     String
+  toNumber       String
+  startedAt      DateTime?
+  answeredAt     DateTime?
+  endedAt        DateTime?
+  durationSec    Int?
+  recordingSid   String?
+  recordingUrl   String? // referencia interna de almacenamiento (storage://id)
+  transcript     String?
+  outcome        String? // answered | no_answer | voicemail | busy | wrong_number | callback
+  note           String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  org          Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact      Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  agent        User?         @relation("CallAgent", fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([contactId])
+  @@index([conversationId])
+  @@map("calls")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1265,4 +1330,50 @@ model WebhookSubscription {
   @@index([isActive])
   @@index([orgId])
   @@map("webhook_subscriptions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Automatizaciones de etapa: «cuando pase X en esta etapa, ejecuta el flujo Y»
+// ─────────────────────────────────────────────────────────────
+
+model StageAutomation {
+  id           String   @id @default(cuid())
+  orgId        String
+  stageId      String
+  trigger      String // enters_stage | inbound_message | webhook | no_reply (stageAutomationTriggers en @crm/shared)
+  flowId       String
+  delayMinutes Int? // no_reply: minutos sin respuesta del cliente
+  token        String?  @unique // webhook: secreto de la URL pública
+  enabled      Boolean  @default(true)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  org   Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  stage PipelineStage        @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  flow  Flow                 @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  runs  StageAutomationRun[]
+
+  @@index([orgId])
+  @@index([stageId])
+  @@index([flowId])
+  @@map("stage_automations")
+}
+
+// Candado «una vez por estancia en la etapa» (no_reply). Se borra al cambiar de etapa.
+model StageAutomationRun {
+  id           String   @id @default(cuid())
+  orgId        String
+  automationId String
+  dealId       String
+  createdAt    DateTime @default(now())
+
+  org        Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  automation StageAutomation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  deal       Deal            @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([automationId, dealId])
+  @@index([orgId])
+  @@index([dealId])
+  @@map("stage_automation_runs")
 }

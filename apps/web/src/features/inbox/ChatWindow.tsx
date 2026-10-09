@@ -14,6 +14,7 @@ import {
   fetchAgents,
   fetchMessages,
   fetchNotes,
+  fetchCalls,
   fetchSources,
   markConversationRead,
   reactToMessage,
@@ -48,6 +49,9 @@ import {
 import { NavIcon } from "@/components/NavIcons";
 import { useLocale, useT } from "@/i18n/I18nProvider";
 import { useAiTyping } from "./aiTyping";
+import { CallEntry } from "@/features/calls/CallEntry";
+import { useCalls } from "@/features/calls/CallProvider";
+import type { CallDto } from "@crm/shared";
 import type { Translator } from "@/i18n/translate";
 import type { MessageDto } from "@crm/shared";
 
@@ -156,6 +160,13 @@ export function ChatWindow({
     queryFn: () => fetchNotes(conversation.id),
   });
 
+  // Las llamadas van en el hilo, entre los mensajes, por fecha.
+  const { data: calls = [] } = useQuery({
+    queryKey: ["calls", conversation.id],
+    queryFn: () => fetchCalls({ conversationId: conversation.id }),
+  });
+  const phone = useCalls();
+
   // Filtro del buscador: se aplica sobre lo ya cargado, sin ir al servidor.
   const searching = searchOpen && search.trim().length > 0;
   const visible = useMemo(() => {
@@ -163,6 +174,14 @@ export function ChatWindow({
     const q = search.trim().toLowerCase();
     return messages.filter((m) => (m.content ?? "").toLowerCase().includes(q));
   }, [messages, search, searching]);
+
+  type TimelineItem = { kind: "msg"; m: MessageDto; at: string } | { kind: "call"; c: CallDto; at: string };
+  const timeline = useMemo<TimelineItem[]>(() => {
+    const items: TimelineItem[] = visible.map((m) => ({ kind: "msg", m, at: m.createdAt }));
+    // Al buscar texto, el hilo deja de ser continuo: las llamadas no entran.
+    if (!searching) for (const c of calls) items.push({ kind: "call", c, at: c.createdAt });
+    return items.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+  }, [visible, calls, searching]);
 
   // La IA está redactando: o la pediste tú (copilot), o el servidor avisa de
   // que el autopilot está escribiendo. Antes se adivinaba («el último mensaje
@@ -279,7 +298,7 @@ export function ChatWindow({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  }, [messages.length, calls.length]);
 
   const left = conversation.windowOpen
     ? windowLeft(conversation.windowExpiresAt)
@@ -346,6 +365,22 @@ export function ChatWindow({
             disabled={aiModeMut.isPending}
             onChange={(m) => aiModeMut.mutate(m)}
           />
+
+          <button
+            type="button"
+            onClick={() =>
+              phone.call(conversation.contact.phone, {
+                name: conversation.contact.name,
+                contactId: conversation.contact.id,
+                conversationId: conversation.id,
+              })
+            }
+            title={t("calls.call")}
+            aria-label={t("calls.call")}
+            style={toggleBtn(false)}
+          >
+            <NavIcon name="phone" size={16} />
+          </button>
 
           <button
             type="button"
@@ -429,7 +464,7 @@ export function ChatWindow({
       <div className="chat-main">
       <div style={messagesArea}>
         {isLoading && <MessagesSkeleton />}
-        {!isLoading && messages.length === 0 && (
+        {!isLoading && messages.length === 0 && calls.length === 0 && (
           <div style={emptyThread}>
             <NavIcon name="message" size={28} />
             <p style={{ margin: "10px 0 0", fontWeight: 600 }}>
@@ -448,21 +483,25 @@ export function ChatWindow({
             </p>
           </div>
         )}
-        {visible.map((m, i) => (
-          <Fragment key={m.id}>
+        {timeline.map((it, i) => (
+          <Fragment key={it.kind === "msg" ? it.m.id : `call-${it.c.id}`}>
             {/* Sin búsqueda activa los separadores orientan; con ella
                 estorbarían, porque el hilo ya no es continuo. */}
-            {!searching && isNewDay(m.createdAt, visible[i - 1]?.createdAt) && (
-              <DaySeparator date={new Date(m.createdAt)} />
+            {!searching && isNewDay(it.at, timeline[i - 1]?.at) && (
+              <DaySeparator date={new Date(it.at)} />
             )}
-            <MessageBubble
-              message={m}
-              locale={locale}
-              t={t}
-              highlight={searching ? search.trim() : null}
-              onReact={(emoji) => reactMut.mutate({ messageId: m.id, emoji })}
-              onReply={() => setReplyTo(m)}
-            />
+            {it.kind === "msg" ? (
+              <MessageBubble
+                message={it.m}
+                locale={locale}
+                t={t}
+                highlight={searching ? search.trim() : null}
+                onReact={(emoji) => reactMut.mutate({ messageId: it.m.id, emoji })}
+                onReply={() => setReplyTo(it.m)}
+              />
+            ) : (
+              <CallEntry call={it.c} />
+            )}
           </Fragment>
         ))}
         {aiThinking && <AiTypingBubble />}

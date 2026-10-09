@@ -66,6 +66,11 @@ export class FlowTriggersService {
     await this.safe("deal.stage_changed", e.orgId, () => this.engine.onDealStage(e.contactId, e.stageId));
   }
 
+  @OnEvent("call.missed", { async: true })
+  async onMissedCall(e: { orgId: string; contactId: string }): Promise<void> {
+    await this.safe("call.missed", e.orgId, () => this.engine.onMissedCall(e.contactId));
+  }
+
   @OnEvent("conversation.closed", { async: true })
   async onClosed(e: { conversationId: string; orgId: string }): Promise<void> {
     await this.safe("conversation.closed", e.orgId, () => this.engine.onClosed(e.conversationId));

@@ -26,6 +26,7 @@ import { ApiKeysModule } from "./modules/api-keys/api-keys.module";
 import { PublicApiModule } from "./modules/public-api/public-api.module";
 import { WebhooksOutModule } from "./modules/webhooks-out/webhooks-out.module";
 import { IntegrationsModule } from "./modules/integrations/integrations.module";
+import { CallsModule } from "./modules/calls/calls.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { OnboardingModule } from "./modules/onboarding/onboarding.module";
 import { PlansModule } from "./modules/plans/plans.module";
@@ -70,6 +71,7 @@ import { HealthController } from "./health.controller";
     PublicApiModule,
     WebhooksOutModule,
     IntegrationsModule,
+    CallsModule,
     OrganizationsModule,
   ],
   controllers: [HealthController],

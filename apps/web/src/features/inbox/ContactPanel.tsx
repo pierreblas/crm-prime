@@ -28,6 +28,7 @@ import { NavIcon } from "@/components/NavIcons";
 import { useLocale, useT } from "@/i18n/I18nProvider";
 import type { Translator } from "@/i18n/translate";
 import { ContactDrawer } from "@/features/contacts/ContactDrawer";
+import { useCalls } from "@/features/calls/CallProvider";
 import { TagEditor } from "@/features/contacts/TagEditor";
 import { CopilotPanel } from "./CopilotPanel";
 
@@ -170,6 +171,7 @@ function Identity({
 }) {
   const t = useT();
   const queryClient = useQueryClient();
+  const phone = useCalls();
   const name = conversation.contact.name ?? "";
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
@@ -257,6 +259,36 @@ function Identity({
           <NavIcon name="user" size={13} />
           {t("inbox.fullProfile")}
         </button>
+        <div className="cp-row" style={{ marginTop: 8, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() =>
+              phone.call(conversation.contact.phone, {
+                name: conversation.contact.name,
+                contactId: conversation.contact.id,
+                conversationId: conversation.id,
+              })
+            }
+          >
+            <NavIcon name="phone" size={13} />
+            {t("calls.call")}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() =>
+              phone.logFor({
+                phone: conversation.contact.phone,
+                name: conversation.contact.name,
+                contactId: conversation.contact.id,
+                conversationId: conversation.id,
+              })
+            }
+          >
+            {t("calls.logCall")}
+          </button>
+        </div>
       </div>
 
       {profileOpen && contact && (

@@ -12,6 +12,7 @@ import {
 import {
   createDealSchema,
   createPipelineSchema,
+  createStageAutomationSchema,
   createStageSchema,
   discardDealSchema,
   moveDealSchema,
@@ -19,9 +20,11 @@ import {
   reorderStagesSchema,
   updateDealSchema,
   updatePipelineSchema,
+  updateStageAutomationSchema,
   updateStageSchema,
   type CreateDealInput,
   type CreatePipelineInput,
+  type CreateStageAutomationInput,
   type CreateStageInput,
   type DiscardDealInput,
   type MoveDealInput,
@@ -29,6 +32,7 @@ import {
   type ReorderStagesInput,
   type UpdateDealInput,
   type UpdatePipelineInput,
+  type UpdateStageAutomationInput,
   type UpdateStageInput,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -161,5 +165,27 @@ export class PipelineController {
   @Delete("stages/:id")
   deleteStage(@Param("id") id: string) {
     return this.pipeline.deleteStage(id);
+  }
+
+  // ── Automatizaciones de etapa ──────────────────────────────
+  @Post("stages/:id/automations")
+  createStageAutomation(
+    @Param("id") stageId: string,
+    @Body(new ZodValidationPipe(createStageAutomationSchema)) body: CreateStageAutomationInput,
+  ) {
+    return this.pipeline.createStageAutomation(stageId, body);
+  }
+
+  @Patch("stage-automations/:id")
+  updateStageAutomation(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(updateStageAutomationSchema)) body: UpdateStageAutomationInput,
+  ) {
+    return this.pipeline.updateStageAutomation(id, body);
+  }
+
+  @Delete("stage-automations/:id")
+  deleteStageAutomation(@Param("id") id: string) {
+    return this.pipeline.deleteStageAutomation(id);
   }
 }

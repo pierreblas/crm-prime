@@ -1,5 +1,8 @@
 "use client";
 
+import { provisionTwilio, updateIntegrationSettings as saveIntegrations } from "@/lib/bff";
+import type { TwilioProvisionResult } from "@crm/shared";
+
 import { NavIcon } from "@/components/NavIcons";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -107,6 +110,8 @@ export function IntegrationsSettings() {
           cifradas; si las dejas vacías se usa lo que haya en el archivo .env.
         </p>
       </header>
+
+      <TwilioCard data={data} onSaved={(fresh) => queryClient.setQueryData(["integration-settings"], fresh)} />
 
       {/* ── Embeddings ─────────────────────────────────────── */}
       <div style={card}>
@@ -328,6 +333,137 @@ export function IntegrationsSettings() {
 }
 
 // Campo de secreto: enmascarado, se sustituye pero nunca se muestra.
+/**
+ * Llamadas telefónicas con Twilio. Tiene su propio Guardar: son credenciales
+ * de otro proveedor y conviene activarlas (crear la app de voz en Twilio) en
+ * cuanto están completas, sin mezclarlas con lo demás.
+ */
+function TwilioCard({
+  data,
+  onSaved,
+}: {
+  data: IntegrationSettingsDto;
+  onSaved: (fresh: IntegrationSettingsDto) => void;
+}) {
+  const [accountSid, setAccountSid] = useState(data.twilioAccountSid ?? "");
+  const [apiKeySid, setApiKeySid] = useState(data.twilioApiKeySid ?? "");
+  const [number, setNumber] = useState(data.twilioNumber ?? "");
+  const [record, setRecord] = useState(data.twilioRecord);
+  const [authToken, setAuthToken] = useState<string | undefined>();
+  const [apiKeySecret, setApiKeySecret] = useState<string | undefined>();
+  const [result, setResult] = useState<TwilioProvisionResult | null>(null);
+
+  useEffect(() => {
+    setAccountSid(data.twilioAccountSid ?? "");
+    setApiKeySid(data.twilioApiKeySid ?? "");
+    setNumber(data.twilioNumber ?? "");
+    setRecord(data.twilioRecord);
+    setAuthToken(undefined);
+    setApiKeySecret(undefined);
+  }, [data]);
+
+  const dirty =
+    accountSid !== (data.twilioAccountSid ?? "") ||
+    apiKeySid !== (data.twilioApiKeySid ?? "") ||
+    number !== (data.twilioNumber ?? "") ||
+    record !== data.twilioRecord ||
+    authToken !== undefined ||
+    apiKeySecret !== undefined;
+
+  const save = useMutation({
+    mutationFn: () =>
+      saveIntegrations({
+        twilioAccountSid: accountSid.trim() || null,
+        twilioApiKeySid: apiKeySid.trim() || null,
+        twilioNumber: number.trim() || null,
+        twilioRecord: record,
+        ...(authToken !== undefined ? { twilioAuthToken: authToken } : {}),
+        ...(apiKeySecret !== undefined ? { twilioApiKeySecret: apiKeySecret } : {}),
+      }),
+    onSuccess: (fresh: IntegrationSettingsDto) => {
+      onSaved(fresh);
+      setResult(null);
+      toast.success("Twilio guardado");
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const activate = useMutation({
+    mutationFn: provisionTwilio,
+    onSuccess: (r) => {
+      setResult(r);
+      if (r.ok) toast.success(r.message);
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const active = data.twilioConfigured && !!data.twilioAppSid;
+
+  return (
+    <div style={card}>
+      <div style={rowHead}>
+        <strong style={{ fontSize: 14 }}>Llamadas telefónicas (Twilio)</strong>
+        <span style={badge(active ? "#1f4d38" : data.twilioConfigured ? "#5a4a2a" : "#3a3a3a")}>
+          {active ? "Activo" : data.twilioConfigured ? "Falta activar" : "Sin configurar"}
+        </span>
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={() => activate.mutate()}
+          disabled={activate.isPending || dirty || !data.twilioConfigured}
+          style={ghostBtn}
+          title={dirty ? "Guarda los cambios antes de activar" : !data.twilioConfigured ? "Completa las credenciales y el número" : "Crea la app de voz en Twilio y apunta el número a Driony"}
+        >
+          {activate.isPending ? "Activando…" : active ? "Reactivar webhooks" : "Activar llamadas"}
+        </button>
+      </div>
+      <p style={hint}>
+        Llama y recibe llamadas desde el navegador con un número de Twilio. Pega las credenciales de tu
+        cuenta (Console › Account › API keys & tokens) y el número en formato internacional; al
+        activar, Driony configura Twilio solo. Guía: <a href="/docs/llamadas" style={{ color: "var(--accent-text)" }}>Llamadas</a>.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+        <div>
+          <label style={label}>Account SID</label>
+          <input style={{ ...input, fontFamily: "ui-monospace, monospace" }} value={accountSid} placeholder="AC…" onChange={(e) => setAccountSid(e.target.value)} />
+        </div>
+        <div>
+          <label style={label}>Número de Twilio</label>
+          <input style={input} value={number} placeholder="+51 1 7001234" onChange={(e) => setNumber(e.target.value)} />
+        </div>
+        <div>
+          <label style={label}>API Key SID</label>
+          <input style={{ ...input, fontFamily: "ui-monospace, monospace" }} value={apiKeySid} placeholder="SK…" onChange={(e) => setApiKeySid(e.target.value)} />
+        </div>
+      </div>
+      <SecretField label="Auth Token" state={data.twilioAuthToken} envVar="—" placeholder="Auth token de la cuenta" value={authToken} onChange={setAuthToken} />
+      <SecretField label="API Key Secret" state={data.twilioApiKeySecret} envVar="—" placeholder="Secreto de la API key (solo se muestra una vez en Twilio)" value={apiKeySecret} onChange={setApiKeySecret} />
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+        <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} />
+        Grabar las llamadas y transcribirlas con la IA
+      </label>
+      {data.twilioWebhookBase ? (
+        <p style={hint}>
+          Webhooks: <code style={chip}>{data.twilioWebhookBase}/…</code>
+          {data.twilioAppSid ? <> · App de voz <code style={chip}>{data.twilioAppSid}</code></> : null}
+        </p>
+      ) : (
+        <p style={{ ...hint, color: "#e0b766" }}>
+          El servidor no sabe su dirección pública: define <code style={chip}>API_PUBLIC_URL</code> para que Twilio pueda llegar a Driony.
+        </p>
+      )}
+      {result && (
+        <div style={testBox(result.ok)}>
+          {result.message}
+        </div>
+      )}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button onClick={() => save.mutate()} disabled={!dirty || save.isPending} style={{ ...ghostBtn, opacity: dirty ? 1 : 0.6 }}>
+          {save.isPending ? "Guardando…" : "Guardar Twilio"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SecretField({
   label: text,
   state,

@@ -8,6 +8,7 @@ import { currentOrgId, isUnscoped, tenancyMode } from "./tenant.context";
 const TENANT_MODELS = new Set<string>([
   "User",
   "Contact",
+  "Call",
   "CustomField",
   "Product",
   "Source",
@@ -26,6 +27,8 @@ const TENANT_MODELS = new Set<string>([
   "IntegrationSetting",
   "AgentConfig",
   "Flow",
+  "StageAutomation",
+  "StageAutomationRun",
   "MetaPage",
   "QuickReply",
   "ProductPrice",

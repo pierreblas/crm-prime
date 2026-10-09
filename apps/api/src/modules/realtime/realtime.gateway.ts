@@ -83,6 +83,12 @@ export class RealtimeGateway implements OnGatewayConnection {
     this.emitir("ai.typing", payload.orgId, payload);
   }
 
+  // Una llamada cambió (entrante, contestada, terminada, grabación lista).
+  @OnEvent("call.changed")
+  onCallChanged(payload: { orgId?: string; callId: string; conversationId: string | null; missed?: boolean }): void {
+    this.emitir("call.changed", payload.orgId, payload);
+  }
+
   // Reemite cuando cambia el pipeline (deal creado/movido/editado).
   @OnEvent("pipeline.changed")
   onPipelineChanged(payload: { dealId: string; orgId?: string }): void {

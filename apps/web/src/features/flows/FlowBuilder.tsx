@@ -196,13 +196,15 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
   /** Desde un "+" (salida o conexión): conectado y bien colocado. */
   function addFromRequest(req: AddRequest, type: FlowNodeType) {
     const all = rf.getNodes();
-    const source = all.find((n) => n.id === req.sourceId);
-    if (!source) return;
+    const source = req.sourceId ? all.find((n) => n.id === req.sourceId) : null;
+    if (req.sourceId && !source) return;
     history.record(snap());
 
     let position: { x: number; y: number };
     if (req.at) {
       position = findFreeSpot(all, { x: req.at.x - 20, y: req.at.y - 16 });
+    } else if (!source) {
+      position = findFreeSpot(all, { x: 0, y: 0 });
     } else if (req.insertBefore) {
       const target = all.find((n) => n.id === req.insertBefore);
       position = target
@@ -218,11 +220,12 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
     const node = createNode(type, position);
     setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), { ...node, selected: true }]);
     setEdges((eds) => {
+      if (!source) return eds;
       // La salida de origen pasa a apuntar al bloque nuevo.
       const next = eds.filter(
-        (e) => !(e.source === req.sourceId && (e.sourceHandle ?? null) === (req.sourceHandle ?? null)),
+        (e) => !(e.source === source.id && (e.sourceHandle ?? null) === (req.sourceHandle ?? null)),
       );
-      next.push(makeEdge(req.sourceId, node.id, req.sourceHandle ?? null));
+      next.push(makeEdge(source.id, node.id, req.sourceHandle ?? null));
       // Al insertar en medio, el nuevo hereda la conexión hacia el destino por
       // su salida por defecto (o por "en otro caso" si es una condición).
       if (req.insertBefore) {
@@ -432,6 +435,17 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
     [nodes, edges],
   );
 
+  // Edición en el propio bloque: cada bloque cambia sus datos sin pasar por el inspector.
+  const patchNode = useCallback(
+    (id: string, patch: Partial<FlowNodeData>) => {
+      history.record(snap(), `data:${id}`);
+      setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)));
+      markDirty();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [history.record, snap, setNodes, markDirty],
+  );
+
   const flowActions = useMemo<FlowActions>(() => {
     const taken = new Set(edges.map((e) => outgoingKey(e.source, e.sourceHandle)));
     return {
@@ -441,8 +455,9 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
       duplicateNode,
       deleteNode,
       issuesFor: (id) => issues.get(id) ?? [],
+      patchNode,
     };
-  }, [edges, removeEdge, duplicateNode, deleteNode, issues]);
+  }, [edges, removeEdge, duplicateNode, deleteNode, issues, patchNode]);
 
   // ── Guardar / volver ───────────────────────────────────────────
   const save = useMutation({
@@ -671,9 +686,10 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
         {/* Paleta */}
         <aside style={palette}>
           <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6, lineHeight: 1.4 }}>
-            Clic para añadir, o arrastra al lienzo. Para enlazar, arrastra desde
-            el punto ● de una salida y suelta sobre otro bloque; si sueltas en
-            el vacío, eliges qué bloque sigue.
+            Cada salida es un punto: con «+» está libre (clic para elegir el
+            bloque que sigue; arrastra para unirla a otro). Los textos se
+            escriben en el propio bloque al seleccionarlo. Doble clic en el
+            lienzo añade un bloque suelto.
           </div>
           {PALETTE_GROUPS.map((g) => (
             <div key={g} style={{ display: "contents" }}>
@@ -707,6 +723,11 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
         <div
           ref={wrapRef}
           style={{ flex: 1, minWidth: 0, position: "relative" }}
+          // Doble clic en el lienzo vacío: añadir un bloque suelto ahí.
+          onDoubleClick={(e) => {
+            if (!(e.target as HTMLElement).classList.contains("react-flow__pane")) return;
+            setAddMenu({ anchor: { x: e.clientX, y: e.clientY }, at: rf.screenToFlowPosition({ x: e.clientX, y: e.clientY }) });
+          }}
           onDrop={onDrop}
           onDragOver={(e) => {
             if (e.dataTransfer.types.includes(DRAG_MIME)) {
@@ -726,6 +747,8 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onConnectEnd={onConnectEnd}
+              connectOnClick={false}
+              zoomOnDoubleClick={false}
               isValidConnection={(c) => c.source !== c.target}
               connectionRadius={40}
               connectionLineStyle={{ stroke: "var(--accent)", strokeWidth: 2 }}
@@ -750,12 +773,16 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
             >
               <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="#243049" />
               <Controls />
-              <MiniMap
-                pannable
-                zoomable
-                nodeColor={(n) => NODE_META[n.type ?? ""]?.color ?? "#3a4c6a"}
-                maskColor="rgba(9,13,21,0.7)"
-              />
+              {/* El minimapa solo ayuda con flujos grandes; en uno pequeño tapa bloques. */}
+              {nodes.length >= 8 && (
+                <MiniMap
+                  pannable
+                  zoomable
+                  style={{ width: 150, height: 96 }}
+                  nodeColor={(n) => NODE_META[n.type ?? ""]?.color ?? "#3a4c6a"}
+                  maskColor="rgba(9,13,21,0.7)"
+                />
+              )}
             </ReactFlow>
           </FlowActionsContext.Provider>
         </div>
@@ -837,7 +864,7 @@ function AddMenu({
       <div style={menuBackdrop} onClick={onClose} />
       <div style={{ ...menu, left, top, width: W, maxHeight: H, overflowY: "auto" }} role="menu">
         <div style={{ fontSize: 11.5, color: "var(--muted)", padding: "4px 6px 6px" }}>
-          {req.insertBefore ? "Insertar en medio de la conexión" : "Añadir el siguiente bloque"}
+          {req.insertBefore ? "Insertar en medio de la conexión" : req.sourceId ? "Añadir el siguiente bloque" : "Añadir un bloque aquí"}
         </div>
         <input
           autoFocus

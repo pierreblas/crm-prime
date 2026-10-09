@@ -40,6 +40,8 @@ export const TRIGGER_META: TriggerMeta[] = [
   { type: "deal_stage", label: "Cambia de etapa en el embudo", short: "cambio de etapa", hint: "Cuando su oportunidad se mueve a una etapa (a mano, por la IA o por otro flujo).", icon: "pipeline", needs: "stages" },
   { type: "conversation_closed", label: "Se cierra la conversación", short: "al cerrar", hint: "Cuando tu equipo cierra la conversación. Ideal para una encuesta o una despedida.", icon: "check", needs: null },
   { type: "no_reply", label: "El cliente no responde", short: "sin respuesta", hint: "Cuando pasan estas horas sin que el cliente conteste a tu último mensaje. Se dispara una vez por silencio.", icon: "hourglass", needs: "hours" },
+  { type: "missed_call", label: "Llamada perdida", short: "llamada perdida", hint: "Cuando alguien llama al número de la empresa (Twilio) y nadie contesta. Ideal para escribirle por WhatsApp.", icon: "phone", needs: null },
+  { type: "manual", label: "Solo desde una etapa del embudo", short: "desde el embudo", hint: "No arranca solo: lo ejecutan las automatizaciones de una etapa (Ajustes › Embudos y etapas): al entrar en la etapa, al escribir el cliente, por webhook o tras un silencio.", icon: "pipeline", needs: null },
 ];
 
 export const TRIGGER_BY_TYPE: Record<string, TriggerMeta> = Object.fromEntries(TRIGGER_META.map((t) => [t.type, t]));
@@ -268,7 +270,8 @@ export function hasDefaultOutput(type: string | undefined): boolean {
 
 /** Petición de añadir un bloque: tras una salida, o en medio de una conexión. */
 export interface AddRequest {
-  sourceId: string;
+  /** Salida de la que cuelga el bloque nuevo; sin ella, el bloque queda suelto. */
+  sourceId?: string | null;
   sourceHandle?: string | null;
   /** Conexión que se parte: el bloque nuevo queda entre `sourceId` y este nodo. */
   insertBefore?: string;
@@ -287,6 +290,8 @@ export interface FlowActions {
   duplicateNode: (nodeId: string) => void;
   deleteNode: (nodeId: string) => void;
   issuesFor: (nodeId: string) => string[];
+  /** Edición en el propio bloque (texto, botones…). */
+  patchNode: (nodeId: string, patch: Partial<FlowNodeData>) => void;
 }
 
 export const FlowActionsContext = createContext<FlowActions | null>(null);

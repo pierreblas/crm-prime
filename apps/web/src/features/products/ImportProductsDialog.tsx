@@ -2,6 +2,8 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { readSheet } from "read-excel-file/browser";
+import writeXlsxFile from "write-excel-file/browser";
 import {
   priceColumnCurrency,
   PRODUCT_IMPORT_FIELDS,
@@ -10,6 +12,7 @@ import {
   formatFieldValue,
   guessProductFieldColumns,
   parseCsv,
+  sheetToTable,
   toCsv,
   toProductImportRow,
   type ImportProductsResult,
@@ -29,10 +32,20 @@ interface Parsed {
 
 const PREVIEW_ROWS = 6;
 
+// Plantilla de ejemplo: columnas en inglés (las de siempre en español también
+// se reconocen) y productos en distintas monedas, con precios extra por moneda.
+const TEMPLATE_HEADERS = ["name", "sku", "price", "currency", "price_USD", "price_MXN", "description", "image_url", "active"];
+const TEMPLATE_ROWS: string[][] = [
+  ["Camiseta azul", "CAM-001", "59.90", "PEN", "16", "290", "Algodón 100%", "https://misitio.com/camiseta.jpg", "yes"],
+  ["Gorra negra", "GOR-002", "12.00", "USD", "", "220", "Talla única", "", "yes"],
+  ["Curso online", "CUR-003", "990", "MXN", "55", "", "Acceso por 12 meses", "", "no"],
+];
+const NUMERIC_TEMPLATE_COLUMNS = new Set(["price", "price_USD", "price_MXN"]);
+
 /**
- * Importa productos desde un CSV. El archivo se lee aquí (nunca se sube), se
- * muestra una vista previa con la correspondencia de columnas y solo se envían
- * las filas ya validadas.
+ * Importa productos desde un Excel (.xlsx) o un CSV. El archivo se lee aquí
+ * (nunca se sube), se muestra una vista previa con la correspondencia de
+ * columnas y solo se envían las filas ya validadas.
  */
 export function ImportProductsDialog({
   onClose,
@@ -95,8 +108,15 @@ export function ImportProductsDialog({
     setReadError(null);
     setResult(null);
     try {
-      const text = await file.text();
-      const table = parseCsv(text);
+      if (/\.xls$/i.test(file.name)) {
+        setReadError("Los .xls antiguos no se pueden leer. En Excel: «Guardar como» → Libro de Excel (.xlsx), o exporta a CSV.");
+        return;
+      }
+      const isXlsx = /\.xlsx$/i.test(file.name) || file.type.includes("spreadsheetml");
+      // Excel: la primera hoja. Cada celda se vuelve texto, como en un CSV.
+      const table = isXlsx
+        ? sheetToTable((await readSheet(file, 1)) as unknown[][])
+        : parseCsv(await file.text());
       if (table.headers.length === 0) {
         setReadError("El archivo está vacío.");
         return;
@@ -114,7 +134,7 @@ export function ImportProductsDialog({
     }
   }
 
-  function downloadTemplate() {
+  async function downloadTemplate(format: "xlsx" | "csv") {
     // Una columna por cada campo personalizado, con un valor de ejemplo válido.
     const sample = (f: (typeof fields)[number]): string => {
       switch (f.type) {
@@ -136,21 +156,34 @@ export function ImportProductsDialog({
           return f.required ? "…" : "";
       }
     };
-    const csv = toCsv(
-      ["nombre", "sku", "precio", "moneda", "precio_USD", "precio_MXN", "descripcion", "imagen", "activo", ...fields.map((f) => f.label)],
+    const headers = [...TEMPLATE_HEADERS, ...fields.map((f) => f.label)];
+    const rows = TEMPLATE_ROWS.map((r, i) => [...r, ...fields.map((f) => (i === 0 ? sample(f) : ""))]);
+    if (format === "csv") {
+      const csv = toCsv(headers, rows);
+      const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "products-template.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+    // Excel: títulos en negrita y los precios como números.
+    await writeXlsxFile(
       [
-        ["Camiseta azul", "CAM-001", "59.90", "PEN", "16", "290", "Algodón 100%", "https://misitio.com/camiseta.jpg", "si", ...fields.map(sample)],
-        ["Gorra negra", "GOR-002", "29.90", "PEN", "8", "", "", "", "si", ...fields.map(() => "")],
+        headers.map((h) => ({ value: h, fontWeight: "bold" as const })),
+        ...rows.map((r) =>
+          r.map((v, i) =>
+            v === ""
+              ? null
+              : NUMERIC_TEMPLATE_COLUMNS.has(headers[i]!) && !Number.isNaN(Number(v))
+                ? { value: Number(v), type: Number }
+                : { value: v, type: String },
+          ),
+        ),
       ],
-    );
-    const url = URL.createObjectURL(
-      new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" }),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "plantilla-productos.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+      { columns: headers.map((h) => ({ width: Math.max(12, Math.min(28, h.length + 6)) })) },
+    ).toFile("products-template.xlsx");
   }
 
   const missingRequired = PRODUCT_IMPORT_FIELDS.filter(
@@ -164,10 +197,11 @@ export function ImportProductsDialog({
         style={{ width: "min(720px, calc(100vw - 32px))", maxHeight: "86vh", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 style={{ margin: "0 0 4px" }}>Importar productos desde CSV</h3>
+        <h3 style={{ margin: "0 0 4px" }}>Importar productos</h3>
         <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 0 }}>
-          Sube el archivo que exportaste de Excel o Google Sheets. Los que
-          tengan un SKU que ya existe se actualizan; el resto se crean.
+          Sube un Excel (.xlsx) o un CSV, por ejemplo exportado de Google Sheets. Cada
+          producto lleva su moneda; los que tengan un SKU que ya existe se actualizan y el
+          resto se crean.
         </p>
 
         {/* Resultado final */}
@@ -207,7 +241,7 @@ export function ImportProductsDialog({
               <input
                 ref={fileRef}
                 type="file"
-                accept=".csv,text/csv,text/plain"
+                accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain"
                 style={{ display: "none" }}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
@@ -216,10 +250,13 @@ export function ImportProductsDialog({
                 }}
               />
               <button onClick={() => fileRef.current?.click()} style={primaryBtn}>
-                {parsed ? "Elegir otro archivo" : "Elegir archivo CSV"}
+                {parsed ? "Elegir otro archivo" : "Elegir archivo (Excel o CSV)"}
               </button>
-              <button onClick={downloadTemplate} style={ghostBtn}>
-                Descargar plantilla de ejemplo
+              <button onClick={() => void downloadTemplate("xlsx")} style={ghostBtn} title="Ejemplo con productos en varias monedas">
+                Plantilla Excel
+              </button>
+              <button onClick={() => void downloadTemplate("csv")} style={ghostBtn} title="La misma plantilla, en CSV">
+                Plantilla CSV
               </button>
               {parsed && (
                 <span style={{ color: "var(--muted)", fontSize: 13 }}>
@@ -293,7 +330,7 @@ export function ImportProductsDialog({
                     <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "8px 0 0" }}>
                       {extra.length
                         ? `Precios en otras monedas: ${extra.map((h) => priceColumnCurrency(h)).join(", ")} (columnas ${extra.join(", ")}).`
-                        : "Para precios en otras monedas, añade columnas como precio_USD o precio_MXN."}
+                        : "La columna currency (o moneda) da la moneda de cada producto. Para precios en otras monedas, añade columnas como price_USD o price_MXN."}
                     </p>
                   );
                 })()}

@@ -5,11 +5,9 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getSmoothStepPath,
-  useNodesData,
   type EdgeProps,
 } from "@xyflow/react";
-import type { FlowNodeData } from "@crm/shared";
-import { FlowActionsContext, outputsOf } from "./flowShared";
+import { FlowActionsContext } from "./flowShared";
 
 /**
  * Conexión entre bloques. En su punto medio lleva la etiqueta de la rama (si
@@ -33,7 +31,6 @@ export function FlowEdge(props: EdgeProps) {
     markerEnd,
   } = props;
   const actions = useContext(FlowActionsContext);
-  const src = useNodesData(source);
   const [path, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
@@ -44,13 +41,6 @@ export function FlowEdge(props: EdgeProps) {
     borderRadius: 14,
   });
 
-  // La etiqueta se lee del bloque origen en vivo: si renombras la rama en el
-  // inspector, la conexión lo refleja al momento.
-  let label: string | null = null;
-  if (sourceHandleId) {
-    const out = outputsOf(src?.type, src?.data as FlowNodeData | undefined).find((o) => o.id === sourceHandleId);
-    label = out?.label || sourceHandleId;
-  }
 
   return (
     <>
@@ -69,7 +59,6 @@ export function FlowEdge(props: EdgeProps) {
             pointerEvents: "all",
           }}
         >
-          {label && <span style={chip}>{label}</span>}
           <button
             style={btn}
             title="Insertar un bloque aquí"
@@ -103,18 +92,6 @@ export function FlowEdge(props: EdgeProps) {
 
 export const edgeTypes = { flow: FlowEdge };
 
-const chip: React.CSSProperties = {
-  fontSize: 11,
-  padding: "2px 8px",
-  borderRadius: 999,
-  background: "#16213a",
-  border: "1px solid #2b3d5c",
-  color: "#cbd8ec",
-  whiteSpace: "nowrap",
-  maxWidth: 140,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-};
 
 const btn: React.CSSProperties = {
   width: 20,

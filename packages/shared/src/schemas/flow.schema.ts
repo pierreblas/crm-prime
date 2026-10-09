@@ -195,6 +195,8 @@ export type FlowEdge = z.infer<typeof flowEdgeSchema>;
  *  - deal_stage: su oportunidad cambia de etapa.
  *  - conversation_closed: se cierra la conversación.
  *  - no_reply: el cliente lleva X horas sin responder al último mensaje.
+ *  - manual: nunca arranca solo; lo ejecutan las automatizaciones de una
+ *    etapa del embudo (ver pipeline.schema: stageAutomation).
  */
 export const flowTriggerTypes = [
   "conversation_start",
@@ -206,6 +208,8 @@ export const flowTriggerTypes = [
   "deal_stage",
   "conversation_closed",
   "no_reply",
+  "missed_call", // llamada telefónica entrante que nadie contestó
+  "manual", // no arranca solo: lo ejecutan las automatizaciones de etapa (o alguien a mano)
 ] as const;
 export type FlowTriggerType = (typeof flowTriggerTypes)[number];
 

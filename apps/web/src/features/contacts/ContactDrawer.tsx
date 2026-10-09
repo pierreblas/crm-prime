@@ -380,6 +380,7 @@ export const ORIGIN_COLORS: Record<ContactOrigin, string> = {
   webhook: "#2c4b7a",
   manual: "#3a3a3a",
   import: "#5a4a2a",
+  call: "#3f7a8c",
 };
 
 // Se exporta para que la tabla marque qué contactos traen campaña.

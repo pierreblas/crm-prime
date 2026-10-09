@@ -3259,17 +3259,99 @@ code {
   .flt-panel { animation: none; }
 }
 
-/* ── Constructor de flujos: enlazar ───────────────────────── */
-.react-flow__handle {
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+/* ── Constructor de flujos: puntos de conexión ─────────────── */
+/* Entrada: un punto discreto arriba. */
+.react-flow__handle.flow-in {
+  width: 12px;
+  height: 12px;
+  background: var(--panel-2);
+  border: 2px solid #5a6b85;
+  transition: transform 0.12s ease, border-color 0.12s ease;
 }
-.react-flow__handle:hover,
-.react-flow__handle.connectingfrom {
-  box-shadow: 0 0 0 5px rgba(138, 43, 226, 0.28);
+.react-flow__handle-top.flow-in:hover { transform: translate(-50%, -50%) scale(1.2); border-color: var(--accent); }
+/* Salida: punto + «+» mientras está libre; lleno cuando ya conecta. */
+.react-flow__handle.flow-out {
+  --out: var(--accent);
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  background: var(--out);
+  border: 2px solid var(--panel-2);
+  box-shadow: 0 0 0 1px var(--out);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
-.react-flow__handle-bottom:hover,
-.react-flow__handle-top:hover { transform: translate(-50%, -50%) scale(1.3); }
-.react-flow__handle-right:hover { transform: translate(50%, -50%) scale(1.3); }
+.react-flow__handle.flow-out.is-free { background: var(--panel-2); color: var(--out); }
+.react-flow__handle.flow-out.is-free::after { content: "+"; margin-top: -1px; }
+.react-flow__handle.flow-out:hover,
+.react-flow__handle.flow-out.connectingfrom { box-shadow: 0 0 0 5px color-mix(in srgb, var(--out) 32%, transparent); }
+.react-flow__handle-bottom.flow-out:hover { transform: translate(-50%, 50%) scale(1.18); }
+.react-flow__handle-right.flow-out:hover { transform: translate(50%, -50%) scale(1.18); }
+/* El bloque responde al pasar por encima. */
+.react-flow__node:hover .flow-shell { filter: brightness(1.08); }
+/* Edición en el bloque. */
+.flow-inline {
+  width: 100%;
+  min-height: 24px;
+  resize: none;
+  overflow: hidden;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 4px 6px;
+  outline: none;
+}
+.flow-inline-input {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  padding: 0 6px;
+  outline: none;
+}
+.flow-inline-input:focus { border-color: var(--accent); }
+.flow-row-x {
+  width: 18px;
+  height: 18px;
+  margin: 0 4px 0 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.flow-row-x:hover { color: var(--danger); background: var(--danger-soft); }
+.flow-row-add {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  margin: 2px 0 4px;
+  padding: 0 8px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.flow-row-add:hover { color: var(--text); border-color: var(--accent); }
 /* Todo el bloque es destino mientras se arrastra una conexión. */
 .react-flow__handle.flow-body-target {
   top: 0 !important;
@@ -3303,4 +3385,92 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .react-flow__connectionline path, .react-flow__connection-path { animation: none; }
   .react-flow__handle { transition: none; }
+}
+
+/* ── Llamadas: barra del softphone y entradas en el hilo ───── */
+.call-dock,
+.call-manual {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1090;
+  width: min(360px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-2);
+  box-shadow: var(--shadow-overlay);
+  animation: cp-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.call-manual { z-index: 1085; }
+.call-dock.is-incoming { border-color: var(--accent); }
+.call-dock__head { display: flex; align-items: center; gap: 10px; }
+.call-dock__pulse {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.call-dock.is-incoming .call-dock__pulse { animation: call-ring 1.2s ease-in-out infinite; }
+.call-dock__pulse.is-live { background: rgba(126, 226, 168, 0.18); color: #7ee2a8; }
+@keyframes call-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(138, 43, 226, 0.45); }
+  50% { box-shadow: 0 0 0 10px rgba(138, 43, 226, 0); }
+}
+.call-dock__who { font-weight: 700; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.call-dock__state { font-size: 12.5px; color: var(--muted); }
+.call-dock__actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.call-dock__actions .btn { flex: 1 1 auto; }
+.call-dock__wrap { display: flex; flex-direction: column; gap: 10px; }
+
+.call-entry {
+  align-self: center;
+  width: min(100%, 520px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12.5px;
+}
+.call-entry.is-missed { border-color: rgba(224, 138, 138, 0.45); }
+.call-entry.is-live { border-color: rgba(126, 226, 168, 0.5); }
+.call-entry__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.call-entry__icon { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); flex-shrink: 0; }
+.call-entry.is-missed .call-entry__icon { background: var(--danger-soft); color: var(--danger); }
+.call-entry__title { font-weight: 600; }
+.call-entry__meta { color: var(--muted); font-size: 11.5px; margin-left: auto; }
+.call-entry__body { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--text); }
+.call-entry__edit { display: flex; flex-direction: column; gap: 8px; }
+.call-entry__audio { width: 100%; height: 34px; }
+.call-entry__transcript p { margin: 6px 0 0; color: var(--muted); font-style: italic; line-height: 1.45; white-space: pre-wrap; }
+.call-entry__transcript .cp-link { background: none; border: none; cursor: pointer; padding: 0; font: inherit; font-size: 12px; }
+.call-entry__editbtn { align-self: flex-end; background: none; border: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; padding: 0; }
+.call-entry__editbtn:hover { color: var(--text); }
+@media (prefers-reduced-motion: reduce) {
+  .call-dock, .call-manual { animation: none; }
+  .call-dock.is-incoming .call-dock__pulse { animation: none; }
+}
+
+/* Ajustes › Embudos: la cabecera de columnas de las etapas solo tiene sentido
+   cuando la fila cabe en una línea. */
+@media (max-width: 720px) {
+  .ps-stage-head {
+    display: none !important;
+  }
+}
+/* La caja de automatizaciones cuelga de su etapa (sangría) solo donde sobra ancho. */
+@media (min-width: 1280px) {
+  .ps-autos {
+    margin-left: 32px;
+  }
 }

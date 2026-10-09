@@ -5,6 +5,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { runUnscoped } from "../../infra/tenant/tenant.context";
 import { runJobInOrg } from "../../infra/tenant/job-org";
 import { FlowEngineService } from "./flow-engine.service";
+import { StageAutomationsService, type StageNoReplyJob } from "./stage-automations.service";
 
 interface FlowResumeJob {
   conversationId: string;
@@ -18,12 +19,19 @@ interface FlowResumeJob {
 export class FlowProcessor extends WorkerHost {
   constructor(
     private readonly engine: FlowEngineService,
+    private readonly stageAutomations: StageAutomationsService,
     private readonly prisma: PrismaService,
   ) {
     super();
   }
 
-  async process(job: Job<FlowResumeJob>): Promise<void> {
+  async process(job: Job<FlowResumeJob | StageNoReplyJob>): Promise<void> {
+    // «Pasa tiempo sin respuesta» de una automatización de etapa.
+    if (job.name === "stage_no_reply") {
+      const data = job.data as StageNoReplyJob;
+      await runJobInOrg("automatización de etapa", data.orgId, () => this.stageAutomations.checkNoReply(data));
+      return;
+    }
     const orgId =
       job.data.orgId ??
       // Trabajo anterior al cambio: la empresa se deduce de la conversación.

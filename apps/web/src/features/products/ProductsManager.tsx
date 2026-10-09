@@ -86,7 +86,7 @@ export function ProductsManager() {
           <NavIcon name="tag" size={15} /> Campos{fields.length > 0 ? ` · ${fields.length}` : ""}
         </button>
         <button onClick={() => setImporting(true)} style={ghostBtn} data-tour="products-import">
-          <NavIcon name="file" size={15} /> Importar CSV
+          <NavIcon name="file" size={15} /> Importar
         </button>
         <button onClick={() => setEditing("new")} style={primaryBtn} data-tour="products-new">
           <NavIcon name="plus" size={15} /> Nuevo producto
@@ -132,7 +132,7 @@ export function ProductsManager() {
           <span>
             {search || filter !== "all"
               ? "Prueba con otro nombre o SKU."
-              : "Crea el primero o importa tu catálogo desde un CSV. El agente de IA los usa para dar precios."}
+              : "Crea el primero o importa tu catálogo desde Excel o CSV. El agente de IA los usa para dar precios."}
           </span>
         </div>
       )}

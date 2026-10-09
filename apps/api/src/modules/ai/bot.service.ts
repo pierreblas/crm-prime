@@ -87,6 +87,21 @@ export class BotService {
    * el bot por defecto (global). Devuelve la fila cruda para uso interno
    * (agente y automatización). null si no hay ninguno activo.
    */
+  /**
+   * Quién atiende una conversación: el agente del embudo donde está su
+   * oportunidad abierta; si no tiene, el del número; si no, el predeterminado.
+   */
+  async resolveForConversation(convo: { channelId: string | null; contactId: string }) {
+    const deal = await this.prisma.deal.findFirst({
+      where: { contactId: convo.contactId, discardedAt: null },
+      orderBy: { updatedAt: "desc" },
+      select: { stage: { select: { pipeline: { select: { bot: true } } } } },
+    });
+    const own = deal?.stage.pipeline.bot;
+    if (own?.isActive) return own;
+    return this.resolveForChannel(convo.channelId);
+  }
+
   async resolveForChannel(channelId: string | null) {
     if (channelId) {
       const own = await this.prisma.agentConfig.findFirst({

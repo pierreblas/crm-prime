@@ -25,6 +25,8 @@ type ActionInput = Record<string, unknown>;
  *    agente humano envía la respuesta; si la descarta, pasan a REJECTED.
  *  - En el playground no se toca la BD: solo se describe lo que haría.
  */
+const LEAD_LABEL: Record<string, string> = { potential: "potencial", purchase: "compra", lost: "perdido" };
+
 @Injectable()
 export class AgentActionsService {
   private readonly logger = new Logger("AgentActions");
@@ -38,7 +40,7 @@ export class AgentActionsService {
 
   // Valores reales del workspace para construir los esquemas de las tools.
   async loadContext(): Promise<ToolContext> {
-    const [tags, stages, sellers, customFields, products] = await Promise.all([
+    const [tags, stages, sellers, customFields, products, leadStages] = await Promise.all([
       this.prisma.tag.findMany({
         select: { name: true },
         orderBy: { name: "asc" },
@@ -65,7 +67,17 @@ export class AgentActionsService {
         orderBy: { name: "asc" },
         take: 100,
       }),
+      // Etapas con rol (potencial / ganada / perdida): habilitan mark_lead.
+      this.prisma.pipelineStage.findMany({
+        where: { OR: [{ isQualified: true }, { isWon: true }, { isLost: true }] },
+        select: { isQualified: true, isWon: true, isLost: true },
+      }),
     ]);
+    const leadStatuses = [
+      ...(leadStages.some((s) => s.isQualified) ? ["potential"] : []),
+      ...(leadStages.some((s) => s.isWon) ? ["purchase"] : []),
+      ...(leadStages.some((s) => s.isLost) ? ["lost"] : []),
+    ];
 
     return {
       tags: tags.map((t) => t.name),
@@ -73,6 +85,7 @@ export class AgentActionsService {
       sellers: sellers.map((u) => u.name ?? u.email),
       customFields,
       productsWithImage: products.map((p) => p.name),
+      leadStatuses,
     };
   }
 
@@ -89,6 +102,10 @@ export class AgentActionsService {
         }`;
       case "assign_to_seller":
         return `Asignar a «${String(input.seller)}»`;
+      case "mark_lead":
+        return `Marcar como ${LEAD_LABEL[String(input.status)] ?? String(input.status)}${
+          input.reason ? ` (${String(input.reason)})` : ""
+        }`;
       case "send_product_image":
         return `Enviar la foto de «${String(input.product)}»`;
       case "update_contact": {
@@ -122,6 +139,8 @@ export class AgentActionsService {
         return this.moveDeal(contactId, String(input.stage ?? ""));
       case "assign_to_seller":
         return this.assignSeller(contactId, String(input.seller ?? ""));
+      case "mark_lead":
+        return this.markLead(contactId, String(input.status ?? ""), String(input.reason ?? ""));
       case "update_contact":
         return this.updateContact(contactId, input);
       case "send_product_image":
@@ -151,6 +170,54 @@ export class AgentActionsService {
       where: { contactId, tagId: tag.id },
     });
     return `Etiqueta "${tagName}" quitada del contacto.`;
+  }
+
+  /**
+   * Potencial / compra / perdido: la etapa que la empresa reservó para cada
+   * caso en el embudo de su oportunidad (o en el predeterminado si no tiene).
+   */
+  private async markLead(contactId: string, status: string, reason: string): Promise<string> {
+    const label = LEAD_LABEL[status];
+    if (!label) throw new Error(`Clasificación desconocida: ${status}`);
+    const deal = await this.prisma.deal.findFirst({
+      where: { contactId, discardedAt: null },
+      orderBy: { updatedAt: "desc" },
+      include: { stage: { select: { pipelineId: true } } },
+    });
+    const pipelineId =
+      deal?.stage.pipelineId ??
+      (await this.prisma.pipeline.findFirst({ where: { isDefault: true }, select: { id: true } }))?.id ??
+      (await this.prisma.pipeline.findFirst({ orderBy: { order: "asc" }, select: { id: true } }))?.id;
+    if (!pipelineId) throw new Error("No hay ningún embudo configurado");
+    const flag = status === "potential" ? { isQualified: true } : status === "purchase" ? { isWon: true } : { isLost: true };
+    const stage = await this.prisma.pipelineStage.findFirst({ where: { pipelineId, ...flag }, orderBy: { order: "asc" } });
+    if (!stage) throw new Error(`El embudo no tiene una etapa marcada como «${label}» (Ajustes › Embudos)`);
+    const why = reason ? ` (${reason})` : "";
+    const orgId = this.tenant.orgId();
+    if (deal) {
+      if (deal.stageId === stage.id) return `Ya estaba marcado como ${label} («${stage.name}»).`;
+      await this.prisma.deal.update({ where: { id: deal.id }, data: { stageId: stage.id } });
+      this.events.emit("deal.stage_changed", { orgId, dealId: deal.id, contactId, stageId: stage.id });
+      this.events.emit("pipeline.changed", { orgId, dealId: deal.id });
+      return `Marcado como ${label}: oportunidad movida a «${stage.name}»${why}.`;
+    }
+    const contact = await this.prisma.contact.findUnique({
+      where: { id: contactId },
+      select: { orgId: true, name: true, phone: true, currency: true },
+    });
+    if (!contact) throw new Error("El contacto ya no existe");
+    const created = await this.prisma.deal.create({
+      data: {
+        orgId: contact.orgId,
+        contactId,
+        stageId: stage.id,
+        title: contact.name ?? contact.phone,
+        currency: contactCurrency(contact) ?? "USD",
+      },
+    });
+    this.events.emit("deal.stage_changed", { orgId, dealId: created.id, contactId, stageId: stage.id });
+    this.events.emit("pipeline.changed", { orgId, dealId: created.id });
+    return `Marcado como ${label}: oportunidad creada en «${stage.name}»${why}.`;
   }
 
   private async moveDeal(contactId: string, stageName: string): Promise<string> {

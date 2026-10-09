@@ -6,8 +6,30 @@ Un embudo es un tablero de oportunidades con etapas. Puedes tener **varios** —
 
 En **Ajustes › Embudos y etapas** creas embudos y, dentro de cada uno, sus etapas. Dos marcas especiales:
 
-- **Ganada**: las oportunidades que llegan aquí cuentan como cerradas con éxito.
+- **Potencial**: donde el agente de IA (acción `mark_lead`) manda a quien muestra interés real: pide precio, cotización, quiere comprar.
+- **Ganada (compra)**: las oportunidades que llegan aquí cuentan como cerradas con éxito; el agente las marca cuando el cliente confirma la compra.
 - **Perdida**: cerradas sin venta.
+
+Con esos tres roles el agente clasifica solo: *potencial → compra* o *perdido*, y coloca cada contacto en la etapa que corresponde del embudo donde ya está su oportunidad (o del predeterminado, si no tiene). Cada embudo tiene sus propias etapas con rol: un lead del embudo *Soporte* nunca aterriza en el *Ganado* de *Ventas*.
+
+## Automatizaciones por etapa
+
+Cada etapa tiene una lista libre de automatizaciones: **«cuando pase X, ejecuta el flujo Y»**. Añades tantas como quieras desde el botón de la columna *Automatizaciones* en **Ajustes › Embudos y etapas**; el tablero muestra en cada columna cuántas tiene (⚡). Disparadores:
+
+| Cuándo | Qué pasa |
+|---|---|
+| **Entra a la etapa** | La oportunidad llega a la columna: a mano, por el agente de IA, por otro flujo o al crearse ahí (también la entrada automática de WhatsApp). |
+| **Llega un mensaje del cliente** | Con cada mensaje que escribe mientras su oportunidad está en la etapa. Si el flujo arranca, la IA no responde ese turno. |
+| **Llega un webhook** | Un sistema tuyo llama a la URL de la automatización (botón *Copiar URL*) con `{ "phone": "+51…" }` o `{ "contactId": "…" }`, y opcionalmente `"vars": { … }` para el flujo. Solo actúa si la oportunidad del contacto está en esa etapa. |
+| **Pasa tiempo sin respuesta** | El cliente lleva ese tiempo sin contestar vuestro último mensaje estando en la etapa. Una vez por estancia: si vuelve a entrar en la etapa, puede repetirse. |
+
+Los flujos se crean en [Flujos](/docs/flujos); para uno que solo deba correr desde el embudo, elige el disparador **«Solo desde una etapa del embudo»**. El flujo corre en la conversación abierta del contacto (o abre una nueva); si otro flujo está a medias esperando su respuesta, no arranca. Un flujo desactivado no corre aunque esté enganchado: pausa la automatización con su casilla *activa* o actívalo en Flujos.
+
+Ejemplos: *Entrantes* → «Entra a la etapa → Bienvenida»; *Propuesta* → «Pasa 1 día sin respuesta → Seguimiento» y «Llega un webhook → Enviar cotización» desde tu ERP; *Ganado* → «Entra a la etapa → Gracias y encuesta».
+
+## Agente de IA del embudo
+
+Cada embudo puede tener su **agente de IA**: quién responde a los contactos cuya oportunidad está ahí. Si no se elige, responde el agente del **número de WhatsApp** o, en su defecto, el **predeterminado**. Para que en una etapa no responda la IA, usa un flujo que pase la conversación a una persona.
 
 Uno de los embudos es el **predeterminado**: es el que usan el agente de IA, los leads de Meta y la API pública cuando no se indica otro.
 

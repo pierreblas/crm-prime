@@ -51,8 +51,8 @@ export class AgentService {
     const windowOpen =
       !!conversation.windowExpiresAt && conversation.windowExpiresAt > new Date();
 
-    // Bot del canal por el que entró la conversación (o el bot por defecto).
-    const config = await this.bots.resolveForChannel(conversation.channelId);
+    // El agente de su embudo, el del número, o el predeterminado.
+    const config = await this.bots.resolveForConversation(conversation);
 
     const system = this.buildSystem(config?.systemPrompt, conversation.contact);
     const messages = await this.buildHistory(conversationId);

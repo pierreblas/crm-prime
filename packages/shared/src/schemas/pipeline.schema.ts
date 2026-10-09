@@ -1,5 +1,59 @@
 import { z } from "zod";
 
+// ── Automatizaciones de etapa ───────────────────────────────
+/**
+ * «Cuando pase X en esta etapa, ejecuta el flujo Y». Una lista libre por etapa.
+ *  - enters_stage: la oportunidad llega a la etapa (a mano, IA, flujo, o al crearse ahí).
+ *  - inbound_message: el cliente escribe estando en la etapa.
+ *  - webhook: un sistema externo llama a la URL de la automatización.
+ *  - no_reply: pasan delayMinutes sin que el cliente conteste nuestro último mensaje.
+ */
+export const stageAutomationTriggers = ["enters_stage", "inbound_message", "webhook", "no_reply"] as const;
+export type StageAutomationTrigger = (typeof stageAutomationTriggers)[number];
+
+export const stageAutomationDtoSchema = z.object({
+  id: z.string(),
+  stageId: z.string(),
+  trigger: z.enum(stageAutomationTriggers),
+  flowId: z.string(),
+  flowName: z.string(),
+  flowActive: z.boolean(),
+  /** Solo no_reply: minutos de silencio. */
+  delayMinutes: z.number().nullable(),
+  /** Solo webhook: URL pública con su token. */
+  webhookUrl: z.string().nullable(),
+  enabled: z.boolean(),
+  order: z.number(),
+});
+export type StageAutomationDto = z.infer<typeof stageAutomationDtoSchema>;
+
+export const createStageAutomationSchema = z.object({
+  trigger: z.enum(stageAutomationTriggers),
+  flowId: z.string().min(1),
+  delayMinutes: z.number().int().min(1).max(43200).optional(), // hasta 30 días
+  enabled: z.boolean().default(true),
+});
+export type CreateStageAutomationInput = z.infer<typeof createStageAutomationSchema>;
+
+export const updateStageAutomationSchema = z.object({
+  trigger: z.enum(stageAutomationTriggers).optional(),
+  flowId: z.string().min(1).optional(),
+  delayMinutes: z.number().int().min(1).max(43200).optional(),
+  enabled: z.boolean().optional(),
+});
+export type UpdateStageAutomationInput = z.infer<typeof updateStageAutomationSchema>;
+
+/** Cuerpo del webhook público de una automatización: cómo identificar al contacto. */
+export const stageWebhookBodySchema = z
+  .object({
+    phone: z.string().trim().min(5).max(32).optional(),
+    contactId: z.string().min(1).optional(),
+    /** Variables para el flujo ({{nombre}}). */
+    vars: z.record(z.string().max(60), z.string().max(2000)).optional(),
+  })
+  .refine((b) => b.phone || b.contactId, { message: "Indica phone o contactId" });
+export type StageWebhookBody = z.infer<typeof stageWebhookBodySchema>;
+
 // ── DTOs de salida ──────────────────────────────────────────
 export const stageDtoSchema = z.object({
   id: z.string(),
@@ -8,6 +62,9 @@ export const stageDtoSchema = z.object({
   order: z.number(),
   isWon: z.boolean(),
   isLost: z.boolean(),
+  // «Potencial»: a donde el agente manda a quien muestra interés real.
+  isQualified: z.boolean().default(false),
+  automations: z.array(stageAutomationDtoSchema).default([]),
 });
 export type StageDto = z.infer<typeof stageDtoSchema>;
 
@@ -30,6 +87,9 @@ export const pipelineSummaryDtoSchema = z.object({
   // Números de WhatsApp cuyas conversaciones entran a este embudo. Los que
   // no están en ningún embudo entran al predeterminado.
   channelIds: z.array(z.string()),
+  // Agente de IA del embudo (las etapas pueden cambiarlo). Null = el del número / predeterminado.
+  botId: z.string().nullable().default(null),
+  botName: z.string().nullable().default(null),
   stageCount: z.number(),
   openDeals: z.number(),
 });
@@ -134,6 +194,7 @@ export const updatePipelineSchema = z.object({
   inboundStageId: z.string().nullable().optional(),
   inboundDiscardDays: z.number().int().min(0).max(365).optional(),
   channelIds: z.array(z.string()).optional(),
+  botId: z.string().nullable().optional(),
 });
 export type UpdatePipelineInput = z.infer<typeof updatePipelineSchema>;
 
@@ -147,6 +208,7 @@ export const createStageSchema = z.object({
   name: z.string().min(1).max(60),
   isWon: z.boolean().default(false),
   isLost: z.boolean().default(false),
+  isQualified: z.boolean().optional(),
   pipelineId: z.string().optional(), // por defecto, el embudo predeterminado
 });
 export type CreateStageInput = z.infer<typeof createStageSchema>;
@@ -155,6 +217,7 @@ export const updateStageSchema = z.object({
   name: z.string().min(1).max(60).optional(),
   isWon: z.boolean().optional(),
   isLost: z.boolean().optional(),
+  isQualified: z.boolean().optional(),
 });
 export type UpdateStageInput = z.infer<typeof updateStageSchema>;
 

@@ -6,11 +6,13 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from "@nestjs/common";
+import { randomBytes } from "node:crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { contactCurrency } from "@crm/shared";
 import type {
   CreateDealInput,
   CreatePipelineInput,
+  CreateStageAutomationInput,
   CreateStageInput,
   DealDto,
   DiscardDealInput,
@@ -19,23 +21,26 @@ import type {
   PipelineSummaryDto,
   PipelineView,
   ReorderStagesInput,
+  StageAutomationDto,
   StageDto,
   StageRef,
   UpdateDealInput,
   UpdatePipelineInput,
+  UpdateStageAutomationInput,
   UpdateStageInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
 import { env } from "../../common/utils/env";
+import { publicApiBase } from "../../common/utils/public-api-base";
 import { decideIntake, pickLeastLoaded } from "./intake";
 
 /** Etapas con las que arranca un embudo nuevo (y cualquier empresa nueva). */
 export const DEFAULT_STAGES = [
   { name: "Entrantes", order: 0 },
   { name: "Contactado", order: 1 },
-  { name: "Calificado", order: 2 },
+  { name: "Calificado", order: 2, isQualified: true },
   { name: "Propuesta", order: 3 },
   { name: "Ganado", order: 4, isWon: true },
   { name: "Perdido", order: 5, isLost: true },
@@ -60,8 +65,33 @@ const DEAL_INCLUDE = {
 
 const PIPELINE_INCLUDE = {
   channels: { select: { id: true } },
+  bot: { select: { id: true, name: true } },
   _count: { select: { stages: true } },
 } as const;
+
+/** Token secreto de un webhook de etapa (apto para URL). */
+function newToken(): string {
+  return randomBytes(24).toString("base64url");
+}
+
+const STAGE_INCLUDE = {
+  automations: {
+    orderBy: { order: "asc" as const },
+    include: { flow: { select: { name: true, isActive: true } } },
+  },
+} as const;
+
+type AutomationRow = {
+  id: string;
+  stageId: string;
+  trigger: string;
+  flowId: string;
+  delayMinutes: number | null;
+  token: string | null;
+  enabled: boolean;
+  order: number;
+  flow: { name: string; isActive: boolean };
+};
 
 // Barrido del descarte automático: cada hora, y una primera pasada al minuto
 // de arrancar.
@@ -107,7 +137,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     const [stagesAll, deals, discardedCount] = await Promise.all([
       this.prisma.pipelineStage.findMany({
         orderBy: [{ pipeline: { order: "asc" } }, { order: "asc" }],
-        include: { pipeline: { select: { name: true } } },
+        include: { pipeline: { select: { name: true } }, ...STAGE_INCLUDE },
       }),
       this.prisma.deal.findMany({
         where: {
@@ -248,6 +278,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
           ...(input.inboundDiscardDays !== undefined
             ? { inboundDiscardDays: input.inboundDiscardDays }
             : {}),
+          ...(input.botId !== undefined ? { botId: input.botId } : {}),
         },
         include: PIPELINE_INCLUDE,
       });
@@ -290,7 +321,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
   async listStagesAll(): Promise<StageRef[]> {
     const rows = await this.prisma.pipelineStage.findMany({
       orderBy: [{ pipeline: { isDefault: "desc" } }, { pipeline: { order: "asc" } }, { order: "asc" }],
-      include: { pipeline: { select: { name: true } } },
+      include: { pipeline: { select: { name: true } }, ...STAGE_INCLUDE },
     });
     return rows.map((s) => ({ ...this.toStageDto(s), pipelineName: s.pipeline.name }));
   }
@@ -337,6 +368,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
       include: DEAL_INCLUDE,
     });
     this.changed(deal.id);
+    this.enteredStage(deal.id, deal.contactId, stageId);
     return this.toDealDto(deal);
   }
 
@@ -355,12 +387,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         throw new NotFoundException("Deal no encontrado");
       });
     this.changed(deal.id);
-    this.events.emit("deal.stage_changed", {
-      orgId: deal.orgId,
-      dealId: deal.id,
-      contactId: deal.contactId,
-      stageId: input.stageId,
-    });
+    this.enteredStage(deal.id, deal.contactId, input.stageId);
     return this.toDealDto(deal);
   }
 
@@ -460,6 +487,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         data: { discardedAt: null, discardReason: null, stageId: entry.id },
       });
       this.changed(last.id);
+      this.enteredStage(last.id, contactId, entry.id);
       return;
     }
 
@@ -488,6 +516,73 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
       });
     }
     this.changed(deal.id);
+    this.enteredStage(deal.id, contactId, entry.id);
+  }
+
+  /**
+   * La oportunidad llegó a una etapa (movida o creada ahí): lo escuchan los
+   * flujos «cambia de etapa» y las automatizaciones de la etapa.
+   */
+  private enteredStage(dealId: string, contactId: string, stageId: string): void {
+    this.events.emit("deal.stage_changed", { orgId: this.tenant.orgId(), dealId, contactId, stageId });
+  }
+
+  // ── Automatizaciones de etapa ───────────────────────────────
+  async createStageAutomation(stageId: string, input: CreateStageAutomationInput): Promise<StageAutomationDto> {
+    const stage = await this.prisma.pipelineStage.findUnique({ where: { id: stageId }, select: { id: true } });
+    if (!stage) throw new NotFoundException("Etapa no encontrada");
+    await this.assertFlow(input.flowId);
+    const last = await this.prisma.stageAutomation.findFirst({ where: { stageId }, orderBy: { order: "desc" }, select: { order: true } });
+    const a = await this.prisma.stageAutomation.create({
+      data: {
+        orgId: this.tenant.orgId(),
+        stageId,
+        trigger: input.trigger,
+        flowId: input.flowId,
+        delayMinutes: input.trigger === "no_reply" ? (input.delayMinutes ?? 1440) : (input.delayMinutes ?? null),
+        token: input.trigger === "webhook" ? newToken() : null,
+        enabled: input.enabled,
+        order: (last?.order ?? -1) + 1,
+      },
+      include: STAGE_INCLUDE.automations.include,
+    });
+    this.changed();
+    return this.toAutomationDto(a);
+  }
+
+  async updateStageAutomation(id: string, input: UpdateStageAutomationInput): Promise<StageAutomationDto> {
+    const current = await this.prisma.stageAutomation.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException("Automatización no encontrada");
+    if (input.flowId !== undefined) await this.assertFlow(input.flowId);
+    const trigger = input.trigger ?? current.trigger;
+    const a = await this.prisma.stageAutomation.update({
+      where: { id },
+      data: {
+        ...(input.trigger !== undefined ? { trigger: input.trigger } : {}),
+        ...(input.flowId !== undefined ? { flowId: input.flowId } : {}),
+        ...(input.delayMinutes !== undefined ? { delayMinutes: input.delayMinutes } : {}),
+        ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+        // «Sin respuesta» necesita un plazo; «webhook» necesita su token (que se conserva si ya lo tenía).
+        ...(trigger === "no_reply" && !(input.delayMinutes ?? current.delayMinutes) ? { delayMinutes: 1440 } : {}),
+        ...(trigger === "webhook" && !current.token ? { token: newToken() } : {}),
+      },
+      include: STAGE_INCLUDE.automations.include,
+    });
+    this.changed();
+    return this.toAutomationDto(a);
+  }
+
+  async deleteStageAutomation(id: string): Promise<{ ok: true }> {
+    await this.prisma.stageAutomation.delete({ where: { id } }).catch(() => {
+      throw new NotFoundException("Automatización no encontrada");
+    });
+    this.changed();
+    return { ok: true };
+  }
+
+  private async assertFlow(flowId: string): Promise<void> {
+    const flow = await this.prisma.flow.findUnique({ where: { id: flowId }, select: { id: true } });
+    if (!flow) throw new BadRequestException("Ese flujo no existe");
   }
 
   /** El vendedor de la fuente con menos oportunidades abiertas en el embudo. */
@@ -586,8 +681,10 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         name: input.name,
         isWon: input.isWon,
         isLost: input.isLost,
+        isQualified: input.isQualified,
         order: (last?.order ?? -1) + 1,
       },
+      include: STAGE_INCLUDE,
     });
     this.changed();
     return this.toStageDto(s);
@@ -601,7 +698,13 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
           ...(input.name !== undefined ? { name: input.name } : {}),
           ...(input.isWon !== undefined ? { isWon: input.isWon } : {}),
           ...(input.isLost !== undefined ? { isLost: input.isLost } : {}),
+          ...(input.isQualified !== undefined ? { isQualified: input.isQualified } : {}),
+          // Un rol por etapa: marcar uno desmarca los otros.
+          ...(input.isWon ? { isLost: false, isQualified: false } : {}),
+          ...(input.isLost ? { isWon: false, isQualified: false } : {}),
+          ...(input.isQualified ? { isWon: false, isLost: false } : {}),
         },
+        include: STAGE_INCLUDE,
       })
       .catch(() => {
         throw new NotFoundException("Etapa no encontrada");
@@ -672,6 +775,8 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
       inboundStageId: string | null;
       inboundDiscardDays: number;
       channels: { id: string }[];
+      botId?: string | null;
+      bot?: { id: string; name: string } | null;
       _count: { stages: number };
     },
     openDeals: number,
@@ -685,6 +790,8 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
       inboundStageId: p.inboundStageId,
       inboundDiscardDays: p.inboundDiscardDays,
       channelIds: p.channels.map((c) => c.id),
+      botId: p.bot?.id ?? p.botId ?? null,
+      botName: p.bot?.name ?? null,
       stageCount: p._count.stages,
       openDeals,
     };
@@ -697,6 +804,8 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     order: number;
     isWon: boolean;
     isLost: boolean;
+    isQualified?: boolean;
+    automations?: AutomationRow[];
   }): StageDto {
     return {
       id: s.id,
@@ -705,6 +814,24 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
       order: s.order,
       isWon: s.isWon,
       isLost: s.isLost,
+      isQualified: s.isQualified ?? false,
+      automations: (s.automations ?? []).map((a) => this.toAutomationDto(a)),
+    };
+  }
+
+  private toAutomationDto(a: AutomationRow): StageAutomationDto {
+    const base = publicApiBase();
+    return {
+      id: a.id,
+      stageId: a.stageId,
+      trigger: a.trigger as StageAutomationDto["trigger"],
+      flowId: a.flowId,
+      flowName: a.flow.name,
+      flowActive: a.flow.isActive,
+      delayMinutes: a.delayMinutes,
+      webhookUrl: a.trigger === "webhook" && a.token && base ? `${base}/api/v1/hooks/stage/${a.token}` : null,
+      enabled: a.enabled,
+      order: a.order,
     };
   }
 

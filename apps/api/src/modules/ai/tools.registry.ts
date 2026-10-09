@@ -61,6 +61,7 @@ export const ACTION_TOOL_NAMES = [
   "update_contact",
   "assign_to_seller",
   "send_product_image",
+  "mark_lead",
 ] as const;
 export type ActionToolName = (typeof ACTION_TOOL_NAMES)[number];
 
@@ -76,6 +77,8 @@ export interface ToolContext {
   customFields: { key: string; label: string; options: string[] }[];
   /** Productos que TIENEN foto cargada: los únicos que se pueden enviar. */
   productsWithImage: string[];
+  /** Clasificaciones con etapa configurada: potential (Potencial), purchase (Ganada), lost (Perdida). */
+  leadStatuses: string[];
 }
 
 export const EMPTY_TOOL_CONTEXT: ToolContext = {
@@ -84,6 +87,7 @@ export const EMPTY_TOOL_CONTEXT: ToolContext = {
   sellers: [],
   customFields: [],
   productsWithImage: [],
+  leadStatuses: [],
 };
 
 const ACTION_META: Record<
@@ -114,6 +118,13 @@ const ACTION_META: Record<
   assign_to_seller: {
     label: "Asignar a un vendedor",
     needs: (c) => (c.sellers.length ? null : "No hay vendedores activos."),
+  },
+  mark_lead: {
+    label: "Marcar como potencial, compra o perdido",
+    needs: (c) =>
+      c.leadStatuses.length
+        ? null
+        : "Marca en Ajustes › Embudos qué etapa es Potencial, Ganada y Perdida.",
   },
   send_product_image: {
     label: "Enviar la foto de un producto",
@@ -220,6 +231,22 @@ function actionTool(name: ActionToolName, c: ToolContext): LlmTool | null {
             },
           },
           required: ["product"],
+        },
+      };
+
+    case "mark_lead":
+      if (!c.leadStatuses.length) return null;
+      return {
+        name,
+        description:
+          "Clasifica al contacto en el embudo según lo que dice: «potential» = muestra interés real (pregunta precios, pide cotización, piensa comprar); «purchase» = confirma la compra, paga o cierra; «lost» = no le interesa o compró en otro sitio. Mueve (o crea) su oportunidad a la etapa que la empresa reservó para cada caso. Úsala en cuanto el cliente lo deje claro, no por suposición, y una sola vez por cambio.",
+        input_schema: {
+          type: "object",
+          properties: {
+            status: { type: "string", enum: c.leadStatuses, description: "potential | purchase | lost" },
+            reason: { type: "string", description: "Qué dijo el cliente que lo justifica" },
+          },
+          required: ["status"],
         },
       };
 

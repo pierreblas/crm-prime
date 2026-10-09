@@ -121,6 +121,12 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       setAiTyping(conversationId, on);
     },
     "pipeline.changed": () => queryClient.invalidateQueries({ queryKey: ["pipeline"] }),
+    "call.changed": (payload) => {
+      const p = payload as { conversationId: string | null; missed?: boolean };
+      queryClient.invalidateQueries({ queryKey: ["calls"] });
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      if (p.missed) toast.info(t("calls.missedToast"), { href: p.conversationId ? `/?c=${p.conversationId}` : undefined, ms: 8000 });
+    },
   });
 
   // Total en el título de la pestaña: "(3) Bandeja".

@@ -9,6 +9,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { runUnscoped, tenancyMode } from "../../infra/tenant/tenant.context";
 import { env } from "../../common/utils/env";
+import { publicApiBase } from "../../common/utils/public-api-base";
 import {
   decryptSecret,
   encryptSecret,
@@ -69,6 +70,21 @@ export class IntegrationSettingsService {
       whatsappGraphVersion: row.whatsappGraphVersion,
       whatsappWebhookUrl: saas ? await this.ownWebhookUrl() : null,
       webhookSignatureVerified: !!appSecret.value,
+      twilioAccountSid: row.twilioAccountSid,
+      twilioAuthToken: this.toState(this.secretDb(row.twilioAuthTokenEnc)),
+      twilioApiKeySid: row.twilioApiKeySid,
+      twilioApiKeySecret: this.toState(this.secretDb(row.twilioApiKeySecretEnc)),
+      twilioNumber: row.twilioNumber,
+      twilioRecord: row.twilioRecord,
+      twilioAppSid: row.twilioAppSid,
+      twilioConfigured: !!(
+        row.twilioAccountSid &&
+        row.twilioApiKeySid &&
+        row.twilioNumber &&
+        this.secretDb(row.twilioAuthTokenEnc).value &&
+        this.secretDb(row.twilioApiKeySecretEnc).value
+      ),
+      twilioWebhookBase: await this.twilioWebhookBase(),
     };
   }
 
@@ -95,11 +111,57 @@ export class IntegrationSettingsService {
     if (input.whatsappVerifyToken !== undefined) {
       data.whatsappVerifyTokenEnc = this.encodeOrNull(input.whatsappVerifyToken);
     }
+    // Twilio: credenciales de la empresa, cifradas; "" borra.
+    if (input.twilioAccountSid !== undefined) data.twilioAccountSid = input.twilioAccountSid?.trim() || null;
+    if (input.twilioApiKeySid !== undefined) data.twilioApiKeySid = input.twilioApiKeySid?.trim() || null;
+    if (input.twilioNumber !== undefined) data.twilioNumber = input.twilioNumber?.trim() || null;
+    if (input.twilioRecord !== undefined) data.twilioRecord = input.twilioRecord;
+    if (input.twilioAuthToken !== undefined) data.twilioAuthTokenEnc = this.encodeOrNull(input.twilioAuthToken);
+    if (input.twilioApiKeySecret !== undefined) data.twilioApiKeySecretEnc = this.encodeOrNull(input.twilioApiKeySecret);
 
     const orgId = this.tenant.orgId();
     await this.prisma.integrationSetting.update({ where: { orgId }, data });
     this.cache.delete(orgId);
     return this.getSettings();
+  }
+
+  // ── Twilio (llamadas) ───────────────────────────────────────
+  /** Credenciales de Twilio de la empresa (con `orgId`, sin contexto: los webhooks). */
+  async twilio(orgId?: string): Promise<TwilioCreds> {
+    const row = orgId ? await this.loadFor(orgId) : await this.load();
+    if (!row) {
+      return { accountSid: null, authToken: null, apiKeySid: null, apiKeySecret: null, number: null, appSid: null, record: true };
+    }
+    return {
+      accountSid: row.twilioAccountSid,
+      authToken: this.secretDb(row.twilioAuthTokenEnc).value,
+      apiKeySid: row.twilioApiKeySid,
+      apiKeySecret: this.secretDb(row.twilioApiKeySecretEnc).value,
+      number: row.twilioNumber,
+      appSid: row.twilioAppSid,
+      record: row.twilioRecord,
+    };
+  }
+
+  async setTwilioAppSid(appSid: string | null): Promise<void> {
+    const orgId = this.tenant.orgId();
+    await this.prisma.integrationSetting.update({ where: { orgId }, data: { twilioAppSid: appSid } });
+    this.cache.delete(orgId);
+  }
+
+  /**
+   * Base pública de la API (`https://api.driony.com`): API_PUBLIC_URL o, en
+   * SaaS, `api.<dominio>`. Null si el servidor no sabe su propia dirección.
+   */
+  async publicApiBase(): Promise<string | null> {
+    return publicApiBase();
+  }
+
+  private async twilioWebhookBase(): Promise<string | null> {
+    const base = await this.publicApiBase();
+    if (!base) return null;
+    const org = await this.prisma.organization.findUnique({ where: { id: this.tenant.orgId() }, select: { slug: true } });
+    return org ? `${base}/api/v1/calls/twilio/${org.slug}` : null;
   }
 
   // ── Accesores para el resto de la app ───────────────────────
@@ -348,6 +410,16 @@ export class IntegrationSettingsService {
   }
 }
 
+export interface TwilioCreds {
+  accountSid: string | null;
+  authToken: string | null;
+  apiKeySid: string | null;
+  apiKeySecret: string | null;
+  number: string | null;
+  appSid: string | null;
+  record: boolean;
+}
+
 export interface OwnWhatsappApp {
   appId: string | null;
   appSecret: string | null;
@@ -362,4 +434,11 @@ type SettingsRow = {
   whatsappAppSecretEnc: string | null;
   whatsappVerifyTokenEnc: string | null;
   whatsappGraphVersion: string;
+  twilioAccountSid: string | null;
+  twilioAuthTokenEnc: string | null;
+  twilioApiKeySid: string | null;
+  twilioApiKeySecretEnc: string | null;
+  twilioNumber: string | null;
+  twilioAppSid: string | null;
+  twilioRecord: boolean;
 };

@@ -112,6 +112,12 @@ export class MediaUnderstandingService {
     return this.describe(file, m.type === "STICKER", conversationId);
   }
 
+  /** Transcribe un audio cualquiera (grabación de una llamada). Null si falla. */
+  async transcribeAudio(file: ReadFile, conversationId: string): Promise<string | null> {
+    const text = await this.transcribe(file, conversationId);
+    return text || null;
+  }
+
   // ── Audio → texto (OpenAI) ──────────────────────────────────
   private async transcribe(file: ReadFile, conversationId: string): Promise<string | null> {
     const creds = await this.settings.resolveFor("openai");

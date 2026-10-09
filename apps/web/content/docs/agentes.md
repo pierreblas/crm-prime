@@ -53,7 +53,8 @@ Usa tu propio modelo (Ajustes › Inteligencia Artificial) y conoce tu contexto 
 | Acción | Qué hace |
 |---|---|
 | `add_tag` / `remove_tag` | Etiqueta al contacto |
-| `move_deal_stage` | Mueve (o crea) su oportunidad en el embudo predeterminado |
+| `mark_lead` | Clasifica al contacto como **potencial**, **compra** o **perdido** y lo coloca en la etapa que tiene ese rol en su embudo (ver [Embudos](/docs/embudos)) |
+| `move_deal_stage` | Mueve (o crea) su oportunidad a una etapa concreta del embudo predeterminado |
 | `update_contact` | Actualiza la ficha y los campos personalizados |
 | `assign_to_seller` | Asigna un vendedor |
 | `send_product_image` | Envía la foto de un producto |
@@ -81,7 +82,7 @@ Además del agente que responde solo, Driony ayuda a tu equipo dentro de cada co
 
 ## Precios en varias monedas
 
-Cada producto tiene un **precio base** y, si quieres, **precios en otras monedas** (Productos › Editar › *Añadir precio en otra moneda*, o columnas `precio_USD`, `precio_MXN`… al importar un CSV). No hay conversión automática: el precio en cada moneda lo decides tú.
+Cada producto tiene un **precio base** y, si quieres, **precios en otras monedas** (Productos › Editar › *Añadir precio en otra moneda*, o columnas `price_USD`, `price_MXN`… al importar desde Excel o CSV). No hay conversión automática: el precio en cada moneda lo decides tú.
 
 A cada contacto se le cotiza en la moneda de **su país**, que Driony deduce del prefijo de su teléfono (+52 → México → MXN, +51 → Perú → PEN). Si hace falta otra, se cambia en su ficha (*País y moneda para cotizar*).
 
@@ -95,7 +96,7 @@ El catálogo sirve para productos, servicios, talleres o lo que vendas. En **Pro
 - **Tipos**: texto corto, texto largo, número (con unidad, como `min` o `cupos`), fecha, hora, sí / no, una opción de una lista, varias opciones y enlace.
 - **Configuración de cada campo**: texto de ayuda, obligatorio, si se ve en la tarjeta y si lo usa el agente de IA. Apaga esto último para datos internos, como el costo o el proveedor. El orden se cambia con las flechas.
 - **Ideas para empezar**: grupos listos para tiendas, servicios, talleres y uso interno. Un clic los añade y después se pueden cambiar.
-- **Importar por CSV**: añade una columna con el nombre del campo; la plantilla de ejemplo ya la incluye. Las fechas aceptan `31/12/2026`, los sí / no aceptan `si` o `no`, y en las listas se rechaza un valor que no esté entre las opciones.
+- **Importar desde Excel o CSV**: añade una columna con el nombre del campo; la plantilla de ejemplo (Excel o CSV, con productos en varias monedas) ya la incluye. Las columnas van en inglés (`name`, `sku`, `price`, `currency`, `description`, `image_url`, `active`), aunque los títulos en español también se reconocen. Las fechas aceptan `31/12/2026`, los sí / no aceptan `si` o `no`, y en las listas se rechaza un valor que no esté entre las opciones.
 - **Agente de IA**: recibe los campos visibles en `search_products` y también encuentra productos por ellos (por ejemplo, «taller los jueves»). Los campos internos no se le envían ni se usan para buscar.
 - Si borras un campo, sus valores no se pierden: reaparecen al volver a crearlo con el mismo nombre.
 

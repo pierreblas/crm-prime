@@ -16,6 +16,7 @@ import { BotService } from "./bot.service";
 import { AutopilotService } from "./autopilot.service";
 import { MediaUnderstandingService } from "./media-understanding.service";
 import { FlowEngineService } from "./flow-engine.service";
+import { StageAutomationsService } from "./stage-automations.service";
 
 // getDay(): 0=domingo … 6=sábado.
 
@@ -36,6 +37,7 @@ export class AutomationService {
     private readonly messaging: MessagingService,
     private readonly autopilot: AutopilotService,
     private readonly flows: FlowEngineService,
+    private readonly stageAutomations: StageAutomationsService,
     private readonly media: MediaUnderstandingService,
   ) {}
 
@@ -53,7 +55,7 @@ export class AutomationService {
       // Un flujo "al iniciar conversación" tiene prioridad sobre el bot.
       if (await this.flows.onCreated(conversationId)) return;
 
-      const bot = await this.bots.resolveForChannel(convo.channelId);
+      const bot = await this.bots.resolveForConversation(convo);
       if (!bot) return;
 
       if (bot.autopilotByDefault && convo.aiMode !== AiMode.AUTOPILOT) {
@@ -95,8 +97,10 @@ export class AutomationService {
 
       // Prioridad máxima: si hay un flujo activo/disparado, lo maneja el motor.
       if (await this.flows.onInbound(conversationId)) return;
+      // Después, las automatizaciones «llega un mensaje» de su etapa del embudo.
+      if (await this.stageAutomations.onInbound(conversationId)) return;
 
-      const bot = await this.bots.resolveForChannel(convo.channelId);
+      const bot = await this.bots.resolveForConversation(convo);
 
       // Último texto entrante del contacto.
       const lastInbound = await this.prisma.message.findFirst({

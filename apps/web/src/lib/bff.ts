@@ -49,6 +49,9 @@ import type {
   PipelineSummaryDto,
   PipelineView,
   StageDto,
+  StageAutomationDto,
+  CreateStageAutomationInput,
+  UpdateStageAutomationInput,
   DealDto,
   MessageDto,
   NoteDto,
@@ -137,6 +140,12 @@ import type {
   ConnectTicketResult,
   ConnectHubStatus,
   UnreadCount,
+  CallDto,
+  CallToken,
+  CallsConfig,
+  CreateManualCallInput,
+  UpdateCallInput,
+  TwilioProvisionResult,
 } from "@crm/shared";
 
 // Fetchers del lado del cliente: llaman al BFF (mismo origen, cookie httpOnly).
@@ -532,6 +541,54 @@ export async function deleteWebhookOut(id: string): Promise<void> {
 export async function testWebhookOut(id: string): Promise<WebhookTestResult> {
   const res = await bffFetch(`/api/bff/webhooks-out/${id}/test`, { method: "POST" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo probar"));
+  return res.json();
+}
+
+// ── Llamadas telefónicas ─────────────────────────────────────
+export async function fetchCallsConfig(): Promise<CallsConfig> {
+  const res = await bffFetch("/api/bff/calls/config");
+  if (!res.ok) throw new Error("No se pudo saber si hay llamadas configuradas");
+  return res.json();
+}
+
+export async function fetchCallToken(): Promise<CallToken> {
+  const res = await bffFetch("/api/bff/calls/token", { method: "POST" });
+  if (!res.ok) throw new Error(await bffError(res, "No se pudo iniciar el teléfono"));
+  return res.json();
+}
+
+export async function fetchCalls(filter: { conversationId?: string; contactId?: string }): Promise<CallDto[]> {
+  const sp = new URLSearchParams();
+  if (filter.conversationId) sp.set("conversationId", filter.conversationId);
+  if (filter.contactId) sp.set("contactId", filter.contactId);
+  const res = await bffFetch(`/api/bff/calls?${sp.toString()}`);
+  if (!res.ok) throw new Error("No se pudieron cargar las llamadas");
+  return res.json();
+}
+
+export async function logManualCall(input: CreateManualCallInput): Promise<CallDto> {
+  const res = await bffFetch("/api/bff/calls", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await bffError(res, "No se pudo registrar la llamada"));
+  return res.json();
+}
+
+export async function updateCall(idOrSid: string, input: UpdateCallInput): Promise<CallDto> {
+  const res = await bffFetch(`/api/bff/calls/${encodeURIComponent(idOrSid)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await bffError(res, "No se pudo guardar la llamada"));
+  return res.json();
+}
+
+export async function provisionTwilio(): Promise<TwilioProvisionResult> {
+  const res = await bffFetch("/api/bff/calls/provision", { method: "POST" });
+  if (!res.ok) throw new Error(await bffError(res, "No se pudo activar Twilio"));
   return res.json();
 }
 
@@ -1574,6 +1631,44 @@ export async function updateStage(
   });
   if (!res.ok) throw new Error("No se pudo guardar la etapa");
   return res.json();
+}
+
+// ── Automatizaciones de etapa ──
+export async function createStageAutomation(
+  stageId: string,
+  input: CreateStageAutomationInput,
+): Promise<StageAutomationDto> {
+  const res = await bffFetch(`/api/bff/stages/${stageId}/automations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const b = (await res.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(b?.message ?? "No se pudo crear la automatización");
+  }
+  return res.json();
+}
+
+export async function updateStageAutomation(
+  id: string,
+  input: UpdateStageAutomationInput,
+): Promise<StageAutomationDto> {
+  const res = await bffFetch(`/api/bff/stage-automations/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const b = (await res.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(b?.message ?? "No se pudo guardar la automatización");
+  }
+  return res.json();
+}
+
+export async function deleteStageAutomation(id: string): Promise<void> {
+  const res = await bffFetch(`/api/bff/stage-automations/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("No se pudo eliminar la automatización");
 }
 
 export async function deleteStage(id: string): Promise<void> {
