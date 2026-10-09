@@ -22,6 +22,7 @@ import {
   type Weekday,
   DEFAULT_HANDOFF_MESSAGE,
   type FlowRule,
+  normalizeKeywordTrigger,
 } from "@crm/shared";
 import type { PromptAssistantTarget } from "@crm/shared";
 import { createBot, fetchAgents, fetchCustomFields, fetchSources, fetchStages, fetchTags, fetchWhatsappChannels, updateBot } from "@/lib/bff";
@@ -174,7 +175,7 @@ function toForm(bot: BotDto | null): Form {
     welcomeMessage: bot.welcomeMessage ?? "",
     businessHoursEnabled: bot.businessHoursEnabled,
     businessHours: bot.businessHours ?? defaultHours(),
-    keywordTriggers: bot.keywordTriggers,
+    keywordTriggers: bot.keywordTriggers.map(normalizeKeywordTrigger),
   };
 }
 
@@ -1210,7 +1211,8 @@ function KeywordVariantsEditor({
   onChange: (v: KeywordVariant[]) => void;
   lookups: RuleLookups;
 }) {
-  const usedCountries = new Set(value.flatMap((v) => v.rules.filter((r) => r.field === "country" && r.op === "is").map((r) => r.value ?? "")));
+  const rulesOf = (v: KeywordVariant): FlowRule[] => (Array.isArray(v.rules) ? v.rules : []);
+  const usedCountries = new Set(value.flatMap((v) => rulesOf(v).filter((r) => r.field === "country" && r.op === "is").map((r) => r.value ?? "")));
   const nextCountry = [...PREFERRED_COUNTRIES, ...COUNTRIES.map((c) => c.code)].find((code) => !usedCountries.has(code)) ?? "PE";
   const update = (i: number, patch: Partial<KeywordVariant>) => onChange(value.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
   return (
@@ -1219,10 +1221,10 @@ function KeywordVariantsEditor({
         <div key={i} className="agent-variant" data-variant={`${index}-${i}`}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ ...lbl, marginBottom: 0 }}>
-              Versión {i + 1} · {v.rules.map((r) => describeRule(r, lookups)).join((v.match ?? "all") === "any" ? " o " : " y ")}
+              Versión {i + 1} · {rulesOf(v).map((r) => describeRule(r, lookups)).join((v.match ?? "all") === "any" ? " o " : " y ")}
             </span>
             <span style={{ flex: 1 }} />
-            {v.rules.length > 1 && (
+            {rulesOf(v).length > 1 && (
               <div className="seg" role="tablist" aria-label={`Respuesta ${index + 1}, versión ${i + 1}: cómo se combinan`}>
                 <button type="button" role="tab" aria-selected={(v.match ?? "all") === "all"} onClick={() => update(i, { match: "all" })}>
                   todas
@@ -1241,22 +1243,22 @@ function KeywordVariantsEditor({
               <NavIcon name="x" size={13} />
             </button>
           </div>
-          {v.rules.map((r, ri) => (
+          {rulesOf(v).map((r, ri) => (
             <RuleRow
               key={r.id}
               rule={r}
               lookups={lookups}
-              onChange={(p) => update(i, { rules: v.rules.map((x, idx) => (idx === ri ? { ...x, ...p } : x)) })}
+              onChange={(p) => update(i, { rules: rulesOf(v).map((x, idx) => (idx === ri ? { ...x, ...p } : x)) })}
               onRemove={() =>
-                v.rules.length > 1
-                  ? update(i, { rules: v.rules.filter((_, idx) => idx !== ri) })
+                rulesOf(v).length > 1
+                  ? update(i, { rules: rulesOf(v).filter((_, idx) => idx !== ri) })
                   : onChange(value.filter((_, idx) => idx !== i))
               }
             />
           ))}
           <button
             type="button"
-            onClick={() => update(i, { rules: [...v.rules, newRule("tag", "is", "")] })}
+            onClick={() => update(i, { rules: [...rulesOf(v), newRule("tag", "is", "")] })}
             style={{ ...ghostBtn, ...smBtn, alignSelf: "flex-start" }}
             aria-label={`Respuesta ${index + 1}, versión ${i + 1}: añadir condición`}
           >

@@ -13,6 +13,7 @@ import type {
   KeywordTrigger,
   UpdateBotInput,
 } from "@crm/shared";
+import { normalizeKeywordTrigger } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { AgentActionsService } from "./agent-actions.service";
@@ -293,7 +294,8 @@ export class BotService {
       welcomeMessage: c.welcomeMessage,
       businessHoursEnabled: c.businessHoursEnabled,
       businessHours: (c.businessHours as BusinessHours | null) ?? null,
-      keywordTriggers: (c.keywordTriggers as KeywordTrigger[] | null) ?? [],
+      // Formatos anteriores de las versiones por palabra clave → condiciones.
+      keywordTriggers: ((c.keywordTriggers as KeywordTrigger[] | null) ?? []).map(normalizeKeywordTrigger),
       createdAt: c.createdAt.toISOString(),
     };
   }

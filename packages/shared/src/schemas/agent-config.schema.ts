@@ -73,6 +73,33 @@ export const keywordTriggerSchema = z.object({
 });
 export type KeywordTrigger = z.infer<typeof keywordTriggerSchema>;
 
+/**
+ * Lo guardado puede venir del formato anterior de las versiones (`{ country,
+ * value }`) o sin `rules`: se convierte a condiciones para que ni la API ni
+ * el editor tengan que distinguir. Lo irreconocible se descarta.
+ */
+export function normalizeKeywordVariant(raw: unknown): KeywordVariant | null {
+  if (!raw || typeof raw !== "object") return null;
+  const v = raw as { rules?: unknown; match?: unknown; value?: unknown; country?: unknown };
+  const value = typeof v.value === "string" ? v.value : "";
+  if (Array.isArray(v.rules)) {
+    const rules = v.rules.filter((r) => flowRuleSchema.safeParse(r).success) as KeywordVariant["rules"];
+    if (!rules.length) return null;
+    return { rules, match: v.match === "any" ? "any" : "all", value };
+  }
+  if (typeof v.country === "string" && v.country.length === 2) {
+    return { rules: [{ id: `r_country_${v.country}`, field: "country", op: "is", value: v.country }], match: "all", value };
+  }
+  return null;
+}
+
+export function normalizeKeywordTrigger(raw: KeywordTrigger): KeywordTrigger {
+  const variants = Array.isArray(raw.variants)
+    ? (raw.variants as unknown[]).map(normalizeKeywordVariant).filter((v): v is KeywordVariant => v !== null)
+    : [];
+  return { ...raw, variants };
+}
+
 // Configuración del agente que devuelve la API (compat: bot por defecto).
 export const agentConfigSchema = z.object({
   id: z.string(),

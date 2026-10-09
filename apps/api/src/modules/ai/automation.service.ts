@@ -8,6 +8,7 @@ import {
   type BusinessHours,
   type KeywordTrigger,
   type Weekday,
+  normalizeKeywordTrigger,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { isWithinHours } from "../../common/utils/business-hours";
@@ -187,7 +188,7 @@ export class AutomationService {
     if (trigger.action === "reply") {
       // La primera versión cuyas condiciones se cumplen (país, etiqueta,
       // etapa…); si ninguna, el texto general.
-      for (const v of trigger.variants ?? []) {
+      for (const v of normalizeKeywordTrigger(trigger).variants ?? []) {
         if (await this.flows.rulesMatch(conversationId, v.rules, v.match ?? "all", inboundText)) {
           text = v.value.trim();
           break;
