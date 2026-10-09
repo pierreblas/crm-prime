@@ -1,6 +1,13 @@
 import { Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
-import { contactCurrency, countryFromPhone, estimateAiCost, formatFieldValue, priceFor } from "@crm/shared";
+import {
+  contactCurrency,
+  countryFromPhone,
+  estimateAiCost,
+  formatFieldValue,
+  HANDOFF_REASON_MEDIA,
+  priceFor,
+} from "@crm/shared";
 import type {
   AiSuggestion,
   Classification,
@@ -57,7 +64,7 @@ export class AgentService {
     // El agente de su embudo, el del número, o el predeterminado.
     const config = await this.bots.resolveForConversation(conversation);
 
-    const system = this.buildSystem(config?.systemPrompt, conversation.contact);
+    const system = this.buildSystem(config?.systemPrompt, conversation.contact, config?.enabledTools ?? []);
     const messages = await this.buildHistory(conversationId);
     // Las acciones necesitan los valores reales (etiquetas, etapas, vendedores)
     // para que el modelo elija de una lista cerrada en vez de inventarlos.
@@ -233,10 +240,16 @@ export class AgentService {
 
     // Reglas de escalado configuradas en el bot.
     if (!escalate) {
+      const lastInboundRow = await this.prisma.message.findFirst({
+        where: { conversationId, direction: "INBOUND" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { type: true },
+      });
       const rule = this.checkEscalationRules(
         (config?.escalationRules as EscalationRules | null) ?? null,
         classification,
         lastUserText,
+        lastInboundRow?.type ?? null,
       );
       if (rule) {
         escalate = true;
@@ -442,8 +455,14 @@ export class AgentService {
     rules: EscalationRules | null,
     classification: Classification | null,
     lastUserText: string,
+    lastInboundType: string | null = null,
   ): string | null {
     if (!rules) return null;
+
+    // Imagen o documento (comprobantes, recetas, formularios): lo valida una persona.
+    if (rules.onMedia && (lastInboundType === "IMAGE" || lastInboundType === "DOCUMENT")) {
+      return HANDOFF_REASON_MEDIA;
+    }
 
     // Palabras que piden humano explícitamente ("quiero hablar con un agente").
     const keywords = (rules.keywords ?? [])
@@ -760,6 +779,7 @@ export class AgentService {
   private buildSystem(
     base: string | undefined,
     contact: { name: string | null; phone: string; currency?: string | null; aiMemory?: unknown },
+    enabledTools: string[] = [],
   ): string {
     const country = countryFromPhone(contact.phone);
     const memory = memoryText(contact.aiMemory);
@@ -774,7 +794,12 @@ export class AgentService {
       base ?? fallback,
       `\n\nContacto actual: ${contact.name ?? "(sin nombre)"} (${contact.phone}).${where}`,
       memory ? `\n\nLo que sabemos de este cliente (de conversaciones anteriores):\n${memory}` : "",
-      "Devuelve únicamente el texto de la respuesta sugerida, sin prefijos como 'Respuesta:'.",
+      "\n\nSi un mensaje del cliente aparece como [imagen], [documento] o [audio] sin descripción, no pudiste verlo ni oírlo: dilo con naturalidad y pídele que te cuente qué es (o pásalo a una persona si parece un comprobante o un documento importante).",
+      // Decir «te paso con una persona» no pasa nada: hay que llamar a la herramienta.
+      enabledTools.includes("handoff_to_human")
+        ? "\n\nPara pasar el chat a una persona no basta con decirlo: llama a la herramienta handoff_to_human en ese mismo turno (puedes escribir tu despedida y llamarla a la vez). Sin esa llamada, el chat sigue contigo."
+        : "",
+      "\n\nDevuelve únicamente el texto de la respuesta sugerida, sin prefijos como 'Respuesta:'.",
     ].join("");
   }
 

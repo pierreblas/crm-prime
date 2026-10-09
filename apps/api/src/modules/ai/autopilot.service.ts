@@ -9,6 +9,7 @@ import {
   DEFAULT_HANDOFF_MESSAGE,
   MessageAuthor,
   MessageType,
+  HANDOFF_REASON_MEDIA,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { MessagingService } from "../messaging/messaging.service";
@@ -132,7 +133,13 @@ export class AutopilotService {
    * de 24 h sigue abierta) y el equipo ve una nota con el motivo. Una vez por
    * conversación: si ya avisó, no repite.
    */
-  private async handoff(conversationId: string, orgId: string, reason: string, windowOpen: boolean): Promise<void> {
+  private async handoff(
+    conversationId: string,
+    orgId: string,
+    reason: string,
+    sendNotice: boolean,
+    contact: { name: string | null; phone: string },
+  ): Promise<void> {
     try {
       const convo = await this.prisma.conversation.findUnique({
         where: { id: conversationId },
@@ -148,13 +155,19 @@ export class AutopilotService {
             select: { id: true },
           })
         : null;
-      if (text && windowOpen && !already) {
+      if (text && sendNotice && !already) {
         await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text }, MessageAuthor.AI);
       }
       const author =
         (await this.prisma.user.findFirst({ where: { orgId, role: "ADMIN" }, orderBy: { createdAt: "asc" } })) ??
         (await this.prisma.user.findFirst({ where: { orgId }, orderBy: { createdAt: "asc" } }));
       if (author) await this.messaging.addNote(conversationId, author.id, `🤖 La IA pasó el chat a una persona. Motivo: ${reason}`);
+      // Aviso en la bandeja de quien esté conectado (y notificación del navegador).
+      this.events.emit("inbox.changed", {
+        conversationId,
+        orgId,
+        handoff: { contactName: contact.name ?? contact.phone, reason },
+      });
     } catch (e) {
       this.logger.warn(`Aviso de traspaso en ${conversationId} falló: ${(e as Error).message}`);
     }
@@ -203,8 +216,19 @@ export class AutopilotService {
         }
         const reason = res.escalationReason ?? "La IA no tuvo una respuesta.";
         this.logger.log(`Autopilot escaló ${conversationId}: ${reason}`);
-        // Que el cliente no se quede en silencio, y que el equipo sepa por qué.
-        await this.handoff(conversationId, convo.orgId, reason, res.windowOpen);
+        // Si la IA usó handoff_to_human y además redactó su despedida («una
+        // persona validará tu pago…»), se envía esa: es lo que pidió el prompt.
+        const ownGoodbye =
+          !!res.suggestion?.trim() &&
+          (res.toolsUsed.includes("handoff_to_human") || res.escalationReason === HANDOFF_REASON_MEDIA);
+        if (ownGoodbye && res.windowOpen) {
+          await this.messaging.queueOutbound(
+            { conversationId, type: MessageType.TEXT, text: res.suggestion!.trim() },
+            MessageAuthor.AI,
+          );
+        }
+        // Si no, el aviso configurado; y en todo caso, nota y aviso al equipo.
+        await this.handoff(conversationId, convo.orgId, reason, res.windowOpen && !ownGoodbye, convo.contact);
         return;
       }
 

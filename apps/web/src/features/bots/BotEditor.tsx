@@ -70,6 +70,7 @@ type Form = {
   isActive: boolean;
   channelId: string | null;
   escalateOnNegativeSentiment: boolean;
+  handoffOnMedia: boolean;
   minConfidence: number;
   handoffMessage: string;
   keywords: string;
@@ -143,6 +144,7 @@ function toForm(bot: BotDto | null): Form {
       isActive: true,
       channelId: null,
       escalateOnNegativeSentiment: true,
+      handoffOnMedia: false,
       minConfidence: 0.75,
       handoffMessage: DEFAULT_HANDOFF_MESSAGE,
       keywords: "humano, persona, asesor, reclamo",
@@ -166,6 +168,7 @@ function toForm(bot: BotDto | null): Form {
     isActive: bot.isActive,
     channelId: bot.channelId,
     escalateOnNegativeSentiment: bot.escalationRules.escalateOnNegativeSentiment ?? false,
+    handoffOnMedia: bot.escalationRules.onMedia ?? false,
     minConfidence: bot.escalationRules.minConfidence ?? 0.6,
     handoffMessage: bot.escalationRules.handoffMessage ?? DEFAULT_HANDOFF_MESSAGE,
     keywords: (bot.escalationRules.keywords ?? []).join(", "),
@@ -315,6 +318,7 @@ export function BotEditor({
         keywordTriggers: form.keywordTriggers.filter((t) => t.keywords.length > 0),
         escalationRules: {
           escalateOnNegativeSentiment: form.escalateOnNegativeSentiment,
+          onMedia: form.handoffOnMedia,
           minConfidence: Number(form.minConfidence),
           handoffMessage: form.handoffMessage.trim(),
           keywords: form.keywords
@@ -520,6 +524,7 @@ export function BotEditor({
                   </li>
                 ))}
               </ul>
+              <ToolNamesHelp tools={availableTools.filter((t) => form.enabledTools.includes(t.name))} />
             </Card>
           </>
         )}
@@ -652,6 +657,13 @@ export function BotEditor({
               onChange={(v) => set("escalateOnNegativeSentiment", v)}
               label="Pasar siempre el chat si el cliente está molesto"
               hint="Un cliente enfadado rara vez se calma con un bot. Recomendado."
+            />
+
+            <Switch
+              checked={form.handoffOnMedia}
+              onChange={(v) => set("handoffOnMedia", v)}
+              label="Pasar siempre el chat cuando el cliente envía una imagen o un documento"
+              hint="Comprobantes de pago, recetas, formularios… La IA responde lo que le hayas indicado (por ejemplo, que una persona validará el pago) y el chat pasa a Pendiente para que alguien lo revise. Es la forma segura: no depende de que la IA decida pasarlo."
             />
 
             <div style={field}>
@@ -922,6 +934,75 @@ function Switch({ checked, onChange, label, hint }: { checked: boolean; onChange
 
 // Una acción sin datos (p. ej. sin etiquetas creadas) se puede activar igual,
 // pero se avisa de que no hará nada hasta configurarla.
+function copyToolName(name: string): void {
+  const legacy = (): boolean => {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = name;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const done = document.execCommand("copy");
+      ta.remove();
+      return done;
+    } catch {
+      return false;
+    }
+  };
+  const finish = (done: boolean) => (done ? toast.success(`«${name}» copiado`) : toast.error("No se pudo copiar"));
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(name).then(() => finish(true), () => finish(legacy()));
+  } else {
+    finish(legacy());
+  }
+}
+
+/**
+ * Cómo referirse a las acciones en las instrucciones: la IA las conoce por su
+ * nombre técnico, no por la etiqueta de la pantalla.
+ */
+function ToolNamesHelp({ tools }: { tools: AgentToolInfo[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="agent-toolnames" data-tour="agents-toolnames">
+      <button type="button" className="agent-toolnames__toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <NavIcon name="bolt" size={13} />
+        Cómo nombrar sus acciones en las instrucciones
+        <span style={{ marginLeft: "auto", display: "inline-flex", transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }}>
+          <NavIcon name="arrow-down" size={11} />
+        </span>
+      </button>
+      {open && (
+        <div className="agent-toolnames__body">
+          {tools.length === 0 ? (
+            <p>Este agente no tiene acciones activas. Actívalas en la pestaña «Qué puede hacer».</p>
+          ) : (
+            <>
+              <p>
+                La IA conoce cada acción por su nombre técnico. Para que la use en un caso concreto, nómbrala así,
+                por ejemplo: «usa la herramienta <code>{tools.find((t) => t.name === "handoff_to_human")?.name ?? tools[0]!.name}</code> con el motivo…».
+              </p>
+              <ul>
+                {tools.map((t) => (
+                  <li key={t.name}>
+                    <code>{t.name}</code>
+                    <span>{TOOL_COPY[t.name]?.title ?? t.label}</span>
+                    <button type="button" onClick={() => copyToolName(t.name)} aria-label={`Copiar el nombre ${t.name}`}>
+                      <NavIcon name="copy" size={11} /> copiar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ToolRow({ tool, checked, onToggle }: { tool: AgentToolInfo; checked: boolean; onToggle: () => void }) {
   const copy = TOOL_COPY[tool.name];
   return (
@@ -935,6 +1016,20 @@ function ToolRow({ tool, checked, onToggle }: { tool: AgentToolInfo; checked: bo
           {copy?.recommended && <em>Recomendado</em>}
         </strong>
         {copy && <small>{copy.desc}</small>}
+        <span className="agent-tool__name" title="Así se llama para la IA: úsalo en «Cómo debe atender»">
+          <code>{tool.name}</code>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              copyToolName(tool.name);
+            }}
+            aria-label={`Copiar el nombre ${tool.name}`}
+          >
+            <NavIcon name="copy" size={11} /> copiar
+          </button>
+        </span>
         {tool.unavailableReason && (
           <span className="agent-tool__warn">
             <NavIcon name="alert" size={13} />

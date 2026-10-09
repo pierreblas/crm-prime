@@ -9,6 +9,8 @@ export interface InboundMessageJob {
   type: MessageType;
   text?: string;
   mediaId?: string;
+  /** Medio ya guardado en el almacén (simulador de desarrollo): no hay nada que descargar de Meta. */
+  mediaUrl?: string;
   /** Identificador del botón que pulsó el contacto (plantilla o interactivo). */
   buttonPayload?: string;
   // Anuncio que originó la conversación (solo en el primer mensaje).

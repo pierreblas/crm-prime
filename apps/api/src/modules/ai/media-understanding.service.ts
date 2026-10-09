@@ -25,6 +25,9 @@ const LABEL: Record<string, string> = {
   LOCATION: "ubicación",
 };
 
+// Respuestas típicas de un modelo que no recibió la imagen (texto en vez de descripción).
+const VISION_REFUSAL = /no puedo ayudar con es[ao]|no puedo (ver|procesar|analizar|acceder a|visualizar)|no tengo (la )?capacidad de ver|can('|’)?t (see|view|process|analyze)|cannot (see|view|process|analyze)|unable to (see|view|process)|proporciona una descripci/i;
+
 const IMAGE_PROMPT =
   "Un cliente envió esta imagen por WhatsApp a un negocio. Describe en español, en una o dos frases, qué muestra. " +
   "Si tiene texto legible (comprobante de pago, pedido, dirección, captura de pantalla), transcribe los datos importantes: importes, nombres, números, fechas. Sin preámbulos.";
@@ -92,6 +95,12 @@ export class MediaUnderstandingService {
       return;
     }
     if (result === null) return;
+    // Un modelo (o una clave de un proveedor intermedio) que no ve imágenes contesta
+    // «no puedo ver la imagen»: eso no es una descripción y confundiría al agente.
+    if (result && m.type !== "AUDIO" && VISION_REFUSAL.test(result)) {
+      this.logger.warn(`El modelo de visión no vio el ${m.type} ${m.id} («${result.slice(0, 60)}»): revisa el proveedor o el modelo de IA`);
+      result = "";
+    }
     // "" = no se puede (sin clave, formato no admitido): se guarda para no reintentar.
     await this.prisma.message.update({ where: { id: m.id }, data: { transcript: result } });
     if (result) {

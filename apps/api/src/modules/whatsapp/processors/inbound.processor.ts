@@ -125,7 +125,7 @@ export class InboundProcessor extends WorkerHost {
     }
 
     // Mensaje entrante: si trae medio, descargarlo antes de persistir.
-    let mediaUrl: string | undefined;
+    let mediaUrl: string | undefined = data.mediaUrl;
     if (data.mediaId) {
       const media = await this.wa.downloadMedia(
         data.mediaId,

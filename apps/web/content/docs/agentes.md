@@ -60,7 +60,7 @@ Usa tu propio modelo (Ajustes › Inteligencia Artificial) y conoce tu contexto 
 | `update_contact` | Actualiza la ficha y los campos personalizados |
 | `assign_to_seller` | Asigna un vendedor |
 | `send_product_image` | Envía la foto de un producto |
-| `handoff_to_human` | Se rinde y pasa la conversación a una persona |
+| `handoff_to_human` | Pasa la conversación a una persona: el chat queda *Pendiente*, el equipo recibe un aviso y una nota con el motivo, y el cliente recibe la despedida que la IA redactó (o el aviso configurado en *Cuándo te pasa el chat*) |
 
 En Copilot las acciones quedan pendientes de aprobación; en Autopilot se aplican solas.
 
@@ -81,6 +81,18 @@ Además del agente que responde solo, Driony ayuda a tu equipo dentro de cada co
 - **Preguntas sin respuesta**: la IA lee las conversaciones de los últimos 30 días y detecta lo que tus clientes preguntan y tu conocimiento no cubre, con una respuesta propuesta a partir de cómo contestó tu equipo. La revisas, la apruebas y el agente la usa desde ese momento. Lo que descartas no vuelve a salir.
 - **Importar web**: pega la dirección de tu página de preguntas frecuentes o de envíos (y, si quieres, las del mismo sitio que enlaza). Volver a importarla la actualiza.
 - La búsqueda del conocimiento también usa tu clave de OpenAI. Si cambias de proveedor, Driony te avisa para **reindexar** los documentos.
+
+## Pedirle que pase el chat
+
+Para que el agente se retire en un caso concreto, díselo en **Cómo debe atender** y deja activada la acción `handoff_to_human` en *Qué puede hacer*. Cada acción muestra ahí su **nombre técnico** (con botón de copiar), que es como la IA la conoce; en «Cómo debe atender» hay un desplegable, *Cómo nombrar sus acciones en las instrucciones*, con los de las acciones activas. Por ejemplo, para comprobantes de pago:
+
+> Cuando el cliente envíe un comprobante de pago (foto o captura de una transferencia, Yape, Plin o similar): agradece, dile que una persona del equipo validará el pago en unos minutos y usa la herramienta handoff_to_human con el motivo «comprobante de pago». No confirmes tú el pago ni des por entregado nada.
+
+Al hacerlo, el cliente recibe exactamente lo que la IA redactó («Gracias, una persona validará tu pago…»), la conversación pasa a **Pendiente**, el equipo ve un aviso en la bandeja y una nota interna con el motivo.
+
+Como la IA puede decirlo y olvidarse de llamar a la herramienta, para los comprobantes conviene además la opción **«Pasar siempre el chat cuando el cliente envía una imagen o un documento»** (*Cuándo te pasa el chat*): es determinista. La IA sigue contestando lo que le indicaste y el chat pasa a Pendiente en cuanto llega la imagen. Si la IA se retira sin haber escrito nada (reglas de escalado, cliente molesto, no sabe qué responder), el cliente recibe el aviso de *Cuándo te pasa el chat*.
+
+Las **imágenes** que manda el cliente se describen antes de responder (con la misma clave de IA del agente), así la IA sabe que es un comprobante, una foto del producto o una captura; los audios se transcriben. Hace falta una clave con visión: OpenAI (gpt-4o-mini o superior) o Anthropic. Si la clave viene de un proveedor intermedio que no la ofrece, la IA verá «[imagen]» sin descripción, lo dirá y pedirá al cliente que le cuente qué es; en el registro de la API aparece el aviso «El modelo de visión no vio…».
 
 ## Precios en varias monedas
 

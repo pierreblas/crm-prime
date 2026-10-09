@@ -130,6 +130,7 @@ export const es: Messages = {
   },
   alerts: {
     newMessage: "Nuevo mensaje de {name}",
+    aiHandoff: "La IA te pasó el chat de {name}",
   },
   // Llamadas telefónicas
   calls: {

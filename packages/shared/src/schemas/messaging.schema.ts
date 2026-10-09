@@ -56,13 +56,17 @@ export const sendTemplateMessageSchema = z.object({
 export type SendTemplateMessageInput = z.infer<typeof sendTemplateMessageSchema>;
 
 // ── Simular un mensaje entrante (solo dev) ──────────────────
-export const simulateInboundSchema = z.object({
-  // Normalizado igual que la entrada real de Meta, para que simular no cree
-  // contactos con un formato distinto al de producción.
-  phone: phoneField,
-  name: z.string().optional(),
-  text: z.string().min(1),
-});
+export const simulateInboundSchema = z
+  .object({
+    // Normalizado igual que la entrada real de Meta, para que simular no cree
+    // contactos con un formato distinto al de producción.
+    phone: phoneField,
+    name: z.string().optional(),
+    text: z.string().optional(),
+    /** Imagen adjunta: URL http(s) o data:image/...;base64,… (como si el cliente la mandara). */
+    image: z.string().max(5_000_000).optional(),
+  })
+  .refine((b) => (b.text ?? "").trim() || b.image, { message: "Indica text o image" });
 export type SimulateInboundInput = z.infer<typeof simulateInboundSchema>;
 
 // ── DTOs de salida ──────────────────────────────────────────

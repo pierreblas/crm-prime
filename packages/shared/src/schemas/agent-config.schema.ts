@@ -11,7 +11,12 @@ export const escalationRulesSchema = z.object({
   keywords: z.array(z.string()).optional(),
   /** Lo que recibe el cliente cuando la IA le pasa el chat a una persona (vacío = nada). */
   handoffMessage: z.string().max(1000).optional(),
+  /** Pasar el chat siempre que el cliente envíe una imagen o un documento (comprobantes, recetas…). */
+  onMedia: z.boolean().optional(),
 });
+
+/** Motivo fijo de la regla «imagen o documento»: el autopilot lo reconoce para enviar la respuesta de la IA. */
+export const HANDOFF_REASON_MEDIA = "El cliente envió una imagen o documento: lo revisa una persona.";
 
 /** Aviso por defecto al pasar el chat: que el cliente no se quede en silencio. */
 export const DEFAULT_HANDOFF_MESSAGE = "Un momento, por favor: te paso con una persona del equipo para ayudarte con esto.";

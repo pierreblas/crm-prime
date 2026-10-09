@@ -3538,3 +3538,20 @@ code {
   border: 1px solid var(--border);
   background: color-mix(in oklab, var(--accent) 5%, transparent);
 }
+
+/* ── Agente de IA: nombre técnico de cada acción ───────────── */
+.agent-tool__name { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 11.5px; color: var(--muted); }
+.agent-tool__name code,
+.agent-toolnames code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; padding: 1px 6px; border-radius: 6px; background: var(--field); color: var(--accent-text); }
+.agent-tool__name button,
+.agent-toolnames li button { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
+.agent-tool__name button:hover,
+.agent-toolnames li button:hover { color: var(--text); border-color: var(--border-strong); }
+.agent-toolnames { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.agent-toolnames__toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 12px; background: transparent; border: 0; color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; text-align: left; }
+.agent-toolnames__body { padding: 0 12px 12px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.agent-toolnames__body p { margin: 0 0 8px; }
+.agent-toolnames__body ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.agent-toolnames__body li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.agent-toolnames__body li code { display: inline-block; min-width: 176px; text-align: left; }
+.agent-toolnames__body li span { flex: 1; min-width: 120px; color: var(--text); }

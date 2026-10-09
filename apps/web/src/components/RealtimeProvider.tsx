@@ -110,11 +110,15 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
   const { connected } = useRealtime({
     "inbox.changed": (payload) => {
-      const p = payload as { conversationId: string; inbound?: { contactName: string; preview: string } };
+      const p = payload as { conversationId: string; inbound?: { contactName: string; preview: string }; handoff?: { contactName: string; reason: string } };
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       queryClient.invalidateQueries({ queryKey: ["messages", p.conversationId] });
       queryClient.invalidateQueries({ queryKey: ["unread-count"] });
       if (p.inbound) avisarRef.current(p.conversationId, p.inbound);
+      if (p.handoff) {
+        const h = p.handoff as { contactName: string; reason: string };
+        toast.info(`${t("alerts.aiHandoff", { name: h.contactName })}: ${h.reason}`, { href: `/?c=${p.conversationId}`, ms: 9000 });
+      }
     },
     "ai.typing": (payload) => {
       const { conversationId, on } = payload as { conversationId: string; on: boolean };

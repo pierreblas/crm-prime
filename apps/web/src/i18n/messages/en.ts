@@ -131,6 +131,7 @@ export const en = {
   },
   alerts: {
     newMessage: "New message from {name}",
+    aiHandoff: "The AI handed {name}'s chat to you",
   },
   // Llamadas telefónicas
   calls: {
