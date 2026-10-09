@@ -581,6 +581,9 @@ model Conversation {
   windowExpiresAt DateTime? // ventana de 24h de WhatsApp
   aiMode          AiMode             @default(COPILOT)
   aiPausedUntil   DateTime? // si un humano interviene, la IA se pausa hasta esta hora
+  // La IA pasó el chat a una persona: cuándo y por qué. Se limpia al atenderlo.
+  handoffAt       DateTime?
+  handoffReason   String?
   // Anuncio Click-to-WhatsApp que abrió ESTA conversación (payload `referral`
   // de Meta: id del anuncio, ctwa_clid, titular…). Null si no vino de un anuncio.
   referral        Json?

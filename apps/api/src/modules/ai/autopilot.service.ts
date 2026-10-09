@@ -143,9 +143,19 @@ export class AutopilotService {
     try {
       const convo = await this.prisma.conversation.findUnique({
         where: { id: conversationId },
-        select: { channelId: true, contactId: true },
+        select: { channelId: true, contactId: true, aiMode: true },
       });
       if (!convo) return;
+      // Queda constancia de quién lo pasó y por qué, y la IA deja de responder
+      // sola (pasa a Copilot: sigue sugiriendo) hasta que alguien lo atienda.
+      await this.prisma.conversation.update({
+        where: { id: conversationId },
+        data: {
+          handoffAt: new Date(),
+          handoffReason: reason.slice(0, 500),
+          ...(convo.aiMode === AiMode.AUTOPILOT ? { aiMode: AiMode.COPILOT } : {}),
+        },
+      });
       const bot = await this.bots.resolveForConversation(convo);
       const rules = (bot?.escalationRules as { handoffMessage?: string } | null) ?? null;
       const text = (rules?.handoffMessage ?? DEFAULT_HANDOFF_MESSAGE).trim();

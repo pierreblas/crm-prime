@@ -136,6 +136,9 @@ export const conversationDtoSchema = z.object({
   aiPaused: z.boolean(),
   // El contacto escribió y aún no le respondemos (pendiente de responder).
   awaitingReply: z.boolean(),
+  // La IA pasó el chat a una persona (null = nadie lo pasó o ya se atendió).
+  handoffAt: z.string().nullable().default(null),
+  handoffReason: z.string().nullable().default(null),
   windowExpiresAt: z.string().nullable(),
   windowOpen: z.boolean(),
   lastMessageAt: z.string().nullable(),

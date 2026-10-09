@@ -692,7 +692,7 @@ export class MessagingService {
       data: {
         awaitingReply: false,
         ...(author === MessageAuthor.HUMAN
-          ? { aiPausedUntil: new Date(Date.now() + this.humanPauseMs) }
+          ? { aiPausedUntil: new Date(Date.now() + this.humanPauseMs), handoffAt: null, handoffReason: null }
           : {}),
       },
     });
@@ -767,7 +767,7 @@ export class MessagingService {
         data: {
           awaitingReply: false,
           ...(author === MessageAuthor.HUMAN
-            ? { aiPausedUntil: new Date(Date.now() + this.humanPauseMs) }
+            ? { aiPausedUntil: new Date(Date.now() + this.humanPauseMs), handoffAt: null, handoffReason: null }
             : {}),
         },
       });
@@ -836,7 +836,7 @@ export class MessagingService {
       data: {
         awaitingReply: false,
         ...(author === MessageAuthor.HUMAN
-          ? { aiPausedUntil: new Date(Date.now() + this.humanPauseMs) }
+          ? { aiPausedUntil: new Date(Date.now() + this.humanPauseMs), handoffAt: null, handoffReason: null }
           : {}),
       },
     });
@@ -1068,7 +1068,7 @@ export class MessagingService {
     const c = await this.prisma.conversation
       .update({
         where: { id },
-        data: { status },
+        data: { status, ...(status !== "PENDING" ? { handoffAt: null, handoffReason: null } : {}) },
         include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true },
       })
       .catch(() => {
@@ -1120,6 +1120,8 @@ export class MessagingService {
     aiMode: string;
     aiPausedUntil: Date | null;
     awaitingReply: boolean;
+    handoffAt?: Date | null;
+    handoffReason?: string | null;
     windowExpiresAt: Date | null;
     lastMessageAt: Date | null;
     unreadCount?: number;
@@ -1151,6 +1153,8 @@ export class MessagingService {
       id: c.id,
       status: c.status as ConversationStatus,
       unreadCount: c.unreadCount ?? 0,
+      handoffAt: c.handoffAt?.toISOString() ?? null,
+      handoffReason: c.handoffReason ?? null,
       lastMessage: last
         ? {
             direction: last.direction as MessageDirection,

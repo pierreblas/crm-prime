@@ -462,6 +462,23 @@ export function ChatWindow({
 
       <div className="chat-body">
       <div className="chat-main">
+        {conversation.handoffAt && (
+          <div className="chat-handoff" role="status" data-handoff-banner>
+            <NavIcon name="bot" size={15} />
+            <span className="chat-handoff__text">
+              <strong>{t("inbox.handoffBanner")}</strong>
+              {conversation.handoffReason && <span> · {conversation.handoffReason}</span>}
+            </span>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => statusMut.mutate(ConversationStatus.OPEN)}
+              disabled={statusMut.isPending}
+            >
+              {t("inbox.handoffAttend")}
+            </button>
+          </div>
+        )}
       <div style={messagesArea}>
         {isLoading && <MessagesSkeleton />}
         {!isLoading && messages.length === 0 && calls.length === 0 && (

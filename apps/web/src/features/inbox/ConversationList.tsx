@@ -173,10 +173,17 @@ export function ConversationList({
               </div>
 
               <div style={metaRow}>
-                {c.status !== "OPEN" && (
-                  <span style={{ ...metaChip, color: c.status === "CLOSED" ? "var(--muted)" : "var(--warning)" }}>
-                    {c.status === "PENDING" ? t("inbox.statusPending") : t("inbox.statusClosed")}
+                {c.handoffAt ? (
+                  <span style={{ ...metaChip, color: "var(--warning)" }} title={c.handoffReason ?? undefined} data-handoff>
+                    <NavIcon name="bot" size={10} />
+                    {t("inbox.handoffBadge")}
                   </span>
+                ) : (
+                  c.status !== "OPEN" && (
+                    <span style={{ ...metaChip, color: c.status === "CLOSED" ? "var(--muted)" : "var(--warning)" }}>
+                      {c.status === "PENDING" ? t("inbox.statusPending") : t("inbox.statusClosed")}
+                    </span>
+                  )
                 )}
                 {c.assignedAgent ? (
                   <span style={metaChip}>

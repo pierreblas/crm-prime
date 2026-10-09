@@ -3555,3 +3555,23 @@ code {
 .agent-toolnames__body li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .agent-toolnames__body li code { display: inline-block; min-width: 176px; text-align: left; }
 .agent-toolnames__body li span { flex: 1; min-width: 120px; color: var(--text); }
+
+/* ── Bandeja: la IA pasó el chat a una persona ─────────────── */
+.chat-handoff {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 14px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, var(--warning) 45%, var(--border));
+  background: color-mix(in oklab, var(--warning) 10%, transparent);
+  color: var(--text);
+  font-size: 13px;
+}
+.chat-handoff__text { flex: 1; min-width: 0; line-height: 1.4; }
+.chat-handoff__text strong { font-weight: 600; }
+@media (max-width: 640px) {
+  .chat-handoff { flex-wrap: wrap; }
+  .chat-handoff .btn { margin-left: auto; }
+}

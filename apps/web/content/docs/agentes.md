@@ -88,7 +88,7 @@ Para que el agente se retire en un caso concreto, díselo en **Cómo debe atende
 
 > Cuando el cliente envíe un comprobante de pago (foto o captura de una transferencia, Yape, Plin o similar): agradece, dile que una persona del equipo validará el pago en unos minutos y usa la herramienta handoff_to_human con el motivo «comprobante de pago». No confirmes tú el pago ni des por entregado nada.
 
-Al hacerlo, el cliente recibe exactamente lo que la IA redactó («Gracias, una persona validará tu pago…»), la conversación pasa a **Pendiente**, el equipo ve un aviso en la bandeja y una nota interna con el motivo.
+Al hacerlo, el cliente recibe exactamente lo que la IA redactó («Gracias, una persona validará tu pago…»), la conversación pasa a **Pendiente** con la marca **«Pasado a humano»** en la lista de la bandeja, al abrirla aparece un aviso con el motivo y el botón **Atender**, el equipo recibe un aviso emergente y queda una nota interna. Desde ese momento la IA deja de responder sola en ese chat (pasa a Copilot: sugiere, no envía) hasta que alguien lo atiende: responder, pulsar *Atender* o cerrarlo quita la marca.
 
 Como la IA puede decirlo y olvidarse de llamar a la herramienta, para los comprobantes conviene además la opción **«Pasar siempre el chat cuando el cliente envía una imagen o un documento»** (*Cuándo te pasa el chat*): es determinista. La IA sigue contestando lo que le indicaste y el chat pasa a Pendiente en cuanto llega la imagen. Si la IA se retira sin haber escrito nada (reglas de escalado, cliente molesto, no sabe qué responder), el cliente recibe el aviso de *Cuándo te pasa el chat*.
 
