@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { toast } from "@/lib/toast";
 import { confirmDialog } from "@/lib/confirm";
 import { NavIcon, type IconName } from "@/components/NavIcons";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   effortValues,
   keywordActions,
@@ -21,9 +21,12 @@ import {
   COUNTRIES,
   type Weekday,
   DEFAULT_HANDOFF_MESSAGE,
+  type FlowRule,
 } from "@crm/shared";
 import type { PromptAssistantTarget } from "@crm/shared";
-import { createBot, updateBot } from "@/lib/bff";
+import { createBot, fetchAgents, fetchCustomFields, fetchSources, fetchStages, fetchTags, fetchWhatsappChannels, updateBot } from "@/lib/bff";
+import { RuleRow, newRule, type RuleLookups } from "@/features/flows/RuleRow";
+import { CONDITION_FIELD_BY, OP_LABEL } from "@/features/flows/flowShared";
 import { field, input, label as lbl, primaryBtn, ghostBtn } from "./styles";
 import { smBtn } from "@/components/ui";
 import { PromptAssistant } from "./PromptAssistant";
@@ -1077,6 +1080,26 @@ function BusinessHoursEditor({ value, onChange, onAssist }: { value: BusinessHou
 }
 
 function KeywordTriggersEditor({ value, onChange }: { value: KeywordTrigger[]; onChange: (t: KeywordTrigger[]) => void }) {
+  // Lo que se está escribiendo en «Si el cliente escribe», sin normalizar
+  // hasta salir del campo: si no, el espacio de «medios de pago» desaparecía.
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
+  const parseKeywords = (raw: string) => raw.split(",").map((k) => k.trim()).filter(Boolean);
+  // Catálogos para las condiciones de las versiones (etiquetas, etapas, fuentes…).
+  const { data: tags = [] } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
+  const { data: sources = [] } = useQuery({ queryKey: ["sources"], queryFn: fetchSources });
+  const { data: fields = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
+  const { data: stages = [] } = useQuery({ queryKey: ["stages-ref"], queryFn: fetchStages });
+  const { data: channels = [] } = useQuery({ queryKey: ["wa-channels"], queryFn: fetchWhatsappChannels });
+  const { data: agents = [] } = useQuery({ queryKey: ["agents"], queryFn: fetchAgents });
+  const lookups: RuleLookups = {
+    variables: [],
+    fields,
+    tags,
+    sources,
+    stages: stages.map((s) => ({ id: s.id, name: `${s.pipelineName} › ${s.name}` })),
+    channels: channels.map((c) => ({ id: c.id, label: c.label ?? null, displayPhoneNumber: c.displayPhoneNumber ?? null })),
+    agents: agents.map((a) => ({ id: a.id, name: a.name ?? null, email: a.email })),
+  };
   function update(i: number, patch: Partial<KeywordTrigger>) {
     onChange(value.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
   }
@@ -1088,16 +1111,14 @@ function KeywordTriggersEditor({ value, onChange }: { value: KeywordTrigger[]; o
             <span style={lbl}>Si el cliente escribe</span>
             <input
               className="field"
-              value={t.keywords.join(", ")}
-              placeholder="precio, costo, cuánto cuesta"
-              onChange={(e) =>
-                update(i, {
-                  keywords: e.target.value
-                    .split(",")
-                    .map((k) => k.trim())
-                    .filter(Boolean),
-                })
-              }
+              value={drafts[i] ?? t.keywords.join(", ")}
+              placeholder="medios de pago, cuenta, transferencia"
+              aria-label={`Respuesta ${i + 1}: palabras`}
+              onChange={(e) => {
+                setDrafts({ ...drafts, [i]: e.target.value });
+                update(i, { keywords: parseKeywords(e.target.value) });
+              }}
+              onBlur={() => setDrafts(({ [i]: _done, ...rest }) => rest)}
             />
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
@@ -1139,6 +1160,7 @@ function KeywordTriggersEditor({ value, onChange }: { value: KeywordTrigger[]; o
                 index={i}
                 value={t.variants ?? []}
                 onChange={(variants) => update(i, { variants })}
+                lookups={lookups}
               />
             </>
           )}
@@ -1158,59 +1180,113 @@ function KeywordTriggersEditor({ value, onChange }: { value: KeywordTrigger[]; o
  */
 const PREFERRED_COUNTRIES = ["PE", "MX", "CO", "CL", "AR", "EC", "BO", "ES", "US"];
 
-function KeywordVariantsEditor({ index, value, onChange }: { index: number; value: KeywordVariant[]; onChange: (v: KeywordVariant[]) => void }) {
-  const taken = new Set(value.map((v) => v.country));
-  // El siguiente país propuesto: primero donde más se vende por WhatsApp, después el resto por nombre.
-  const nextCountry =
-    [...PREFERRED_COUNTRIES, ...COUNTRIES.map((c) => c.code)].find((code) => !taken.has(code)) ?? "PE";
+/** Una condición en una frase corta, para el título de la versión. */
+function describeRule(r: FlowRule, lookups: RuleLookups): string {
+  const field = CONDITION_FIELD_BY[r.field]?.label ?? r.field;
+  const op = OP_LABEL[r.op] ?? r.op;
+  let value = r.value ?? "";
+  if (r.field === "country") value = COUNTRIES.find((c) => c.code === value)?.name ?? value;
+  if (r.field === "stage") value = lookups.stages.find((x) => x.id === value)?.name ?? value;
+  if (r.field === "source") value = lookups.sources.find((x) => x.id === value)?.name ?? value;
+  if (r.field === "channel") { const ch = lookups.channels.find((x) => x.id === value); value = ch?.label ?? ch?.displayPhoneNumber ?? value; }
+  if (r.op === "empty" || r.op === "not_empty") return `${field} ${op}`;
+  return `${field} ${op} ${value || "…"}`;
+}
+
+/**
+ * Versiones de una respuesta fija según condiciones del cliente (país por el
+ * prefijo de su teléfono, etiqueta, etapa, fuente, número…): medios de pago,
+ * direcciones, envíos… Se prueban en orden; quien no cumpla ninguna recibe el
+ * texto general.
+ */
+function KeywordVariantsEditor({
+  index,
+  value,
+  onChange,
+  lookups,
+}: {
+  index: number;
+  value: KeywordVariant[];
+  onChange: (v: KeywordVariant[]) => void;
+  lookups: RuleLookups;
+}) {
+  const usedCountries = new Set(value.flatMap((v) => v.rules.filter((r) => r.field === "country" && r.op === "is").map((r) => r.value ?? "")));
+  const nextCountry = [...PREFERRED_COUNTRIES, ...COUNTRIES.map((c) => c.code)].find((code) => !usedCountries.has(code)) ?? "PE";
   const update = (i: number, patch: Partial<KeywordVariant>) => onChange(value.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
   return (
     <div className="agent-variants">
       {value.map((v, i) => (
         <div key={i} className="agent-variant" data-variant={`${index}-${i}`}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ ...lbl, marginBottom: 0 }}>Para clientes de</span>
-            <select className="field" style={{ flex: 1 }} value={v.country} onChange={(e) => update(i, { country: e.target.value })} aria-label={`Respuesta ${index + 1}: país de la versión ${i + 1}`}>
-              {COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code} disabled={c.code !== v.country && taken.has(c.code)}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ ...lbl, marginBottom: 0 }}>
+              Versión {i + 1} · {v.rules.map((r) => describeRule(r, lookups)).join((v.match ?? "all") === "any" ? " o " : " y ")}
+            </span>
+            <span style={{ flex: 1 }} />
+            {v.rules.length > 1 && (
+              <div className="seg" role="tablist" aria-label={`Respuesta ${index + 1}, versión ${i + 1}: cómo se combinan`}>
+                <button type="button" role="tab" aria-selected={(v.match ?? "all") === "all"} onClick={() => update(i, { match: "all" })}>
+                  todas
+                </button>
+                <button type="button" role="tab" aria-selected={v.match === "any"} onClick={() => update(i, { match: "any" })}>
+                  alguna
+                </button>
+              </div>
+            )}
             <button
               onClick={() => onChange(value.filter((_, idx) => idx !== i))}
               style={{ ...ghostBtn, ...smBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
               title="Quitar esta versión"
-              aria-label="Quitar esta versión"
+              aria-label={`Respuesta ${index + 1}: quitar versión ${i + 1}`}
             >
               <NavIcon name="x" size={13} />
             </button>
           </div>
+          {v.rules.map((r, ri) => (
+            <RuleRow
+              key={r.id}
+              rule={r}
+              lookups={lookups}
+              onChange={(p) => update(i, { rules: v.rules.map((x, idx) => (idx === ri ? { ...x, ...p } : x)) })}
+              onRemove={() =>
+                v.rules.length > 1
+                  ? update(i, { rules: v.rules.filter((_, idx) => idx !== ri) })
+                  : onChange(value.filter((_, idx) => idx !== i))
+              }
+            />
+          ))}
+          <button
+            type="button"
+            onClick={() => update(i, { rules: [...v.rules, newRule("tag", "is", "")] })}
+            style={{ ...ghostBtn, ...smBtn, alignSelf: "flex-start" }}
+            aria-label={`Respuesta ${index + 1}, versión ${i + 1}: añadir condición`}
+          >
+            + Añadir condición
+          </button>
           <textarea
             className="field"
             style={{ minHeight: 50, resize: "vertical", fontFamily: "inherit" }}
             value={v.value}
             maxLength={MAX_TEXT}
-            placeholder="Texto solo para este país…"
+            placeholder="Texto solo para quien cumpla estas condiciones…"
             onChange={(e) => update(i, { value: e.target.value })}
-            aria-label={`Respuesta ${index + 1}: texto para ${COUNTRIES.find((c) => c.code === v.country)?.name ?? v.country}`}
+            aria-label={`Respuesta ${index + 1}: texto de la versión ${i + 1}`}
           />
           <Counter value={v.value} max={MAX_TEXT} />
         </div>
       ))}
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button
-          onClick={() => onChange([...value, { country: nextCountry, value: "" }])}
+          type="button"
+          onClick={() => onChange([...value, { rules: [newRule("country", "is", nextCountry)], match: "all", value: "" }])}
           style={{ ...ghostBtn, ...smBtn }}
-          disabled={taken.size >= COUNTRIES.length}
-          aria-label={`Respuesta ${index + 1}: añadir versión por país`}
+          aria-label={`Respuesta ${index + 1}: añadir versión`}
         >
-          <NavIcon name="plus" size={13} /> Versión para un país
+          <NavIcon name="plus" size={13} /> Versión con condiciones
         </button>
         <span className="agent-hint">
           {value.length
-            ? "Se elige por el prefijo del teléfono del cliente (+51 Perú, +52 México…)."
-            : "¿Cuentas, direcciones o envíos distintos por país? Añade una versión por país; los demás reciben el texto general."}
+            ? "Se prueban en orden y gana la primera que se cumple; el país sale del prefijo del teléfono (+51 Perú, +52 México…)."
+            : "¿Cuentas, direcciones o envíos distintos según el país, la etiqueta o la etapa del cliente? Añade versiones; los demás reciben el texto general."}
         </span>
       </div>
     </div>

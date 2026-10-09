@@ -111,6 +111,7 @@ export const CONDITION_FIELDS: ConditionFieldMeta[] = [
   { field: "variable", label: "Una variable guardada", group: "Mensaje del cliente", kind: "text", needsKey: "variable" },
   { field: "contact_name", label: "Nombre del contacto", group: "Contacto", kind: "text" },
   { field: "contact_phone", label: "Teléfono del contacto", group: "Contacto", kind: "text" },
+  { field: "country", label: "País del contacto", group: "Contacto", kind: "enum" },
   { field: "contact_field", label: "Un campo del contacto", group: "Contacto", kind: "text", needsKey: "field" },
   { field: "tag", label: "Etiqueta del contacto", group: "Contacto", kind: "enum" },
   { field: "source", label: "Fuente del contacto", group: "Contacto", kind: "enum" },

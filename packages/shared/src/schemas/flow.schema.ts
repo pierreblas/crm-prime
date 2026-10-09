@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { businessHoursSchema } from "./agent-config.schema.js";
+import { flowRuleSchema } from "./condition.schema.js";
 
 // Tipos de nodo del constructor visual.
 export const flowNodeTypes = [
@@ -53,49 +54,7 @@ export type FlowSplit = z.infer<typeof flowSplitSchema>;
 
 export const flowStatuses = ["OPEN", "PENDING", "CLOSED"] as const;
 
-// Qué puede mirar una regla de "condition".
-export const conditionFields = [
-  "message", // el último mensaje del cliente
-  "variable", // una variable del flujo (key = nombre)
-  "contact_name",
-  "contact_phone",
-  "contact_field", // campo personalizado (key = clave del campo)
-  "tag", // el contacto tiene la etiqueta (value = nombre)
-  "source", // fuente del contacto (value = id; "" = sin fuente)
-  "channel", // número de WhatsApp (value = id)
-  "status", // OPEN | PENDING | CLOSED
-  "ai_mode", // OFF | COPILOT | AUTOPILOT
-  "assigned", // agente asignado (value = id; "none" = nadie)
-  "stage", // etapa de su oportunidad abierta (value = id)
-  "is_new", // es su primer mensaje ("yes" | "no")
-  "messages_count", // mensajes que ha enviado el contacto
-] as const;
-export type ConditionField = (typeof conditionFields)[number];
-
-export const conditionOps = [
-  "contains", // alguna de las palabras (separadas por comas)
-  "not_contains",
-  "equals", // igual a (admite varias opciones separadas por comas)
-  "not_equals",
-  "starts_with",
-  "regex",
-  "empty",
-  "not_empty",
-  "gt",
-  "lt",
-  "is", // para los campos de opción (estado, fuente, etapa…)
-  "is_not",
-] as const;
-export type ConditionOp = (typeof conditionOps)[number];
-
-export const flowRuleSchema = z.object({
-  id: z.string(),
-  field: z.enum(conditionFields),
-  key: z.string().optional(), // variable o clave de campo
-  op: z.enum(conditionOps),
-  value: z.string().optional(), // admite {{variables}}
-});
-export type FlowRule = z.infer<typeof flowRuleSchema>;
+// Las reglas de «Condición» viven en condition.schema.ts (las comparte el agente).
 
 // Rama del nodo "condition" (cada una es un sourceHandle de salida). Las
 // `keywords` son el formato antiguo (mensaje contiene alguna); si hay

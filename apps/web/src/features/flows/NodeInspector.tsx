@@ -25,15 +25,10 @@ import {
 import { NavIcon } from "@/components/NavIcons";
 import { uploadMedia } from "@/lib/bff";
 import { toast } from "@/lib/toast";
+import { RuleRow, type RuleLookups } from "./RuleRow";
 import {
   ACTION_LABEL,
-  AI_MODE_LABEL,
-  CONDITION_FIELDS,
-  CONDITION_FIELD_BY,
-  CONDITION_GROUPS,
   NODE_META,
-  OPS_BY_KIND,
-  OP_LABEL,
   STATUS_LABEL,
   VALIDATION_LABEL,
   defaultHours,
@@ -784,15 +779,6 @@ function Counter({ value }: { value: string }) {
   );
 }
 
-interface RuleLookups {
-  variables: string[];
-  fields: CustomFieldDto[];
-  tags: TagDto[];
-  sources: SourceDto[];
-  channels: FlowChannelRef[];
-  agents: FlowAgentRef[];
-  stages: { id: string; name: string }[];
-}
 
 function ConditionFields({
   branches,
@@ -886,183 +872,6 @@ function ConditionFields({
       >
         + Añadir rama
       </button>
-    </div>
-  );
-}
-
-/** Una condición: qué se mira, cómo se compara y con qué. */
-function RuleRow({
-  rule,
-  lookups,
-  onChange,
-  onRemove,
-}: {
-  rule: FlowRule;
-  lookups: RuleLookups;
-  onChange: (p: Partial<FlowRule>) => void;
-  onRemove: () => void;
-}) {
-  const meta = CONDITION_FIELD_BY[rule.field] ?? CONDITION_FIELDS[0]!;
-  const ops = OPS_BY_KIND[meta.kind];
-  const needsValue = !["empty", "not_empty"].includes(rule.op);
-  const small: React.CSSProperties = { ...input, padding: "6px 8px", fontSize: 12.5, minWidth: 0 };
-
-  function setField(field: FlowRule["field"]) {
-    const m = CONDITION_FIELD_BY[field]!;
-    const op = OPS_BY_KIND[m.kind].includes(rule.op) ? rule.op : OPS_BY_KIND[m.kind][0]!;
-    onChange({ field, op, key: undefined, value: field === "is_new" ? "yes" : "" });
-  }
-
-  const valueControl = (() => {
-    if (!needsValue) return null;
-    switch (rule.field) {
-      case "status":
-        return (
-          <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })}>
-            <option value="">Elige…</option>
-            {flowStatuses.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
-        );
-      case "ai_mode":
-        return (
-          <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })}>
-            <option value="">Elige…</option>
-            {Object.entries(AI_MODE_LABEL).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-        );
-      case "assigned":
-        return (
-          <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })}>
-            <option value="">Elige…</option>
-            <option value="none">Nadie (sin asignar)</option>
-            {lookups.agents.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name ?? a.email}
-              </option>
-            ))}
-          </select>
-        );
-      case "source":
-        return (
-          <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })}>
-            <option value="">Elige…</option>
-            {lookups.sources.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        );
-      case "channel":
-        return (
-          <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })}>
-            <option value="">Elige…</option>
-            {lookups.channels.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label ?? c.displayPhoneNumber ?? c.id}
-              </option>
-            ))}
-          </select>
-        );
-      case "stage":
-        return (
-          <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })}>
-            <option value="">Elige…</option>
-            {lookups.stages.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        );
-      case "is_new":
-        return (
-          <select style={small} value={rule.value ?? "yes"} onChange={(e) => onChange({ value: e.target.value })}>
-            <option value="yes">Sí</option>
-            <option value="no">No</option>
-          </select>
-        );
-      case "tag":
-        return (
-          <>
-            <input style={small} list="cond-tag-options" value={rule.value ?? ""} placeholder="nombre de la etiqueta" onChange={(e) => onChange({ value: e.target.value })} />
-            <datalist id="cond-tag-options">
-              {lookups.tags.map((t) => (
-                <option key={t.id} value={t.name} />
-              ))}
-            </datalist>
-          </>
-        );
-      case "messages_count":
-        return <input style={small} type="number" min={0} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })} />;
-      default:
-        return (
-          <input
-            style={small}
-            value={rule.value ?? ""}
-            placeholder={rule.op === "contains" || rule.op === "equals" ? "precio, costo, cuánto" : rule.op === "regex" ? "^\\d{8}$" : "valor o {{variable}}"}
-            onChange={(e) => onChange({ value: e.target.value })}
-          />
-        );
-    }
-  })();
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 5, padding: "8px 8px 8px 10px", borderRadius: 8, background: "var(--surface-2)" }}>
-      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <select style={{ ...small, flex: 1 }} value={rule.field} onChange={(e) => setField(e.target.value as FlowRule["field"])}>
-          {CONDITION_GROUPS.map((g) => (
-            <optgroup key={g} label={g}>
-              {CONDITION_FIELDS.filter((f) => f.group === g).map((f) => (
-                <option key={f.field} value={f.field}>
-                  {f.label}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <button style={{ ...miniBtn, color: "#e08a8a" }} title="Quitar condición" onClick={onRemove}>
-          <NavIcon name="x" size={12} />
-        </button>
-      </div>
-      {meta.needsKey === "variable" && (
-        <>
-          <input style={small} list="cond-var-options" value={rule.key ?? ""} placeholder="nombre de la variable" onChange={(e) => onChange({ key: e.target.value.replace(/[^\w]/g, "") })} />
-          <datalist id="cond-var-options">
-            {lookups.variables.map((v) => (
-              <option key={v} value={v} />
-            ))}
-          </datalist>
-        </>
-      )}
-      {meta.needsKey === "field" && (
-        <select style={small} value={rule.key ?? ""} onChange={(e) => onChange({ key: e.target.value })}>
-          <option value="">Elige el campo…</option>
-          {lookups.fields.map((f) => (
-            <option key={f.id} value={f.key}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-      )}
-      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <select style={{ ...small, flex: needsValue ? "0 0 46%" : 1 }} value={rule.op} onChange={(e) => onChange({ op: e.target.value as FlowRule["op"] })}>
-          {ops.map((o) => (
-            <option key={o} value={o}>
-              {OP_LABEL[o]}
-            </option>
-          ))}
-        </select>
-        {valueControl && <div style={{ flex: 1, minWidth: 0, display: "flex" }}>{valueControl}</div>}
-      </div>
     </div>
   );
 }

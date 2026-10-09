@@ -8,6 +8,7 @@ import {
   MessageAuthor,
   MessageType,
   contactCurrency,
+  countryFromPhone,
   type FlowBranch,
   type FlowEdge,
   type FlowNode,
@@ -44,6 +45,8 @@ interface CondCtx {
   convo: { status: string; assignedAgentId: string | null; channelId: string | null; aiMode: string };
   stageId: string | null;
   inboundCount: number;
+  /** País por el prefijo del teléfono (código ISO), o null si no se reconoce. */
+  country: string | null;
 }
 
 // Qué decir cuando la respuesta no pasa la validación (si el bloque no trae texto propio).
@@ -900,6 +903,17 @@ export class FlowEngineService {
     return hit?.id ?? "else";
   }
 
+  /**
+   * ¿Se cumplen estas condiciones en la conversación? Lo usan las versiones de
+   * una respuesta por palabra clave del agente (mismas reglas que «Condición»).
+   */
+  async rulesMatch(conversationId: string, rules: FlowRule[], match: "all" | "any", text: string): Promise<boolean> {
+    if (!rules.length) return false;
+    const ctx = await this.condCtx(conversationId, text, {});
+    const results = rules.map((r) => this.ruleMatches(r, ctx));
+    return match === "any" ? results.some(Boolean) : results.every(Boolean);
+  }
+
   private async condCtx(conversationId: string, text: string, vars: Vars): Promise<CondCtx> {
     const convo = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
@@ -912,6 +926,7 @@ export class FlowEngineService {
       convo: { status: "", assignedAgentId: null, channelId: null, aiMode: "" },
       stageId: null,
       inboundCount: 0,
+      country: null,
     };
     if (!convo) return empty;
     const [deal, inboundCount] = await Promise.all([
@@ -944,6 +959,7 @@ export class FlowEngineService {
       },
       stageId: deal?.stageId ?? null,
       inboundCount,
+      country: countryFromPhone(convo.contact.phone)?.code ?? null,
     };
   }
 
@@ -1030,6 +1046,8 @@ export class FlowEngineService {
         return ctx.convo.assignedAgentId ?? "none";
       case "stage":
         return ctx.stageId ?? "";
+      case "country":
+        return ctx.country ?? "";
       case "is_new":
         return ctx.inboundCount <= 1 ? "yes" : "no";
       case "messages_count":
