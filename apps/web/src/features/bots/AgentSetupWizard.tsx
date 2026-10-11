@@ -158,6 +158,7 @@ export function AgentSetupWizard({
         channelId: bot?.channelId ?? null,
         autopilotByDefault: a.autopilot,
         replyDelaySec: bot?.replyDelaySec ?? 4,
+        splitReplies: bot?.splitReplies ?? true,
         welcomeEnabled: bot?.welcomeEnabled ?? false,
         welcomeMessage: bot?.welcomeMessage ?? null,
         businessHoursEnabled: bot?.businessHoursEnabled ?? false,

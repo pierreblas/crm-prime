@@ -2,13 +2,15 @@ import { Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import {
   AiMode,
+  type BusinessHours,
   ConversationStatus,
+  type KeywordTrigger,
   MessageAuthor,
   MessageType,
-  type BusinessHours,
-  type KeywordTrigger,
-  type Weekday,
   normalizeKeywordTrigger,
+  splitParagraphs,
+  typingPauseMs,
+  type Weekday,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { isWithinHours } from "../../common/utils/business-hours";
@@ -123,7 +125,7 @@ export class AutomationService {
           t.keywords.some((k) => text.includes(k.toLowerCase())),
         );
         if (hit) {
-          await this.applyTrigger(conversationId, hit, text);
+          await this.applyTrigger(conversationId, hit, text, !!bot.splitReplies);
           this.logger.log(`Disparador "${hit.action}" en ${conversationId}`);
           return; // el disparador resuelve el turno
         }
@@ -183,6 +185,7 @@ export class AutomationService {
     conversationId: string,
     trigger: KeywordTrigger,
     inboundText: string,
+    splitReplies = false,
   ): Promise<void> {
     let text = (trigger.value ?? "").trim();
     if (trigger.action === "reply") {
@@ -196,10 +199,15 @@ export class AutomationService {
       }
     }
     if (trigger.action === "reply" && text) {
-      await this.messaging.queueOutbound(
-        { conversationId, type: MessageType.TEXT, text },
-        MessageAuthor.AI,
-      );
+      // Con «varios mensajes cortos», una línea en blanco en el texto fijo = mensaje aparte.
+      const parts = splitReplies ? splitParagraphs(text) : [text];
+      for (let i = 0; i < parts.length; i++) {
+        if (i > 0) await new Promise((r) => setTimeout(r, typingPauseMs(parts[i]!)));
+        await this.messaging.queueOutbound(
+          { conversationId, type: MessageType.TEXT, text: parts[i]! },
+          MessageAuthor.AI,
+        );
+      }
     } else if (trigger.action === "handoff") {
       await this.messaging.setStatus(
         conversationId,

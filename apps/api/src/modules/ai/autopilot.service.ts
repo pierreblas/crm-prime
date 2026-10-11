@@ -7,9 +7,11 @@ import {
   AiMode,
   ConversationStatus,
   DEFAULT_HANDOFF_MESSAGE,
+  HANDOFF_REASON_MEDIA,
   MessageAuthor,
   MessageType,
-  HANDOFF_REASON_MEDIA,
+  splitReply,
+  typingPauseMs,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { MessagingService } from "../messaging/messaging.service";
@@ -129,6 +131,32 @@ export class AutopilotService {
   }
 
   /**
+   * Envía la respuesta; si el agente tiene «varios mensajes cortos», la parte
+   * por párrafos o frases y manda cada trozo con una pausa y el «escribiendo…»
+   * delante, como lo haría una persona. Los trozos salen en orden porque se
+   * encolan uno a uno, separados por segundos.
+   */
+  private async sendReply(
+    conversationId: string,
+    text: string,
+    convo: { channelId: string | null; contactId: string },
+  ): Promise<void> {
+    const bot = await this.bots.resolveForConversation(convo);
+    const parts = bot?.splitReplies ? splitReply(text) : [text];
+    for (let i = 0; i < parts.length; i++) {
+      if (i > 0) {
+        void this.showTyping(conversationId);
+        await new Promise((r) => setTimeout(r, typingPauseMs(parts[i]!)));
+      }
+      await this.messaging.queueOutbound(
+        { conversationId, type: MessageType.TEXT, text: parts[i]! },
+        MessageAuthor.AI,
+      );
+    }
+    if (parts.length > 1) this.logger.log(`Respuesta en ${parts.length} mensajes en ${conversationId}`);
+  }
+
+  /**
    * La IA se retira: el cliente recibe el aviso configurado (si la ventana
    * de 24 h sigue abierta) y el equipo ve una nota con el motivo. Una vez por
    * conversación: si ya avisó, no repite.
@@ -232,20 +260,14 @@ export class AutopilotService {
           !!res.suggestion?.trim() &&
           (res.toolsUsed.includes("handoff_to_human") || res.escalationReason === HANDOFF_REASON_MEDIA);
         if (ownGoodbye && res.windowOpen) {
-          await this.messaging.queueOutbound(
-            { conversationId, type: MessageType.TEXT, text: res.suggestion!.trim() },
-            MessageAuthor.AI,
-          );
+          await this.sendReply(conversationId, res.suggestion!.trim(), convo);
         }
         // Si no, el aviso configurado; y en todo caso, nota y aviso al equipo.
         await this.handoff(conversationId, convo.orgId, reason, res.windowOpen && !ownGoodbye, convo.contact);
         return;
       }
 
-      await this.messaging.queueOutbound(
-        { conversationId, type: MessageType.TEXT, text: res.suggestion },
-        MessageAuthor.AI,
-      );
+      await this.sendReply(conversationId, res.suggestion, convo);
       this.logger.log(`Autopilot respondió ${conversationId}`);
     } catch (e) {
       this.logger.error(

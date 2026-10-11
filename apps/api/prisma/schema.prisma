@@ -962,6 +962,7 @@ model AgentConfig {
   // ── Automatización ─────────────────────────────────────────
   autopilotByDefault   Boolean @default(false) // conversaciones nuevas arrancan en AUTOPILOT
   replyDelaySec        Int     @default(4) // espera desde el último mensaje del cliente antes de responder (0 = al instante)
+  splitReplies         Boolean @default(false) // respuestas largas en varios mensajes cortos, como una persona
   welcomeEnabled       Boolean @default(false)
   welcomeMessage       String? // saludo automático al primer mensaje
   businessHoursEnabled Boolean @default(false)

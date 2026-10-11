@@ -64,7 +64,16 @@ export class AgentService {
     // El agente de su embudo, el del número, o el predeterminado.
     const config = await this.bots.resolveForConversation(conversation);
 
-    const system = this.buildSystem(config?.systemPrompt, conversation.contact, config?.enabledTools ?? []);
+    // Lo que el agente puede consultar del catálogo y lo que sabe del contacto
+    // (sus campos personalizados), para que no ignore datos que sí existen.
+    const [catalogFields, contactFieldDefs] = await Promise.all([
+      this.prisma.productField.findMany({ where: { aiVisible: true }, select: { label: true } }),
+      this.prisma.customField.findMany({ select: { key: true, label: true } }),
+    ]);
+    const system = this.buildSystem(config?.systemPrompt, conversation.contact, config?.enabledTools ?? [], !!config?.splitReplies, {
+      catalogFields: catalogFields.map((f) => f.label),
+      contactFields: contactFieldDefs,
+    });
     const messages = await this.buildHistory(conversationId);
     // Las acciones necesitan los valores reales (etiquetas, etapas, vendedores)
     // para que el modelo elija de una lista cerrada en vez de inventarlos.
@@ -230,13 +239,10 @@ export class AgentService {
       escalationReason = "Error al generar la respuesta.";
     }
 
-    // Guardrail: la clasificación puede forzar el escalado a humano.
-    if (classification?.requiresHuman && !escalate) {
-      escalate = true;
-      escalationReason =
-        escalationReason ?? "La conversación requiere atención humana.";
-      if (status === "COMPLETED") status = "ESCALATED";
-    }
+    // Que el clasificador crea que «requiere una persona» no fuerza nada por
+    // sí solo: baja la confianza y es el nivel configurado en «Cuándo te pasa
+    // el chat» (checkEscalationRules) el que decide. Con «Nunca por su cuenta»
+    // el agente lo intenta todo, como promete la pantalla.
 
     // Reglas de escalado configuradas en el bot.
     if (!escalate) {
@@ -480,10 +486,14 @@ export class AgentService {
       return "El cliente está molesto (sentimiento negativo).";
     }
 
-    if (rules.minConfidence !== undefined) {
+    // Sin nivel guardado (bots antiguos) se aplica el recomendado; 0 = nunca por su cuenta.
+    const threshold = rules.minConfidence ?? 0.75;
+    if (threshold > 0) {
       const score = this.confidence(classification);
-      if (score < rules.minConfidence) {
-        return `Confianza baja (${score} por debajo del umbral ${rules.minConfidence}).`;
+      if (score < threshold) {
+        return classification.requiresHuman
+          ? `El cliente parece pedir una persona (confianza ${score}, nivel ${threshold}).`
+          : `Confianza baja (${score} por debajo del nivel ${threshold}).`;
       }
     }
 
@@ -539,6 +549,7 @@ export class AgentService {
       currency?: string | null;
       optIn: boolean;
       lastMessageAt: Date | null;
+      metadata?: unknown;
     },
     tu: LlmToolUseBlock,
     autoApply: boolean,
@@ -555,6 +566,7 @@ export class AgentService {
 
     if (tu.name === "search_contact") {
       const country = countryFromPhone(contact.phone);
+      const meta = (contact.metadata && typeof contact.metadata === "object" ? contact.metadata : {}) as Record<string, unknown>;
       output = JSON.stringify({
         name: contact.name,
         phone: contact.phone,
@@ -562,6 +574,10 @@ export class AgentService {
         currency: contactCurrency(contact),
         optIn: contact.optIn,
         lastMessageAt: contact.lastMessageAt?.toISOString() ?? null,
+        // Campos personalizados del contacto (sin los utm_* de campaña).
+        fields: Object.fromEntries(
+          Object.entries(meta).filter(([k, v]) => !k.startsWith("utm_") && v != null && String(v).trim() !== ""),
+        ),
       });
     } else if (tu.name === "search_knowledge") {
       const hits = await this.knowledge.search(String(tu.input.query ?? ""), 4);
@@ -778,12 +794,35 @@ export class AgentService {
   // ── Construcción del contexto ──────────────────────────────────
   private buildSystem(
     base: string | undefined,
-    contact: { name: string | null; phone: string; currency?: string | null; aiMemory?: unknown },
+    contact: { name: string | null; phone: string; currency?: string | null; aiMemory?: unknown; metadata?: unknown },
     enabledTools: string[] = [],
+    splitReplies = false,
+    extra: { catalogFields?: string[]; contactFields?: { key: string; label: string }[] } = {},
   ): string {
     const country = countryFromPhone(contact.phone);
     const memory = memoryText(contact.aiMemory);
     const currency = contactCurrency(contact);
+    // Campos personalizados del contacto con valor (los utm_* no son datos del cliente).
+    const meta = (contact.metadata && typeof contact.metadata === "object" ? contact.metadata : {}) as Record<string, unknown>;
+    const contactFields = (extra.contactFields ?? [])
+      .map((f) => ({ ...f, value: meta[f.key] == null ? "" : String(meta[f.key]).trim() }))
+      .filter((f) => f.value);
+    // {{nombre}}, {{telefono}}, {{pais}}, {{moneda}} y {{clave o nombre de un campo}} en las instrucciones.
+    const vars: Record<string, string> = {
+      nombre: contact.name ?? "",
+      telefono: contact.phone,
+      pais: country?.name ?? "",
+      moneda: currency ?? "",
+    };
+    for (const f of contactFields) {
+      vars[f.key.toLowerCase()] = f.value;
+      vars[f.label.toLowerCase()] = f.value;
+    }
+    const fill = (text: string) =>
+      text.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (m, k: string) => {
+        const v = vars[k.toLowerCase()];
+        return v === undefined ? m : v;
+      });
     const where = [
       country ? ` País: ${country.name}.` : "",
       currency ? ` Cotiza en ${currency}.` : "",
@@ -791,10 +830,19 @@ export class AgentService {
     const fallback =
       "Eres un asistente de atención al cliente por WhatsApp. Responde en español, breve y cordial. Redacta una posible respuesta para que un agente humano la revise antes de enviarla. Si no estás seguro o el caso lo amerita, usa la herramienta handoff_to_human.";
     return [
-      base ?? fallback,
+      fill(base ?? fallback),
       `\n\nContacto actual: ${contact.name ?? "(sin nombre)"} (${contact.phone}).${where}`,
+      contactFields.length
+        ? `\n\nDatos guardados de este contacto: ${contactFields.map((f) => `${f.label}: ${f.value}`).join("; ")}.`
+        : "",
+      extra.catalogFields?.length
+        ? `\n\nCada producto del catálogo puede incluir además estos datos: ${extra.catalogFields.join(", ")}. Vienen en search_products (campo «details»): consúltalos y cítalos cuando el cliente pregunte por ellos; nunca inventes su contenido.`
+        : "",
       memory ? `\n\nLo que sabemos de este cliente (de conversaciones anteriores):\n${memory}` : "",
       "\n\nSi un mensaje del cliente aparece como [imagen], [documento] o [audio] sin descripción, no pudiste verlo ni oírlo: dilo con naturalidad y pídele que te cuente qué es (o pásalo a una persona si parece un comprobante o un documento importante).",
+      splitReplies
+        ? "\n\nEscribe como en WhatsApp: mensajes cortos, una idea por párrafo, separados por una línea en blanco (como mucho cuatro párrafos). Cada párrafo se enviará como un mensaje aparte."
+        : "",
       // Decir «te paso con una persona» no pasa nada: hay que llamar a la herramienta.
       enabledTools.includes("handoff_to_human")
         ? "\n\nPara pasar el chat a una persona no basta con decirlo: llama a la herramienta handoff_to_human en ese mismo turno (puedes escribir tu despedida y llamarla a la vez). Sin esa llamada, el chat sigue contigo."

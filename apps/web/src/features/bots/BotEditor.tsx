@@ -25,7 +25,7 @@ import {
   normalizeKeywordTrigger,
 } from "@crm/shared";
 import type { PromptAssistantTarget } from "@crm/shared";
-import { createBot, fetchAgents, fetchCustomFields, fetchSources, fetchStages, fetchTags, fetchWhatsappChannels, updateBot } from "@/lib/bff";
+import { createBot, fetchAgents, fetchCustomFields, fetchProductFields, fetchSources, fetchStages, fetchTags, fetchWhatsappChannels, updateBot } from "@/lib/bff";
 import { RuleRow, newRule, type RuleLookups } from "@/features/flows/RuleRow";
 import { CONDITION_FIELD_BY, OP_LABEL } from "@/features/flows/flowShared";
 import { field, input, label as lbl, primaryBtn, ghostBtn } from "./styles";
@@ -76,6 +76,7 @@ type Form = {
   keywords: string;
   autopilotByDefault: boolean;
   replyDelaySec: number;
+  splitReplies: boolean;
   welcomeEnabled: boolean;
   welcomeMessage: string;
   businessHoursEnabled: boolean;
@@ -150,6 +151,7 @@ function toForm(bot: BotDto | null): Form {
       keywords: "humano, persona, asesor, reclamo",
       autopilotByDefault: false,
       replyDelaySec: 4,
+      splitReplies: true,
       welcomeEnabled: false,
       welcomeMessage: "¡Hola! 👋 Gracias por escribirnos. ¿En qué te ayudamos?",
       businessHoursEnabled: false,
@@ -174,6 +176,7 @@ function toForm(bot: BotDto | null): Form {
     keywords: (bot.escalationRules.keywords ?? []).join(", "),
     autopilotByDefault: bot.autopilotByDefault,
     replyDelaySec: bot.replyDelaySec ?? 4,
+    splitReplies: bot.splitReplies ?? false,
     welcomeEnabled: bot.welcomeEnabled,
     welcomeMessage: bot.welcomeMessage ?? "",
     businessHoursEnabled: bot.businessHoursEnabled,
@@ -265,6 +268,9 @@ export function BotEditor({
   onWizard?: () => void;
 }) {
   const queryClient = useQueryClient();
+  // Lo que el agente puede consultar (catálogo) e insertar (contacto): para la ayuda de «Cómo debe atender».
+  const { data: productFieldDefs = [] } = useQuery({ queryKey: ["product-fields"], queryFn: fetchProductFields });
+  const { data: contactFieldDefs = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
   const [form, setForm] = useState<Form>(() => toForm(bot));
   // Última versión guardada: con ella se sabe si hay cambios pendientes.
   const [saved, setSaved] = useState<Form>(() => toForm(bot));
@@ -311,6 +317,7 @@ export function BotEditor({
         channelId: form.channelId,
         autopilotByDefault: form.autopilotByDefault,
         replyDelaySec: Number(form.replyDelaySec),
+        splitReplies: form.splitReplies,
         welcomeEnabled: form.welcomeEnabled,
         welcomeMessage: form.welcomeMessage.trim() || null,
         businessHoursEnabled: form.businessHoursEnabled,
@@ -524,7 +531,12 @@ export function BotEditor({
                   </li>
                 ))}
               </ul>
-              <ToolNamesHelp tools={availableTools.filter((t) => form.enabledTools.includes(t.name))} />
+              <ToolNamesHelp
+                tools={availableTools.filter((t) => form.enabledTools.includes(t.name))}
+                catalogFields={productFieldDefs.filter((f) => f.aiVisible).map((f) => f.label)}
+                hiddenCatalogFields={productFieldDefs.filter((f) => !f.aiVisible).map((f) => f.label)}
+                contactFields={contactFieldDefs.map((f) => ({ key: f.key, label: f.label }))}
+              />
             </Card>
           </>
         )}
@@ -582,6 +594,15 @@ export function BotEditor({
                   ? "Contesta cada mensaje nada más llegar. Si el cliente escribe en partes, puede responder a medias o varias veces."
                   : `Cuenta ${form.replyDelaySec} segundos desde el último mensaje del cliente y responde a todo junto. Recomendado: entre 3 y 5.`}
               </Hint>
+            </Card>
+
+            <Card title="Cómo escribe" subtitle="Que no parezca un bloque de texto de bot.">
+              <Switch
+                checked={form.splitReplies}
+                onChange={(v) => set("splitReplies", v)}
+                label="Responder en varios mensajes cortos"
+                hint="Las respuestas largas se envían en dos a cuatro mensajes seguidos, con una pausa breve y el «escribiendo…» entre cada uno, como escribe una persona. En las respuestas fijas y el saludo, una línea en blanco marca dónde cortar."
+              />
             </Card>
 
             <Card title="Saludo automático" subtitle="Un mensaje fijo al primer mensaje del cliente, al instante y sin usar IA.">
@@ -963,7 +984,17 @@ function copyToolName(name: string): void {
  * Cómo referirse a las acciones en las instrucciones: la IA las conoce por su
  * nombre técnico, no por la etiqueta de la pantalla.
  */
-function ToolNamesHelp({ tools }: { tools: AgentToolInfo[] }) {
+function ToolNamesHelp({
+  tools,
+  catalogFields = [],
+  hiddenCatalogFields = [],
+  contactFields = [],
+}: {
+  tools: AgentToolInfo[];
+  catalogFields?: string[];
+  hiddenCatalogFields?: string[];
+  contactFields?: { key: string; label: string }[];
+}) {
   const [open, setOpen] = useState(false);
   return (
     <div className="agent-toolnames" data-tour="agents-toolnames">
@@ -997,6 +1028,23 @@ function ToolNamesHelp({ tools }: { tools: AgentToolInfo[] }) {
               </ul>
             </>
           )}
+          <p style={{ marginTop: 10 }} data-catalog-fields>
+            <strong>Datos del catálogo</strong>: cada producto trae nombre, precio y descripción
+            {catalogFields.length ? <> y además <em>{catalogFields.join(", ")}</em></> : null}. El agente los lee con{" "}
+            <code>search_products</code>: pídele que consulte el producto y cite el dato («consulta el temario del curso y cítalo»).
+            Las instrucciones no sustituyen «[Temario]» ni similares.
+            {hiddenCatalogFields.length ? <> Campos que no ve porque tienen apagado «lo usa el agente»: {hiddenCatalogFields.join(", ")}.</> : null}
+          </p>
+          <p data-contact-fields>
+            <strong>Datos del contacto</strong>: el agente los conoce y puedes insertarlos en las instrucciones con{" "}
+            <code>{"{{nombre}}"}</code>, <code>{"{{telefono}}"}</code>, <code>{"{{pais}}"}</code>, <code>{"{{moneda}}"}</code>
+            {contactFields.map((f) => (
+              <span key={f.key}>
+                , <code title={f.label}>{`{{${f.key}}}`}</code>
+              </span>
+            ))}
+            .
+          </p>
         </div>
       )}
     </div>
