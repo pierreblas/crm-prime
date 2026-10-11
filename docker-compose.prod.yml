@@ -27,6 +27,10 @@ services:
     container_name: crm-api
     restart: unless-stopped
     networks: [default, proxy]
+    # Imágenes, audios y documentos de WhatsApp (y grabaciones de llamadas):
+    # en un volumen, o se pierden con cada despliegue.
+    volumes:
+      - crm-media:/data/media
     depends_on:
       db:
         condition: service_healthy
@@ -35,6 +39,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
       API_PORT: 3001
+      MEDIA_DIR: /data/media
       # ── Multi-empresa ──────────────────────────────────────
       # "single" (por defecto) = una sola empresa, como siempre.
       # "multi" = SaaS: cada empresa en su subdominio de SAAS_BASE_DOMAIN.
@@ -131,3 +136,4 @@ networks:
 volumes:
   crm-db-data:
   crm-redis-data:
+  crm-media:

@@ -183,6 +183,11 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
   ): Promise<DownloadedMedia> {
     const creds = await this.connection.resolveCreds(fromPhoneNumberId);
     if (!creds) {
+      // Sin credenciales no hay forma de bajar el archivo: el mensaje entra sin
+      // medio (la bandeja lo marca «no disponible») y aquí queda el porqué.
+      this.logger.warn(
+        `No se pudo descargar el medio ${mediaId}: el número ${fromPhoneNumberId ?? "(sin phone_number_id)"} no tiene token de acceso`,
+      );
       return {
         url: `https://example.invalid/media/${mediaId}`,
         mimeType: "application/octet-stream",

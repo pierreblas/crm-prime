@@ -116,7 +116,13 @@ export class MediaUnderstandingService {
     const storageId = parseStorageRef(m.mediaUrl);
     if (!storageId) return "";
     const file = await this.storage.read(storageId);
-    if (!file || file.size > MAX_BYTES) return "";
+    if (!file) {
+      this.logger.warn(
+        `El medio ${m.id} no está en el almacén (${storageId}): se perdió al redesplegar sin volumen para MEDIA_DIR, o nunca se descargó`,
+      );
+      return "";
+    }
+    if (file.size > MAX_BYTES) return "";
     if (m.type === "AUDIO") return this.transcribe(file, conversationId);
     return this.describe(file, m.type === "STICKER", conversationId);
   }

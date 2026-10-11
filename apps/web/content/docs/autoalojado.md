@@ -32,6 +32,8 @@ O solo verlo funcionar, sin instalar nada: `npm run demo` levanta todo en conten
 
 ```bash
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+
+Las imágenes, audios y documentos que llegan por WhatsApp (y las grabaciones de llamadas) se guardan en el volumen `crm-media` de la API (`MEDIA_DIR=/data/media`), así que sobreviven a los despliegues; inclúyelo en tus copias de seguridad junto con la base de datos. Si antes desplegabas sin ese volumen, los archivos anteriores se perdieron con el contenedor: la bandeja los muestra como «no disponible».
 ```
 
 Las migraciones de base de datos se aplican solas al arrancar la API.
