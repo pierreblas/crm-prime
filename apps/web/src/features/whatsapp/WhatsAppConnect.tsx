@@ -47,6 +47,7 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
   // URL del conector en el modal (iframe) y su origen: solo se aceptan sus avisos.
   const [hubUrl, setHubUrl] = useState<string | null>(null);
   const hubOriginRef = useRef<string | null>(null);
+  const hubWindowRef = useRef<Window | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   // Canal cuyo token se va a renovar: precarga el formulario manual.
   const [editing, setEditing] = useState<WhatsappChannel | null>(null);
@@ -98,8 +99,7 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
     }
   }, [queryClient]);
 
-  // Aviso del conector (iframe) al terminar: cerrar el modal y refrescar sin
-  // recargar.
+  // Aviso del conector (ventana en el dominio raíz) al terminar: refrescar sin recargar.
   useEffect(() => {
     if (!hub) return;
     function onMessage(e: MessageEvent) {
@@ -113,6 +113,20 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [hub, queryClient]);
+
+  // Si el usuario cierra la ventana del conector sin terminar, el botón vuelve a estar disponible.
+  useEffect(() => {
+    if (!hubPending) return;
+    const id = setInterval(() => {
+      const w = hubWindowRef.current;
+      if (w && w.closed) {
+        hubWindowRef.current = null;
+        setHubPending(false);
+        queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
+      }
+    }, 800);
+    return () => clearInterval(id);
+  }, [hubPending, queryClient]);
 
   // Cerrar el modal a medias (Esc, la X o fuera): el botón vuelve a estar
   // disponible y se refresca la lista por si en realidad sí acabó.
@@ -134,6 +148,7 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
   }, [hubUrl, queryClient]);
 
   // Cargar el SDK de Facebook (Embedded Signup). En SaaS no: ver `hub`.
+  // (En un subdominio de empresa Meta lo rechazaría: «dominio de host desconocido».)
   useEffect(() => {
     if (!APP_ID || hub) return;
     window.fbAsyncInit = () => {
@@ -187,16 +202,30 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
       // de Meta la abre el propio conector con el clic del usuario dentro del
       // iframe, así que aquí no hay que pelearse con el bloqueador de
       // emergentes.
+      // En una ventana propia del dominio raíz, no en un iframe: incrustado, el
+      // SDK de Meta toma como dominio de host la página que lo contiene
+      // (empresa.driony.com) y falla con «dominio de host desconocido». La
+      // ventana se abre YA, en el clic, para que el bloqueador no la frene, y
+      // se le da la dirección cuando llega el pase.
       setHubError(null);
       setHubPending(true);
+      const w = window.open("about:blank", "driony-connect-whatsapp", "width=760,height=820");
+      hubWindowRef.current = w;
       try {
         const t = await requestWhatsappConnectTicket();
         if (!t.connectUrl) throw new Error("El conector no está disponible");
         const url = new URL(t.connectUrl);
-        url.searchParams.set("embed", "1");
         hubOriginRef.current = url.origin;
-        setHubUrl(url.toString());
+        if (w && !w.closed) {
+          w.location.href = url.toString();
+          w.focus();
+        } else {
+          // Emergentes bloqueados: se abre en esta misma pestaña y el conector vuelve al panel al terminar.
+          window.location.assign(url.toString());
+        }
       } catch (e) {
+        w?.close();
+        hubWindowRef.current = null;
         setHubError((e as Error).message);
         setHubPending(false);
       }
