@@ -34,4 +34,15 @@ Con la API `stats/*` puedes cruzar fuente, embudo y vendedor en tu propio panel.
 
 ## Conversiones de vuelta a Meta
 
-Driony guarda los identificadores que Meta necesita para atribuir resultados a los anuncios: el `ctwa_clid` de cada conversación que vino de un anuncio y el `lead_id` de cada lead de formulario. Con ellos se pueden enviar a Meta las etapas del embudo (lead calificado, venta ganada) mediante la Conversions API, para que las campañas optimicen hacia clientes de verdad y no solo hacia clics. Si te interesa configurarlo, escríbenos.
+Driony guarda los identificadores que Meta necesita para atribuir resultados a los anuncios: el `ctwa_clid` de cada conversación que vino de un anuncio y el `lead_id` de cada lead de formulario. Con ellos Driony envía a Meta las etapas del embudo mediante la Conversions API, para que las campañas optimicen hacia clientes de verdad y no solo hacia clics.
+
+## Conversiones de anuncios
+
+En **Ajustes › Integraciones › Conversiones de anuncios (Meta)** activa cada número de WhatsApp. Al activarlo, Driony obtiene (o crea) el *dataset* de su cuenta de WhatsApp Business. Desde entonces, cuando una oportunidad cuyo chat nació de un anuncio Click to WhatsApp llega a:
+
+| Etapa con rol | Evento enviado a Meta |
+|---|---|
+| **Potencial** | `LeadSubmitted` |
+| **Ganada** | `Purchase`, con el valor y la moneda de la oportunidad |
+
+Cada evento se envía una sola vez por oportunidad. Los roles se marcan en **Ajustes › Embudos y etapas**, y el agente de IA puede mover a esas etapas solo con `mark_lead`. En la misma tarjeta ves los últimos eventos enviados y puedes reintentar los que fallaron. Los chats que no vinieron de un anuncio no envían nada. Requiere que la app de Meta tenga el permiso `whatsapp_business_manage_events`.

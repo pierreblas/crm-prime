@@ -17,6 +17,7 @@ import {
   updateIntegrationSettings,
 } from "@/lib/bff";
 import { toast } from "@/lib/toast";
+import { MetaConversionsCard } from "./MetaConversionsCard";
 import { ghostBtn as ghostBase, primaryBtn, smBtn } from "@/components/ui";
 
 const ghostBtn: React.CSSProperties = { ...ghostBase, ...smBtn };
@@ -112,6 +113,8 @@ export function IntegrationsSettings() {
       </header>
 
       <TwilioCard data={data} onSaved={(fresh) => queryClient.setQueryData(["integration-settings"], fresh)} />
+
+      <MetaConversionsCard />
 
       {/* ── Embeddings ─────────────────────────────────────── */}
       <div style={card}>

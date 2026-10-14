@@ -27,6 +27,7 @@ const TENANT_MODELS = new Set<string>([
   "IntegrationSetting",
   "AgentConfig",
   "Flow",
+  "ConversionEvent",
   "StageAutomation",
   "StageAutomationRun",
   "MetaPage",

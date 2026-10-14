@@ -1859,3 +1859,28 @@ export async function fetchDashboard(period: DashboardPeriod, tz: string, pipeli
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar el panel"));
   return res.json();
 }
+
+// ── Conversiones de anuncios (Meta) ──
+export async function fetchConversions(): Promise<import("@crm/shared").ConversionsOverview> {
+  const res = await bffFetch("/api/bff/conversions");
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar las conversiones"));
+  return res.json();
+}
+
+export async function enableConversions(channelId: string): Promise<import("@crm/shared").ConversionsOverview> {
+  const res = await bffFetch(`/api/bff/conversions/channels/${channelId}/enable`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron activar las conversiones"));
+  return res.json();
+}
+
+export async function disableConversions(channelId: string): Promise<import("@crm/shared").ConversionsOverview> {
+  const res = await bffFetch(`/api/bff/conversions/channels/${channelId}/disable`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron desactivar las conversiones"));
+  return res.json();
+}
+
+export async function retryConversion(eventId: string): Promise<import("@crm/shared").ConversionsOverview> {
+  const res = await bffFetch(`/api/bff/conversions/events/${eventId}/retry`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo reintentar"));
+  return res.json();
+}

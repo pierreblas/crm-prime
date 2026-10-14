@@ -172,6 +172,7 @@ model Organization {
   webhookSubs          WebhookSubscription[]
   agentConfigs         AgentConfig[]
   flows                Flow[]
+  conversionEvents     ConversionEvent[]
   stageAutomations     StageAutomation[]
   stageAutomationRuns  StageAutomationRun[]
   metaPages            MetaPage[]
@@ -402,7 +403,8 @@ model Contact {
   calls         Call[]
   metaLeads     MetaLead[]
 
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  conversionEvents ConversionEvent[]
 
   @@unique([orgId, phone])
   @@index([optIn])
@@ -920,10 +922,11 @@ model Deal {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  contact        Contact              @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  stage          PipelineStage        @relation(fields: [stageId], references: [id], onDelete: Restrict)
-  owner          User?                @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  automationRuns StageAutomationRun[]
+  contact          Contact              @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  stage            PipelineStage        @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  owner            User?                @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  conversionEvents ConversionEvent[]
+  automationRuns   StageAutomationRun[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -1108,6 +1111,9 @@ model WhatsappConnection {
   // Embudo al que entran las conversaciones nuevas de este número. Null = el
   // predeterminado de la empresa.
   pipelineId         String?
+  // Conversiones de anuncios (Conversions API de Meta): activadas y dataset de su WABA.
+  capiEnabled        Boolean  @default(false)
+  capiDatasetId      String?
   connectedAt        DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -1116,8 +1122,9 @@ model WhatsappConnection {
   flows         Flow[]
   campaigns     Campaign[]
 
-  pipeline Pipeline?    @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
-  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  pipeline         Pipeline?         @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  conversionEvents ConversionEvent[]
 
   @@index([isActive])
   @@index([orgId])
@@ -1380,4 +1387,30 @@ model StageAutomationRun {
   @@index([orgId])
   @@index([dealId])
   @@map("stage_automation_runs")
+}
+
+// Conversiones de anuncios enviadas a Meta (LeadSubmitted, Purchase): una por oportunidad y evento.
+model ConversionEvent {
+  id           String    @id @default(cuid())
+  orgId        String
+  dealId       String
+  contactId    String
+  connectionId String?
+  eventName    String // LeadSubmitted | Purchase
+  status       String // sent | failed
+  value        Decimal?  @db.Decimal(12, 2)
+  currency     String?
+  error        String?
+  sentAt       DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  org        Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal       Deal                @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contact    Contact             @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  connection WhatsappConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
+  @@unique([dealId, eventName])
+  @@index([orgId, createdAt])
+  @@map("conversion_events")
 }

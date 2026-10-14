@@ -38,3 +38,4 @@ export * from "./schemas/call.schema.js";
 export * from "./schemas/public-api.schema.js";
 export * from "./schemas/webhook-out.schema.js";
 export * from "./reply-parts.js";
+export * from "./schemas/conversions.schema.js";
