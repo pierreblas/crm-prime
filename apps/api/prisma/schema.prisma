@@ -882,16 +882,19 @@ model Pipeline {
 }
 
 model PipelineStage {
-  id          String   @id @default(cuid())
-  orgId       String
-  pipelineId  String
-  name        String
-  order       Int
-  isWon       Boolean  @default(false)
-  isLost      Boolean  @default(false)
+  id               String   @id @default(cuid())
+  orgId            String
+  pipelineId       String
+  name             String
+  order            Int
+  isWon            Boolean  @default(false)
+  isLost           Boolean  @default(false)
   // «Potencial»: aquí llegan los que muestran interés real (mark_lead).
-  isQualified Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  isQualified      Boolean  @default(false)
+  // Conversiones de Meta: eventos que se envían al llegar aquí una
+  // oportunidad de un anuncio. [{ eventName, withValue }]
+  conversionEvents Json     @default("[]")
+  createdAt        DateTime @default(now())
 
   deals       Deal[]
   automations StageAutomation[]

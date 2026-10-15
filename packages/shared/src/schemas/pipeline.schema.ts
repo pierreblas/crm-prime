@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { stageConversionEventSchema, stageConversionEventsSchema } from "./conversions.schema.js";
 
 // ── Automatizaciones de etapa ───────────────────────────────
 /**
@@ -65,6 +66,8 @@ export const stageDtoSchema = z.object({
   // «Potencial»: a donde el agente manda a quien muestra interés real.
   isQualified: z.boolean().default(false),
   automations: z.array(stageAutomationDtoSchema).default([]),
+  // Conversiones de Meta que se envían al llegar aquí (varias por etapa).
+  conversionEvents: z.array(stageConversionEventSchema).default([]),
 });
 export type StageDto = z.infer<typeof stageDtoSchema>;
 
@@ -209,6 +212,7 @@ export const createStageSchema = z.object({
   isWon: z.boolean().default(false),
   isLost: z.boolean().default(false),
   isQualified: z.boolean().optional(),
+  conversionEvents: stageConversionEventsSchema.optional(),
   pipelineId: z.string().optional(), // por defecto, el embudo predeterminado
 });
 export type CreateStageInput = z.infer<typeof createStageSchema>;
@@ -218,6 +222,7 @@ export const updateStageSchema = z.object({
   isWon: z.boolean().optional(),
   isLost: z.boolean().optional(),
   isQualified: z.boolean().optional(),
+  conversionEvents: stageConversionEventsSchema.optional(),
 });
 export type UpdateStageInput = z.infer<typeof updateStageSchema>;
 

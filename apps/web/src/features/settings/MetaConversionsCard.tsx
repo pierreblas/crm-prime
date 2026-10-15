@@ -41,10 +41,10 @@ export function MetaConversionsCard() {
         <NavIcon name="target" size={16} /> Conversiones de anuncios (Meta)
       </h3>
       <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 12px", lineHeight: 1.5 }}>
-        Cuando un chat que vino de un anuncio de Click to WhatsApp llega a una etapa con rol <strong>Potencial</strong>,
-        se envía a Meta <code>LeadSubmitted</code>; cuando llega a <strong>Ganada</strong>, <code>Purchase</code> con el valor
-        de la oportunidad. Así tus campañas aprenden de los clientes que compran, no solo de los clics. Los roles se
-        marcan en Ajustes › Embudos y etapas.
+        Cuando un chat que vino de un anuncio de Click to WhatsApp avanza en el embudo, Driony envía a Meta los eventos
+        de cada etapa (<code>LeadSubmitted</code> al llegar a Potencial, <code>Purchase</code> con el valor al llegar a
+        Ganada, y los que tú añadas). Así tus campañas aprenden de los clientes que compran, no solo de los clics. Los
+        eventos de cada etapa se eligen en <a href="/settings?tab=stages" style={{ color: "var(--accent-text)" }}>Ajustes › Embudos y etapas</a>.
       </p>
 
       {!data ? (

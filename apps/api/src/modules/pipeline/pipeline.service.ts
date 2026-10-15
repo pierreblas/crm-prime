@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import { randomBytes } from "node:crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { contactCurrency } from "@crm/shared";
+import { contactCurrency, parseStageConversionEvents } from "@crm/shared";
 import type {
   CreateDealInput,
   CreatePipelineInput,
@@ -36,13 +36,17 @@ import { env } from "../../common/utils/env";
 import { publicApiBase } from "../../common/utils/public-api-base";
 import { decideIntake, pickLeastLoaded } from "./intake";
 
-/** Etapas con las que arranca un embudo nuevo (y cualquier empresa nueva). */
+/**
+ * Etapas con las que arranca un embudo nuevo (y cualquier empresa nueva). Las
+ * de rol llevan ya su conversión de Meta: así la atribución de anuncios
+ * funciona sin configurar nada más que activarla en Integraciones.
+ */
 export const DEFAULT_STAGES = [
   { name: "Entrantes", order: 0 },
   { name: "Contactado", order: 1 },
-  { name: "Calificado", order: 2, isQualified: true },
+  { name: "Calificado", order: 2, isQualified: true, conversionEvents: [{ eventName: "LeadSubmitted", withValue: false }] },
   { name: "Propuesta", order: 3 },
-  { name: "Ganado", order: 4, isWon: true },
+  { name: "Ganado", order: 4, isWon: true, conversionEvents: [{ eventName: "Purchase", withValue: true }] },
   { name: "Perdido", order: 5, isLost: true },
 ];
 
@@ -682,6 +686,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         isWon: input.isWon,
         isLost: input.isLost,
         isQualified: input.isQualified,
+        conversionEvents: input.conversionEvents ?? [],
         order: (last?.order ?? -1) + 1,
       },
       include: STAGE_INCLUDE,
@@ -699,6 +704,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
           ...(input.isWon !== undefined ? { isWon: input.isWon } : {}),
           ...(input.isLost !== undefined ? { isLost: input.isLost } : {}),
           ...(input.isQualified !== undefined ? { isQualified: input.isQualified } : {}),
+          ...(input.conversionEvents !== undefined ? { conversionEvents: input.conversionEvents } : {}),
           // Un rol por etapa: marcar uno desmarca los otros.
           ...(input.isWon ? { isLost: false, isQualified: false } : {}),
           ...(input.isLost ? { isWon: false, isQualified: false } : {}),
@@ -805,6 +811,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     isWon: boolean;
     isLost: boolean;
     isQualified?: boolean;
+    conversionEvents?: unknown;
     automations?: AutomationRow[];
   }): StageDto {
     return {
@@ -816,6 +823,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
       isLost: s.isLost,
       isQualified: s.isQualified ?? false,
       automations: (s.automations ?? []).map((a) => this.toAutomationDto(a)),
+      conversionEvents: parseStageConversionEvents(s.conversionEvents),
     };
   }
 

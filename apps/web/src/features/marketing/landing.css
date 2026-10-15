@@ -433,6 +433,50 @@
   font-weight: 600;
 }
 
+/* Distintivo de partner de Meta: logo monocromo + texto, sin pretender ser el badge oficial. */
+.lp-partner {
+  margin-top: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 11px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.25;
+}
+.lp-partner svg {
+  flex-shrink: 0;
+  color: var(--ink);
+}
+.lp-partner b {
+  display: block;
+  color: var(--ink);
+  font-weight: 600;
+}
+.lp-partner__sub {
+  display: block;
+  font-size: 12px;
+}
+.lp-partner--foot {
+  margin-top: 0;
+  padding: 5px 11px 5px 9px;
+  font-size: 12.5px;
+  gap: 7px;
+}
+.lp-partner--foot svg {
+  width: 16px;
+  height: 16px;
+}
+.lp-foot__right {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 /* Captura real del producto: sin borde, sombra larga hacia abajo. */
 .lp-shot {
   margin: 0;

@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { Prisma } from "@prisma/client";
-import type { ConversionChannel, ConversionEventDto, ConversionEventName, ConversionsOverview } from "@crm/shared";
+import type { ConversionChannel, ConversionEventDto, ConversionsOverview, StageConversionEvent } from "@crm/shared";
+import { parseStageConversionEvents } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { runInOrg } from "../../infra/tenant/tenant.context";
@@ -20,8 +21,9 @@ interface StageChangedEvent {
  * Cada número de WhatsApp se activa por separado: al activarlo se obtiene (o
  * se crea) el dataset de su cuenta de WhatsApp Business. Después, cuando una
  * oportunidad cuyo chat nació de un anuncio Click to WhatsApp (tiene
- * ctwa_clid) llega a una etapa con rol «Potencial» o «Ganada», se envía a Meta
- * LeadSubmitted o Purchase. Así las campañas optimizan hacia clientes reales.
+ * ctwa_clid) llega a una etapa, se envían a Meta los eventos configurados en
+ * esa etapa (Ajustes › Embudos y etapas: LeadSubmitted, Purchase, Contact…,
+ * varios por etapa). Así las campañas optimizan hacia clientes reales.
  * Requiere el permiso whatsapp_business_manage_events.
  */
 @Injectable()
@@ -144,26 +146,27 @@ export class ConversionsService {
   async retry(eventId: string): Promise<ConversionsOverview> {
     const ev = await this.prisma.conversionEvent.findUnique({ where: { id: eventId } });
     if (!ev) throw new NotFoundException("Evento no encontrado");
-    await this.send(ev.dealId, ev.contactId, ev.eventName as ConversionEventName, { force: true });
+    await this.send(ev.dealId, ev.contactId, { eventName: ev.eventName, withValue: ev.value != null }, { force: true });
     return this.overview();
   }
 
+  /** Todos los eventos configurados en la etapa, en orden; cada uno una sola vez por oportunidad. */
   private async report(dealId: string, contactId: string, stageId: string): Promise<void> {
     const stage = await this.prisma.pipelineStage.findUnique({
       where: { id: stageId },
-      select: { isWon: true, isQualified: true },
+      select: { conversionEvents: true },
     });
-    const eventName: ConversionEventName | null = stage?.isWon ? "Purchase" : stage?.isQualified ? "LeadSubmitted" : null;
-    if (!eventName) return;
-    await this.send(dealId, contactId, eventName);
+    const events = parseStageConversionEvents(stage?.conversionEvents);
+    for (const ev of events) await this.send(dealId, contactId, ev);
   }
 
   private async send(
     dealId: string,
     contactId: string,
-    eventName: ConversionEventName,
+    ev: StageConversionEvent,
     opts: { force?: boolean } = {},
   ): Promise<void> {
+    const eventName = ev.eventName;
     // El chat que vino de un anuncio (el más reciente con ctwa_clid).
     const convos = await this.prisma.conversation.findMany({
       where: { contactId, referral: { not: Prisma.DbNull } },
@@ -181,9 +184,13 @@ export class ConversionsService {
     const existing = await this.prisma.conversionEvent.findUnique({ where: { dealId_eventName: { dealId, eventName } } });
     if (existing?.status === "sent" && !opts.force) return; // una vez por oportunidad y evento
 
-    const deal = await this.prisma.deal.findUnique({ where: { id: dealId }, select: { value: true, currency: true } });
-    const value = eventName === "Purchase" && deal?.value != null ? Number(deal.value) : null;
-    const currency = deal?.currency ?? null;
+    // Purchase lleva valor y moneda siempre (Meta los exige); el resto, si se pidió.
+    const withValue = eventName === "Purchase" || ev.withValue;
+    const deal = withValue
+      ? await this.prisma.deal.findUnique({ where: { id: dealId }, select: { value: true, currency: true } })
+      : null;
+    const value = withValue ? Number(deal?.value ?? 0) : null;
+    const currency = withValue ? (deal?.currency ?? "USD") : null;
     const payload = {
       data: [
         {
@@ -192,7 +199,7 @@ export class ConversionsService {
           action_source: "business_messaging",
           messaging_channel: "whatsapp",
           user_data: { whatsapp_business_account_id: conn.wabaId, ctwa_clid: clid },
-          ...(eventName === "Purchase" ? { custom_data: { currency: currency ?? "USD", value: value ?? 0 } } : {}),
+          ...(withValue ? { custom_data: { currency, value } } : {}),
         },
       ],
     };

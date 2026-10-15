@@ -14,7 +14,7 @@ Con esos tres roles el agente clasifica solo: *potencial → compra* o *perdido*
 
 ## Automatizaciones por etapa
 
-Cada etapa tiene una lista libre de automatizaciones: **«cuando pase X, ejecuta el flujo Y»**. Añades tantas como quieras desde el botón de la columna *Automatizaciones* en **Ajustes › Embudos y etapas**; el tablero muestra en cada columna cuántas tiene (⚡). Disparadores:
+Cada etapa tiene una lista libre de automatizaciones: **«cuando pase X, ejecuta el flujo Y»**. Añades tantas como quieras desde el engranaje de la etapa (en el tablero o en **Ajustes › Embudos y etapas**) o desde la columna *Automatizaciones* de Ajustes; el tablero muestra en cada columna cuántas tiene (⚡). Disparadores:
 
 | Cuándo | Qué pasa |
 |---|---|
@@ -26,6 +26,10 @@ Cada etapa tiene una lista libre de automatizaciones: **«cuando pase X, ejecuta
 Los flujos se crean en [Flujos](/docs/flujos); para uno que solo deba correr desde el embudo, elige el disparador **«Solo desde una etapa del embudo»**. El flujo corre en la conversación abierta del contacto (o abre una nueva); si otro flujo está a medias esperando su respuesta, no arranca. Un flujo desactivado no corre aunque esté enganchado: pausa la automatización con su casilla *activa* o actívalo en Flujos.
 
 Ejemplos: *Entrantes* → «Entra a la etapa → Bienvenida»; *Propuesta* → «Pasa 1 día sin respuesta → Seguimiento» y «Llega un webhook → Enviar cotización» desde tu ERP; *Ganado* → «Entra a la etapa → Gracias y encuesta».
+
+## Conversiones de Meta por etapa
+
+Si un chat vino de un **anuncio de Click to WhatsApp**, cada etapa puede avisar a Meta cuando la oportunidad llega a ella. Pulsa el **engranaje de la etapa** (en la cabecera de la columna del tablero, o en Ajustes › Embudos y etapas) y añade eventos en «Conversiones de Meta». Una etapa puede enviar varios eventos: `LeadSubmitted`, `Purchase` con el valor de la oportunidad, `Contact`, `Schedule`, o uno con nombre propio. Así Meta optimiza las campañas hacia quien de verdad compra. Se activa por número en **Ajustes › Integraciones**; el detalle está en [Meta Ads](/docs/meta-ads).
 
 ## Agente de IA del embudo
 

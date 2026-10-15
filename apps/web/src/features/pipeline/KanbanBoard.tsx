@@ -31,6 +31,7 @@ import { useRealtimeCtx } from "@/components/RealtimeProvider";
 import { dangerBtn, ghostBtn, primaryBtn, smBtn } from "@/components/ui";
 import { TagEditor, tagColor } from "@/features/contacts/TagEditor";
 import { useCalls } from "@/features/calls/CallProvider";
+import { EVENT_LABEL, gearBtn, StageConfigDialog } from "./StageEditors";
 import {
   DateFilter,
   EMPTY_DATE,
@@ -124,6 +125,8 @@ export function KanbanBoard() {
 
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [showStages, setShowStages] = useState(false);
+  // Etapa con el diálogo «Configurar etapa» abierto (engranaje de la columna).
+  const [configStageId, setConfigStageId] = useState<string | null>(null);
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["pipeline"] });
 
   // Llegar desde la bandeja: /pipeline?id=<embudo>&deal=<id> abre esa tarjeta.
@@ -437,8 +440,27 @@ export function KanbanBoard() {
                         {stage.automations.length}
                       </span>
                     )}
+                    {stage.conversionEvents.length > 0 && (
+                      <span
+                        title={`Conversiones de Meta: ${stage.conversionEvents.map((e) => EVENT_LABEL[e.eventName] ?? e.eventName).join(", ")}`}
+                        style={{ color: "var(--accent-text)", display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, fontWeight: 600 }}
+                      >
+                        <NavIcon name="target" size={12} />
+                        {stage.conversionEvents.length}
+                      </span>
+                    )}
                   </span>
-                  <span style={{ color: "var(--muted)" }}>{deals.length}</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--muted)" }}>
+                    {deals.length}
+                    <button
+                      onClick={() => setConfigStageId(stage.id)}
+                      style={gearBtn}
+                      title="Configurar etapa: rol, conversiones de Meta y automatizaciones"
+                      aria-label={`Configurar etapa ${stage.name}`}
+                    >
+                      <NavIcon name="settings" size={13} />
+                    </button>
+                  </span>
                 </div>
                 {total > 0 && (
                   <div style={{ color: "#7ee2a8", fontSize: 12, marginBottom: 10, fontWeight: 600 }}>
@@ -495,8 +517,16 @@ export function KanbanBoard() {
           stages={data.stages}
           onClose={() => setShowStages(false)}
           onChanged={invalidate}
+          onConfigure={(id) => {
+            setShowStages(false);
+            setConfigStageId(id);
+          }}
         />
       )}
+      {(() => {
+        const s = configStageId ? data.stages.find((x) => x.id === configStageId) : undefined;
+        return s ? <StageConfigDialog stage={s} onClose={() => setConfigStageId(null)} onChanged={invalidate} /> : null;
+      })()}
     </div>
   );
 }
@@ -906,11 +936,13 @@ function StageManager({
   stages,
   onClose,
   onChanged,
+  onConfigure,
 }: {
   pipelineId: string;
   stages: StageDto[];
   onClose: () => void;
   onChanged: () => void;
+  onConfigure: (stageId: string) => void;
 }) {
   const [name, setName] = useState("");
   const create = useMutation({
@@ -956,6 +988,9 @@ function StageManager({
                     rename.mutate({ id: s.id, name: e.target.value.trim() });
                 }}
               />
+              <button onClick={() => onConfigure(s.id)} style={miniBtn} title="Configurar etapa: rol, conversiones de Meta y automatizaciones" aria-label={`Configurar etapa ${s.name}`}>
+                <NavIcon name="settings" size={13} />
+              </button>
               <button onClick={() => moveStage(i, -1)} disabled={i === 0} style={miniBtn} title="Subir">
                 <NavIcon name="arrow-up" size={13} />
               </button>

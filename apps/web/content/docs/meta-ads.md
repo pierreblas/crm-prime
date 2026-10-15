@@ -38,11 +38,8 @@ Driony guarda los identificadores que Meta necesita para atribuir resultados a l
 
 ## Conversiones de anuncios
 
-En **Ajustes › Integraciones › Conversiones de anuncios (Meta)** activa cada número de WhatsApp. Al activarlo, Driony obtiene (o crea) el *dataset* de su cuenta de WhatsApp Business. Desde entonces, cuando una oportunidad cuyo chat nació de un anuncio Click to WhatsApp llega a:
+En **Ajustes › Integraciones › Conversiones de anuncios (Meta)** activa cada número de WhatsApp. Al activarlo, Driony obtiene (o crea) el *dataset* de su cuenta de WhatsApp Business.
 
-| Etapa con rol | Evento enviado a Meta |
-|---|---|
-| **Potencial** | `LeadSubmitted` |
-| **Ganada** | `Purchase`, con el valor y la moneda de la oportunidad |
+Qué se envía lo decides **etapa por etapa**: pulsa el engranaje de la etapa (en la columna del tablero del embudo o en **Ajustes › Embudos y etapas**) y, en «Conversiones de Meta», añade eventos. Cada etapa tiene su lista, y puede haber varios. Un embudo nuevo arranca con `LeadSubmitted` en la etapa Potencial y `Purchase` (con el valor y la moneda de la oportunidad) en la Ganada. Puedes añadir los eventos estándar de Meta (Contact, Schedule, SubmitApplication, CompleteRegistration, StartTrial, Subscribe, InitiateCheckout…) o uno con nombre propio, y marcar en cada uno si va con el valor de la oportunidad.
 
-Cada evento se envía una sola vez por oportunidad. Los roles se marcan en **Ajustes › Embudos y etapas**, y el agente de IA puede mover a esas etapas solo con `mark_lead`. En la misma tarjeta ves los últimos eventos enviados y puedes reintentar los que fallaron. Los chats que no vinieron de un anuncio no envían nada. Requiere que la app de Meta tenga el permiso `whatsapp_business_manage_events`.
+Cuando una oportunidad cuyo chat nació de un anuncio Click to WhatsApp llega a una etapa, se envían sus eventos, cada uno una sola vez por oportunidad. El agente de IA mueve a Potencial y Ganada con `mark_lead`; el resto, con las automatizaciones o a mano. En la tarjeta de Integraciones ves los últimos eventos enviados y puedes reintentar los que fallaron. Los chats que no vinieron de un anuncio no envían nada. Requiere que la app de Meta tenga el permiso `whatsapp_business_manage_events`.
