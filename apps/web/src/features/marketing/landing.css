@@ -685,6 +685,52 @@
 }
 
 /* Medidor de gasto: la ilustración de la tarjeta de tokens */
+/* Traza de producto: filas «cosa → evento → estado», para las tarjetas sin captura. */
+.lp-trace {
+  margin-top: auto;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.lp-trace__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.lp-trace__row > span:first-child {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+}
+.lp-trace__ev {
+  font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: rgba(178, 160, 220, 0.14);
+  color: var(--accent-text);
+  white-space: nowrap;
+}
+.lp-trace__ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--positive);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.lp-trace__ok svg {
+  width: 13px;
+  height: 13px;
+}
+
 .lp-meter {
   margin-top: auto;
   padding: 12px 14px;

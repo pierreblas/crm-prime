@@ -95,6 +95,18 @@ export default async function RegisterPage({
           {t("auth.createAccount")}
         </button>
 
+        <p style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 12, textAlign: "center", lineHeight: 1.5 }}>
+          {t("auth.termsPrefix")}{" "}
+          <Link href="/terms" style={{ color: "var(--accent)" }}>
+            {t("auth.termsLink")}
+          </Link>{" "}
+          {t("auth.andThe")}{" "}
+          <Link href="/privacy" style={{ color: "var(--accent)" }}>
+            {t("auth.privacyLink")}
+          </Link>
+          .
+        </p>
+
         <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 18, textAlign: "center" }}>
           {t("auth.haveAccount")}{" "}
           <Link href="/login" style={{ color: "var(--accent)" }}>

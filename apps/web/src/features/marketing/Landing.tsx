@@ -22,6 +22,8 @@ const BAND_ITEMS = [
   "Tiempo real",
   "Multi-número",
   "Tu propio modelo de IA",
+  "Meta Business Partner",
+  "Anuncios que aprenden de tus ventas",
   "Gasto bajo control",
   "Código abierto",
   "Agentes que venden 24/7",
@@ -38,7 +40,19 @@ const FAQ = [
   },
   {
     q: "¿Qué incluye empezar gratis en la nube?",
-    a: "Tu espacio en tu-empresa.driony.com con la bandeja, los agentes, los flujos y las difusiones, sin tarjeta. Si en algún momento hay un plan de pago que te aplique, te lo contamos antes de cobrarte nada.",
+    a: "Tu espacio en tu-empresa.driony.com con la bandeja, los agentes de IA, el embudo y los flujos, sin tarjeta, para un número de WhatsApp y dos personas del equipo. Los planes Pro y Empresa amplían números, usuarios, difusiones y API; están detallados en la documentación de planes.",
+  },
+  {
+    q: "¿Cómo sé cuándo la IA pasó un chat a una persona?",
+    a: "En la bandeja: la conversación se marca «Pasado a humano» con el motivo, y el agente deja de responder solo hasta que alguien de tu equipo la atiende. Tú decides cuándo debe hacerlo: cuando no esté seguro, cuando el cliente lo pida o, por ejemplo, siempre que mande una imagen o un comprobante.",
+  },
+  {
+    q: "¿La IA entiende audios, fotos y documentos?",
+    a: "Sí. Transcribe los audios y describe las imágenes y documentos con tu proveedor de IA, y usa eso para responder. Si no puede ver una imagen, lo dice y pasa el chat a tu equipo en vez de inventar.",
+  },
+  {
+    q: "¿Mis anuncios de Meta se enteran de las ventas?",
+    a: "Sí. Activa las conversiones en Integraciones y elige en cada etapa del embudo qué evento se envía a Meta (LeadSubmitted, Purchase con el valor de la venta, u otros). Solo se envían para chats que llegaron por un anuncio de Click to WhatsApp, y cada evento una sola vez por oportunidad.",
   },
   {
     q: "¿Puedo instalarlo yo en mi servidor?",
@@ -265,18 +279,21 @@ export function Landing() {
                     decoding="async"
                   />
                 </div>
-                <h3>Un agente de IA que atiende por ti</h3>
+                <h3>Un agente de IA que atiende como tu mejor vendedor</h3>
                 <p>
                   Responde al instante, entiende qué busca el cliente, lo califica y
-                  agenda. Cuando el caso lo pide, lo pasa a una persona de tu equipo.
-                  Responde con <b>tu</b> información, porque lee tu catálogo y tu base
-                  de conocimiento.
+                  agenda. Responde con <b>tu</b> información: tu catálogo, tu base de
+                  conocimiento y los datos de cada contacto. Entiende las fotos y los
+                  comprobantes que le mandan, recuerda al cliente de una conversación a
+                  la siguiente y escribe por partes, como una persona. Cuando el caso lo
+                  pide, pasa el chat a tu equipo y lo deja claro en la bandeja.
                 </p>
                 <div className="lp-mini">
                   <span className="lp-chip">Responde 24/7</span>
                   <span className="lp-chip">Califica y agenda</span>
+                  <span className="lp-chip">Entiende fotos y comprobantes</span>
+                  <span className="lp-chip">Escribe como una persona</span>
                   <span className="lp-chip">Pasa a una persona cuando toca</span>
-                  <span className="lp-chip">Tú apruebas cada respuesta, o la envía sola</span>
                 </div>
               </article>
 
@@ -309,10 +326,12 @@ export function Landing() {
                     decoding="async"
                   />
                 </div>
-                <h3>Embudo de ventas</h3>
+                <h3>Embudo con automatizaciones por etapa</h3>
                 <p>
-                  Cada conversación nueva entra sola al embudo. Arrastras la
-                  oportunidad de etapa y no pierdes el seguimiento.
+                  Cada conversación nueva entra sola al embudo. En cada etapa decides qué
+                  pasa: un flujo al entrar, cuando el cliente escribe, cuando llega un
+                  webhook o si pasan días sin respuesta. Arrastras la oportunidad y no
+                  pierdes el seguimiento.
                 </p>
               </article>
 
@@ -327,11 +346,60 @@ export function Landing() {
                     decoding="async"
                   />
                 </div>
-                <h3>Flujos sin código</h3>
+                <h3>Flujos y respuestas sin código</h3>
                 <p>
                   Bienvenidas, menús y preguntas encadenadas con un editor de
-                  arrastrar, o dictados a la IA.
+                  arrastrar, o dictados a la IA. Respuestas por palabra clave con
+                  versiones por país o por datos del contacto: los métodos de pago de
+                  Perú no son los de México.
                 </p>
+              </article>
+
+              <article className="lp-card lp-card--half lp-reveal">
+                <h3>Anuncios que aprenden de tus ventas</h3>
+                <p>
+                  Si el cliente llegó por un anuncio de Click to WhatsApp, Driony le
+                  cuenta a Meta cuándo se volvió potencial y cuándo compró (Conversions
+                  API). Tus campañas optimizan hacia clientes reales, no hacia clics.
+                  Lo eliges etapa por etapa, y somos Meta Business Partner.
+                </p>
+                <div className="lp-trace" aria-hidden="true">
+                  <div className="lp-trace__row">
+                    <span>Calificado</span>
+                    <span className="lp-trace__ev">LeadSubmitted</span>
+                    <b className="lp-trace__ok">
+                      <Check /> enviado
+                    </b>
+                  </div>
+                  <div className="lp-trace__row">
+                    <span>Ganado · S/ 250</span>
+                    <span className="lp-trace__ev">Purchase</span>
+                    <b className="lp-trace__ok">
+                      <Check /> enviado
+                    </b>
+                  </div>
+                </div>
+              </article>
+
+              <article className="lp-card lp-card--half lp-reveal">
+                <h3>Catálogo con precios en varias monedas</h3>
+                <p>
+                  Importa tus productos desde Excel con precios en soles, dólares o la
+                  moneda en la que vendas. El agente cotiza en la moneda del cliente y tú
+                  eliges qué campos de cada producto puede contar.
+                </p>
+                <div className="lp-trace" aria-hidden="true">
+                  <div className="lp-trace__row">
+                    <span>Curso de Python · online</span>
+                    <span className="lp-trace__ev">S/ 199 · USD 55 · MXN 990</span>
+                  </div>
+                  <div className="lp-trace__row">
+                    <span>productos.xlsx</span>
+                    <b className="lp-trace__ok">
+                      <Check /> 128 importados
+                    </b>
+                  </div>
+                </div>
               </article>
 
               <article className="lp-card lp-card--third lp-reveal">
@@ -418,7 +486,7 @@ export function Landing() {
               <li className="lp-step lp-reveal">
                 <div className="lp-step__n" aria-hidden="true">3</div>
                 <h3>Empieza a vender</h3>
-                <p>El agente atiende y califica cada lead; tu equipo solo entra a cerrar.</p>
+                <p>El agente atiende y califica cada lead; tu equipo solo entra a cerrar. Y si el cliente llegó por un anuncio, Meta se entera de la venta.</p>
               </li>
             </ol>
           </div>
@@ -439,6 +507,8 @@ export function Landing() {
                   "Responder uno por uno, todo el día",
                   "Sin saber en qué quedó cada conversación",
                   "Sin saber cuántos leads se enfriaron sin respuesta",
+                  "Comprobantes en foto que nadie revisa a tiempo",
+                  "Anuncios que optimizan a clics, no a ventas",
                 ].map((t) => (
                   <div className="lp-row" key={t}>
                     <span className="lp-row__ic">
@@ -456,6 +526,8 @@ export function Landing() {
                   "La IA responde y califica por ti",
                   "Cada lead con su historial, etapa y notas",
                   "Cada conversación nueva entra al embudo y se asigna sola",
+                  "La IA entiende la foto y pasa el chat a tu equipo",
+                  "Meta aprende de tus ventas reales y trae mejores leads",
                 ].map((t) => (
                   <div className="lp-row" key={t}>
                     <span className="lp-row__ic">
@@ -519,8 +591,9 @@ export function Landing() {
                 <p>
                   Tu espacio en <b>tu-empresa.driony.com</b> en dos minutos. Sin
                   servidores ni actualizaciones que hacer, y con tus datos aislados de
-                  los de cualquier otra empresa. Si algún día hay un plan de pago que te
-                  aplique, lo sabrás antes de que te cobremos nada.
+                  los de cualquier otra empresa. Empiezas en el plan Gratis; cuando
+                  crezcas, Pro y Empresa amplían números, usuarios y características
+                  (<Link href="/docs/planes">ver planes</Link>).
                 </p>
                 <div className="lp-plan__rows">
                   {[
@@ -528,6 +601,7 @@ export function Landing() {
                     "Conecta WhatsApp desde el panel",
                     "Actualizaciones y copias de seguridad incluidas",
                     "Aislamiento por empresa, también en la base de datos",
+                    "Conversiones de anuncios a Meta, como Meta Business Partner",
                     "Soporte por correo de quien hace el producto",
                   ].map((t) => (
                     <div className="lp-row" key={t}>
@@ -597,6 +671,7 @@ export function Landing() {
               GitHub
             </a>
             <a href={`mailto:${CONTACT}`}>Contacto</a>
+            <Link href="/terms">Términos</Link>
             <Link href="/privacy">Privacidad</Link>
           </nav>
           <span className="lp-foot__right">

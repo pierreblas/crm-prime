@@ -127,6 +127,10 @@ export const en = {
     namePlaceholder: "Your name",
     createAccount: "Create account",
     haveAccount: "Already have an account?",
+    termsPrefix: "By creating your account you accept the",
+    termsLink: "Terms and conditions",
+    andThe: "and the",
+    privacyLink: "Privacy policy",
     signUpFailed: "Could not create the account",
   },
   alerts: {

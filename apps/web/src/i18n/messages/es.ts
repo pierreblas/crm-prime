@@ -126,6 +126,10 @@ export const es: Messages = {
     namePlaceholder: "Tu nombre",
     createAccount: "Crear cuenta",
     haveAccount: "¿Ya tienes cuenta?",
+    termsPrefix: "Al crear tu cuenta aceptas los",
+    termsLink: "Términos y condiciones",
+    andThe: "y la",
+    privacyLink: "Política de privacidad",
     signUpFailed: "No se pudo registrar",
   },
   alerts: {
