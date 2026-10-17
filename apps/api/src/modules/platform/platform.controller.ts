@@ -19,7 +19,11 @@ import {
   updatePlatformOrgSchema,
   type AuthTokens,
   type LoginInput,
+  type PlatformAuditEntry,
+  type PlatformHealth,
+  type PlatformLoginAsResult,
   type PlatformOrg,
+  type PlatformOrgDetail,
   type PlatformOverview,
   type UpdatePlatformOrgInput,
 } from "@crm/shared";
@@ -83,10 +87,41 @@ export class PlatformController {
     };
   }
 
+  /** Correo de la cuenta maestra que hace la petición (lo deja el guard). */
+  private actor(req: Request): string {
+    return (req as unknown as { platformClaims?: PlatformClaims }).platformClaims?.email ?? "?";
+  }
+
   @Get("overview")
   @UseGuards(PlatformAdminGuard)
   overview(): Promise<PlatformOverview> {
     return this.platform.overview();
+  }
+
+  @Get("health")
+  @UseGuards(PlatformAdminGuard)
+  health(): Promise<PlatformHealth> {
+    return this.platform.health();
+  }
+
+  @Get("audit")
+  @UseGuards(PlatformAdminGuard)
+  audit(@Query("limit") limit?: string): Promise<PlatformAuditEntry[]> {
+    const n = Math.min(500, Math.max(1, Number(limit) || 100));
+    return this.platform.auditList(n);
+  }
+
+  @Get("orgs/:id")
+  @UseGuards(PlatformAdminGuard)
+  detail(@Param("id") id: string): Promise<PlatformOrgDetail> {
+    return this.platform.detail(id);
+  }
+
+  @Post("orgs/:id/login-as")
+  @UseGuards(PlatformAdminGuard)
+  @HttpCode(200)
+  loginAs(@Param("id") id: string, @Req() req: Request): Promise<PlatformLoginAsResult> {
+    return this.platform.loginAs(id, this.actor(req));
   }
 
   @Get("orgs")
@@ -100,7 +135,8 @@ export class PlatformController {
   update(
     @Param("id") id: string,
     @Body(new ZodValidationPipe(updatePlatformOrgSchema)) body: UpdatePlatformOrgInput,
+    @Req() req: Request,
   ): Promise<PlatformOrg> {
-    return this.platform.update(id, body);
+    return this.platform.update(id, body, this.actor(req));
   }
 }

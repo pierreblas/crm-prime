@@ -143,13 +143,16 @@ enum AiMessageRole {
 // función que se enciende: es la forma del esquema. Un esquema que se bifurca
 // es un esquema donde la consulta sin filtrar acaba llegando a producción.
 model Organization {
-  id        String   @id @default(cuid())
-  slug      String   @unique // "acme" → acme.driony.com
-  name      String
-  plan      String   @default("free")
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(cuid())
+  slug          String    @unique // "acme" → acme.driony.com
+  name          String
+  plan          String    @default("free")
+  isActive      Boolean   @default(true)
+  // Consola de plataforma: hasta cuándo está pagado el plan y notas del operador.
+  planExpiresAt DateTime?
+  platformNotes String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   users                User[]
   contacts             Contact[]
@@ -182,6 +185,7 @@ model Organization {
   onboarding           OnboardingState?
   knowledgeSuggestions KnowledgeSuggestion[]
   aiUsage              AiUsage[]
+  platformAudit        PlatformAuditLog[]
 
   @@map("organizations")
 }
@@ -255,6 +259,8 @@ model User {
   role         Role     @default(AGENT)
   isActive     Boolean  @default(true)
   // Tours guiados de pantalla que ya vio (no se repiten en otro dispositivo).
+  // Qué ve y qué puede hacer (ver packages/shared/src/permissions.ts). null = lo de su rol.
+  permissions  Json?
   toursSeen    String[] @default([])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -629,6 +635,8 @@ model Message {
   author         MessageAuthor
   content        String? // texto o caption
   mediaUrl       String?
+  // Adjunto borrado por la retención del plan (el texto se conserva).
+  mediaPurgedAt  DateTime?
   // Lo que la IA entendió del medio: transcripción del audio o descripción de
   // la imagen/sticker. Null = sin procesar; "" = no se pudo.
   transcript     String?
@@ -1416,4 +1424,20 @@ model ConversionEvent {
   @@unique([dealId, eventName])
   @@index([orgId, createdAt])
   @@map("conversion_events")
+}
+
+// Diario del operador del SaaS: qué hizo la cuenta maestra y sobre qué empresa.
+model PlatformAuditLog {
+  id         String   @id @default(cuid())
+  actorEmail String
+  action     String // plan_changed | suspended | reactivated | expiry_changed | notes_changed | login_as
+  orgId      String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  org Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([createdAt])
+  @@map("platform_audit_log")
 }

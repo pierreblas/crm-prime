@@ -19,6 +19,7 @@ import type {
   RegisterInput,
   Role,
 } from "@crm/shared";
+import { effectivePermissions } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { OrganizationService } from "../organizations/organization.service";
@@ -309,7 +310,7 @@ export class AuthService {
 
   /** Lo que la web guarda en sesión. `platformAdmin` solo tiene sentido en SaaS. */
   private toPublicUser(
-    user: { id: string; email: string; name: string | null; role: string },
+    user: { id: string; email: string; name: string | null; role: string; permissions?: unknown },
     orgSlug?: string,
   ): PublicUser {
     return {
@@ -318,6 +319,7 @@ export class AuthService {
       name: user.name,
       role: user.role as Role,
       orgSlug,
+      permissions: effectivePermissions(user.role, user.permissions ?? null),
       // Los usuarios de empresa nunca son operadores: la cuenta maestra es
       // aparte (admin.<dominio>, PLATFORM_ADMIN_EMAIL).
       platformAdmin: false,

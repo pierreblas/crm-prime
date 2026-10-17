@@ -36,6 +36,8 @@ import {
   type UpdateStageInput,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
+import type { AccessTokenClaims } from "@crm/shared";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PipelineService } from "./pipeline.service";
 
@@ -47,8 +49,8 @@ export class PipelineController {
   // Tablero de un embudo (por defecto, el predeterminado). `view=discarded`
   // devuelve las oportunidades descartadas en vez de las abiertas.
   @Get("pipeline")
-  getPipeline(@Query("id") id?: string, @Query("view") view?: string) {
-    return this.pipeline.getPipeline(id || undefined, view === "discarded" ? "discarded" : "open");
+  getPipeline(@CurrentUser() user: AccessTokenClaims, @Query("id") id?: string, @Query("view") view?: string) {
+    return this.pipeline.getPipeline(id || undefined, view === "discarded" ? "discarded" : "open", user.sub);
   }
 
   // ── Embudos ────────────────────────────────────────────────

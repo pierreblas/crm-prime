@@ -23,6 +23,7 @@ import {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
+import { PlansService } from "../plans/plans.service";
 import { MessagingService } from "../messaging/messaging.service";
 import { WebhookOutService } from "../webhooks-out/webhook-out.service";
 
@@ -44,6 +45,7 @@ export class PublicApiService {
     private readonly tenant: TenantService,
     private readonly messaging: MessagingService,
     private readonly webhooks: WebhookOutService,
+    private readonly plans: PlansService,
   ) {}
 
   // ── Contactos ───────────────────────────────────────────────
@@ -109,6 +111,7 @@ export class PublicApiService {
         ).id
       : undefined;
 
+    await this.plans.assertCanAdd("contacts");
     const c = await this.prisma.contact.create({
       data: {
         orgId,
@@ -180,6 +183,7 @@ export class PublicApiService {
   // ── Oportunidades ───────────────────────────────────────────
   async createDeal(input: CreatePublicDealInput): Promise<PublicDeal> {
     const orgId = this.tenant.orgId();
+    await this.plans.assertCanAdd("deals");
     const contact = await this.prisma.contact.upsert({
       where: { orgId_phone: { orgId, phone: input.phone } },
       create: { orgId, phone: input.phone, origin: "webhook" },

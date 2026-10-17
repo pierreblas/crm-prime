@@ -47,6 +47,8 @@ export class PlatformAdminGuard implements CanActivate {
     if (claims.purpose !== "platform" || !isPlatformAdmin(claims.email)) {
       throw new ForbiddenException("Solo la cuenta maestra de la plataforma puede entrar aquí");
     }
+    // Quién actúa: lo lee el controlador para el diario del operador.
+    (req as { platformClaims?: PlatformClaims }).platformClaims = claims;
     return true;
   }
 

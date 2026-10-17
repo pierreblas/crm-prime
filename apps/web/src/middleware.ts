@@ -69,7 +69,7 @@ const CONSOLA_PERMITIDAS = ["/login", "/platform", "/api/", "/auth/"];
  * Rutas del dominio raíz que existen aunque tengas sesión: el alta, el pase y
  * las de Auth.js. Todo lo demás, con sesión, pertenece a tu subdominio.
  */
-const RAIZ_PERMITIDAS = ["/signup", "/handoff", "/api/", "/connect/", "/docs", "/privacy", "/terms", "/data-deletion"];
+const RAIZ_PERMITIDAS = ["/signup", "/handoff", "/api/", "/connect/", "/docs", "/precios", "/privacy", "/terms", "/data-deletion"];
 
 /**
  * Con sesión y en el dominio raíz, al subdominio de tu empresa.

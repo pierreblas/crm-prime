@@ -31,6 +31,10 @@ import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
+import { PlansService } from "../plans/plans.service";
+import { PermissionsService } from "../permissions/permissions.service";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { maskPhone, type AccessTokenClaims } from "@crm/shared";
 
 // Lo que necesita una fila del directorio (y la ficha del panel de la bandeja).
 const LIST_INCLUDE = {
@@ -53,40 +57,54 @@ export class ContactsController {
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
     private readonly events: EventEmitter2,
+    private readonly plans: PlansService,
+    private readonly perms: PermissionsService,
   ) {}
 
   // Autocompletar (id/name/phone) — lo usa el pipeline.
   @Get()
-  async list(@Query("search") search?: string): Promise<ContactDto[]> {
+  async list(@CurrentUser() user: AccessTokenClaims, @Query("search") search?: string): Promise<ContactDto[]> {
+    const scope = await this.perms.contactWhere(user.sub);
     const rows = await this.prisma.contact.findMany({
-      where: search ? this.searchWhere(search) : undefined,
+      where: { AND: [search ? this.searchWhere(search) : {}, scope ?? {}] },
       orderBy: { lastMessageAt: "desc" },
       take: 20,
     });
-    return rows.map((c) => ({ id: c.id, name: c.name, phone: c.phone }));
+    const phone = await this.phoneFor(user.sub);
+    return rows.map((c) => ({ id: c.id, name: c.name, phone: phone(c.phone) }));
+  }
+
+  /** Sin permiso de ver el teléfono, se enmascara en todo lo que sale de aquí. */
+  private async phoneFor(userId: string): Promise<(p: string) => string> {
+    return (await this.perms.canSeePhone(userId)) ? (p) => p : maskPhone;
   }
 
   // Directorio completo para la sección de Contactos.
   @Get("directory")
   async directory(
+    @CurrentUser() user: AccessTokenClaims,
     @Query("search") search?: string,
   ): Promise<ContactListItem[]> {
+    const scope = await this.perms.contactWhere(user.sub);
     const rows = await this.prisma.contact.findMany({
-      where: search ? this.searchWhere(search) : undefined,
+      where: { AND: [search ? this.searchWhere(search) : {}, scope ?? {}] },
       orderBy: { lastMessageAt: { sort: "desc", nulls: "last" } },
       take: 200,
       include: LIST_INCLUDE,
     });
-    return rows.map((c) => this.toListItem(c));
+    const phone = await this.phoneFor(user.sub);
+    return rows.map((c) => ({ ...this.toListItem(c), phone: phone(c.phone) }));
   }
 
   // Ficha de un contacto: lo mismo que una fila del directorio, para el panel
   // de la bandeja (que solo tiene el id de la conversación).
   @Get(":id")
-  async one(@Param("id") id: string): Promise<ContactListItem> {
-    const c = await this.prisma.contact.findUnique({ where: { id }, include: LIST_INCLUDE });
+  async one(@CurrentUser() user: AccessTokenClaims, @Param("id") id: string): Promise<ContactListItem> {
+    const scope = await this.perms.contactWhere(user.sub);
+    const c = await this.prisma.contact.findFirst({ where: { id, ...(scope ?? {}) }, include: LIST_INCLUDE });
     if (!c) throw new NotFoundException("Contacto no encontrado");
-    return this.toListItem(c);
+    const phone = await this.phoneFor(user.sub);
+    return { ...this.toListItem(c), phone: phone(c.phone) };
   }
 
   /**
@@ -215,6 +233,7 @@ export class ContactsController {
     if (existing) {
       throw new ConflictException("Ya existe un contacto con ese teléfono");
     }
+    await this.plans.assertCanAdd("contacts");
     const c = await this.prisma.contact.create({
       data: {
         orgId: this.tenant.orgId(),

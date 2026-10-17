@@ -77,6 +77,8 @@ export const messageDtoSchema = z.object({
   author: z.nativeEnum(MessageAuthor),
   content: z.string().nullable(),
   mediaUrl: z.string().nullable(),
+  /** Cuándo se borró el adjunto por la retención del plan (el texto se conserva). */
+  mediaPurgedAt: z.string().nullable().optional(),
   /** Transcripción del audio o descripción de la imagen/sticker, si la IA ya lo leyó. */
   transcript: z.string().nullable().optional(),
   reaction: z.string().nullable(),

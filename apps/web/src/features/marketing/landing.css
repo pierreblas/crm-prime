@@ -923,6 +923,117 @@
   margin-top: auto;
   padding-top: 14px;
 }
+/* ── Página de precios ── */
+.lp-section--first {
+  padding-top: clamp(40px, 6vw, 76px);
+}
+.lp-head h1 {
+  font-family: var(--font-display, inherit);
+  font-size: clamp(2.2rem, 1.5rem + 3vw, 3.6rem);
+  line-height: 1.06;
+  letter-spacing: -0.025em;
+  margin: 0 0 14px;
+  text-wrap: balance;
+}
+.lp-plans--3 {
+  grid-template-columns: repeat(3, 1fr);
+  align-items: stretch;
+}
+.lp-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 2px 0 0;
+  font-size: clamp(1.9rem, 1.5rem + 1.4vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--ink);
+}
+.lp-price small {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+.lp-plan .lp-row--off {
+  color: var(--muted);
+}
+.lp-plan .lp-row--off .lp-row__ic {
+  color: var(--muted);
+  opacity: 0.7;
+}
+.lp-plan__note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.lp-plan__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lp-plan__cta .lp-plan__note {
+  flex-basis: 100%;
+}
+.lp-included {
+  margin-top: 36px;
+}
+.lp-included h2 {
+  font-size: 18px;
+  margin: 0 0 14px;
+}
+.lp-included__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px 18px;
+  color: var(--ink-dim);
+  font-size: 14.5px;
+}
+.lp-included__list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lp-included__list svg {
+  color: var(--positive);
+  flex-shrink: 0;
+}
+.lp-plan--self {
+  background: var(--surface);
+}
+.lp-plan__self-grid .lp-plan__tag {
+  display: inline-block;
+}
+.lp-plan__self-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.lp-plans__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent-text);
+  text-decoration: none;
+  font-weight: 600;
+}
+.lp-plans__link:hover {
+  text-decoration: underline;
+}
+@media (max-width: 900px) {
+  .lp-plans--3 {
+    grid-template-columns: 1fr;
+  }
+  .lp-plan__self-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .lp-plans__note {
   margin: 22px auto 0;
   color: var(--muted);

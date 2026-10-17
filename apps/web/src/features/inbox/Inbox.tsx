@@ -70,6 +70,14 @@ export function Inbox() {
   const [sourceId, setSourceId] = useState("");
   const [agentId, setAgentId] = useState("");
   const [date, setDate] = useState<DateFilterValue>(EMPTY_DATE);
+  // «Ver sus chats» desde Equipo: la bandeja llega filtrada por esa persona.
+  useEffect(() => {
+    const a = new URLSearchParams(window.location.search).get("agent");
+    if (a) {
+      setAgentId(a);
+      setFiltersOpen(true);
+    }
+  }, []);
   const { data: tagList = [] } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
   const { data: sources = [] } = useQuery({ queryKey: ["sources"], queryFn: fetchSources });
   const { data: agents = [] } = useQuery({ queryKey: ["agents"], queryFn: fetchAgents });

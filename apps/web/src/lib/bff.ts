@@ -24,6 +24,10 @@ import type {
   MyPlanDto,
   PlatformOrg,
   PlatformOverview,
+  PlatformAuditEntry,
+  PlatformHealth,
+  PlatformLoginAsResult,
+  PlatformOrgDetail,
   UpdatePlatformOrgInput,
   OnboardingDto,
   OnboardingStepKey,
@@ -1747,6 +1751,31 @@ export async function fetchPlatformOrgs(search = ""): Promise<PlatformOrg[]> {
   const qs = search ? `?search=${encodeURIComponent(search)}` : "";
   const res = await bffFetch(`/api/bff/platform/orgs${qs}`);
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar las empresas"));
+  return res.json();
+}
+
+export async function fetchPlatformOrgDetail(id: string): Promise<PlatformOrgDetail> {
+  const res = await bffFetch(`/api/bff/platform/orgs/${id}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar la ficha"));
+  return res.json();
+}
+
+export async function fetchPlatformHealth(): Promise<PlatformHealth> {
+  const res = await bffFetch("/api/bff/platform/health");
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar la salud de la plataforma"));
+  return res.json();
+}
+
+export async function fetchPlatformAudit(limit = 100): Promise<PlatformAuditEntry[]> {
+  const res = await bffFetch(`/api/bff/platform/audit?limit=${limit}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar el diario"));
+  return res.json();
+}
+
+/** Pase para entrar en el panel de la empresa como su administrador. */
+export async function platformLoginAs(id: string): Promise<PlatformLoginAsResult> {
+  const res = await bffFetch(`/api/bff/platform/orgs/${id}/login-as`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo generar el pase"));
   return res.json();
 }
 

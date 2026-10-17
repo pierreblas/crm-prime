@@ -29,7 +29,7 @@ export default function TermsPage() {
       </header>
 
       <h1 style={h1}>Términos y condiciones</h1>
-      <p style={{ color: "var(--muted)", marginTop: 0 }}>Última actualización: 15 de octubre de 2026</p>
+      <p style={{ color: "var(--muted)", marginTop: 0 }}>Última actualización: 17 de octubre de 2026</p>
 
       <p style={lede}>
         Estos términos regulan el uso del servicio Driony que <strong>{company}</strong> presta en{" "}
@@ -108,7 +108,37 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section id="whatsapp" title="4. WhatsApp y Meta">
+      <Section id="uso-razonable" title="4. Uso razonable y retención">
+        <ul>
+          <li>
+            No cobramos por mensaje ni por espacio en disco. Cada plan está pensado para un volumen de{" "}
+            <strong>contactos activos al mes</strong> (quien envía o recibe un mensaje durante el mes, difusiones
+            aparte) que se indica en la{" "}
+            <Link href="/precios" style={link}>
+              página de precios
+            </Link>
+            . Es una referencia de uso razonable, no un corte: los picos puntuales son normales y el servicio no se
+            interrumpe.
+          </li>
+          <li>
+            Si tu empresa supera esa referencia de forma sostenida, te lo diremos y te propondremos el plan que
+            corresponda a tu volumen. Si no se acuerda otro plan en un plazo razonable, podremos limitar el uso
+            excedente o, en último término, suspender la cuenta con aviso previo.
+          </li>
+          <li>
+            Los <strong>adjuntos</strong> de los mensajes (fotos, audios, vídeos y documentos) se conservan durante
+            el plazo de tu plan, indicado en la página de precios. Pasado ese plazo se eliminan de nuestros
+            servidores; el texto de la conversación se conserva. Si quieres guardar un archivo más tiempo,
+            descárgalo antes.
+          </li>
+          <li>
+            Las cuentas sin ninguna actividad durante más de seis meses en el plan gratuito pueden eliminarse,
+            avisando por correo con al menos 30 días de antelación.
+          </li>
+        </ul>
+      </Section>
+
+      <Section id="whatsapp" title="5. WhatsApp y Meta">
         <p>
           Driony se conecta a la <strong>API oficial de WhatsApp Business</strong> de Meta. {company} es Meta
           Business Partner y la conexión se hace con la ventana oficial de Meta desde el panel, o con tu
@@ -140,7 +170,7 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section id="ia" title="5. Inteligencia artificial">
+      <Section id="ia" title="6. Inteligencia artificial">
         <ul>
           <li>
             Los agentes de IA funcionan con tu propia clave de OpenAI, Anthropic u otro proveedor compatible,
@@ -164,7 +194,7 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section id="uso" title="6. Uso aceptable">
+      <Section id="uso" title="7. Uso aceptable">
         <p>Al usar Driony te comprometes a no:</p>
         <ul>
           <li>Enviar spam, mensajes no solicitados ni contenido engañoso, ilegal, ofensivo o que infrinja derechos de terceros.</li>
@@ -176,7 +206,7 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section id="datos" title="7. Tus datos y los de tus contactos">
+      <Section id="datos" title="8. Tus datos y los de tus contactos">
         <ul>
           <li>
             Lo que subes a Driony (conversaciones, contactos, catálogo, documentos, instrucciones) es tuyo.
@@ -202,7 +232,7 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section id="disponibilidad" title="8. Disponibilidad y soporte">
+      <Section id="disponibilidad" title="9. Disponibilidad y soporte">
         <ul>
           <li>
             Hacemos lo razonable para que Driony esté disponible de forma continua, pero el servicio depende
@@ -218,7 +248,7 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section id="propiedad" title="9. Propiedad intelectual">
+      <Section id="propiedad" title="10. Propiedad intelectual">
         <ul>
           <li>
             El código de Driony es de código abierto bajo licencia AGPL-3.0 y está publicado en GitHub.
@@ -236,7 +266,7 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section id="api" title="10. API, webhooks e integraciones">
+      <Section id="api" title="11. API, webhooks e integraciones">
         <p>
           La API pública y los webhooks están pensados para integrar Driony con tus propios sistemas. Las
           claves son de tu empresa: guárdalas con cuidado y revócalas si se filtran. Podemos aplicar límites
@@ -246,7 +276,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="cancelacion" title="11. Suspensión y cancelación">
+      <Section id="cancelacion" title="12. Suspensión y cancelación">
         <ul>
           <li>
             Puedes dejar de usar Driony cuando quieras: cancela tu plan en Ajustes › Plan o escríbenos para
@@ -262,7 +292,7 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section id="responsabilidad" title="12. Garantías y responsabilidad">
+      <Section id="responsabilidad" title="13. Garantías y responsabilidad">
         <ul>
           <li>
             El servicio se presta <strong>tal cual</strong>, con el cuidado razonable de un proveedor
@@ -283,7 +313,7 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section id="cambios" title="13. Cambios en estos términos">
+      <Section id="cambios" title="14. Cambios en estos términos">
         <p>
           Si cambia algo relevante lo avisaremos en el panel o por correo con antelación antes de que
           entre en vigor. Si no estás de acuerdo con el cambio, puedes cerrar tu cuenta antes de esa fecha.
@@ -292,7 +322,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="ley" title="14. Ley aplicable y disputas">
+      <Section id="ley" title="15. Ley aplicable y disputas">
         <p>
           Estos términos se rigen por las leyes del país en el que {company} está constituida. Si surge una
           disputa, intentaremos primero resolverla de buena fe por correo; si no lo conseguimos, se
@@ -301,7 +331,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="contacto" title="15. Contacto">
+      <Section id="contacto" title="16. Contacto">
         <p>
           Para cualquier consulta sobre estos términos: {company},{" "}
           <a href={`mailto:${email}`} style={link}>
@@ -328,6 +358,7 @@ const SECCIONES: [string, string][] = [
   ["ambito", "A qué aplica"],
   ["cuenta", "Tu cuenta"],
   ["planes", "Planes y pagos"],
+  ["uso-razonable", "Uso razonable"],
   ["whatsapp", "WhatsApp y Meta"],
   ["ia", "Inteligencia artificial"],
   ["uso", "Uso aceptable"],

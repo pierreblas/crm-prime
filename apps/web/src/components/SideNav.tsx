@@ -7,6 +7,20 @@ import { useT } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/translate";
 import { OnboardingNavCard } from "@/features/onboarding/OnboardingNavCard";
 import { useRealtimeCtx } from "./RealtimeProvider";
+import { useQuery } from "@tanstack/react-query";
+import type { PermissionSection } from "@crm/shared";
+import { fetchMe } from "@/lib/bff";
+
+/** Qué sección de los permisos manda sobre cada entrada del menú (las demás, siempre). */
+const SECTION_OF: Record<string, PermissionSection | undefined> = {
+  dashboard: "dashboard",
+  pipeline: "pipeline",
+  products: "products",
+  bots: "automation",
+  flows: "automation",
+  campaigns: "automation",
+  knowledge: "knowledge",
+};
 
 export type NavKey =
   | "gettingStarted"
@@ -122,6 +136,8 @@ export function SideNav({
   /** En SaaS, la consola vive en admin.<dominio>. */
   platformUrl?: string;
 }) {
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: fetchMe, staleTime: 60_000, enabled: role !== "ADMIN" });
+  const sections = me?.permissions?.sections;
   const t = useT();
   const { unread } = useRealtimeCtx();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -167,7 +183,10 @@ export function SideNav({
         )}
         {NAV.map((group) => {
           const items = group.items.filter(
-            (it) => (!it.adminOnly || role === "ADMIN") && (!it.platformOnly || platformAdmin),
+            (it) =>
+              (!it.adminOnly || role === "ADMIN") &&
+              (!it.platformOnly || platformAdmin) &&
+              (role === "ADMIN" || !sections || !SECTION_OF[it.key] || sections[SECTION_OF[it.key]!]),
           );
           if (items.length === 0) return null;
           return (

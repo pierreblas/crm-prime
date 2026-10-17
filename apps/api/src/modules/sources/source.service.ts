@@ -16,6 +16,9 @@ import type {
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { PlansService } from "../plans/plans.service";
+import { PermissionsService } from "../permissions/permissions.service";
+import { Prisma } from "@prisma/client";
+import { effectivePermissions } from "@crm/shared";
 
 @Injectable()
 export class SourceService {
@@ -23,6 +26,7 @@ export class SourceService {
     private readonly plans: PlansService,
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
+    private readonly perms: PermissionsService,
   ) {}
 
   // ── Fuentes ──────────────────────────────────────────────────
@@ -75,21 +79,50 @@ export class SourceService {
           email: true,
           role: true,
           isActive: true,
+          permissions: true,
           sources: { select: { sourceId: true } },
         },
       }),
       this.list(),
     ]);
+    const stats = await this.statsFor(users.map((u) => u.id));
     return {
-      sellers: users.map((u) => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        role: u.role,
-        isActive: u.isActive,
-        sourceIds: u.sources.map((s) => s.sourceId),
-      })),
+      sellers: users.map((u) => this.toSeller(u, u.sources.map((s) => s.sourceId), stats.get(u.id))),
       sources,
+    };
+  }
+
+  /** Chats abiertos, chats con movimiento en 7 días y último acceso, por persona. */
+  private async statsFor(userIds: string[]): Promise<Map<string, SellerDto["stats"]>> {
+    const out = new Map<string, SellerDto["stats"]>();
+    if (userIds.length === 0) return out;
+    const rows = await this.prisma.$queryRaw<Array<{ id: string; open_assigned: bigint; active7: bigint; last_seen: Date | null }>>`
+      SELECT u.id,
+        (SELECT count(*) FROM conversations c WHERE c."assignedAgentId" = u.id AND c.status = 'OPEN') AS open_assigned,
+        (SELECT count(*) FROM conversations c WHERE c."assignedAgentId" = u.id AND c."lastMessageAt" >= now() - interval '7 days') AS active7,
+        (SELECT max(s."lastUsedAt") FROM sessions s WHERE s."userId" = u.id AND s."revokedAt" IS NULL) AS last_seen
+      FROM users u WHERE u.id IN (${Prisma.join(userIds)})
+    `;
+    for (const r of rows) {
+      out.set(r.id, { openAssigned: Number(r.open_assigned), active7d: Number(r.active7), lastSeenAt: r.last_seen?.toISOString() ?? null });
+    }
+    return out;
+  }
+
+  private toSeller(
+    u: { id: string; name: string | null; email: string; role: string; isActive: boolean; permissions: unknown },
+    sourceIds: string[],
+    stats?: SellerDto["stats"],
+  ): SellerDto {
+    return {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      isActive: u.isActive,
+      sourceIds,
+      permissions: effectivePermissions(u.role, u.permissions),
+      stats: stats ?? { openAssigned: 0, active7d: 0, lastSeenAt: null },
     };
   }
 
@@ -110,16 +143,10 @@ export class SourceService {
         email,
         passwordHash,
         role: input.role,
+        ...(input.permissions ? { permissions: input.permissions } : {}),
       },
     });
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      isActive: user.isActive,
-      sourceIds: [],
-    };
+    return this.toSeller(user, []);
   }
 
   // Edita nombre, rol o estado de un usuario (solo admin). `actingUserId` evita
@@ -150,9 +177,11 @@ export class SourceService {
         ...(input.name !== undefined ? { name: input.name.trim() } : {}),
         ...(input.role !== undefined ? { role: input.role } : {}),
         ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+        ...(input.permissions !== undefined ? { permissions: input.permissions } : {}),
       },
       include: { sources: { select: { sourceId: true } } },
     });
+    this.perms.invalidate(id);
 
     // Al desactivar, se revocan sus sesiones para echarlo del sistema.
     if (input.isActive === false) {
@@ -168,14 +197,8 @@ export class SourceService {
       ]);
     }
 
-    return {
-      id: updated.id,
-      name: updated.name,
-      email: updated.email,
-      role: updated.role,
-      isActive: updated.isActive,
-      sourceIds: updated.sources.map((s) => s.sourceId),
-    };
+    const stats = await this.statsFor([id]);
+    return this.toSeller(updated, updated.sources.map((s) => s.sourceId), stats.get(id));
   }
 
   // Reemplaza las fuentes asignadas a un vendedor.
@@ -189,14 +212,9 @@ export class SourceService {
         skipDuplicates: true,
       }),
     ]);
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      isActive: user.isActive,
-      sourceIds,
-    };
+    this.perms.invalidate(userId);
+    const stats = await this.statsFor([userId]);
+    return this.toSeller(user, sourceIds, stats.get(userId));
   }
 
   // ── Fuente de un contacto ────────────────────────────────────

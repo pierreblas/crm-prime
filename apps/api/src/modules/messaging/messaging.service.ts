@@ -50,6 +50,7 @@ import {
 import type { MetaReferral } from "../whatsapp/webhook.types";
 import { TemplateFillService } from "../campaigns/template-fill.service";
 import { PipelineService } from "../pipeline/pipeline.service";
+import { PermissionsService } from "../permissions/permissions.service";
 import { i18n } from "../../i18n/i18n";
 
 // Aplana el payload de Meta a nuestra forma, en camelCase y con nulls
@@ -114,6 +115,7 @@ export class MessagingService {
     private readonly webhooks: WebhookOutService,
     private readonly fills: TemplateFillService,
     private readonly pipeline: PipelineService,
+    private readonly perms: PermissionsService,
   ) {}
 
   /** Un mensaje nuestro salió: los flujos «el cliente no responde» cuentan desde aquí. */
@@ -990,18 +992,17 @@ export class MessagingService {
         { phone: { contains: opts.q.replace(/[^\d+]/g, "") || opts.q } },
       ];
     }
-    // Vendedor (no admin): solo conversaciones de sus fuentes asignadas. Si
-    // además filtra por fuente, se cruza con las suyas (`in: []` = nada).
-    if (role && role !== "ADMIN") {
-      const assigned = await this.prisma.userSource.findMany({
-        where: { userId },
-        select: { sourceId: true },
-      });
-      let allowed = assigned.map((a) => a.sourceId);
+    // Alcance del usuario (ver PermissionsService): todo, solo sus fuentes, o
+    // solo lo asignado a él. Un admin siempre es "todo". Si filtra por fuente
+    // y su alcance son fuentes, se cruza con las suyas (`in: []` = nada).
+    const { perms, sourceIds } = role === "ADMIN" ? { perms: null, sourceIds: [] } : await this.perms.forUser(userId);
+    if (perms?.scope === "sources") {
+      let allowed = sourceIds;
       if (opts.sourceId) allowed = allowed.filter((id) => id === opts.sourceId);
       contact.sourceId = { in: allowed };
-    } else if (opts.sourceId) {
-      contact.sourceId = opts.sourceId === FILTER_NONE ? null : opts.sourceId;
+    } else {
+      if (perms?.scope === "assigned") where.assignedAgentId = userId;
+      if (opts.sourceId) contact.sourceId = opts.sourceId === FILTER_NONE ? null : opts.sourceId;
     }
     if (Object.keys(contact).length) where.contact = contact;
 
@@ -1225,6 +1226,7 @@ export class MessagingService {
     author: string;
     content: string | null;
     mediaUrl: string | null;
+    mediaPurgedAt?: Date | null;
     transcript?: string | null;
     replyTo?: {
       id: string;
@@ -1247,6 +1249,7 @@ export class MessagingService {
       author: m.author as MessageAuthor,
       content: m.content,
       mediaUrl: m.mediaUrl,
+      mediaPurgedAt: m.mediaPurgedAt?.toISOString() ?? null,
       transcript: m.transcript ?? null,
       buttons: interactive?.buttons?.length ? interactive.buttons : null,
       replyTo: m.replyTo

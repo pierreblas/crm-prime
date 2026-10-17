@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Role } from "../enums.js";
+import { userPermissionsSchema } from "../permissions.js";
 
 // Fuente (origen del lead).
 export const sourceDtoSchema = z.object({
@@ -31,6 +32,15 @@ export const sellerDtoSchema = z.object({
   role: z.string(),
   isActive: z.boolean(),
   sourceIds: z.array(z.string()),
+  /** En vigor (un admin, todo). */
+  permissions: userPermissionsSchema,
+  stats: z.object({
+    /** Chats abiertos asignados a esta persona. */
+    openAssigned: z.number(),
+    /** Chats suyos con mensajes en los últimos 7 días. */
+    active7d: z.number(),
+    lastSeenAt: z.string().nullable(),
+  }),
 });
 export type SellerDto = z.infer<typeof sellerDtoSchema>;
 
@@ -40,6 +50,7 @@ export const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(200),
   role: z.nativeEnum(Role).default(Role.AGENT),
+  permissions: userPermissionsSchema.optional(),
 });
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
@@ -48,6 +59,7 @@ export const updateUserSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   role: z.nativeEnum(Role).optional(),
   isActive: z.boolean().optional(),
+  permissions: userPermissionsSchema.optional(),
 });
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 

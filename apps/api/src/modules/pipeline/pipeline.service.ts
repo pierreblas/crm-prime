@@ -31,6 +31,8 @@ import type {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
+import { PlansService } from "../plans/plans.service";
+import { PermissionsService } from "../permissions/permissions.service";
 import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
 import { env } from "../../common/utils/env";
 import { publicApiBase } from "../../common/utils/public-api-base";
@@ -111,6 +113,8 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
     private readonly events: EventEmitter2,
+    private readonly plans: PlansService,
+    private readonly perms: PermissionsService,
   ) {}
 
   onModuleInit(): void {
@@ -125,7 +129,9 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ── Tablero ─────────────────────────────────────────────────
-  async getPipeline(pipelineId?: string, view: PipelineView = "open"): Promise<PipelineDto> {
+  async getPipeline(pipelineId?: string, view: PipelineView = "open", userId?: string): Promise<PipelineDto> {
+    // Alcance del usuario: solo las oportunidades de los contactos que ve.
+    const scope = userId ? await this.perms.contactWhere(userId) : null;
     let pipelines = await this.listPipelines();
     if (!pipelines.length) {
       // Empresa sin embudo (instalación anterior a esta versión, sin migrar):
@@ -147,6 +153,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         where: {
           stage: { pipelineId: current.id },
           discardedAt: view === "discarded" ? { not: null } : null,
+          ...(scope ? { contact: scope } : {}),
         },
         orderBy: view === "discarded" ? { discardedAt: "desc" } : { createdAt: "desc" },
         include: DEAL_INCLUDE,
@@ -345,6 +352,8 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
   async createDeal(input: CreateDealInput): Promise<DealDto> {
     const contact = await this.prisma.contact.findUnique({ where: { id: input.contactId } });
     if (!contact) throw new NotFoundException("Contacto no encontrado");
+    // A mano cuenta contra el plan; la entrada automática desde WhatsApp, no.
+    await this.plans.assertCanAdd("deals");
 
     let stageId = input.stageId;
     if (!stageId) {

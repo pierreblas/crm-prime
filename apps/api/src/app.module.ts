@@ -28,6 +28,7 @@ import { WebhooksOutModule } from "./modules/webhooks-out/webhooks-out.module";
 import { IntegrationsModule } from "./modules/integrations/integrations.module";
 import { CallsModule } from "./modules/calls/calls.module";
 import { ConversionsModule } from "./modules/conversions/conversions.module";
+import { PermissionsModule } from "./modules/permissions/permissions.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { OnboardingModule } from "./modules/onboarding/onboarding.module";
 import { PlansModule } from "./modules/plans/plans.module";
@@ -74,6 +75,7 @@ import { HealthController } from "./health.controller";
     IntegrationsModule,
     CallsModule,
     ConversionsModule,
+    PermissionsModule,
     OrganizationsModule,
   ],
   controllers: [HealthController],

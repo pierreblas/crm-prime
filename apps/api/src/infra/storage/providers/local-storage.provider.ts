@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Injectable } from "@nestjs/common";
 import type { ReadFile, StorageProvider, StoredFile } from "../storage.provider";
@@ -13,15 +13,16 @@ interface Metadata {
 }
 
 /**
- * Guarda los ficheros en disco, bajo STORAGE_DIR (por defecto `./storage`,
- * ignorado por git). El id es un UUID generado aquí, nunca provisto por el
- * cliente, así que no hay riesgo de path traversal al leer.
+ * Guarda los ficheros en disco, bajo MEDIA_DIR (en producción, el volumen
+ * `crm-media` montado en /data/media; por defecto `./storage`, ignorado por
+ * git). STORAGE_DIR se acepta como nombre antiguo. El id es un UUID generado
+ * aquí, nunca provisto por el cliente, así que no hay riesgo de path traversal.
  */
 @Injectable()
 export class LocalStorageProvider implements StorageProvider {
   readonly name = "local";
 
-  private readonly dir = process.env.STORAGE_DIR ?? join(process.cwd(), "storage");
+  private readonly dir = process.env.MEDIA_DIR ?? process.env.STORAGE_DIR ?? join(process.cwd(), "storage");
   private ready: Promise<void> | null = null;
 
   private ensureDir(): Promise<void> {
@@ -64,5 +65,11 @@ export class LocalStorageProvider implements StorageProvider {
     } catch {
       return null;
     }
+  }
+
+  /** Borra el fichero y sus metadatos (retención por plan). Si no existe, no pasa nada. */
+  async remove(id: string): Promise<void> {
+    if (!UUID_RE.test(id)) return;
+    await Promise.all([unlink(this.binPath(id)).catch(() => undefined), unlink(this.metaPath(id)).catch(() => undefined)]);
   }
 }

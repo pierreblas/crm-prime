@@ -206,7 +206,9 @@ test("la consola de plataforma agrega todas las empresas con el rol restringido"
   // Es el único sitio que lee todas las empresas a la vez: va con runUnscoped
   // y en SQL. Se comprueba contra el esquema real, que es donde se rompería.
   const { PlatformService } = await import("../src/modules/platform/platform.service");
-  const svc = new PlatformService(prisma);
+  // Sin Redis en la prueba: las colas fallan y la salud lo cuenta como "sin Redis".
+  const colaRota = { getJobCounts: async () => { throw new Error("sin redis"); } } as any;
+  const svc = new PlatformService(prisma, {} as any, colaRota, colaRota, colaRota, colaRota, colaRota, colaRota, colaRota);
 
   const overview = await svc.overview();
   assert.ok(overview.orgs >= 2, "hay al menos las dos empresas sembradas");
@@ -220,10 +222,28 @@ test("la consola de plataforma agrega todas las empresas con el rol restringido"
   assert.ok((await svc.orgs(a.slug)).some((o) => o.id === "o_a"), "la búsqueda por subdominio funciona");
   assert.equal((await svc.orgs("zzz-no-existe")).length, 0);
 
-  // Cambiar de plan y suspender pasan por la misma tabla sin RLS.
-  const cambiada = await svc.update("o_b", { plan: "pro" });
+  // Cambiar de plan y suspender pasan por la misma tabla sin RLS, y quedan en el diario.
+  const cambiada = await svc.update("o_b", { plan: "pro" }, "ops@prueba.test");
   assert.equal(cambiada.plan, "pro");
-  await svc.update("o_b", { plan: "free" });
+  const conNotas = await svc.update("o_b", { planExpiresAt: "2030-01-31T23:59:59.000Z", platformNotes: "Pagó por transferencia" }, "ops@prueba.test");
+  assert.equal(conNotas.platformNotes, "Pagó por transferencia");
+  assert.ok(conNotas.planExpiresAt?.startsWith("2030-01-31"));
+  await svc.update("o_b", { plan: "free", planExpiresAt: null, platformNotes: null }, "ops@prueba.test");
+  const diario = await svc.auditList(20);
+  assert.ok(diario.some((e) => e.action === "plan_changed" && e.orgId === "o_b" && e.actorEmail === "ops@prueba.test"), "el cambio de plan queda en el diario");
+  assert.ok(diario.some((e) => e.action === "expiry_changed" && e.orgId === "o_b"), "el vencimiento queda en el diario");
+
+  // La ficha lee equipo, números, IA y actividad de UNA empresa con el rol restringido.
+  const ficha = await svc.detail("o_a");
+  assert.equal(ficha.org.id, "o_a");
+  assert.ok(Array.isArray(ficha.users) && Array.isArray(ficha.numbers) && Array.isArray(ficha.activity));
+  assert.ok(ficha.audit.every((e) => e.orgId === "o_a"), "el historial de la ficha es solo de esa empresa");
+
+  // Salud: las consultas SQL funcionan y las colas sin Redis se señalan, no rompen.
+  const salud = await svc.health();
+  assert.equal(salud.queues.length, 7);
+  assert.ok(salud.queues.every((q) => q.ok === false));
+  assert.ok(Array.isArray(salud.numbersWithError) && Array.isArray(salud.failedByOrg) && Array.isArray(salud.webhooksFailing));
 });
 
 test("el panel funciona con el rol restringido y solo cuenta lo de su empresa", async () => {

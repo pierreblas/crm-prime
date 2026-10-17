@@ -1,4 +1,5 @@
 import { Global, Module } from "@nestjs/common";
+import { MediaRetentionService } from "./media-retention.service";
 import { PlansController } from "./plans.controller";
 import { PlansService } from "./plans.service";
 
@@ -7,7 +8,7 @@ import { PlansService } from "./plans.service";
 @Global()
 @Module({
   controllers: [PlansController],
-  providers: [PlansService],
+  providers: [PlansService, MediaRetentionService],
   exports: [PlansService],
 })
 export class PlansModule {}

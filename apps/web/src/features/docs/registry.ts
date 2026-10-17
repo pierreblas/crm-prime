@@ -17,6 +17,7 @@ export interface DocEntry {
 export const DOCS: DocEntry[] = [
   { group: "Primeros pasos", slug: "empezar", file: "empezar.md", title: "Empezar", summary: "Crear tu empresa, tu subdominio y tu equipo." },
   { group: "Primeros pasos", slug: "whatsapp", file: "whatsapp.md", title: "Conectar WhatsApp", summary: "Con el botón de la plataforma o con tu propia app de Meta." },
+  { group: "Primeros pasos", slug: "equipo", file: "equipo.md", title: "Equipo y permisos", summary: "Qué ve cada persona: fuentes, chats asignados, secciones y teléfono." },
   { group: "Primeros pasos", slug: "planes", file: "planes.md", title: "Planes y límites", summary: "Qué incluye cada plan en la nube y cómo cambiarlo." },
   { group: "Uso diario", slug: "bandeja", file: "bandeja.md", title: "Bandeja", summary: "Conversaciones, asignación, etiquetas y los dos modos de la IA." },
   { group: "Uso diario", slug: "embudos", file: "embudos.md", title: "Embudos", summary: "Varios embudos, entrada automática desde WhatsApp y descarte." },

@@ -9,6 +9,7 @@ import {
   type MyPlanDto,
   type PlanDef,
   type PlanFeature,
+  type PlanLimit,
 } from "@crm/shared";
 import { env } from "../../common/utils/env";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -21,6 +22,10 @@ import { tenancyMode } from "../../infra/tenant/tenant.context";
  * Los límites se comprueban al AÑADIR (otro número, otro usuario), nunca sobre
  * lo que ya existe: bajar de plan no desconecta nada ni echa a nadie. Las
  * características (coexistencia, difusiones, API) se comprueban al usarlas.
+ *
+ * Contactos y oportunidades son límites blandos: quien escribe por WhatsApp
+ * entra siempre (sería absurdo no atender a un cliente nuevo); lo que se frena
+ * al llegar al tope es crear o importar a mano y la API pública.
  *
  * En instalación propia no hay planes: todo pasa.
  */
@@ -44,12 +49,22 @@ export class PlansService {
     return planFor(org?.plan);
   }
 
-  async usage(): Promise<{ numbers: number; users: number }> {
-    const [numbers, users] = await Promise.all([
+  async usage(): Promise<{ numbers: number; users: number; contacts: number; deals: number; activeContacts: number }> {
+    const orgId = this.tenant.orgId();
+    const [numbers, users, contacts, deals, active] = await Promise.all([
       this.prisma.whatsappConnection.count({ where: { isActive: true } }),
       this.prisma.user.count({ where: { isActive: true } }),
+      this.prisma.contact.count(),
+      // Abiertas: ni ganadas, ni perdidas, ni descartadas.
+      this.prisma.deal.count({ where: { discardedAt: null, stage: { isWon: false, isLost: false } } }),
+      // Activos este mes: con algún mensaje enviado o recibido, difusiones aparte.
+      this.prisma.$queryRaw<Array<{ count: bigint | number }>>`
+        SELECT count(DISTINCT c."contactId") AS count
+        FROM messages m JOIN conversations c ON c.id = m."conversationId"
+        WHERE m."orgId" = ${orgId} AND m."campaignId" IS NULL AND m."createdAt" >= date_trunc('month', now())
+      `,
     ]);
-    return { numbers, users };
+    return { numbers, users, contacts, deals, activeContacts: Number(active[0]?.count ?? 0) };
   }
 
   async mine(): Promise<MyPlanDto> {
@@ -76,18 +91,21 @@ export class PlansService {
   }
 
   /** Cabe uno más, o 403 con el límite del plan. */
-  async assertCanAdd(kind: "numbers" | "users"): Promise<void> {
+  async assertCanAdd(kind: PlanLimit): Promise<void> {
     const plan = await this.current();
     const limit = plan.limits[kind];
     if (limit === null) return;
     const used = (await this.usage())[kind];
     if (used < limit) return;
-    const que =
-      kind === "numbers"
-        ? limit === 1 ? "número de WhatsApp" : "números de WhatsApp"
-        : limit === 1 ? "usuario" : "usuarios";
-    throw new ForbiddenException(
-      `Tu plan ${plan.name} admite ${limit} ${que}. Para añadir más, cambia de plan desde Ajustes › Plan.`,
-    );
+    const n = limit.toLocaleString("es");
+    const msg: Record<PlanLimit, string> = {
+      numbers: `Tu plan ${plan.name} admite ${limit} ${limit === 1 ? "número de WhatsApp" : "números de WhatsApp"}. Para añadir más, cambia de plan desde Ajustes › Plan.`,
+      users: `Tu plan ${plan.name} admite ${limit} ${limit === 1 ? "usuario" : "usuarios"}. Para añadir más, cambia de plan desde Ajustes › Plan.`,
+      contacts: `Tu plan ${plan.name} admite ${n} contactos. Los que te escriben por WhatsApp entran igual; para crear o importar más a mano, cambia de plan desde Ajustes › Plan.`,
+      deals: `Tu plan ${plan.name} admite ${n} oportunidades abiertas. Las que entran por WhatsApp se crean igual; para añadir más a mano, cierra o descarta algunas, o cambia de plan desde Ajustes › Plan.`,
+      // Orientativo: nunca se llama con este tipo, pero el mapa tiene que estar completo.
+      activeContacts: `Tu plan ${plan.name} está pensado para ${n} contactos activos al mes.`,
+    };
+    throw new ForbiddenException(msg[kind]);
   }
 }

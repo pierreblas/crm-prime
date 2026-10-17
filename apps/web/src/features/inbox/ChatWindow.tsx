@@ -754,6 +754,11 @@ function MessageBubble({
         {m.mediaUrl && (
           <MediaBubble mediaUrl={m.mediaUrl} type={m.type} caption={m.content} transcript={m.transcript ?? null} />
         )}
+        {!m.mediaUrl && m.mediaPurgedAt && (
+          <div style={{ opacity: 0.6, fontSize: 12, fontStyle: "italic", marginBottom: m.content ? 4 : 0 }} title="Los adjuntos se guardan el tiempo que marca tu plan; el texto se conserva.">
+            Adjunto eliminado por la retención del plan
+          </div>
+        )}
         {m.content ? (
           <MessageText text={m.content} highlight={highlight} />
         ) : (

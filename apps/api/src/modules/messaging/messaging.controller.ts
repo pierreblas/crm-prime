@@ -34,14 +34,20 @@ import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { MessagingService } from "./messaging.service";
+import { ConversationAccessGuard } from "../permissions/conversation-access.guard";
+import { PermissionsService } from "../permissions/permissions.service";
+import { maskPhone } from "@crm/shared";
 
 @Controller()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ConversationAccessGuard)
 export class MessagingController {
-  constructor(private readonly messaging: MessagingService) {}
+  constructor(
+    private readonly messaging: MessagingService,
+    private readonly perms: PermissionsService,
+  ) {}
 
   @Get("conversations")
-  listConversations(
+  async listConversations(
     @CurrentUser() user: AccessTokenClaims,
     @Query("filter") filter?: string,
     @Query("reply") reply?: string,
@@ -70,7 +76,12 @@ export class MessagingController {
     });
     // Un filtro mal formado (fecha inválida, etc.) es un 400, no un fallo del servidor.
     if (!parsed.success) throw new BadRequestException("Filtros inválidos");
-    return this.messaging.listConversations(user.sub, parsed.data, user.role);
+    const list = await this.messaging.listConversations(user.sub, parsed.data, user.role);
+    // Sin permiso de ver el teléfono, la bandeja lo muestra enmascarado.
+    if (!(await this.perms.canSeePhone(user.sub))) {
+      for (const c of list) c.contact.phone = maskPhone(c.contact.phone);
+    }
+    return list;
   }
 
   @Get("conversations/:id/messages")
@@ -114,11 +125,14 @@ export class MessagingController {
   }
 
   @Patch("conversations/:id/assign")
-  assign(
+  async assign(
+    @CurrentUser() user: AccessTokenClaims,
     @Param("id") id: string,
     @Body(new ZodValidationPipe(assignConversationSchema))
     body: AssignConversationInput,
   ) {
+    // Tomar un chat para uno mismo siempre se puede; dárselo a otro, con permiso.
+    if (body.agentId !== user.sub) await this.perms.assertAction(user.sub, "reassign");
     return this.messaging.assignConversation(id, body.agentId);
   }
 

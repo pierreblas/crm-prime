@@ -25,6 +25,9 @@ export interface StorageProvider {
   save(buffer: Buffer, mimeType: string, originalName: string): Promise<StoredFile>;
 
   read(id: string): Promise<ReadFile | null>;
+
+  /** Borra el fichero; si no existe, no pasa nada. */
+  remove(id: string): Promise<void>;
 }
 
 /** Referencia interna que se guarda en `Message.mediaUrl` para ficheros propios. */

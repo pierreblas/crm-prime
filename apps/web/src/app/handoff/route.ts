@@ -13,12 +13,16 @@ import { signIn } from "@/auth";
  * que queda en el historial del navegador no sirve para nada.
  */
 export async function GET(req: Request) {
-  const token = new URL(req.url).searchParams.get("token");
+  const url = new URL(req.url);
+  const token = url.searchParams.get("token");
   if (!token) redirect("/login");
+  // A dónde ir al entrar: Primeros pasos tras el alta; el panel si viene del
+  // operador (`to=/`). Solo rutas de este mismo sitio.
+  const rawTo = url.searchParams.get("to") ?? "";
+  const to = /^\/(?!\/)[^\s]*$/.test(rawTo) ? rawTo : "/getting-started";
 
   try {
-    // Empresa recién creada: su administrador aterriza en Primeros pasos.
-    await signIn("credentials", { handoff: token, redirectTo: "/getting-started" });
+    await signIn("credentials", { handoff: token, redirectTo: to });
   } catch (e) {
     // El pase no vale (caducado, usado, manipulado): al acceso normal, que la
     // contraseña la sabe porque la acaba de elegir.
@@ -26,5 +30,5 @@ export async function GET(req: Request) {
     // Con éxito, signIn lanza el redirect de Next: hay que dejarlo pasar.
     throw e;
   }
-  redirect("/getting-started");
+  redirect(to);
 }

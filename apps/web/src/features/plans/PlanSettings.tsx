@@ -1,6 +1,6 @@
 "use client";
 
-import { FEATURE_LABELS, PLAN_FEATURES, formatPlanPrice, type PlanDef } from "@crm/shared";
+import { FEATURE_LABELS, PLAN_FEATURES, formatPlanPrice, type PlanDef, formatRetention } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { useMyPlan } from "./usePlan";
 
@@ -75,7 +75,15 @@ export function PlanSettings() {
         <div className="plan-usage">
           <Usage label="Números de WhatsApp" used={usage.numbers} limit={plan.limits.numbers} />
           <Usage label="Usuarios del equipo" used={usage.users} limit={plan.limits.users} />
+          <Usage label="Contactos" used={usage.contacts} limit={plan.limits.contacts} />
+          <Usage label="Oportunidades abiertas" used={usage.deals} limit={plan.limits.deals} />
+          <Usage label="Contactos activos este mes" used={usage.activeContacts} limit={plan.limits.activeContacts} />
         </div>
+        <p className="plan-fairuse">
+          Contactos, oportunidades y contactos activos son de <strong>uso razonable</strong>: quien te escribe por
+          WhatsApp entra siempre; al tope se frena crear o importar a mano. Si superas los activos del mes de forma
+          sostenida, te propondremos el plan que te corresponde. {formatRetention(plan.mediaRetentionDays)}.
+        </p>
 
         <ul className="plan-features">
           {PLAN_FEATURES.map((f) => (
@@ -136,6 +144,22 @@ function PlanCard({ plan, current }: { plan: PlanDef; current: boolean }) {
         <li>
           <NavIcon name="user" size={13} />
           {lim(plan.limits.users, "usuario", "usuarios")}
+        </li>
+        <li>
+          <NavIcon name="user" size={13} />
+          {lim(plan.limits.contacts, "contacto", "contactos")}
+        </li>
+        <li>
+          <NavIcon name="pipeline" size={13} />
+          {lim(plan.limits.deals, "oportunidad abierta", "oportunidades abiertas")}
+        </li>
+        <li>
+          <NavIcon name="message" size={13} />
+          {lim(plan.limits.activeContacts, "contacto activo al mes", "contactos activos al mes")}
+        </li>
+        <li>
+          <NavIcon name="paperclip" size={13} />
+          {formatRetention(plan.mediaRetentionDays)}
         </li>
         {PLAN_FEATURES.map((f) => (
           <li key={f} className={plan.features[f] ? "" : "is-off"}>

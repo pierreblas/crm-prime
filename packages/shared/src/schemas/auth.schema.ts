@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { userPermissionsSchema } from "../permissions.js";
 import { Platform, Role } from "../enums.js";
 
 // ── Login ────────────────────────────────────────────────────
@@ -71,6 +72,8 @@ export const publicUserSchema = z.object({
   // Cuenta maestra del SaaS (admin.<dominio>); los usuarios de empresa, nunca.
   // Es distinto de ADMIN, que es "administrador de su empresa".
   platformAdmin: z.boolean().optional(),
+  /** Qué ve y qué puede hacer (en vigor: un admin lo tiene todo). */
+  permissions: userPermissionsSchema.optional(),
 });
 export type PublicUser = z.infer<typeof publicUserSchema>;
 
