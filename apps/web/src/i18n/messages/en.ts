@@ -83,6 +83,8 @@ export const en = {
       "Meta's official window will open. Choose your business account and the number you want to connect to Driony.",
     continueWithMeta: "Continue with Meta",
     waiting: "Waiting for Meta…",
+    waitingHint:
+      "If you already scanned the code with your phone, finish the steps there: tap “Connect”, then “Confirm” to share your history. In the app, “Finish setup” takes you back to that step if you left it halfway. Keep the Meta window open: it can take a few minutes.",
     saving: "Saving your number…",
     done: "Done! Number connected.",
     notCompleted:

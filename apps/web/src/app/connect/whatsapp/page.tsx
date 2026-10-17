@@ -40,6 +40,7 @@ export default async function ConnectWhatsappPage({
               loadingSdk: t("connect.loadingSdk"),
               continueWithMeta: t("connect.continueWithMeta"),
               waiting: t("connect.waiting"),
+              waitingHint: t("connect.waitingHint"),
               saving: t("connect.saving"),
               done: t("connect.done"),
               notCompleted: t("connect.notCompleted"),

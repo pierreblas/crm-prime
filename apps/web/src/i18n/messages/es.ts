@@ -82,6 +82,8 @@ export const es: Messages = {
       "Se abrirá la ventana oficial de Meta. Elige tu cuenta de empresa y el número que quieres conectar a Driony.",
     continueWithMeta: "Continuar con Meta",
     waiting: "Esperando a Meta…",
+    waitingHint:
+      "Si ya escaneaste el código con el celular, termina ahí los pasos: toca «Conectar» y luego «Confirmar» para compartir el historial. En la app, «Finaliza la configuración» te lleva a ese paso si lo dejaste a medias. No cierres la ventana de Meta: puede tardar unos minutos.",
     saving: "Guardando tu número…",
     done: "¡Listo! Número conectado.",
     notCompleted:

@@ -22,6 +22,8 @@ export interface HubTexts {
   loadingSdk: string;
   continueWithMeta: string;
   waiting: string;
+  /** Qué hacer en el celular mientras Meta espera (coexistencia). */
+  waitingHint: string;
   saving: string;
   done: string;
   notCompleted: string;
@@ -297,6 +299,9 @@ export function ConnectWhatsappHub({
                 : t.continueWithMeta}
       </button>
 
+      {estado.tipo === "esperando" && coexistence && (
+        <p style={{ ...texto, fontSize: 13, marginTop: 14 }} data-waiting-hint>{t.waitingHint}</p>
+      )}
       {!embed && <p style={{ ...texto, fontSize: 12, marginTop: 18 }}>{t.backHint}</p>}
     </div>
   );

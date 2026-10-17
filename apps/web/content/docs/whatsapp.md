@@ -8,8 +8,10 @@ En **WhatsApp** (menú lateral) pulsa **Conectar WhatsApp**. Se abre la ventana 
 
 1. Inicia sesión en Facebook con la cuenta que administra tu negocio.
 2. Elige (o crea) el **portafolio de negocio** y la **cuenta de WhatsApp Business**.
-3. Elige el número. Si ya lo usas en la app de **WhatsApp Business** del celular, activa la **Coexistencia**: escanea el QR con el celular y el número queda conectado a los dos sitios.
+3. Elige el número. Si ya lo usas en la app de **WhatsApp Business** del celular, activa la **Coexistencia**: escanea el QR con el celular (o pega el código que te muestre Meta) y **termina los pasos en el celular**: toca «Conectar» y luego «Confirmar» para compartir el historial. Deja la app abierta y no cierres la ventana de Meta: puede tardar unos minutos.
 4. La ventana se cierra sola y el número aparece en tu lista.
+
+Si en la app del celular ves **«Finaliza la configuración en Driony»**, es que el celular quedó enlazado pero no terminaste esos pasos: tócalo y complétalos con la ventana de Meta todavía abierta. Si la ventana ya se cerró o caducó, en la app toca **«Toca para desconectar»** y vuelve a empezar desde **Conectar WhatsApp**.
 
 No hay que copiar tokens ni configurar webhooks: la plataforma se encarga.
 
