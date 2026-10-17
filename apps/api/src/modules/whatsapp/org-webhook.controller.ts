@@ -21,6 +21,8 @@ import {
 } from "./org-webhook-signature.guard";
 import { OrgWebhookResolver } from "./org-webhook.resolver";
 import { normalizeWebhook, type MetaWebhookBody } from "./webhook.types";
+import { touchLastWebhook } from "./webhook.controller";
+import { PrismaService } from "../../infra/prisma/prisma.service";
 
 /**
  * Webhook de WhatsApp para la **app de Meta propia** de una empresa:
@@ -47,6 +49,7 @@ export class OrgWebhookController {
     @InjectQueue(QUEUE_INBOUND) private readonly inbound: Queue,
     private readonly settings: IntegrationSettingsService,
     private readonly resolver: OrgWebhookResolver,
+    private readonly prisma: PrismaService,
   ) {}
 
   // Verificación: Meta hace GET una sola vez al dar de alta el webhook.
@@ -116,6 +119,7 @@ export class OrgWebhookController {
       await this.inbound.addBulk(
         jobs.map((data) => ({ name: data.kind, data: { ...data, orgId } })),
       );
+      void touchLastWebhook(this.prisma, [...new Set(jobs.map((j) => j.channelPhoneNumberId).filter((x): x is string => !!x))]);
     }
     return { received: true };
   }

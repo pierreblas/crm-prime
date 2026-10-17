@@ -925,6 +925,21 @@ function ChannelRow({
               <NavIcon name={test.data.ok ? "check" : "x"} size={14} />
               {test.data.message}
             </span>
+            {test.data.checks.length > 0 && (
+              <ul style={{ listStyle: "none", margin: "8px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 4 }} data-channel-checks>
+                {test.data.checks.map((c) => (
+                  <li key={c.key} style={{ display: "flex", gap: 6, alignItems: "flex-start", color: c.ok === false ? "#ffb3b3" : c.ok ? "#8fe6c0" : "var(--muted)" }}>
+                    <span style={{ flexShrink: 0, marginTop: 1 }}>
+                      <NavIcon name={c.ok === false ? "x" : c.ok ? "check" : "question"} size={13} />
+                    </span>
+                    <span>
+                      <strong style={{ fontWeight: 600 }}>{c.label}</strong>
+                      {c.detail && <span style={{ opacity: 0.85 }}> · {c.detail}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
       </div>

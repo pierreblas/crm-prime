@@ -1108,25 +1108,27 @@ model KnowledgeChunk {
 // obtenidas vía Embedded Signup. El adaptador de Meta las lee en tiempo de
 // ejecución (con fallback al .env). Pueden coexistir varias activas a la vez.
 model WhatsappConnection {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   orgId              String
   wabaId             String? // WhatsApp Business Account ID
-  phoneNumberId      String   @unique // identifica el canal de forma única
+  phoneNumberId      String    @unique // identifica el canal de forma única
   displayPhoneNumber String? // el número en formato legible
   label              String? // alias visible ("Ventas", "Soporte", etc.)
   accessToken        String // token (largo) para enviar mensajes
-  mode               String   @default("coexistence") // coexistence | api
-  status             String   @default("connected") // connected | error
+  mode               String    @default("coexistence") // coexistence | api
+  status             String    @default("connected") // connected | error
   statusReason       String? // motivo cuando status = error (token caducado…)
-  isActive           Boolean  @default(true)
+  // Último evento de Meta recibido para este número (diagnóstico).
+  lastWebhookAt      DateTime?
+  isActive           Boolean   @default(true)
   // Embudo al que entran las conversaciones nuevas de este número. Null = el
   // predeterminado de la empresa.
   pipelineId         String?
   // Conversiones de anuncios (Conversions API de Meta): activadas y dataset de su WABA.
-  capiEnabled        Boolean  @default(false)
+  capiEnabled        Boolean   @default(false)
   capiDatasetId      String?
-  connectedAt        DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  connectedAt        DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   conversations Conversation[]
   bot           AgentConfig?

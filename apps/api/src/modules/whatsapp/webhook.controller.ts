@@ -15,6 +15,8 @@ import { QUEUE_INBOUND } from "../../infra/queue/queue.constants";
 import { WebhookSignatureGuard } from "./webhook-signature.guard";
 import { normalizeWebhook, type MetaWebhookBody } from "./webhook.types";
 import { IntegrationSettingsService } from "../integrations/integration-settings.service";
+import { PrismaService } from "../../infra/prisma/prisma.service";
+import { runUnscoped } from "../../infra/tenant/tenant.context";
 
 @Controller("whatsapp/webhook")
 export class WebhookController {
@@ -23,6 +25,7 @@ export class WebhookController {
   constructor(
     @InjectQueue(QUEUE_INBOUND) private readonly inbound: Queue,
     private readonly settings: IntegrationSettingsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // Verificación del webhook (Meta hace GET una sola vez al configurarlo).
@@ -50,7 +53,24 @@ export class WebhookController {
       await this.inbound.addBulk(
         jobs.map((data) => ({ name: data.kind, data })),
       );
+      const ids = [...new Set(jobs.map((j) => j.channelPhoneNumberId).filter((x): x is string => !!x))];
+      this.logger.log(`Webhook: ${jobs.length} evento(s) de ${ids.join(", ") || "número desconocido"}`);
+      void touchLastWebhook(this.prisma, ids);
     }
     return { received: true };
   }
+}
+
+/**
+ * Marca en cada número cuándo llegó su último evento. Sin empresa en contexto
+ * (el webhook es compartido): va sin acotar, por phoneNumberId, que es único.
+ */
+export function touchLastWebhook(prisma: PrismaService, phoneNumberIds: string[]): Promise<unknown> {
+  if (phoneNumberIds.length === 0) return Promise.resolve();
+  return runUnscoped("webhook: último evento", () =>
+    prisma.whatsappConnection.updateMany({
+      where: { phoneNumberId: { in: phoneNumberIds } },
+      data: { lastWebhookAt: new Date() },
+    }),
+  ).catch(() => undefined);
 }

@@ -42,10 +42,22 @@ export const testChannelSchema = z.object({
 });
 export type TestChannelInput = z.infer<typeof testChannelSchema>;
 
+/** Una comprobación del diagnóstico de un número. ok = null: no se pudo comprobar. */
+export const channelCheckSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  ok: z.boolean().nullable(),
+  detail: z.string().nullable(),
+});
+export type ChannelCheck = z.infer<typeof channelCheckSchema>;
+
 export const channelTestResultSchema = z.object({
   ok: z.boolean(),
   message: z.string(),
   displayPhoneNumber: z.string().nullable(),
+  /** Token, plataforma, suscripción de la WABA, webhook de la app y último evento recibido. */
+  checks: z.array(channelCheckSchema).default([]),
+  lastWebhookAt: z.string().nullable().optional(),
 });
 export type ChannelTestResult = z.infer<typeof channelTestResultSchema>;
 

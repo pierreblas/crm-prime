@@ -11,6 +11,7 @@ import type {
   UpdateChannelInput,
   WhatsappChannel,
   WhatsappConnectionStatus,
+  ChannelCheck,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
@@ -424,6 +425,17 @@ export class WhatsappConnectionService {
     return this.listChannels();
   }
 
+  private lastWebhookCheck(lastWebhookAt: string | null): ChannelCheck {
+    return {
+      key: "webhook",
+      label: "Último evento recibido de Meta",
+      ok: lastWebhookAt ? true : null,
+      detail: lastWebhookAt
+        ? `hace ${Math.max(1, Math.round((Date.now() - new Date(lastWebhookAt).getTime()) / 60_000))} min`
+        : "nunca: Meta no ha enviado ningún evento de este número a este servidor",
+    };
+  }
+
   /** GET a la Graph API: el JSON, o el mensaje de error de Meta. */
   private async graphGet<T extends object>(
     path: string,
@@ -526,49 +538,112 @@ export class WhatsappConnectionService {
   }
 
   /** Comprueba contra Meta que el token del canal sigue sirviendo. */
+  /**
+   * Diagnóstico de un número, de fuera adentro: ¿vale el token?, ¿está el
+   * número en la API (y en el celular, si es coexistencia)?, ¿está la cuenta
+   * suscrita a nuestra app?, ¿tiene la app el webhook y los campos?, y ¿ha
+   * llegado algún evento? Cada paso dice qué falta, para no adivinar.
+   */
   async testChannel(phoneNumberId: string): Promise<ChannelTestResult> {
     const creds = await this.resolveCreds(phoneNumberId);
+    const conn = await this.prisma.whatsappConnection.findFirst({
+      where: { phoneNumberId },
+      select: { wabaId: true, mode: true, lastWebhookAt: true },
+    });
+    const lastWebhookAt = conn?.lastWebhookAt?.toISOString() ?? null;
     if (!creds) {
-      return {
-        ok: false,
-        message: "El canal no tiene credenciales configuradas.",
-        displayPhoneNumber: null,
-      };
+      return { ok: false, message: "El canal no tiene credenciales configuradas.", displayPhoneNumber: null, checks: [], lastWebhookAt };
     }
-    try {
-      const res = await fetch(
-        `https://graph.facebook.com/${creds.version}/${creds.phoneNumberId}?fields=display_phone_number,verified_name`,
-        { headers: { Authorization: `Bearer ${creds.token}` } },
-      );
-      const data = (await res.json()) as {
-        display_phone_number?: string;
-        verified_name?: string;
-        error?: { message?: string; code?: number };
-      };
-      if (!res.ok || data.error) {
-        const reason = data.error?.message ?? `HTTP ${res.status}`;
-        await this.markError(phoneNumberId, reason);
-        return { ok: false, message: reason, displayPhoneNumber: null };
+    const checks: ChannelCheck[] = [];
+    const coex = conn?.mode === "coexistence";
+
+    // 1. Token y datos del número.
+    const info = await this.graphGet<{
+      display_phone_number?: string;
+      verified_name?: string;
+      platform_type?: string;
+      is_on_biz_app?: boolean;
+    }>(`${creds.phoneNumberId}?fields=display_phone_number,verified_name,platform_type,is_on_biz_app`, creds.token);
+    if (!info.ok) {
+      await this.markError(phoneNumberId, info.error);
+      checks.push({ key: "token", label: "Token de acceso", ok: false, detail: info.error });
+      checks.push(this.lastWebhookCheck(lastWebhookAt));
+      return { ok: false, message: info.error, displayPhoneNumber: null, checks, lastWebhookAt };
+    }
+    await this.prisma.whatsappConnection
+      .updateMany({ where: { phoneNumberId }, data: { status: "connected", statusReason: null } })
+      .catch(() => undefined);
+    checks.push({ key: "token", label: "Token de acceso", ok: true, detail: info.data.verified_name ?? "sin nombre verificado" });
+
+    // 2. Plataforma: el número tiene que estar en la Cloud API (y en el celular, si es coexistencia).
+    const onApi = info.data.platform_type === "CLOUD_API";
+    const onApp = info.data.is_on_biz_app === true;
+    checks.push({
+      key: "platform",
+      label: coex ? "Número en la API y en la app del celular" : "Número en la API de WhatsApp",
+      ok: coex ? onApi && onApp : onApi,
+      detail: `plataforma: ${info.data.platform_type ?? "desconocida"}${coex ? ` · app del celular: ${onApp ? "sí" : "no"}` : ""}${!onApi ? " · hasta que Meta lo pase a CLOUD_API no llegan mensajes" : ""}`,
+    });
+
+    // 3. La cuenta de WhatsApp Business (WABA) suscrita a nuestra app: sin esto Meta no manda webhooks de ese número.
+    const app = await this.settings.whatsappApp();
+    if (conn?.wabaId) {
+      const subs = await this.graphGet<{ data?: { id?: string; name?: string }[] }>(`${conn.wabaId}/subscribed_apps`, creds.token);
+      let ok: boolean | null = null;
+      let detail: string;
+      if (subs.ok) {
+        const apps = subs.data.data ?? [];
+        ok = app.appId ? apps.some((a) => a.id === app.appId) : apps.length > 0;
+        detail = apps.length ? `apps suscritas: ${apps.map((a) => a.name ?? a.id).join(", ")}` : "ninguna app suscrita";
+        if (!ok) {
+          const err = await this.graphPost(`${conn.wabaId}/subscribed_apps`, creds.token);
+          if (!err) {
+            ok = true;
+            detail = "no estaba suscrita: suscrita ahora mismo";
+          } else detail += ` · no se pudo suscribir: ${err}`;
+        }
+      } else detail = `no se pudo consultar: ${subs.error}`;
+      checks.push({ key: "waba", label: "Cuenta de WhatsApp suscrita a la app", ok, detail });
+    } else {
+      checks.push({ key: "waba", label: "Cuenta de WhatsApp suscrita a la app", ok: null, detail: "este número no tiene WABA guardada: vuelve a conectarlo" });
+    }
+
+    // 4. El webhook de la app en Meta: URL y campos. Se lee con el token de app (id|secreto).
+    if (app.appId && app.appSecret) {
+      const subs = await this.graphGet<{
+        data?: { object?: string; callback_url?: string; active?: boolean; fields?: { name?: string }[] }[];
+      }>(`${app.appId}/subscriptions`, `${app.appId}|${app.appSecret}`);
+      if (subs.ok) {
+        const wa = (subs.data.data ?? []).find((s) => s.object === "whatsapp_business_account");
+        const fields = (wa?.fields ?? []).map((f) => f.name ?? "").filter(Boolean);
+        const required = ["messages", ...(coex ? ["smb_message_echoes", "smb_app_state_sync", "history"] : [])];
+        const missing = required.filter((f) => !fields.includes(f));
+        const url = wa?.callback_url ?? null;
+        const urlOk = !!url && (url.includes("/whatsapp/webhook") || url.includes("/webhooks/whatsapp"));
+        checks.push({
+          key: "app",
+          label: "Webhook de la app en Meta",
+          ok: !!wa?.active && urlOk && missing.length === 0,
+          detail: `URL: ${url ?? "sin configurar"}${url && !urlOk ? " (no apunta a Driony)" : ""} · campos: ${fields.join(", ") || "ninguno"}${missing.length ? ` · faltan: ${missing.join(", ")}` : ""}`,
+        });
+      } else {
+        checks.push({ key: "app", label: "Webhook de la app en Meta", ok: null, detail: `no se pudo leer: ${subs.error}` });
       }
-      // Funciona: si estaba marcado en error, se restablece.
-      await this.prisma.whatsappConnection
-        .updateMany({
-          where: { phoneNumberId },
-          data: { status: "connected", statusReason: null },
-        })
-        .catch(() => undefined);
-      return {
-        ok: true,
-        message: `Token válido · ${data.verified_name ?? "sin nombre verificado"}`,
-        displayPhoneNumber: data.display_phone_number ?? null,
-      };
-    } catch (e) {
-      return {
-        ok: false,
-        message: (e as Error).message.slice(0, 200),
-        displayPhoneNumber: null,
-      };
+    } else {
+      checks.push({ key: "app", label: "Webhook de la app en Meta", ok: null, detail: "sin id o secreto de la app en el servidor: no se puede comprobar" });
     }
+
+    // 5. ¿Ha llegado algo? Separa «Meta no envía» de «llega y no se procesa».
+    checks.push(this.lastWebhookCheck(lastWebhookAt));
+
+    const failing = checks.find((c) => c.ok === false);
+    return {
+      ok: !failing,
+      message: failing ? `Falla: ${failing.label.toLowerCase()}` : `Todo en orden · ${info.data.verified_name ?? "sin nombre verificado"}`,
+      displayPhoneNumber: info.data.display_phone_number ?? null,
+      checks,
+      lastWebhookAt,
+    };
   }
 
   // ── Desconectar un número concreto ───────────────────────────
