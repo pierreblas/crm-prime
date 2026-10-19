@@ -17,11 +17,11 @@ Todo eso se ve en la ficha del contacto y sale por la [API pública](/docs/api) 
 
 Los formularios de clientes potenciales de Facebook e Instagram entran al CRM en el momento en que alguien los envía:
 
-1. **Ajustes › Leads de Meta → Conectar página**: autoriza con la cuenta que administra la página.
+1. **Ajustes › Canales › Formularios de Facebook → Conectar con Facebook**: autoriza con la cuenta que administra la página.
 2. Elige la **fuente** que reciben esos leads y, si quieres, una **plantilla de bienvenida**: como el lead no te ha escrito, la ventana de 24 horas está cerrada y solo una plantilla aprobada puede abrir la conversación.
 3. Cada lead crea (o actualiza) el contacto con las respuestas del formulario y una oportunidad en la primera etapa del embudo predeterminado.
 
-En **Leads de Meta** ves cada lead recibido, su formulario y si se procesó bien.
+En **Ajustes › Canales › Formularios de Facebook** ves cada lead recibido, su formulario y si se procesó bien.
 
 ## Atribución en tus métricas
 

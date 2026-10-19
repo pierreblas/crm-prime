@@ -12,7 +12,7 @@ export default async function SettingsPage() {
 
   return (
     <AppShell email={session.user?.email ?? ""} role={role} active="settings">
-      <SettingsManager />
+      <SettingsManager hub={!!process.env.SAAS_BASE_DOMAIN} />
     </AppShell>
   );
 }

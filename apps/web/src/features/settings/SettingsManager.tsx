@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { NavIcon, type IconName } from "@/components/NavIcons";
-import { WhatsAppConnect } from "@/features/whatsapp/WhatsAppConnect";
+import { ChannelsSettings } from "./ChannelsSettings";
 import { TagsManager } from "./TagsManager";
 import { QuickRepliesSettings } from "./QuickRepliesSettings";
-import { MetaLeadsSettings } from "./MetaLeadsSettings";
 import { AiSettings } from "./AiSettings";
 import { ApiKeysSettings } from "./ApiKeysSettings";
 import { IntegrationsSettings } from "./IntegrationsSettings";
@@ -20,7 +19,6 @@ type TabKey =
   | "tags"
   | "quickReplies"
   | "channels"
-  | "metaLeads"
   | "sources"
   | "fields"
   | "stages"
@@ -34,8 +32,7 @@ const TABS: { key: TabKey; label: string; icon: IconName }[] = [
   { key: "plan", label: "Plan", icon: "trophy" },
   { key: "tags", label: "Etiquetas", icon: "tag" },
   { key: "quickReplies", label: "Respuestas rápidas", icon: "zap" },
-  { key: "channels", label: "Canales", icon: "whatsapp" },
-  { key: "metaLeads", label: "Leads de Meta", icon: "megaphone" },
+  { key: "channels", label: "Canales", icon: "globe" },
   { key: "sources", label: "Fuentes", icon: "target" },
   { key: "fields", label: "Campos personalizados", icon: "puzzle" },
   { key: "stages", label: "Embudos y etapas", icon: "pipeline" },
@@ -46,13 +43,16 @@ const TABS: { key: TabKey; label: string; icon: IconName }[] = [
   { key: "webhooksOut", label: "Webhooks salientes", icon: "antenna" },
 ];
 
-export function SettingsManager() {
+/** `hub`: SaaS. Las conexiones con Meta se hacen en el dominio raíz, no en el subdominio. */
+export function SettingsManager({ hub = false }: { hub?: boolean }) {
   const [tab, setTab] = useState<TabKey>("tags");
 
-  // Enlaces directos a una pestaña (Primeros pasos manda a ?tab=ai).
+  // Enlaces directos a una pestaña (Primeros pasos manda a ?tab=ai). La antigua
+  // «Leads de Meta» vive ahora dentro de Canales.
   useEffect(() => {
     const wanted = new URLSearchParams(window.location.search).get("tab");
-    if (wanted && TABS.some((t) => t.key === wanted)) setTab(wanted as TabKey);
+    if (wanted === "metaLeads") setTab("channels");
+    else if (wanted && TABS.some((t) => t.key === wanted)) setTab(wanted as TabKey);
   }, []);
 
   return (
@@ -74,8 +74,7 @@ export function SettingsManager() {
         {tab === "plan" && <PlanSettings />}
         {tab === "tags" && <TagsManager />}
         {tab === "quickReplies" && <QuickRepliesSettings />}
-        {tab === "channels" && <WhatsAppConnect />}
-        {tab === "metaLeads" && <MetaLeadsSettings />}
+        {tab === "channels" && <ChannelsSettings hub={hub} />}
         {tab === "sources" && <SourcesSettings />}
         {tab === "fields" && <CustomFieldsSettings />}
         {tab === "stages" && <PipelinesSettings />}

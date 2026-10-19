@@ -40,6 +40,12 @@ const SCOPES = [
   "ads_management",
 ].join(",");
 
+/** El dominio raíz de la plataforma: este subdominio sin su primera etiqueta (acme.driony.com → driony.com). */
+function rootOrigin(): string {
+  const host = window.location.host.split(".").slice(1).join(".");
+  return `${window.location.protocol}//${host}`;
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
   interface Window {
@@ -48,7 +54,12 @@ declare global {
   }
 }
 
-export function MetaLeadsSettings() {
+/**
+ * `hub`: SaaS. Meta solo arranca su SDK en los dominios listados en la app, así
+ * que el login con Facebook se hace en una ventana del dominio raíz
+ * (/connect/meta-login) y el código vuelve aquí por postMessage.
+ */
+export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
   const queryClient = useQueryClient();
   const [sdkReady, setSdkReady] = useState(false);
   const [picker, setPicker] = useState<{
@@ -79,9 +90,9 @@ export function MetaLeadsSettings() {
     queryClient.invalidateQueries({ queryKey: ["meta-leads"] });
   };
 
-  // SDK de Facebook (el mismo que usa la conexión de WhatsApp).
+  // SDK de Facebook (el mismo que usa la conexión de WhatsApp). En SaaS no: ver `hub`.
   useEffect(() => {
-    if (!APP_ID) return;
+    if (!APP_ID || hub) return;
     if (window.FB) {
       setSdkReady(true);
       return;
@@ -116,7 +127,29 @@ export function MetaLeadsSettings() {
     onError: (e) => toast.error((e as Error).message),
   });
 
+  // El código llega desde la ventana del dominio raíz (solo de ese origen).
+  useEffect(() => {
+    if (!hub) return;
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== rootOrigin()) return;
+      const d = e.data as { type?: string; code?: string } | null;
+      if (d?.type === "driony:meta-code" && typeof d.code === "string") available.mutate(d.code);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hub]);
+
   function login() {
+    if (hub) {
+      const w = window.open(
+        `${rootOrigin()}/connect/meta-login?origin=${encodeURIComponent(window.location.origin)}`,
+        "driony-meta-login",
+        "width=720,height=780",
+      );
+      if (!w) toast.error("No se abrió la ventana de Facebook. Permite las ventanas emergentes e inténtalo de nuevo.");
+      return;
+    }
     if (!window.FB) return;
     window.FB.login(
       (response: any) => {
@@ -152,8 +185,9 @@ export function MetaLeadsSettings() {
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <button
             onClick={login}
-            disabled={!sdkReady || available.isPending}
+            disabled={(!hub && !sdkReady) || available.isPending}
             style={primaryBtn}
+            data-meta-login
           >
             {available.isPending ? "Consultando…" : "Conectar con Facebook"}
           </button>
