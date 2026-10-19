@@ -850,12 +850,12 @@ export async function fetchMetaPages(): Promise<MetaPageDto[]> {
 
 /** Paso 1: qué páginas administra el usuario que acaba de entrar con Facebook. */
 export async function fetchAvailableMetaPages(
-  code: string,
+  input: { accessToken?: string; code?: string },
 ): Promise<MetaPagesAvailableResult> {
   const res = await bffFetch("/api/bff/meta/pages/available", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code }),
+    body: JSON.stringify(input),
   });
   if (!res.ok) {
     throw new Error(await errorMessage(res, "No se pudo leer tus páginas"));

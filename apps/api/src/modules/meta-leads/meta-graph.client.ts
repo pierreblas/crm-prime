@@ -40,20 +40,41 @@ export class MetaGraphClient {
    * Canjea el código del login por un token de usuario de larga duración.
    *
    * El código lo emite el SDK de JavaScript (FB.login con response_type
-   * "code"), que no usa redirect_uri; si en el canje se manda uno, Meta
-   * responde «redirect_uri is identical to the one you used in the OAuth
-   * dialog request». Va sin redirect_uri, igual que el registro de WhatsApp.
+   * "code"). Meta exige que el redirect_uri del canje sea idéntico al del
+   * diálogo, y el del SDK no es el de la página: según la variante del login
+   * el canje vale sin redirect_uri (como el registro de WhatsApp), con uno
+   * vacío, o con la URL de la ventana. Se prueban en ese orden y se deja en
+   * el log cuál valió; si ninguno, el error exacto de Meta.
    */
-  async exchangeCode(code: string, _redirectUri?: string): Promise<string> {
+  async exchangeCode(code: string, redirectUri?: string): Promise<string> {
     const { appId, appSecret, graphVersion } = await this.requireApp();
-    const shortLived = await this.getJson<{ access_token?: string }>(
+    const base =
       `${this.baseUrl}/${graphVersion}/oauth/access_token` +
-        `?client_id=${appId}&client_secret=${encodeURIComponent(appSecret)}` +
-        `&code=${encodeURIComponent(code)}`,
-      "canjear el código de Facebook",
-    );
-    if (!shortLived.access_token) {
-      throw new BadRequestException("Facebook no devolvió un token de acceso");
+      `?client_id=${appId}&client_secret=${encodeURIComponent(appSecret)}&code=${encodeURIComponent(code)}`;
+    const variants: Array<[string, string]> = [
+      ["sin redirect_uri", ""],
+      ["redirect_uri vacío", "&redirect_uri="],
+      ...(redirectUri ? [[`redirect_uri=${redirectUri}`, `&redirect_uri=${encodeURIComponent(redirectUri)}`] as [string, string]] : []),
+    ];
+    let lastError = "";
+    let shortLived: { access_token?: string } | null = null;
+    for (const [label, suffix] of variants) {
+      const res = await fetch(base + suffix);
+      const data = (await res.json().catch(() => null)) as
+        | { access_token?: string; error?: { message?: string; error_user_msg?: string; code?: number } }
+        | null;
+      if (res.ok && data?.access_token) {
+        if (suffix) this.logger.log(`Canje del código de Facebook: valió ${label}`);
+        shortLived = data;
+        break;
+      }
+      lastError = data?.error?.error_user_msg ?? data?.error?.message ?? `HTTP ${res.status}`;
+      this.logger.warn(`Canje del código de Facebook (${label}) falló: ${lastError}`);
+      // Un código solo se canjea una vez: si Meta dice que ya se usó o caducó, no hay más intentos que hacer.
+      if (/already been used|expired/i.test(lastError)) break;
+    }
+    if (!shortLived?.access_token) {
+      throw new BadRequestException(`No se pudo canjear el código de Facebook: ${lastError}`);
     }
 
     // El token corto caduca en horas; el largo dura ~60 días y de él salen
@@ -66,6 +87,34 @@ export class MetaGraphClient {
       "alargar el token de Facebook",
     );
     return longLived.access_token ?? shortLived.access_token;
+  }
+
+  /**
+   * Token corto del login en el navegador → token de usuario de larga duración.
+   *
+   * Antes se comprueba con debug_token que el token sea de NUESTRA app y
+   * esté vivo: lo manda el navegador del administrador y no hay que fiarse
+   * de él sin más. Luego se alarga (~60 días): de él salen los tokens de
+   * página, que no caducan.
+   */
+  async tokenFromLogin(shortToken: string): Promise<string> {
+    const { appId, appSecret, graphVersion } = await this.requireApp();
+    const dbg = await this.getJson<{ data?: { app_id?: string | number; is_valid?: boolean } }>(
+      `${this.baseUrl}/${graphVersion}/debug_token?input_token=${encodeURIComponent(shortToken)}` +
+        `&access_token=${encodeURIComponent(`${appId}|${appSecret}`)}`,
+      "comprobar el token de Facebook",
+    );
+    if (!dbg.data?.is_valid || String(dbg.data.app_id) !== String(appId)) {
+      throw new BadRequestException("El token de Facebook no es de esta app o ya caducó. Vuelve a entrar con Facebook.");
+    }
+    const longLived = await this.getJson<{ access_token?: string }>(
+      `${this.baseUrl}/${graphVersion}/oauth/access_token` +
+        `?grant_type=fb_exchange_token&client_id=${appId}` +
+        `&client_secret=${encodeURIComponent(appSecret)}` +
+        `&fb_exchange_token=${encodeURIComponent(shortToken)}`,
+      "alargar el token de Facebook",
+    );
+    return longLived.access_token ?? shortToken;
   }
 
   /** Páginas que administra el usuario, con el token de cada una. */

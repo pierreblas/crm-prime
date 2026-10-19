@@ -50,9 +50,7 @@ export class MetaLeadsController {
     @Body(new ZodValidationPipe(metaPagesAvailableSchema))
     body: MetaPagesAvailableInput,
   ) {
-    // El redirect_uri debe coincidir con el que usó el navegador; con el SDK
-    // de Facebook va vacío.
-    return this.pages.available(body.code, "");
+    return this.pages.available(body);
   }
 
   /** Paso 2: guardar y suscribir las páginas elegidas. */

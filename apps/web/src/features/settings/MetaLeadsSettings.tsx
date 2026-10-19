@@ -132,8 +132,9 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
     if (!hub) return;
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== rootOrigin()) return;
-      const d = e.data as { type?: string; code?: string } | null;
-      if (d?.type === "driony:meta-code" && typeof d.code === "string") available.mutate(d.code);
+      const d = e.data as { type?: string; code?: string; accessToken?: string } | null;
+      if (d?.type === "driony:meta-token" && typeof d.accessToken === "string") available.mutate({ accessToken: d.accessToken });
+      else if (d?.type === "driony:meta-code" && typeof d.code === "string") available.mutate({ code: d.code });
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
@@ -151,13 +152,16 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
       return;
     }
     if (!window.FB) return;
+    // Respuesta por defecto del SDK: un token de usuario corto. La API lo
+    // comprueba contra la app y lo alarga. (El flujo por código del SDK exige
+    // un redirect_uri que no controlamos y Meta lo rechazaba.)
     window.FB.login(
       (response: any) => {
-        const code = response?.authResponse?.code;
-        if (code) available.mutate(code);
+        const accessToken = response?.authResponse?.accessToken;
+        if (accessToken) available.mutate({ accessToken });
         else toast.error("No se completó el inicio de sesión con Facebook.");
       },
-      { scope: SCOPES, response_type: "code", override_default_response_type: true },
+      { scope: SCOPES },
     );
   }
 

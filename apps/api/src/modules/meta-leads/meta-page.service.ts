@@ -34,12 +34,11 @@ export class MetaPageService {
     private readonly graph: MetaGraphClient,
   ) {}
 
-  /** Paso 1: canjea el código y devuelve las páginas (sin sus tokens). */
-  async available(
-    code: string,
-    redirectUri: string,
-  ): Promise<MetaPagesAvailableResult> {
-    const userToken = await this.graph.exchangeCode(code, redirectUri);
+  /** Paso 1: del login (token, o código antiguo) a las páginas del usuario (sin sus tokens). */
+  async available(input: { accessToken?: string; code?: string }): Promise<MetaPagesAvailableResult> {
+    const userToken = input.accessToken
+      ? await this.graph.tokenFromLogin(input.accessToken)
+      : await this.graph.exchangeCode(input.code ?? "");
     const pages = await this.graph.listPages(userToken);
     if (pages.length === 0) {
       throw new BadRequestException(

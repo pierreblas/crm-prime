@@ -50,19 +50,22 @@ export function MetaLoginHub({ origin }: { origin: string }) {
   function entrar() {
     if (!window.FB) return;
     setEstado({ tipo: "esperando" });
+    // Respuesta por defecto del SDK: un token de usuario corto que la API
+    // comprueba contra la app y alarga. (El flujo por código exige un
+    // redirect_uri que no controlamos y Meta lo rechazaba.)
     window.FB.login(
       (response: any) => {
-        const code = response?.authResponse?.code;
-        if (!code) {
+        const accessToken = response?.authResponse?.accessToken;
+        if (!accessToken) {
           setEstado({ tipo: "error", mensaje: "No se completó el inicio de sesión con Facebook. Vuelve a intentarlo." });
           return;
         }
         // Solo al panel que nos abrió, y solo si es el subdominio que validó el servidor.
-        window.opener?.postMessage({ type: "driony:meta-code", code }, origin);
+        window.opener?.postMessage({ type: "driony:meta-token", accessToken }, origin);
         setEstado({ tipo: "hecho" });
         setTimeout(() => window.close(), 600);
       },
-      { scope: SCOPES, response_type: "code", override_default_response_type: true },
+      { scope: SCOPES },
     );
   }
 

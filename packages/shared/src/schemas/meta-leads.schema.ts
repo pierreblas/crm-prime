@@ -39,10 +39,14 @@ export type MetaPagesAvailableResult = z.infer<
   typeof metaPagesAvailableResultSchema
 >;
 
-export const metaPagesAvailableSchema = z.object({
-  /** Código que devuelve el login de Facebook en el navegador. */
-  code: z.string().min(1),
-});
+export const metaPagesAvailableSchema = z
+  .object({
+    /** Token de usuario que devuelve el login de Facebook (SDK de JavaScript, respuesta por defecto). */
+    accessToken: z.string().min(1).optional(),
+    /** Código del login (response_type "code"); se mantiene por compatibilidad. */
+    code: z.string().min(1).optional(),
+  })
+  .refine((v) => !!v.accessToken || !!v.code, { message: "Falta el token o el código de Facebook" });
 export type MetaPagesAvailableInput = z.infer<typeof metaPagesAvailableSchema>;
 
 export const connectMetaPagesSchema = z.object({
