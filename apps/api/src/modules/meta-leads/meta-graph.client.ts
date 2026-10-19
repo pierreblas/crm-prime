@@ -36,13 +36,20 @@ export class MetaGraphClient {
     return process.env.META_GRAPH_URL ?? "https://graph.facebook.com";
   }
 
-  /** Canjea el código del login por un token de usuario de larga duración. */
-  async exchangeCode(code: string, redirectUri: string): Promise<string> {
+  /**
+   * Canjea el código del login por un token de usuario de larga duración.
+   *
+   * El código lo emite el SDK de JavaScript (FB.login con response_type
+   * "code"), que no usa redirect_uri; si en el canje se manda uno, Meta
+   * responde «redirect_uri is identical to the one you used in the OAuth
+   * dialog request». Va sin redirect_uri, igual que el registro de WhatsApp.
+   */
+  async exchangeCode(code: string, _redirectUri?: string): Promise<string> {
     const { appId, appSecret, graphVersion } = await this.requireApp();
     const shortLived = await this.getJson<{ access_token?: string }>(
       `${this.baseUrl}/${graphVersion}/oauth/access_token` +
         `?client_id=${appId}&client_secret=${encodeURIComponent(appSecret)}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}&code=${encodeURIComponent(code)}`,
+        `&code=${encodeURIComponent(code)}`,
       "canjear el código de Facebook",
     );
     if (!shortLived.access_token) {
