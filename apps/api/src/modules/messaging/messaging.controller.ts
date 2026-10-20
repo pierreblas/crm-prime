@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -142,6 +143,12 @@ export class MessagingController {
     @Body(new ZodValidationPipe(setStatusSchema)) body: SetStatusInput,
   ) {
     return this.messaging.setStatus(id, body.status);
+  }
+
+  /** Cancela el seguimiento automático programado en el chat; no vuelve hasta que el cliente escriba. */
+  @Delete("conversations/:id/follow-up")
+  cancelFollowUp(@Param("id") id: string) {
+    return this.messaging.cancelFollowUp(id);
   }
 
   // Al abrir el chat: los mensajes del contacto dejan de contar como nuevos.

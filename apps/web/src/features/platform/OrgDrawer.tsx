@@ -19,6 +19,7 @@ const FEATURE_LABEL: Record<string, string> = {
   knowledge_gaps: "Huecos de conocimiento",
   knowledge_index: "Índice de conocimiento",
   media: "Audios e imágenes",
+  follow_up: "Seguimientos",
 };
 
 /**

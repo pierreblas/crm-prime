@@ -33,6 +33,7 @@ import {
 } from "@crm/shared";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { FOLLOW_UP_CANCELLED } from "../ai/follow-up.rules";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { QUEUE_OUTBOUND } from "../../infra/queue/queue.constants";
@@ -269,6 +270,9 @@ export class MessagingService {
             lastMessageAt: now,
             status: "OPEN",
             awaitingReply: true, // el contacto escribió: queda pendiente de responder
+            // Contestó: el seguimiento pendiente se cancela y la secuencia vuelve al principio.
+            followUpStep: 0,
+            followUpDueAt: null,
             unreadCount: { increment: 1 },
             // Fija el canal si aún no lo tenía (conversaciones previas).
             ...(channelId && !open.channelId ? { channelId } : {}),
@@ -1069,7 +1073,12 @@ export class MessagingService {
     const c = await this.prisma.conversation
       .update({
         where: { id },
-        data: { status, ...(status !== "PENDING" ? { handoffAt: null, handoffReason: null } : {}) },
+        data: {
+          status,
+          ...(status !== "PENDING" ? { handoffAt: null, handoffReason: null } : {}),
+          // Un chat cerrado no recibe seguimientos.
+          ...(status === "CLOSED" ? { followUpDueAt: null } : {}),
+        },
         include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true },
       })
       .catch(() => {
@@ -1080,6 +1089,21 @@ export class MessagingService {
     if (status === "CLOSED") {
       this.events.emit("conversation.closed", { conversationId: c.id, orgId: c.orgId });
     }
+    return this.toConversationDto(c);
+  }
+
+  /** Quita el seguimiento automático programado; no vuelve hasta que el cliente escriba. */
+  async cancelFollowUp(id: string): Promise<ConversationDto> {
+    const c = await this.prisma.conversation
+      .update({
+        where: { id },
+        data: { followUpStep: FOLLOW_UP_CANCELLED, followUpDueAt: null },
+        include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true },
+      })
+      .catch(() => {
+        throw new NotFoundException("Conversación no encontrada");
+      });
+    this.notify(c.id);
     return this.toConversationDto(c);
   }
 
@@ -1121,6 +1145,8 @@ export class MessagingService {
     aiMode: string;
     aiPausedUntil: Date | null;
     awaitingReply: boolean;
+    followUpStep?: number;
+    followUpDueAt?: Date | null;
     handoffAt?: Date | null;
     handoffReason?: string | null;
     windowExpiresAt: Date | null;
@@ -1156,6 +1182,8 @@ export class MessagingService {
       unreadCount: c.unreadCount ?? 0,
       handoffAt: c.handoffAt?.toISOString() ?? null,
       handoffReason: c.handoffReason ?? null,
+      followUpStep: c.followUpStep ?? 0,
+      followUpDueAt: c.followUpDueAt?.toISOString() ?? null,
       lastMessage: last
         ? {
             direction: last.direction as MessageDirection,

@@ -331,6 +331,10 @@ export const en = {
     windowOpenTitle:
       "You can write freely for another {time}. After that, WhatsApp only allows approved templates.",
     windowClosedLabel: "Window closed",
+    followUpChip: "Follow-up {n} in {time}",
+    followUpTitle: "Automatic follow-up scheduled by the agent. It is cancelled as soon as the customer replies.",
+    followUpCancel: "Cancel this chat's follow-up",
+    followUpCancelled: "Follow-up cancelled until the customer writes again.",
     // Hilo
     emptyThread: "No messages yet",
     emptyThreadHint: "Write below to start the conversation.",

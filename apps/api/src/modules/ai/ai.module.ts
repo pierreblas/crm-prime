@@ -14,6 +14,7 @@ import { AiReplyProcessor } from "./ai-reply.processor";
 import { MediaUnderstandingService } from "./media-understanding.service";
 import { FlowProcessor } from "./flow.processor";
 import { StageAutomationsService } from "./stage-automations.service";
+import { FollowUpService } from "./follow-up.service";
 import { StageWebhookController } from "./stage-webhook.controller";
 import { AiController } from "./ai.controller";
 import { BotsController } from "./bots.controller";
@@ -49,6 +50,7 @@ import { OnboardingModule } from "../onboarding/onboarding.module";
     FlowEngineService,
     FlowTriggersService,
     StageAutomationsService,
+    FollowUpService,
     FlowProcessor,
     AiReplyProcessor,
     MediaUnderstandingService,

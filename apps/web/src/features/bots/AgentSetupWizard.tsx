@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AgentToolInfo, BotDto, CreateBotInput } from "@crm/shared";
+import { DEFAULT_FOLLOW_UPS } from "@crm/shared";
 import { NavIcon, type IconName } from "@/components/NavIcons";
 import { toast } from "@/lib/toast";
 import { askPromptAssistant, createBot, fetchAiStatus, updateBot } from "@/lib/bff";
@@ -164,6 +165,7 @@ export function AgentSetupWizard({
         businessHoursEnabled: bot?.businessHoursEnabled ?? false,
         businessHours: bot?.businessHours ?? null,
         keywordTriggers: bot?.keywordTriggers ?? [],
+        followUps: bot?.followUps ?? DEFAULT_FOLLOW_UPS,
         escalationRules: {
           escalateOnNegativeSentiment: a.angry,
           minConfidence: bot?.escalationRules.minConfidence ?? 0.75,

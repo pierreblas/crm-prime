@@ -834,6 +834,45 @@ export class AgentService {
    * anteriores (cerradas hace poco): al «cerrar y siguiente» el cliente suele
    * seguir el mismo hilo, y sin ese contexto la IA no sabe de qué habla.
    */
+  /**
+   * Un mensaje de seguimiento corto para un chat en silencio (lo pide el
+   * servicio de seguimientos). Sin herramientas: retoma lo último que se
+   * hablaba. null si el modelo no devolvió texto.
+   */
+  async draftFollowUp(conversationId: string, goal: string): Promise<string | null> {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: { contact: true },
+    });
+    if (!conversation) return null;
+    const config = await this.bots.resolveForConversation(conversation);
+    const system = this.buildSystemParts(config?.systemPrompt, conversation.contact);
+    const history = await this.buildHistory(conversationId);
+    const ask =
+      "[Nota del sistema, no es un mensaje del cliente] El cliente lleva un tiempo sin responder. Escribe UN solo mensaje de seguimiento, breve (una o dos frases), cálido y sin presionar, que retome lo último que hablaban. No saludes como si fuera el primer contacto ni repitas lo que ya dijiste." +
+      (goal.trim() ? ` Objetivo del mensaje: ${goal.trim()}.` : "") +
+      " Devuelve solo el texto del mensaje.";
+    const res = await this.llm.generate({
+      feature: "follow_up",
+      system: system.system,
+      systemDynamic: system.systemDynamic,
+      cacheKey: config?.id ? `agent:${config.id}` : undefined,
+      messages: [...history, { role: "user", content: ask }],
+      effort: "low",
+      maxTokens: 300,
+      model: config?.model,
+      conversationId,
+    });
+    const text = res.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b as { text: string }).text)
+      .join("\n")
+      .trim()
+      .replace(/^["«]|["»]$/g, "")
+      .trim();
+    return text || null;
+  }
+
   private async buildHistory(conversationId: string): Promise<LlmMessage[]> {
     const convo = await this.prisma.conversation.findUnique({
       where: { id: conversationId },

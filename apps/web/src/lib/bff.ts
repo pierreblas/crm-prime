@@ -251,6 +251,13 @@ export async function setConversationStatus(
   return res.json();
 }
 
+/** Cancela el seguimiento automático programado en el chat (hasta que el cliente vuelva a escribir). */
+export async function cancelFollowUp(conversationId: string): Promise<ConversationDto> {
+  const res = await bffFetch(`/api/bff/conversations/${conversationId}/follow-up`, { method: "DELETE" });
+  if (!res.ok) throw new Error("No se pudo cancelar el seguimiento");
+  return res.json();
+}
+
 export async function setAiMode(
   conversationId: string,
   mode: AiMode,

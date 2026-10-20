@@ -596,6 +596,8 @@ model Conversation {
   // de Meta: id del anuncio, ctwa_clid, titular…). Null si no vino de un anuncio.
   referral        Json?
   awaitingReply   Boolean            @default(false) // el contacto escribió y aún no respondemos
+  followUpStep    Int                @default(0) // toque de seguimiento que toca (-1 = cancelado hasta que el cliente escriba)
+  followUpDueAt   DateTime? // cuándo se envía el siguiente seguimiento (null = ninguno programado)
   lastMessageAt   DateTime?
   // Mensajes del contacto desde la última vez que alguien abrió el chat.
   unreadCount     Int                @default(0)
@@ -620,6 +622,7 @@ model Conversation {
   @@index([assignedAgentId])
   @@index([aiMode])
   @@index([orgId, lastMessageAt])
+  @@index([followUpDueAt])
   @@map("conversations")
 }
 
@@ -982,6 +985,7 @@ model AgentConfig {
   businessHoursEnabled Boolean @default(false)
   businessHours        Json? // { timezone, days, outOfHoursMessage }
   keywordTriggers      Json? // [{ keywords[], action, value? }]
+  followUps            Json? // { enabled, steps: [{ afterMinutes, kind, text, templateId }], includeHuman }
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

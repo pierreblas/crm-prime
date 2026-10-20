@@ -10,10 +10,11 @@ import type {
   BusinessHours,
   CreateBotInput,
   EscalationRules,
+  FollowUps,
   KeywordTrigger,
   UpdateBotInput,
 } from "@crm/shared";
-import { normalizeKeywordTrigger } from "@crm/shared";
+import { DEFAULT_FOLLOW_UPS, followUpsSchema, normalizeKeywordTrigger } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { AgentActionsService } from "./agent-actions.service";
@@ -139,6 +140,7 @@ export class BotService {
         businessHoursEnabled: input.businessHoursEnabled,
         businessHours: (input.businessHours ?? undefined) as Prisma.InputJsonValue,
         keywordTriggers: input.keywordTriggers as unknown as Prisma.InputJsonValue,
+        followUps: input.followUps as unknown as Prisma.InputJsonValue,
       },
       include: { channel: true },
     });
@@ -204,6 +206,9 @@ export class BotService {
                 input.keywordTriggers as unknown as Prisma.InputJsonValue,
             }
           : {}),
+        ...(input.followUps !== undefined
+          ? { followUps: input.followUps as unknown as Prisma.InputJsonValue }
+          : {}),
       },
       include: { channel: true },
     });
@@ -260,6 +265,7 @@ export class BotService {
     businessHoursEnabled: boolean;
     businessHours: unknown;
     keywordTriggers: unknown;
+    followUps?: unknown;
     createdAt: Date;
     channel?: {
       id: string;
@@ -300,7 +306,15 @@ export class BotService {
       businessHours: (c.businessHours as BusinessHours | null) ?? null,
       // Formatos anteriores de las versiones por palabra clave → condiciones.
       keywordTriggers: ((c.keywordTriggers as KeywordTrigger[] | null) ?? []).map(normalizeKeywordTrigger),
+      followUps: toFollowUps(c.followUps),
       createdAt: c.createdAt.toISOString(),
     };
   }
+}
+
+/** Lo guardado como JSON; lo irreconocible vuelve apagado para no romper el editor. */
+function toFollowUps(raw: unknown): FollowUps {
+  // Sin la regla de las 24 h: lo guardado ya pasó por ella y, si cambia, el editor lo señala.
+  const r = followUpsSchema.innerType().safeParse(raw ?? DEFAULT_FOLLOW_UPS);
+  return r.success ? r.data : DEFAULT_FOLLOW_UPS;
 }

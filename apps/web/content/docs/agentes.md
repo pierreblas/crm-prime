@@ -130,6 +130,26 @@ Cuando un cliente manda un **audio**, Driony lo transcribe; una **imagen**, la d
 - Se cobra en tu cuenta del proveedor y aparece en **Consumo de IA** como «Audios e imágenes de clientes». Un audio de un minuto cuesta menos de un centavo de dólar.
 - Los videos y documentos no se interpretan todavía; el agente ve que llegaron.
 
+## Seguimientos
+
+Si el cliente deja de responder, el agente puede escribirle solo, hasta cuatro veces, con la cadencia que decidas (por ejemplo: a las 2 horas, al día siguiente y a los 3 días). Se configura en el agente, pestaña **Cuándo**, sección **Seguimientos**.
+
+En cada toque eliges qué se envía:
+
+- **Lo redacta la IA**: una o dos frases que retoman lo último que hablaban («¿te decidiste por la talla 42?»). Puedes darle un objetivo («recordarle la cotización»). Cuesta una llamada breve al modelo.
+- **Un texto fijo**: siempre el mismo, sin IA.
+- **Una plantilla aprobada por Meta**: obligatoria cuando han pasado 24 h o más desde el último mensaje del cliente, porque WhatsApp no permite otra cosa. Si la plantilla tiene `{{1}}`, va el nombre del contacto.
+
+Lo que no hace falta configurar:
+
+- Se detiene en cuanto el cliente responde, si la oportunidad se gana o si cierras el chat. Si una persona del equipo escribe, la secuencia vuelve a empezar desde el primer toque.
+- Por defecto solo actúa en los chats que atiende la IA. Marca **También en los chats que lleva una persona** para que haga seguimiento cuando un vendedor escribió y el cliente no contestó.
+- Con horario de atención activo, los toques esperan a que abra.
+- Un toque de texto o de IA que caiga fuera de la ventana de 24 h se salta; el siguiente que sea plantilla sí sale.
+- En la bandeja, el chat muestra «Seguimiento 2 en 3 h»; con la × lo cancelas para ese cliente hasta que vuelva a escribir.
+
+El gasto aparece en **Consumo de IA** como «Seguimientos automáticos».
+
 ## Base de conocimiento
 
 En **Conocimiento** subes documentos (precios, condiciones, preguntas frecuentes, guías). Se trocean y se indexan para que el agente responda **con tu información** en vez de inventar. Cada consulta suma un poco de tiempo y de gasto; activa la herramienta solo en los agentes que la necesiten.

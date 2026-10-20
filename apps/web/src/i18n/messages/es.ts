@@ -330,6 +330,10 @@ export const es: Messages = {
     windowOpenTitle:
       "Puedes escribir libremente durante {time} más. Después, WhatsApp solo permite plantillas aprobadas.",
     windowClosedLabel: "Ventana cerrada",
+    followUpChip: "Seguimiento {n} en {time}",
+    followUpTitle: "Seguimiento automático programado por el agente. Se cancela solo en cuanto el cliente responde.",
+    followUpCancel: "Cancelar el seguimiento de este chat",
+    followUpCancelled: "Seguimiento cancelado hasta que el cliente vuelva a escribir.",
     // Hilo
     emptyThread: "Todavía no hay mensajes",
     emptyThreadHint: "Escribe abajo para empezar la conversación.",

@@ -105,6 +105,65 @@ export function normalizeKeywordTrigger(raw: KeywordTrigger): KeywordTrigger {
   return { ...raw, variants };
 }
 
+// ── Seguimientos ─────────────────────────────────────────────
+
+/** Qué se envía en un toque: lo redacta la IA, un texto fijo o una plantilla aprobada. */
+export const followUpKinds = ["ai", "text", "template"] as const;
+export type FollowUpKind = (typeof followUpKinds)[number];
+
+/** Toques por secuencia. */
+export const FOLLOW_UP_MAX_STEPS = 4;
+/** Espera máxima por toque: 30 días. */
+export const FOLLOW_UP_MAX_MINUTES = 30 * 24 * 60;
+/** Ventana de WhatsApp en minutos: pasada, solo se puede enviar plantilla. */
+export const WHATSAPP_WINDOW_MINUTES = 24 * 60;
+
+export const followUpStepSchema = z.object({
+  /** Minutos de silencio del cliente desde el mensaje anterior (el nuestro o el toque previo). */
+  afterMinutes: z.number().int().min(5).max(FOLLOW_UP_MAX_MINUTES),
+  kind: z.enum(followUpKinds),
+  /** kind=text: el mensaje. kind=ai: qué debe conseguir (opcional). */
+  text: z.string().max(2000).default(""),
+  /** kind=template: plantilla aprobada por Meta. */
+  templateId: z.string().nullable().default(null),
+});
+export type FollowUpStep = z.infer<typeof followUpStepSchema>;
+
+/**
+ * Secuencia de seguimientos de un agente. Se valida solo si está activada:
+ * apagada se puede guardar a medias. La regla de las 24 h es de WhatsApp:
+ * desde el último mensaje del cliente, pasado ese plazo solo cabe plantilla.
+ */
+export const followUpsSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    steps: z.array(followUpStepSchema).max(FOLLOW_UP_MAX_STEPS).default([]),
+    /** También en los chats que lleva una persona (por defecto, solo en los que atiende la IA). */
+    includeHuman: z.boolean().default(false),
+  })
+  .superRefine((v, ctx) => {
+    if (!v.enabled) return;
+    let minutes = 0;
+    v.steps.forEach((s, i) => {
+      minutes += s.afterMinutes;
+      if (minutes >= WHATSAPP_WINDOW_MINUTES && s.kind !== "template") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["steps", i, "kind"],
+          message: "pasadas 24 h desde el último mensaje del cliente, WhatsApp solo permite plantillas: elige una plantilla para este toque",
+        });
+      }
+      if (s.kind === "template" && !s.templateId) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["steps", i, "templateId"], message: "elige la plantilla" });
+      }
+      if (s.kind === "text" && !s.text.trim()) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["steps", i, "text"], message: "escribe el mensaje" });
+      }
+    });
+  });
+export type FollowUps = z.infer<typeof followUpsSchema>;
+export const DEFAULT_FOLLOW_UPS: FollowUps = { enabled: false, steps: [], includeHuman: false };
+
 // Configuración del agente que devuelve la API (compat: bot por defecto).
 export const agentConfigSchema = z.object({
   id: z.string(),
@@ -171,6 +230,7 @@ export const botSchema = z.object({
   businessHoursEnabled: z.boolean(),
   businessHours: businessHoursSchema.nullable(),
   keywordTriggers: z.array(keywordTriggerSchema),
+  followUps: followUpsSchema,
   createdAt: z.string(),
 });
 export type BotDto = z.infer<typeof botSchema>;
@@ -204,6 +264,7 @@ const botFields = {
   businessHoursEnabled: z.boolean(),
   businessHours: businessHoursSchema.nullable(),
   keywordTriggers: z.array(keywordTriggerSchema),
+  followUps: followUpsSchema,
 };
 
 // Crear: todo con defaults sensatos para lo opcional.
@@ -226,6 +287,7 @@ export const createBotSchema = z.object({
   businessHoursEnabled: botFields.businessHoursEnabled.default(false),
   businessHours: botFields.businessHours.default(null),
   keywordTriggers: botFields.keywordTriggers.default([]),
+  followUps: botFields.followUps.default(DEFAULT_FOLLOW_UPS),
 });
 export type CreateBotInput = z.infer<typeof createBotSchema>;
 
@@ -249,5 +311,6 @@ export const updateBotSchema = z.object({
   businessHoursEnabled: botFields.businessHoursEnabled.optional(),
   businessHours: botFields.businessHours.optional(),
   keywordTriggers: botFields.keywordTriggers.optional(),
+  followUps: botFields.followUps.optional(),
 });
 export type UpdateBotInput = z.infer<typeof updateBotSchema>;

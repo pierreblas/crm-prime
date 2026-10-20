@@ -23,6 +23,8 @@ import {
   DEFAULT_HANDOFF_MESSAGE,
   type FlowRule,
   normalizeKeywordTrigger,
+  DEFAULT_FOLLOW_UPS,
+  type FollowUps,
 } from "@crm/shared";
 import type { PromptAssistantTarget } from "@crm/shared";
 import { createBot, fetchAgents, fetchCustomFields, fetchProductFields, fetchSources, fetchStages, fetchTags, fetchWhatsappChannels, updateBot } from "@/lib/bff";
@@ -31,6 +33,7 @@ import { CONDITION_FIELD_BY, OP_LABEL } from "@/features/flows/flowShared";
 import { field, input, label as lbl, primaryBtn, ghostBtn } from "./styles";
 import { smBtn } from "@/components/ui";
 import { PromptAssistant } from "./PromptAssistant";
+import { FollowUpsEditor, defaultFollowUpStep } from "./FollowUpsEditor";
 import {
   EFFORT_LABEL,
   MODEL_OPTIONS,
@@ -82,6 +85,7 @@ type Form = {
   businessHoursEnabled: boolean;
   businessHours: BusinessHours;
   keywordTriggers: KeywordTrigger[];
+  followUps: FollowUps;
 };
 
 // Campos del editor que tienen botón de asistente de redacción.
@@ -157,6 +161,7 @@ function toForm(bot: BotDto | null): Form {
       businessHoursEnabled: false,
       businessHours: defaultHours(),
       keywordTriggers: [],
+      followUps: DEFAULT_FOLLOW_UPS,
     };
   }
   return {
@@ -182,6 +187,7 @@ function toForm(bot: BotDto | null): Form {
     businessHoursEnabled: bot.businessHoursEnabled,
     businessHours: bot.businessHours ?? defaultHours(),
     keywordTriggers: bot.keywordTriggers.map(normalizeKeywordTrigger),
+    followUps: bot.followUps ?? DEFAULT_FOLLOW_UPS,
   };
 }
 
@@ -205,6 +211,8 @@ const FIELD_LABELS: [RegExp, (m: RegExpMatchArray) => string, Tab][] = [
   [/^keywordTriggers\.(\d+)\.keywords/, (m) => `Respuesta fija ${Number(m[1]) + 1} › palabras`, "cuando"],
   [/^keywordTriggers\.(\d+)\.value/, (m) => `Respuesta fija ${Number(m[1]) + 1} › texto`, "cuando"],
   [/^keywordTriggers/, () => "Respuestas fijas", "cuando"],
+  [/^followUps\.steps\.(\d+)/, (m) => `Seguimientos › toque ${Number(m[1]) + 1}`, "cuando"],
+  [/^followUps/, () => "Seguimientos", "cuando"],
   [/^escalationRules\.keywords/, () => "Palabras que pasan el chat", "persona"],
   [/^escalationRules/, () => "Cuándo te pasa el chat", "persona"],
   [/^model$|^effort$/, () => "Modelo", "gasto"],
@@ -323,6 +331,7 @@ export function BotEditor({
         businessHoursEnabled: form.businessHoursEnabled,
         businessHours: form.businessHoursEnabled ? form.businessHours : null,
         keywordTriggers: form.keywordTriggers.filter((t) => t.keywords.length > 0),
+        followUps: form.followUps,
         escalationRules: {
           escalateOnNegativeSentiment: form.escalateOnNegativeSentiment,
           onMedia: form.handoffOnMedia,
@@ -639,6 +648,25 @@ export function BotEditor({
               subtitle="Si el mensaje del cliente contiene una palabra, hace algo fijo antes que la IA. Útil para «precios», «ubicación» o «baja»."
             >
               <KeywordTriggersEditor value={form.keywordTriggers} onChange={(t) => set("keywordTriggers", t)} />
+            </Card>
+
+            <Card
+              title="Seguimientos"
+              subtitle="Si el cliente deja de responder, le escribe solo, hasta cuatro veces. Para en cuanto responde."
+            >
+              <Switch
+                checked={form.followUps.enabled}
+                onChange={(v) =>
+                  set("followUps", {
+                    ...form.followUps,
+                    enabled: v,
+                    // Al activarlo por primera vez ya hay un toque listo: a las 2 h, lo redacta la IA.
+                    steps: v && form.followUps.steps.length === 0 ? [defaultFollowUpStep(0)] : form.followUps.steps,
+                  })
+                }
+                label={form.followUps.enabled ? "Activado" : "Desactivado"}
+              />
+              {form.followUps.enabled && <FollowUpsEditor value={form.followUps} onChange={(v) => set("followUps", v)} />}
             </Card>
           </>
         )}

@@ -19,6 +19,7 @@ export const AI_FEATURES = [
   "knowledge_gaps",
   "knowledge_index",
   "media",
+  "follow_up",
 ] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];
 
@@ -32,6 +33,7 @@ export const AI_FEATURE_LABELS: Record<AiFeature, string> = {
   knowledge_gaps: "Preguntas sin respuesta",
   knowledge_index: "Indexar y buscar conocimiento",
   media: "Audios e imágenes de clientes",
+  follow_up: "Seguimientos automáticos",
 };
 
 /** Mes de la última revisión de la tabla de precios. */

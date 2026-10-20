@@ -30,6 +30,7 @@
     "test:onboarding": "tsx --test test/onboarding.test.ts",
     "test:plans": "tsx --test test/plans.test.ts",
     "test:permissions": "tsx --test test/permissions.test.ts",
+    "test:followups": "tsx --test test/follow-ups.test.ts",
     "test:copilot": "tsx --test test/copilot.test.ts",
     "test:dashboard": "tsx --test test/dashboard.test.ts"
   },

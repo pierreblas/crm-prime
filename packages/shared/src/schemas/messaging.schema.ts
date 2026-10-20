@@ -138,6 +138,10 @@ export const conversationDtoSchema = z.object({
   aiPaused: z.boolean(),
   // El contacto escribió y aún no le respondemos (pendiente de responder).
   awaitingReply: z.boolean(),
+  // Seguimiento automático del agente: qué toque toca (0 = el primero; -1 =
+  // cancelado hasta que el cliente escriba) y cuándo se envía (null = ninguno).
+  followUpStep: z.number().default(0),
+  followUpDueAt: z.string().nullable().default(null),
   // La IA pasó el chat a una persona (null = nadie lo pasó o ya se atendió).
   handoffAt: z.string().nullable().default(null),
   handoffReason: z.string().nullable().default(null),
