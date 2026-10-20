@@ -33,7 +33,12 @@ export interface LlmTool {
 }
 
 export interface LlmRequest {
+  /** Parte FIJA del prompt (instrucciones, reglas): igual en cada llamada del mismo agente, cacheable. */
   system: string;
+  /** Parte VARIABLE (este contacto, su memoria): va después, fuera de la caché. */
+  systemDynamic?: string;
+  /** Clave de caché del prompt (un agente): mejora el acierto de la caché en OpenAI. */
+  cacheKey?: string;
   messages: LlmMessage[];
   tools?: LlmTool[];
   knowledge?: string[]; // fragmentos recuperados del RAG para fundamentar la respuesta

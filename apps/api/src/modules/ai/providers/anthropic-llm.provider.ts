@@ -55,10 +55,12 @@ export class AnthropicLLMProvider implements LLMProvider {
     const cfg = await this.config();
     // Cuerpo construido de forma laxa: algunos parámetros (output_config)
     // pueden no estar en los tipos del SDK según la versión instalada.
-    // RAG: si hay fragmentos recuperados, se anteponen al system prompt.
-    const systemText = req.knowledge?.length
-      ? `${req.system}\n\n## Base de conocimiento relevante\nUsa esta información para responder. Si no es suficiente, dilo o escala.\n${req.knowledge.map((k, i) => `[${i + 1}] ${k}`).join("\n")}`
-      : req.system;
+    // Dos bloques: el fijo (cacheado) y, aparte, lo de este contacto y el
+    // conocimiento recuperado, que cambian en cada llamada y no deben romper la caché.
+    const knowledgeText = req.knowledge?.length
+      ? `\n\n## Base de conocimiento relevante\nUsa esta información para responder. Si no es suficiente, dilo o escala.\n${req.knowledge.map((k, i) => `[${i + 1}] ${k}`).join("\n")}`
+      : "";
+    const dynamicText = `${req.systemDynamic ?? ""}${knowledgeText}`;
 
     const body: Record<string, unknown> = {
       model: this.resolveModel(req.model, cfg.model),
@@ -66,9 +68,10 @@ export class AnthropicLLMProvider implements LLMProvider {
       system: [
         {
           type: "text",
-          text: systemText,
+          text: req.system,
           cache_control: { type: "ephemeral" },
         },
+        ...(dynamicText ? [{ type: "text", text: dynamicText }] : []),
       ],
       output_config: { effort: req.effort ?? "medium" },
       messages: req.messages.map((m) => this.toSdkMessage(m)),
@@ -85,6 +88,10 @@ export class AnthropicLLMProvider implements LLMProvider {
       body as unknown as Anthropic.MessageStreamParams,
     );
     const msg = await stream.finalMessage();
+    // Cuántos tokens de entrada se leyeron de la caché (al 10 % del precio) y cuántos la crearon.
+    this.logger.debug(
+      `${msg.model}: ${msg.usage.input_tokens} in + ${msg.usage.cache_read_input_tokens ?? 0} de caché + ${msg.usage.cache_creation_input_tokens ?? 0} a caché, ${msg.usage.output_tokens} out`,
+    );
 
     const content: LlmContentBlock[] = [];
     for (const block of msg.content) {

@@ -17,6 +17,7 @@ import type {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { currentOrgId } from "../../infra/tenant/tenant.context";
+import { searchProducts } from "./product-search";
 import { MediaUnderstandingService } from "./media-understanding.service";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { AgentActionsService } from "./agent-actions.service";
@@ -70,7 +71,7 @@ export class AgentService {
       this.prisma.productField.findMany({ where: { aiVisible: true }, select: { label: true } }),
       this.prisma.customField.findMany({ select: { key: true, label: true } }),
     ]);
-    const system = this.buildSystem(config?.systemPrompt, conversation.contact, config?.enabledTools ?? [], !!config?.splitReplies, {
+    const system = this.buildSystemParts(config?.systemPrompt, conversation.contact, config?.enabledTools ?? [], !!config?.splitReplies, {
       catalogFields: catalogFields.map((f) => f.label),
       contactFields: contactFieldDefs,
     });
@@ -144,7 +145,9 @@ export class AgentService {
     try {
       for (let i = 0; i < maxIterations; i++) {
         const res = await this.llm.generate({
-          system,
+          system: system.system,
+          systemDynamic: system.systemDynamic,
+          cacheKey: config?.id ? `agent:${config.id}` : undefined,
           messages,
           tools: tools.length ? tools : undefined,
           knowledge: knowledge.length ? knowledge : undefined,
@@ -321,7 +324,7 @@ export class AgentService {
       : await this.bots.resolveForChannel(null);
 
     const contact = { name: "Cliente de prueba", phone: "+000000000" };
-    const system = this.buildSystem(config?.systemPrompt, contact);
+    const system = this.buildSystemParts(config?.systemPrompt, contact);
     const toolContext = await this.actions.loadContext();
     const tools = resolveTools(config?.enabledTools ?? [], toolContext);
     // En el playground las acciones no se aplican: solo se listan.
@@ -351,7 +354,9 @@ export class AgentService {
       for (let i = 0; i < maxIterations; i++) {
         const res = await this.llm.generate({
           feature: "playground",
-          system,
+          system: system.system,
+          systemDynamic: system.systemDynamic,
+          cacheKey: config?.id ? `agent:${config.id}` : undefined,
           messages,
           tools: tools.length ? tools : undefined,
           knowledge: knowledge.length ? knowledge : undefined,
@@ -585,9 +590,11 @@ export class AgentService {
         hits.map((h) => ({ doc: h.docTitle, content: h.content })),
       );
     } else if (tu.name === "search_products") {
-      // Etapa 1: el agente lee el catálogo. Si hay término, filtra; si no
-      // encuentra nada (o no hay término), devuelve el catálogo completo para
-      // que el agente tenga la información y no responda "no hay" por error.
+      // El agente lee el catálogo. Con término, busca por palabras (sin
+      // tildes, en nombre, descripción, SKU y campos visibles) y ordena por
+      // relevancia; sin término o sin coincidencias, lista el catálogo. Lo que
+      // no cabe con detalle va al menos por nombre, para que con 200 productos
+      // el agente sepa que existen y pueda volver a buscar.
       const q = String(tu.input.query ?? "").trim();
       const MAX = 50;
       const select = {
@@ -611,59 +618,19 @@ export class AgentService {
       });
       const fieldDef = new Map(fieldDefs.map((f) => [f.key, f]));
 
-      let rows = q
-        ? await this.prisma.product.findMany({
-            where: {
-              ...baseWhere,
-              OR: [
-                { name: { contains: q, mode: "insensitive" } },
-                { description: { contains: q, mode: "insensitive" } },
-                { sku: { contains: q, mode: "insensitive" } },
-              ],
-            },
-            orderBy: { name: "asc" },
-            take: MAX,
-            select,
-          })
-        : [];
-
-      // También por el valor de un campo personalizado ("talla M", "rojo").
-      // Solo en los campos visibles para la IA: los ocultos no se pueden sondear.
-      if (q && rows.length < MAX && fieldDefs.length) {
-        const orgId = currentOrgId();
-        const keys = fieldDefs.map((f) => f.key);
-        const byAttr = orgId
-          ? await this.prisma.$queryRaw<{ id: string }[]>`
-              SELECT id FROM products p
-              WHERE p."orgId" = ${orgId} AND p."isActive" AND EXISTS (
-                SELECT 1 FROM jsonb_each_text(COALESCE(p.attributes, '{}'::jsonb)) a
-                WHERE a.key = ANY(${keys}) AND a.value ILIKE ${"%" + q + "%"}
-              )
-              LIMIT ${MAX}`
-          : [];
-        const have = new Set(rows.map((r) => r.id));
-        const extra = byAttr.map((r) => r.id).filter((id) => !have.has(id));
-        if (extra.length) {
-          rows = [
-            ...rows,
-            ...(await this.prisma.product.findMany({ where: { id: { in: extra } }, select, take: MAX - rows.length })),
-          ];
-        }
-      }
-
-      // Sin término o sin coincidencias → catálogo completo (hasta MAX).
-      let listedAll = false;
-      if (rows.length === 0) {
-        rows = await this.prisma.product.findMany({
-          where: baseWhere,
-          orderBy: { name: "asc" },
-          take: MAX,
-          select,
-        });
-        listedAll = true;
-      }
-
-      const total = await this.prisma.product.count({ where: baseWhere });
+      const orgId = currentOrgId() ?? "";
+      // Un listado del catálogo (sin término o sin coincidencias) va compacto:
+      // 20 con detalle y el resto por nombre. Una búsqueda que acierta, hasta 50.
+      const found = await searchProducts(this.prisma, orgId, q, { max: MAX, listMax: 20, attrKeys: fieldDefs.map((f) => f.key) });
+      const byId = new Map(
+        (await this.prisma.product.findMany({ where: { ...baseWhere, id: { in: found.ids } }, select })).map((p) => [p.id, p]),
+      );
+      const rows = found.ids.map((id) => byId.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
+      const { total, listedAll, otherNames } = found;
+      // Con pocos resultados la descripción va entera (es cuando importa); en
+      // listados largos, recortada: el agente puede volver a buscar el producto.
+      const brief = rows.length > 5;
+      const trim = (d: string | null) => (d && brief && d.length > 160 ? `${d.slice(0, 157).trimEnd()}…` : d);
       // Precio en la moneda del cliente si el producto la tiene; si no, el
       // precio base, marcado para que el agente no lo "convierta" por su cuenta.
       const clientCurrency = contactCurrency(contact);
@@ -682,7 +649,7 @@ export class AgentService {
         currency: hit.currency,
         ...(clientCurrency ? { priceInClientCurrency: !hit.fallback } : {}),
         sku: p.sku,
-        description: p.description,
+        description: trim(p.description),
         ...(() => {
           const attrs = (p.attributes as Record<string, string> | null) ?? {};
           const details = Object.fromEntries(
@@ -710,8 +677,10 @@ export class AgentService {
                 ? "Catálogo completo."
                 : `Resultados para "${q}".`,
         total,
-        truncated: total > MAX,
+        truncated: total > rows.length,
         products: items,
+        // Nombres del resto del catálogo: si lo que busca el cliente está aquí, vuelve a buscar con ese nombre.
+        ...(otherNames.length ? { otherNames } : {}),
       });
     } else if (tu.name === "handoff_to_human") {
       reason = String(tu.input.reason ?? "Escalado solicitado por la IA.");
@@ -792,13 +761,19 @@ export class AgentService {
   }
 
   // ── Construcción del contexto ──────────────────────────────────
-  private buildSystem(
+  /**
+   * El prompt en dos partes. `system`: instrucciones y reglas, iguales en cada
+   * llamada del mismo agente, para que el proveedor las cachee. `systemDynamic`:
+   * lo de este contacto (nombre, país, campos, memoria), que cambia cada vez
+   * y va al final para no romper la caché.
+   */
+  private buildSystemParts(
     base: string | undefined,
     contact: { name: string | null; phone: string; currency?: string | null; aiMemory?: unknown; metadata?: unknown },
     enabledTools: string[] = [],
     splitReplies = false,
     extra: { catalogFields?: string[]; contactFields?: { key: string; label: string }[] } = {},
-  ): string {
+  ): { system: string; systemDynamic: string } {
     const country = countryFromPhone(contact.phone);
     const memory = memoryText(contact.aiMemory);
     const currency = contactCurrency(contact);
@@ -829,16 +804,11 @@ export class AgentService {
     ].join("");
     const fallback =
       "Eres un asistente de atención al cliente por WhatsApp. Responde en español, breve y cordial. Redacta una posible respuesta para que un agente humano la revise antes de enviarla. Si no estás seguro o el caso lo amerita, usa la herramienta handoff_to_human.";
-    return [
+    const system = [
       fill(base ?? fallback),
-      `\n\nContacto actual: ${contact.name ?? "(sin nombre)"} (${contact.phone}).${where}`,
-      contactFields.length
-        ? `\n\nDatos guardados de este contacto: ${contactFields.map((f) => `${f.label}: ${f.value}`).join("; ")}.`
-        : "",
       extra.catalogFields?.length
         ? `\n\nCada producto del catálogo puede incluir además estos datos: ${extra.catalogFields.join(", ")}. Vienen en search_products (campo «details»): consúltalos y cítalos cuando el cliente pregunte por ellos; nunca inventes su contenido.`
         : "",
-      memory ? `\n\nLo que sabemos de este cliente (de conversaciones anteriores):\n${memory}` : "",
       "\n\nSi un mensaje del cliente aparece como [imagen], [documento] o [audio] sin descripción, no pudiste verlo ni oírlo: dilo con naturalidad y pídele que te cuente qué es (o pásalo a una persona si parece un comprobante o un documento importante).",
       splitReplies
         ? "\n\nEscribe como en WhatsApp: mensajes cortos, una idea por párrafo, separados por una línea en blanco (como mucho cuatro párrafos). Cada párrafo se enviará como un mensaje aparte."
@@ -849,6 +819,14 @@ export class AgentService {
         : "",
       "\n\nDevuelve únicamente el texto de la respuesta sugerida, sin prefijos como 'Respuesta:'.",
     ].join("");
+    const systemDynamic = [
+      `\n\n## Este contacto\nContacto actual: ${contact.name ?? "(sin nombre)"} (${contact.phone}).${where}`,
+      contactFields.length
+        ? `\n\nDatos guardados de este contacto: ${contactFields.map((f) => `${f.label}: ${f.value}`).join("; ")}.`
+        : "",
+      memory ? `\n\nLo que sabemos de este cliente (de conversaciones anteriores):\n${memory}` : "",
+    ].join("");
+    return { system, systemDynamic };
   }
 
   /**

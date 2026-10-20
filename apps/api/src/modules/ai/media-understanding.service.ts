@@ -124,6 +124,9 @@ export class MediaUnderstandingService {
     }
     if (file.size > MAX_BYTES) return "";
     if (m.type === "AUDIO") return this.transcribe(file, conversationId);
+    // Un sticker cuesta lo mismo que una foto y no aporta nada a la venta: el
+    // agente lo ve como «[sticker]» y sigue. Se puede volver a activar con AI_DESCRIBE_STICKERS=on.
+    if (m.type === "STICKER" && env("AI_DESCRIBE_STICKERS") !== "on") return "";
     return this.describe(file, m.type === "STICKER", conversationId);
   }
 
@@ -180,8 +183,12 @@ export class MediaUnderstandingService {
 
     if (active.provider === "openai" && active.apiKey) {
       const base = (active.baseUrl ?? "https://api.openai.com/v1").replace(/\/+$/, "");
+      // Con gpt-4o-mini cada imagen cuesta ~2.800 tokens aunque vaya en
+      // «low» (ese modelo multiplica los tokens de imagen por 33). Los 4.1 y
+      // 5 cobran por parches: una foto en «low» ronda los 400 tokens. Así que
+      // la visión va a un 4.1/5 salvo que la empresa ya use uno o lo fije el servidor.
       const model =
-        env("AI_VISION_MODEL") ?? (/^(gpt-4o|gpt-4\.1|gpt-5)/.test(active.model) ? active.model : "gpt-4o-mini");
+        env("AI_VISION_MODEL") ?? (/^(gpt-4\.1|gpt-5)/.test(active.model) ? active.model : "gpt-4.1-mini");
       const res = await fetch(`${base}/chat/completions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${active.apiKey}`, "Content-Type": "application/json" },

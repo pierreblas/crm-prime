@@ -24,7 +24,7 @@ export const TOOL_REGISTRY: Record<string, LlmTool> = {
   search_products: {
     name: "search_products",
     description:
-      "Consulta el catálogo de productos del negocio (nombre, precio, moneda, descripción, SKU y, en \"details\", sus características como talla, color o garantía). La búsqueda también encuentra por esas características. Los precios ya vienen en la moneda del cliente cuando el producto la tiene; si un producto dice priceInClientCurrency=false, no hay precio en su moneda: da el precio tal cual viene (con su moneda) y no lo conviertas. Úsala SIEMPRE que el cliente pregunte por precios, qué venden, o si tienen algo. Deja la consulta vacía para ver TODO el catálogo. Nunca inventes precios ni productos: usa esta herramienta.",
+      "Consulta el catálogo de productos del negocio (nombre, precio, moneda, descripción, SKU y, en \"details\", sus características como talla, color o garantía). Busca por palabras sueltas, sin importar tildes ni mayúsculas, también en esas características; usa pocas palabras clave (ej. \"zapatilla running\"), no frases. Los precios ya vienen en la moneda del cliente cuando el producto la tiene; si un producto dice priceInClientCurrency=false, no hay precio en su moneda: da el precio tal cual viene (con su moneda) y no lo conviertas. Si la respuesta trae \"otherNames\", son productos que existen pero no vienen con detalle: si el que busca el cliente está ahí, vuelve a llamar con ese nombre. Úsala SIEMPRE que el cliente pregunte por precios, qué venden, o si tienen algo. Deja la consulta vacía para ver el catálogo. Nunca digas que algo no existe sin haberlo buscado por su nombre; nunca inventes precios ni productos.",
     input_schema: {
       type: "object",
       properties: {

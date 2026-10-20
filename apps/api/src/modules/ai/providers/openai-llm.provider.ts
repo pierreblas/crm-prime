@@ -30,7 +30,7 @@ interface OaiResponse {
     finish_reason: string;
     message: { content: string | null; tool_calls?: OaiToolCall[] };
   }[];
-  usage?: { prompt_tokens: number; completion_tokens: number };
+  usage?: { prompt_tokens: number; completion_tokens: number; prompt_tokens_details?: { cached_tokens?: number } };
 }
 
 /**
@@ -75,11 +75,14 @@ export class OpenAILLMProvider implements LLMProvider {
 
   async generate(req: LlmRequest): Promise<LlmResponse> {
     const cfg = await this.config();
-    const systemText = req.knowledge?.length
-      ? `${req.system}\n\n## Base de conocimiento relevante\nUsa esta información para responder. Si no es suficiente, dilo o escala.\n${req.knowledge
+    // Lo fijo primero y lo variable (contacto, conocimiento) al final: OpenAI
+    // cachea el prefijo idéntico a partir de 1.024 tokens y cobra la mitad.
+    const knowledgeText = req.knowledge?.length
+      ? `\n\n## Base de conocimiento relevante\nUsa esta información para responder. Si no es suficiente, dilo o escala.\n${req.knowledge
           .map((k, i) => `[${i + 1}] ${k}`)
           .join("\n")}`
-      : req.system;
+      : "";
+    const systemText = `${req.system}${req.systemDynamic ?? ""}${knowledgeText}`;
 
     const messages: OaiMessage[] = [
       { role: "system", content: systemText },
@@ -90,6 +93,7 @@ export class OpenAILLMProvider implements LLMProvider {
       model: this.resolveModel(req.model, cfg.model),
       max_tokens: req.maxTokens ?? 1024,
       messages,
+      ...(req.cacheKey ? { prompt_cache_key: req.cacheKey } : {}),
     };
     if (req.tools?.length) {
       body.tools = req.tools.map((t) => ({
@@ -103,6 +107,10 @@ export class OpenAILLMProvider implements LLMProvider {
     }
 
     const data = await this.call<OaiResponse>("/chat/completions", body, cfg);
+    // Cuántos tokens de entrada vinieron de la caché del prompt (a mitad de precio).
+    this.logger.debug(
+      `${data.model}: ${data.usage?.prompt_tokens ?? 0} in (${data.usage?.prompt_tokens_details?.cached_tokens ?? 0} de caché), ${data.usage?.completion_tokens ?? 0} out`,
+    );
     const choice = data.choices[0];
     const msg = choice?.message;
 

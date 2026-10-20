@@ -85,6 +85,8 @@ Además del agente que responde solo, Driony ayuda a tu equipo dentro de cada co
 
 ## Qué sabe del catálogo y del contacto
 
+Con catálogos grandes (cientos de productos) el agente no los lee todos de golpe: **busca** por palabras sueltas, sin importar tildes ni mayúsculas, en el nombre, la descripción, el SKU y los campos visibles, y recibe los más parecidos con su detalle más la lista de nombres del resto. Si un producto no aparece, suele ser por el nombre: ponle el nombre con el que lo pide la gente (y, si hace falta, palabras clave en la descripción), y evita nombres genéricos repetidos como «Producto 1».
+
 - **Catálogo**: el agente lee los productos con `search_products`: nombre, precio (en la moneda del cliente), descripción y los **campos del catálogo** que tengan activado «lo usa el agente de IA» (temario, duración, modalidad…). Las instrucciones le dicen qué campos existen; para que los use, pídeselo: «cuando pregunten por el temario, consulta el curso y cítalo tal cual». Escribir «[Temario]» en las instrucciones no sustituye nada: hay muchos productos y es el agente quien busca el que toca.
 - **Contacto**: conoce el nombre, teléfono, país, moneda y los **campos personalizados del contacto** con valor, y puedes insertarlos en las instrucciones con `{{nombre}}`, `{{telefono}}`, `{{pais}}`, `{{moneda}}` o `{{clave del campo}}` (en «Cómo debe atender», el desplegable *Cómo nombrar sus acciones* lista las claves).
 
@@ -98,7 +100,7 @@ Al hacerlo, el cliente recibe exactamente lo que la IA redactó («Gracias, una 
 
 Como la IA puede decirlo y olvidarse de llamar a la herramienta, para los comprobantes conviene además la opción **«Pasar siempre el chat cuando el cliente envía una imagen o un documento»** (*Cuándo te pasa el chat*): es determinista. La IA sigue contestando lo que le indicaste y el chat pasa a Pendiente en cuanto llega la imagen. Si la IA se retira sin haber escrito nada (reglas de escalado, cliente molesto, no sabe qué responder), el cliente recibe el aviso de *Cuándo te pasa el chat*.
 
-Las **imágenes** que manda el cliente se describen antes de responder (con la misma clave de IA del agente), así la IA sabe que es un comprobante, una foto del producto o una captura; los audios se transcriben. Hace falta una clave con visión: OpenAI (gpt-4o-mini o superior) o Anthropic. Si la clave viene de un proveedor intermedio que no la ofrece, la IA verá «[imagen]» sin descripción, lo dirá y pedirá al cliente que le cuente qué es; en el registro de la API aparece el aviso «El modelo de visión no vio…».
+Las **imágenes** que manda el cliente se describen antes de responder (con la misma clave de IA del agente), así la IA sabe que es un comprobante, una foto del producto o una captura; los audios se transcriben. Hace falta una clave con visión: OpenAI o Anthropic (con OpenAI, la foto se describe con gpt-4.1-mini, que cobra una imagen a unos 400 tokens; gpt-4o-mini cobra la misma foto a casi 3.000). Si la clave viene de un proveedor intermedio que no la ofrece, la IA verá «[imagen]» sin descripción, lo dirá y pedirá al cliente que le cuente qué es; en el registro de la API aparece el aviso «El modelo de visión no vio…».
 
 ## Precios en varias monedas
 
@@ -122,7 +124,7 @@ El catálogo sirve para productos, servicios, talleres o lo que vendas. En **Pro
 
 ## Audios, imágenes y stickers
 
-Cuando un cliente manda un **audio**, Driony lo transcribe; una **imagen** o un **sticker**, los describe (si es un comprobante, un pedido o una captura, saca los datos que se leen). Eso se guarda bajo el mensaje en la bandeja, con el icono de la IA, y el agente lo lee como parte de la conversación: responde a lo que dijo el audio o a lo que muestra la foto, en vez de ignorarlo.
+Cuando un cliente manda un **audio**, Driony lo transcribe; una **imagen**, la describe (si es un comprobante, un pedido o una captura, saca los datos que se leen). Los **stickers** no se describen: el agente ve «[sticker]» y sigue la conversación, porque describirlos cuesta lo mismo que una foto y no aporta nada a la venta. Eso se guarda bajo el mensaje en la bandeja, con el icono de la IA, y el agente lo lee como parte de la conversación: responde a lo que dijo el audio o a lo que muestra la foto, en vez de ignorarlo.
 
 - La transcripción usa tu clave de **OpenAI**. Con solo Anthropic, los audios no se transcriben; las imágenes sí se describen con cualquiera de los dos.
 - Se cobra en tu cuenta del proveedor y aparece en **Consumo de IA** como «Audios e imágenes de clientes». Un audio de un minuto cuesta menos de un centavo de dólar.
