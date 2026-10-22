@@ -13,6 +13,8 @@ import { isGenericPrompt } from "./agentCopy";
 import { primaryBtn } from "./styles";
 import { softBtn } from "@/components/ui";
 import { NavIcon } from "@/components/NavIcons";
+import Link from "next/link";
+import { useAiStatus } from "@/features/copilot/useAiStatus";
 
 type Selection = { kind: "none" } | { kind: "new" } | { kind: "edit"; id: string };
 
@@ -69,8 +71,22 @@ export function BotsManager() {
   }, [data]);
   const selectedBot =
     sel.kind === "edit" ? bots.find((b) => b.id === sel.id) ?? null : null;
+  const { data: aiStatus } = useAiStatus();
 
   return (
+    <>
+    {/* Sin clave de IA no hay agente que valga: que se vea antes de configurar nada. */}
+    {aiStatus && !aiStatus.ready && (
+      <div className="kb-banner is-warn" role="alert" data-ai-key-banner style={{ maxWidth: 1060, margin: "20px auto -8px" }}>
+        <NavIcon name="alert" size={16} />
+        <span className="kb-banner__text">
+          <strong>Tus agentes no pueden responder: falta la clave de IA.</strong> Hasta que la pongas, los chats en autopilot pasan a Pendientes para tu equipo, sin respuesta automática.
+        </span>
+        <Link href="/settings?tab=ai" className="btn btn-primary btn-sm">
+          Configurar la clave
+        </Link>
+      </div>
+    )}
     <div style={wrap} className="agents-wrap">
       {/* Lista */}
       <aside style={listCol} className="agents-list" data-tour="agents-list">
@@ -215,6 +231,7 @@ export function BotsManager() {
         />
       )}
     </div>
+    </>
   );
 }
 

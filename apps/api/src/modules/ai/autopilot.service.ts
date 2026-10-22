@@ -8,6 +8,7 @@ import {
   ConversationStatus,
   DEFAULT_HANDOFF_MESSAGE,
   HANDOFF_REASON_MEDIA,
+  HANDOFF_REASON_NO_AI_KEY,
   MessageAuthor,
   MessageType,
   splitReply,
@@ -16,6 +17,7 @@ import {
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { MessagingService } from "../messaging/messaging.service";
 import { AgentService } from "./agent.service";
+import { AiSettingsService } from "./ai-settings.service";
 import { BotService } from "./bot.service";
 import { WebhookOutService } from "../webhooks-out/webhook-out.service";
 import {
@@ -37,6 +39,7 @@ export class AutopilotService {
 
   constructor(
     private readonly bots: BotService,
+    private readonly aiSettings: AiSettingsService,
     private readonly prisma: PrismaService,
     private readonly agent: AgentService,
     private readonly messaging: MessagingService,
@@ -227,6 +230,18 @@ export class AutopilotService {
       if (!convo.contact.optIn) return;
       if (convo.aiPausedUntil && convo.aiPausedUntil > new Date()) {
         this.logger.debug(`IA pausada (humano activo) en ${conversationId}`);
+        return;
+      }
+
+      // Sin clave de IA no hay agente: nada de respuestas simuladas a clientes
+      // reales. El chat pasa al equipo con el motivo a la vista (y, como el
+      // traspaso lo deja en copilot, no se repite con cada mensaje).
+      if (!(await this.aiSettings.status()).ready) {
+        this.logger.warn(`Autopilot sin clave de IA en ${conversationId}: el chat pasa al equipo`);
+        if (convo.status !== ConversationStatus.PENDING) {
+          await this.messaging.setStatus(conversationId, ConversationStatus.PENDING);
+        }
+        await this.handoff(conversationId, convo.orgId, HANDOFF_REASON_NO_AI_KEY, false, convo.contact);
         return;
       }
 

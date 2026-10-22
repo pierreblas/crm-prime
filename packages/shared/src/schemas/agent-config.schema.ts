@@ -18,6 +18,9 @@ export const escalationRulesSchema = z.object({
 /** Motivo fijo de la regla «imagen o documento»: el autopilot lo reconoce para enviar la respuesta de la IA. */
 export const HANDOFF_REASON_MEDIA = "El cliente envió una imagen o documento: lo revisa una persona.";
 
+/** Motivo fijo cuando la empresa no tiene clave de IA: el agente no responde y el chat pasa al equipo. */
+export const HANDOFF_REASON_NO_AI_KEY = "Falta la clave de IA de tu empresa: ponla en Ajustes › Inteligencia Artificial para que el agente responda.";
+
 /** Aviso por defecto al pasar el chat: que el cliente no se quede en silencio. */
 export const DEFAULT_HANDOFF_MESSAGE = "Un momento, por favor: te paso con una persona del equipo para ayudarte con esto.";
 export type EscalationRules = z.infer<typeof escalationRulesSchema>;

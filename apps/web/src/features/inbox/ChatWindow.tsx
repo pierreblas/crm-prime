@@ -48,6 +48,7 @@ import {
   isNewDay,
 } from "./ChatBits";
 import { NavIcon } from "@/components/NavIcons";
+import Link from "next/link";
 import { useLocale, useT } from "@/i18n/I18nProvider";
 import { useAiTyping } from "./aiTyping";
 import { CallEntry } from "@/features/calls/CallEntry";
@@ -513,6 +514,18 @@ export function ChatWindow({
             >
               {t("inbox.handoffAttend")}
             </button>
+          </div>
+        )}
+        {/* En autopilot sin clave de IA, el agente no responde: que se sepa aquí mismo. */}
+        {conversation.aiMode === AiMode.AUTOPILOT && aiStatus && !aiStatus.ready && (
+          <div className="chat-handoff" role="alert" data-ai-key-banner>
+            <NavIcon name="alert" size={15} />
+            <span className="chat-handoff__text">
+              <strong>{t("inbox.aiNoKeyTitle")}</strong> · {t("inbox.aiNoKeyBody")}
+            </span>
+            <Link href="/settings?tab=ai" className="btn btn-primary btn-sm">
+              {t("inbox.aiNoKeyAction")}
+            </Link>
           </div>
         )}
       <div style={messagesArea}>

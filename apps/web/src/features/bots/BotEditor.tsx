@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { toast } from "@/lib/toast";
 import { confirmDialog } from "@/lib/confirm";
 import { NavIcon, type IconName } from "@/components/NavIcons";
@@ -33,6 +32,7 @@ import { CONDITION_FIELD_BY, OP_LABEL } from "@/features/flows/flowShared";
 import { field, input, label as lbl, primaryBtn, ghostBtn } from "./styles";
 import { smBtn } from "@/components/ui";
 import { PromptAssistant } from "./PromptAssistant";
+import { PromptOverlay, PromptStatusLine } from "./PromptOverlay";
 import { FollowUpsEditor, defaultFollowUpStep } from "./FollowUpsEditor";
 import {
   EFFORT_LABEL,
@@ -409,6 +409,8 @@ export function BotEditor({
 
   const readTools = availableTools.filter((t) => !t.isAction);
   const actionTools = availableTools.filter((t) => t.isAction);
+  // Para la ventana grande: cada acción con su nombre técnico y si está activada.
+  const promptTools = availableTools.map((t) => ({ name: t.name, title: TOOL_COPY[t.name]?.title ?? t.label, enabled: form.enabledTools.includes(t.name) }));
   const generic = isGenericPrompt(form.systemPrompt);
 
   return (
@@ -521,6 +523,7 @@ export function BotEditor({
                 onChange={(e) => set("systemPrompt", e.target.value)}
                 aria-label="Cómo debe atender"
               />
+              <PromptStatusLine value={form.systemPrompt} tools={promptTools} onOpen={() => setPromptBig(true)} />
               {promptBig && (
                 <PromptOverlay
                   value={form.systemPrompt}
@@ -530,6 +533,9 @@ export function BotEditor({
                     setPromptBig(false);
                     setAssist("systemPrompt");
                   }}
+                  tools={promptTools}
+                  catalogFields={productFieldDefs.filter((f) => f.aiVisible).map((f) => f.label)}
+                  contactFields={contactFieldDefs.map((f) => ({ key: f.key, label: f.label }))}
                 />
               )}
               <ul className="agent-checklist" aria-label="Qué incluir">
@@ -893,79 +899,6 @@ function Hint({ children }: { children: React.ReactNode }) {
   return <span className="agent-hint">{children}</span>;
 }
 
-/**
- * «Cómo debe atender» a pantalla grande: el mismo texto, con sitio para leerlo
- * entero y escribir con calma. Esc o «Listo» vuelven al editor; lo escrito ya
- * está en el formulario (se guarda con el resto).
- */
-function PromptOverlay({
-  value,
-  onChange,
-  onClose,
-  onAssist,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onClose: () => void;
-  onAssist: () => void;
-}) {
-  const ref = useRef<HTMLTextAreaElement | null>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (el) {
-      el.focus();
-      el.setSelectionRange(el.value.length, el.value.length);
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [onClose]);
-  const words = value.trim() ? value.trim().split(/\s+/).length : 0;
-
-  // En <body>: el panel del agente crea su propio contexto de apilamiento y,
-  // dentro de él, el fondo fijo quedaba por debajo de la cabecera de la app.
-  return createPortal(
-    <div className="confirm-backdrop confirm-backdrop--top" onClick={onClose}>
-      <div className="confirm-dialog prompt-overlay" role="dialog" aria-label="Cómo debe atender, en grande" onClick={(e) => e.stopPropagation()}>
-        <header className="prompt-overlay__head">
-          <div>
-            <h3 style={{ margin: 0 }}>Cómo debe atender</h3>
-            <span className="agent-hint">Qué vendes y a quién, el tono de tu marca, qué no debe hacer y cuándo pasarte el chat.</span>
-          </div>
-          <span style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <AssistButton onClick={onAssist} />
-            <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>
-              Listo
-            </button>
-          </span>
-        </header>
-        <textarea
-          ref={ref}
-          className="field prompt-overlay__text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-label="Cómo debe atender, en grande"
-          spellCheck
-        />
-        <footer className="prompt-overlay__foot">
-          <span>
-            {words} palabra{words === 1 ? "" : "s"} · {value.length} caracteres
-          </span>
-          <span>Esc para volver</span>
-        </footer>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
 function Switch({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
   return (
     <label className={`agent-switch${checked ? " is-on" : ""}`}>
@@ -1083,6 +1016,7 @@ function ToolRow({ tool, checked, onToggle }: { tool: AgentToolInfo; checked: bo
   const copy = TOOL_COPY[tool.name];
   return (
     <label className={`agent-tool${checked ? " is-on" : ""}`} title={tool.name}>
+      <input type="checkbox" checked={checked} onChange={onToggle} className="agent-tool__check" />
       <span className="agent-tool__icon">
         <NavIcon name={copy?.icon ?? "bolt"} size={16} />
       </span>
@@ -1113,7 +1047,6 @@ function ToolRow({ tool, checked, onToggle }: { tool: AgentToolInfo; checked: bo
           </span>
         )}
       </span>
-      <input type="checkbox" checked={checked} onChange={onToggle} className="agent-tool__check" />
       <span className="agent-switch__track" aria-hidden="true">
         <span />
       </span>

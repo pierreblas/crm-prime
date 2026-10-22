@@ -334,6 +334,9 @@ export const es: Messages = {
     followUpTitle: "Seguimiento automático programado por el agente. Se cancela solo en cuanto el cliente responde.",
     followUpCancel: "Cancelar el seguimiento de este chat",
     followUpCancelled: "Seguimiento cancelado hasta que el cliente vuelva a escribir.",
+    aiNoKeyTitle: "La IA no puede responder en este chat",
+    aiNoKeyBody: "Tu empresa aún no tiene clave de IA. Hasta que la pongas, los chats en autopilot pasan a tu equipo en vez de recibir respuesta automática.",
+    aiNoKeyAction: "Configurar la clave",
     // Hilo
     emptyThread: "Todavía no hay mensajes",
     emptyThreadHint: "Escribe abajo para empezar la conversación.",

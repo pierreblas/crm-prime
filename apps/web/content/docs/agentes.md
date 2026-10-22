@@ -12,6 +12,8 @@ Los agentes usan **tu** cuenta del proveedor de modelos. En **Ajustes › Inteli
 
 Las keys se guardan cifradas y solo las usa tu empresa. Cada respuesta se cobra en tu cuenta del proveedor.
 
+**Sin clave no hay agente.** Si un chat está en autopilot y tu empresa no tiene clave, la IA no inventa una respuesta: el chat pasa a **Pendientes** con el motivo «Falta la clave de IA», y verás el aviso en Agentes y en el propio chat. Lo mismo con los toques de seguimiento que redacta la IA: se omiten hasta que haya clave.
+
 ## Crear un agente
 
 La forma más fácil es **Agentes IA › Con ayuda** (o «Armar mi agente» en Primeros pasos): un asistente te hace cinco preguntas, qué vendes y a quién, cuál es su misión, qué puede hacer, cuándo te pasa el chat y cómo empieza, y con tus respuestas redacta las instrucciones. Al terminar puedes probarlo en una conversación simulada. Si tu agente principal todavía tiene las instrucciones genéricas, el asistente lo configura a él en vez de crear otro.
@@ -34,6 +36,8 @@ Debajo, cinco pestañas:
 - **Modelo y gasto**: qué IA usa, con lo que cuesta cada 1.000 respuestas, y un **límite de gasto al mes en dólares**. En *Ajustes avanzados*, cuánto piensa antes de responder y cuántas consultas puede hacer por respuesta.
 
 La barra de abajo te dice si hay **cambios sin guardar**, y al guardar lo confirma. Ctrl+S (Cmd+S en Mac) guarda desde cualquier pestaña. Si cambias de agente con cambios pendientes, Driony te avisa antes de perderlos.
+
+**Ampliar** abre «Cómo debe atender» en grande, con lo importante señalado sobre el texto: los marcadores por rellenar como `[HORARIO]` (en ámbar), las acciones del agente que nombras (en violeta; subrayadas si están desactivadas) y los títulos de sección (líneas en MAYÚSCULAS). El panel de la derecha lista esos elementos: un clic lleva al sitio, inserta el nombre de una acción donde está el cursor, y «Siguiente por rellenar» recorre los marcadores uno a uno. Bajo el cuadro pequeño, una línea resume cuántos quedan.
 
 ## Asistente de redacción
 

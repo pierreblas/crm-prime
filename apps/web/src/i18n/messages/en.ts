@@ -335,6 +335,9 @@ export const en = {
     followUpTitle: "Automatic follow-up scheduled by the agent. It is cancelled as soon as the customer replies.",
     followUpCancel: "Cancel this chat's follow-up",
     followUpCancelled: "Follow-up cancelled until the customer writes again.",
+    aiNoKeyTitle: "The AI can't reply in this chat",
+    aiNoKeyBody: "Your company has no AI key yet. Until you add one, autopilot chats go to your team instead of getting an automatic reply.",
+    aiNoKeyAction: "Set up the key",
     // Hilo
     emptyThread: "No messages yet",
     emptyThreadHint: "Write below to start the conversation.",

@@ -8,6 +8,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
 import { MessagingService } from "../messaging/messaging.service";
 import { AgentService } from "./agent.service";
+import { AiSettingsService } from "./ai-settings.service";
 import { BotService } from "./bot.service";
 import { FOLLOW_UP_CANCELLED, dueAtFor, followUpAllowed, parseFollowUps } from "./follow-up.rules";
 import type { MessageOutboundEvent } from "./flow-triggers.service";
@@ -43,6 +44,7 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     private readonly messaging: MessagingService,
     private readonly bots: BotService,
     private readonly agent: AgentService,
+    private readonly aiSettings: AiSettingsService,
     private readonly events: EventEmitter2,
   ) {}
 
@@ -217,6 +219,10 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
         MessageAuthor.AI,
       );
       return true;
+    }
+    if (step.kind === "ai" && !(await this.aiSettings.status()).ready) {
+      this.logger.warn(`Toque de IA en ${conversationId} omitido: la empresa no tiene clave de IA`);
+      return false;
     }
     const text = step.kind === "ai" ? await this.agent.draftFollowUp(conversationId, step.text) : step.text;
     if (!text?.trim()) return false;
