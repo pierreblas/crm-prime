@@ -1,10 +1,11 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AiMode,
   ConversationStatus,
+  MessageDirection,
   MessageType,
   type AiSuggestion,
   type ConversationDto,
@@ -316,9 +317,36 @@ export function ChatWindow({
     },
   });
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, calls.length]);
+  // Al abrir un chat, el hilo aparece ya abajo del todo (antes de pintar, sin
+  // el viaje desde arriba). Con un mensaje nuevo en el mismo chat baja con
+  // suavidad, pero solo si estabas abajo: si subiste a leer, no te arrastra.
+  // Lo que envías tú sí baja siempre.
+  const areaRef = useRef<HTMLDivElement | null>(null);
+  const shownThread = useRef<string | null>(null);
+  const stuckToBottom = useRef(true);
+  const trackScroll = () => {
+    const a = areaRef.current;
+    if (a) stuckToBottom.current = a.scrollHeight - a.scrollTop - a.clientHeight < 80;
+  };
+  useLayoutEffect(() => {
+    const a = areaRef.current;
+    if (!a || isLoading) return;
+    if (shownThread.current !== conversation.id) {
+      shownThread.current = conversation.id;
+      stuckToBottom.current = true;
+      a.scrollTop = a.scrollHeight;
+      return;
+    }
+    const last = messages[messages.length - 1];
+    if (stuckToBottom.current || last?.direction === MessageDirection.OUTBOUND) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [conversation.id, isLoading, messages, calls.length, aiThinking]);
+  // Una imagen que termina de cargar estira el hilo: si estabas abajo, sigues abajo.
+  const keepBottomOnLoad = () => {
+    const a = areaRef.current;
+    if (a && stuckToBottom.current) a.scrollTop = a.scrollHeight;
+  };
 
   const left = conversation.windowOpen
     ? windowLeft(conversation.windowExpiresAt)
@@ -528,7 +556,7 @@ export function ChatWindow({
             </Link>
           </div>
         )}
-      <div style={messagesArea}>
+      <div style={messagesArea} ref={areaRef} onScroll={trackScroll} onLoadCapture={keepBottomOnLoad}>
         {isLoading && <MessagesSkeleton />}
         {!isLoading && messages.length === 0 && calls.length === 0 && (
           <div style={emptyThread}>

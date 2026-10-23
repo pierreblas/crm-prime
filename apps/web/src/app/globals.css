@@ -612,6 +612,13 @@ code {
 .conv-item:hover {
   background: rgba(255, 255, 255, 0.04);
 }
+/* El cliente escribió y nadie le ha contestado: la fila va sombreada en ámbar. */
+.conv-item.is-awaiting {
+  background: var(--warning-soft);
+}
+.conv-item.is-awaiting:hover {
+  background: rgba(224, 164, 88, 0.2);
+}
 .conv-item.is-active {
   background: linear-gradient(90deg, rgba(138, 43, 226, 0.16), rgba(138, 43, 226, 0.04));
 }

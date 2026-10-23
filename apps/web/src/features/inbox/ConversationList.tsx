@@ -114,7 +114,7 @@ export function ConversationList({
           <li
             key={c.id}
             onClick={() => onSelect(c)}
-            className={`conv-item${active ? " is-active" : ""}`}
+            className={`conv-item${active ? " is-active" : ""}${c.awaitingReply ? " is-awaiting" : ""}`}
             data-conversation-id={c.id}
             style={row}
           >
