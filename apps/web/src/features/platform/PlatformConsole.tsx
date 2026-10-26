@@ -7,10 +7,11 @@ import { NavIcon } from "@/components/NavIcons";
 import { toast } from "@/lib/toast";
 import { fetchPlatformAudit, fetchPlatformHealth, fetchPlatformOrgs, fetchPlatformOverview, updatePlatformOrg } from "@/lib/bff";
 import { OrgDrawer } from "./OrgDrawer";
+import { FeedbackPanel } from "./FeedbackPanel";
 import { date, dateTime, describeAudit, expiry, money, relative, toCsv } from "./platformFormat";
 
 type SortKey = "created" | "activity" | "messages" | "name" | "expiry";
-type Tab = "orgs" | "health" | "audit";
+type Tab = "orgs" | "health" | "audit" | "feedback";
 type StateFilter = "all" | "active" | "suspended" | "paying" | "expiring" | "quiet" | "problems" | "limit" | "overuse" | "onboarding";
 
 const STATE_LABEL: Record<StateFilter, string> = {
@@ -170,6 +171,7 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
               ["orgs", "Empresas"],
               ["health", "Salud"],
               ["audit", "Diario"],
+              ["feedback", "Feedback"],
             ] as [Tab, string][]
           ).map(([k, label]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
@@ -407,6 +409,8 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
           )}
         </section>
       )}
+
+      {tab === "feedback" && <FeedbackPanel onOpenOrg={setOpenOrg} />}
 
       {openOrg && <OrgDrawer id={openOrg} myOrgSlug={myOrgSlug} onClose={() => setOpenOrg(null)} />}
     </div>

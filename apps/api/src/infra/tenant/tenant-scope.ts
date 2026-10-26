@@ -37,6 +37,7 @@ const TENANT_MODELS = new Set<string>([
   "KnowledgeSuggestion",
   "AiUsage",
   "ProductField",
+  "Feedback",
 ]);
 
 /**

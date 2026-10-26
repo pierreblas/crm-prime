@@ -52,3 +52,12 @@ El selector de idioma está arriba a la derecha (Español / English). Afecta al 
 
 - **En la nube** (`driony.com`): nosotros lo alojamos, tú entras y trabajas. Es lo que describe esta documentación.
 - **Open source**: el mismo CRM, instalado en tu propio servidor, para una sola empresa — [Versión open source](/docs/autoalojado).
+
+## Escribirnos
+
+En el **?** de la cabecera tienes dos opciones para hablar con el equipo de Driony:
+
+- **Reportar un error o sugerir**: elige si es algo que no funciona, una sugerencia u otra cosa, y cuéntanoslo. Se adjunta la pantalla en la que estás para encontrarlo.
+- **Dejar tu opinión**: de una a cinco estrellas y, si quieres, un comentario.
+
+Leemos todos los mensajes.

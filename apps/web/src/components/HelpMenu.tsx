@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { NavIcon } from "./NavIcons";
 import { useT } from "@/i18n/I18nProvider";
 import { requestTour, tourForPath } from "@/features/onboarding/tours";
+import { FeedbackDialog, type FeedbackTab } from "@/features/feedback/FeedbackDialog";
 
 /**
  * El «?» de la cabecera: repetir el tour de la pantalla actual, volver a
@@ -16,6 +17,7 @@ export function HelpMenu() {
   const t = useT();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [feedback, setFeedback] = useState<FeedbackTab | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const tour = tourForPath(pathname);
 
@@ -75,8 +77,24 @@ export function HelpMenu() {
             <NavIcon name="book" size={14} />
             <span>{t("nav.helpDocs")}</span>
           </a>
+          <div className="help-menu__sep" role="separator" />
+          <button type="button" role="menuitem" className="help-menu__item" data-feedback-open="report" onClick={() => { setOpen(false); setFeedback("report"); }}>
+            <NavIcon name="alert" size={14} />
+            <span>
+              {t("nav.feedbackReport")}
+              <small>{t("nav.feedbackReportHint")}</small>
+            </span>
+          </button>
+          <button type="button" role="menuitem" className="help-menu__item" data-feedback-open="opinion" onClick={() => { setOpen(false); setFeedback("opinion"); }}>
+            <NavIcon name="message" size={14} />
+            <span>
+              {t("nav.feedbackOpinion")}
+              <small>{t("nav.feedbackOpinionHint")}</small>
+            </span>
+          </button>
         </div>
       )}
+      {feedback && <FeedbackDialog initial={feedback} onClose={() => setFeedback(null)} />}
     </div>
   );
 }

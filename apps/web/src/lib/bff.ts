@@ -1786,6 +1786,36 @@ export async function platformLoginAs(id: string): Promise<PlatformLoginAsResult
   return res.json();
 }
 
+export async function fetchPlatformFeedback(f: { kind?: string; status?: string }): Promise<import("@crm/shared").PlatformFeedbackList> {
+  const q = new URLSearchParams();
+  if (f.kind) q.set("kind", f.kind);
+  if (f.status) q.set("status", f.status);
+  const res = await bffFetch(`/api/bff/platform/feedback?${q.toString()}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar el feedback"));
+  return res.json();
+}
+
+export async function updatePlatformFeedback(id: string, input: import("@crm/shared").UpdatePlatformFeedbackInput): Promise<import("@crm/shared").PlatformFeedback> {
+  const res = await bffFetch(`/api/bff/platform/feedback/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo actualizar"));
+  return res.json();
+}
+
+/** Un error, una sugerencia o la opinión de quien usa el panel. */
+export async function sendFeedback(input: import("@crm/shared").CreateFeedbackInput): Promise<import("@crm/shared").FeedbackCreated> {
+  const res = await bffFetch("/api/bff/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo enviar. Inténtalo de nuevo."));
+  return res.json();
+}
+
 export async function updatePlatformOrg(id: string, input: UpdatePlatformOrgInput): Promise<PlatformOrg> {
   const res = await bffFetch(`/api/bff/platform/orgs/${id}`, {
     method: "PATCH",

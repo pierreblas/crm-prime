@@ -186,6 +186,7 @@ model Organization {
   knowledgeSuggestions KnowledgeSuggestion[]
   aiUsage              AiUsage[]
   platformAudit        PlatformAuditLog[]
+  feedback             Feedback[]
 
   @@map("organizations")
 }
@@ -275,6 +276,7 @@ model User {
   sources               UserSource[] // fuentes que atiende este vendedor
   ownedDeals            Deal[]           @relation("DealOwner")
   apiKeys               ApiKey[]         @relation("ApiKeyCreator")
+  feedback              Feedback[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -1446,4 +1448,26 @@ model PlatformAuditLog {
   @@index([orgId, createdAt])
   @@index([createdAt])
   @@map("platform_audit_log")
+}
+
+/// Lo que las empresas nos escriben desde el «?» del panel: errores, sugerencias y su opinión.
+model Feedback {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String?
+  kind      String // bug | suggestion | other | opinion
+  status    String   @default("new") // new | seen | done
+  message   String   @default("")
+  rating    Int? // solo en opinion: 1..5
+  pagePath  String? // pantalla desde la que se envió
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([status, createdAt])
+  @@map("feedback")
 }

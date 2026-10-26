@@ -7,7 +7,11 @@ import type { Queue } from "bullmq";
 import {
   estimateAiCost,
   PLANS,
+  type FeedbackKind,
+  type FeedbackStatus,
   type PlatformAuditEntry,
+  type PlatformFeedback,
+  type PlatformFeedbackList,
   type PlatformHealth,
   type PlatformOrg,
   type PlatformOrgDetail,
@@ -453,6 +457,68 @@ export class PlatformService {
     await this.prisma.platformAuditLog.create({
       data: { actorEmail: actor, action, orgId, details: details === null || details === undefined ? undefined : (details as object) },
     });
+  }
+
+  // ── Feedback de las empresas ─────────────────────────────
+  async feedbackList(f: { kind?: FeedbackKind; status?: FeedbackStatus | "open" }): Promise<PlatformFeedbackList> {
+    return runUnscoped("consola de plataforma: feedback", async () => {
+      const where: Prisma.FeedbackWhereInput = {
+        ...(f.kind ? { kind: f.kind } : {}),
+        ...(f.status === "open" ? { status: { in: ["new", "seen"] } } : f.status ? { status: f.status } : {}),
+      };
+      const [rows, newCount, opinions] = await Promise.all([
+        this.prisma.feedback.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          take: 300,
+          include: { org: { select: { name: true, slug: true } }, user: { select: { name: true, email: true } } },
+        }),
+        this.prisma.feedback.count({ where: { status: "new" } }),
+        this.prisma.feedback.aggregate({ where: { kind: "opinion", rating: { not: null } }, _avg: { rating: true }, _count: { _all: true } }),
+      ]);
+      return {
+        items: rows.map((r) => this.feedbackDto(r)),
+        newCount,
+        opinions: opinions._count._all,
+        avgRating: opinions._avg.rating ?? null,
+      };
+    });
+  }
+
+  async updateFeedback(id: string, status: FeedbackStatus): Promise<PlatformFeedback> {
+    return runUnscoped("consola de plataforma: feedback", async () => {
+      const r = await this.prisma.feedback
+        .update({
+          where: { id },
+          data: { status },
+          include: { org: { select: { name: true, slug: true } }, user: { select: { name: true, email: true } } },
+        })
+        .catch(() => {
+          throw new NotFoundException("Feedback no encontrado");
+        });
+      return this.feedbackDto(r);
+    });
+  }
+
+  private feedbackDto(r: {
+    id: string; kind: string; status: string; message: string; rating: number | null; pagePath: string | null; userAgent: string | null;
+    orgId: string; createdAt: Date; org: { name: string; slug: string }; user: { name: string | null; email: string } | null;
+  }): PlatformFeedback {
+    return {
+      id: r.id,
+      kind: r.kind as FeedbackKind,
+      status: r.status as FeedbackStatus,
+      message: r.message,
+      rating: r.rating,
+      pagePath: r.pagePath,
+      userAgent: r.userAgent,
+      orgId: r.orgId,
+      orgName: r.org.name,
+      orgSlug: r.org.slug,
+      userName: r.user?.name ?? null,
+      userEmail: r.user?.email ?? null,
+      createdAt: r.createdAt.toISOString(),
+    };
   }
 
   async auditList(limit = 100): Promise<PlatformAuditEntry[]> {

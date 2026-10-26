@@ -33,6 +33,7 @@ import { OrganizationsModule } from "./modules/organizations/organizations.modul
 import { OnboardingModule } from "./modules/onboarding/onboarding.module";
 import { PlansModule } from "./modules/plans/plans.module";
 import { PlatformModule } from "./modules/platform/platform.module";
+import { FeedbackModule } from "./modules/feedback/feedback.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { HealthController } from "./health.controller";
 
@@ -63,6 +64,7 @@ import { HealthController } from "./health.controller";
     OnboardingModule,
     PlansModule,
     PlatformModule,
+    FeedbackModule,
     DashboardModule,
     MetaLeadsModule,
     SourcesModule,

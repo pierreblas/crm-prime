@@ -17,7 +17,15 @@ import {
   Role,
   loginSchema,
   updatePlatformOrgSchema,
+  updatePlatformFeedbackSchema,
+  feedbackKinds,
+  feedbackStatuses,
   type AuthTokens,
+  type FeedbackKind,
+  type FeedbackStatus,
+  type PlatformFeedback,
+  type PlatformFeedbackList,
+  type UpdatePlatformFeedbackInput,
   type LoginInput,
   type PlatformAuditEntry,
   type PlatformHealth,
@@ -109,6 +117,24 @@ export class PlatformController {
   audit(@Query("limit") limit?: string): Promise<PlatformAuditEntry[]> {
     const n = Math.min(500, Math.max(1, Number(limit) || 100));
     return this.platform.auditList(n);
+  }
+
+  @Get("feedback")
+  @UseGuards(PlatformAdminGuard)
+  feedback(@Query("kind") kind?: string, @Query("status") status?: string): Promise<PlatformFeedbackList> {
+    return this.platform.feedbackList({
+      kind: (feedbackKinds as readonly string[]).includes(kind ?? "") ? (kind as FeedbackKind) : undefined,
+      status: status === "open" || (feedbackStatuses as readonly string[]).includes(status ?? "") ? (status as FeedbackStatus | "open") : undefined,
+    });
+  }
+
+  @Patch("feedback/:id")
+  @UseGuards(PlatformAdminGuard)
+  updateFeedback(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(updatePlatformFeedbackSchema)) body: UpdatePlatformFeedbackInput,
+  ): Promise<PlatformFeedback> {
+    return this.platform.updateFeedback(id, body.status);
   }
 
   @Get("orgs/:id")
