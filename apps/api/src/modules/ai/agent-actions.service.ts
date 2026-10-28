@@ -8,6 +8,7 @@ import {
   type ResolveActionsResult,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { runAsActor } from "../../infra/tenant/actor";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { MessagingService } from "../messaging/messaging.service";
 import { isActionTool, type ToolContext } from "./tools.registry";
@@ -130,6 +131,11 @@ export class AgentActionsService {
     // Solo lo necesitan las acciones que mandan mensajes al cliente.
     conversationId: string | null = null,
   ): Promise<string> {
+    // Lo que cambie en las oportunidades queda firmado como «agente de IA».
+    return runAsActor("ai", () => this.dispatch(tool, input, contactId, conversationId));
+  }
+
+  private async dispatch(tool: string, input: ActionInput, contactId: string, conversationId: string | null): Promise<string> {
     switch (tool) {
       case "add_tag":
         return this.addTag(contactId, String(input.tag ?? ""));

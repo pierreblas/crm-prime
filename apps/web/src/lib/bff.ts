@@ -1029,6 +1029,55 @@ export async function updateCampaign(
   return res.json();
 }
 
+/** Recuento de la audiencia con todos sus filtros. */
+export async function fetchAudienceCount(audience: import("@crm/shared").CampaignAudience): Promise<import("@crm/shared").AudienceCount> {
+  const res = await bffFetch("/api/bff/campaigns/audience-count", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(audience),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo calcular la audiencia"));
+  return res.json();
+}
+
+/** La plantilla a un número cualquiera (el tuyo), antes de lanzar. */
+export async function sendCampaignTest(input: import("@crm/shared").CampaignTestInput): Promise<void> {
+  const res = await bffFetch("/api/bff/campaigns/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo enviar la prueba"));
+}
+
+export async function fetchCampaignRecipients(id: string): Promise<import("@crm/shared").CampaignRecipient[]> {
+  const res = await bffFetch(`/api/bff/campaigns/${id}/recipients`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar los destinatarios"));
+  return res.json();
+}
+
+export async function retryFailedCampaign(id: string): Promise<{ queued: number }> {
+  const res = await bffFetch(`/api/bff/campaigns/${id}/retry-failed`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo reintentar"));
+  return res.json();
+}
+
+export async function tagCampaignResponders(id: string, tag: string): Promise<{ tagged: number }> {
+  const res = await bffFetch(`/api/bff/campaigns/${id}/tag-responders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tag }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo etiquetar"));
+  return res.json();
+}
+
+export async function duplicateCampaign(id: string): Promise<CampaignDto> {
+  const res = await bffFetch(`/api/bff/campaigns/${id}/duplicate`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo duplicar"));
+  return res.json();
+}
+
 export async function launchCampaign(id: string): Promise<CampaignDto> {
   const res = await bffFetch(`/api/bff/campaigns/${id}/launch`, { method: "POST" });
   if (!res.ok) {
@@ -1592,13 +1641,59 @@ export async function createDeal(input: CreateDealInput): Promise<DealDto> {
 export async function moveDeal(
   dealId: string,
   stageId: string,
+  lostReason?: string | null,
 ): Promise<DealDto> {
   const res = await bffFetch(`/api/bff/deals/${dealId}/stage`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ stageId }),
+    body: JSON.stringify(lostReason === undefined ? { stageId } : { stageId, lostReason }),
   });
   if (!res.ok) throw new Error("No se pudo mover el deal");
+  return res.json();
+}
+
+/** Historial de una oportunidad: quién la movió, cuándo y por qué. */
+export async function fetchDealEvents(dealId: string): Promise<import("@crm/shared").DealEventDto[]> {
+  const res = await bffFetch(`/api/bff/deals/${dealId}/events`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar el historial"));
+  return res.json();
+}
+
+export async function fetchLossReasons(): Promise<import("@crm/shared").LossReasonDto[]> {
+  const res = await bffFetch("/api/bff/loss-reasons");
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar los motivos"));
+  return res.json();
+}
+
+export async function saveLossReasons(names: string[]): Promise<import("@crm/shared").LossReasonDto[]> {
+  const res = await bffFetch("/api/bff/loss-reasons", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ names }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron guardar los motivos"));
+  return res.json();
+}
+
+/** Varias oportunidades a la vez: mover, vendedor, etiqueta o descartar. */
+export async function bulkDeals(input: import("@crm/shared").BulkDealsInput): Promise<import("@crm/shared").BulkDealsResult> {
+  const res = await bffFetch("/api/bff/deals/bulk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo aplicar a las seleccionadas"));
+  return res.json();
+}
+
+/** Lanza un flujo a los contactos de varias oportunidades (escalonado). */
+export async function bulkFlow(ids: string[], flowId: string): Promise<import("@crm/shared").BulkFlowResult> {
+  const res = await bffFetch("/api/bff/deals/bulk-flow", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids, flowId }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo lanzar el flujo"));
   return res.json();
 }
 
@@ -1674,6 +1769,20 @@ export async function updateStageAutomation(
     const b = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(b?.message ?? "No se pudo guardar la automatización");
   }
+  return res.json();
+}
+
+/** A cuántas oportunidades que ya están en la etapa afectaría la automatización. */
+export async function previewStageAutomationExisting(id: string): Promise<import("@crm/shared").StageAutomationExisting> {
+  const res = await bffFetch(`/api/bff/stage-automations/${id}/existing`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo consultar la etapa"));
+  return res.json();
+}
+
+/** Lanza la automatización para las oportunidades que ya estaban en la etapa (escalonado). */
+export async function applyStageAutomationExisting(id: string): Promise<import("@crm/shared").StageAutomationApplyResult> {
+  const res = await bffFetch(`/api/bff/stage-automations/${id}/apply-existing`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo aplicar"));
   return res.json();
 }
 

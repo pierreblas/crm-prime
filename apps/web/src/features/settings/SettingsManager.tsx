@@ -56,13 +56,14 @@ export function SettingsManager({ hub = false }: { hub?: boolean }) {
   }, []);
 
   return (
-    <div style={wrap}>
-      <nav style={tabBar}>
+    <div style={wrap} className="settings-wrap">
+      <nav style={tabBar} className="settings-tabs" aria-label="Secciones de ajustes">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             style={tabBtn(tab === t.key)}
+            aria-current={tab === t.key ? "page" : undefined}
           >
             <NavIcon name={t.icon} size={16} />
             {t.label}

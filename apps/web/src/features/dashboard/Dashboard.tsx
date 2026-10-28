@@ -143,6 +143,15 @@ export function Dashboard() {
               )}
             </section>
 
+            <section className="dash__card" data-dash-loss>
+              <CardHead icon="x" title="Por qué se pierden" hint={`${data.lossReasons.reduce((a, r) => a + r.count, 0)} perdidas en el periodo`} />
+              {data.lossReasons.length ? (
+                <HBars items={data.lossReasons.map((r) => ({ label: r.reason, value: r.count }))} />
+              ) : (
+                <Empty text="Sin oportunidades perdidas en este periodo." />
+              )}
+            </section>
+
             <section className="dash__card">
               <div className="dash__cardhead">
                 <CardHead icon="pipeline" title="Embudo" hint="Oportunidades abiertas por etapa" />

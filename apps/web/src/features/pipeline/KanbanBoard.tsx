@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { setCampaignPreset } from "@/features/campaigns/preset";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
@@ -20,6 +22,8 @@ import {
   fetchPipeline,
   fetchSources,
   fetchTags,
+  bulkDeals,
+  bulkFlow,
   moveDeal,
   reorderStages,
   restoreDeal,
@@ -28,6 +32,8 @@ import {
   updateStage,
 } from "@/lib/bff";
 import { useRealtimeCtx } from "@/components/RealtimeProvider";
+import { BulkBar, DealHistory, DropZones, daysInStage, type BulkRequest, type DropTarget } from "./BoardExtras";
+import { LostReasonDialog } from "./LossReasons";
 import { dangerBtn, ghostBtn, primaryBtn, smBtn } from "@/components/ui";
 import { TagEditor, tagColor } from "@/features/contacts/TagEditor";
 import { useCalls } from "@/features/calls/CallProvider";
@@ -109,6 +115,12 @@ function EstadoChat({ deal, style }: { deal: DealDto; style?: React.CSSPropertie
 
 export function KanbanBoard() {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  /** Abre el asistente de difusiones con estos contactos o esta etapa. */
+  const broadcastTo = (p: Parameters<typeof setCampaignPreset>[0]) => {
+    setCampaignPreset(p);
+    router.push("/difusiones");
+  };
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [view, setView] = useState<PipelineView>("open");
   // Clave con el embudo y la vista: cambiar de embudo es otra consulta, y
@@ -128,6 +140,30 @@ export function KanbanBoard() {
   // Etapa con el diálogo «Configurar etapa» abierto (engranaje de la columna).
   const [configStageId, setConfigStageId] = useState<string | null>(null);
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["pipeline"] });
+
+  // Selección múltiple (acciones en bloque), arrastre (zonas Ganada / Perdida /
+  // Descartar) y el motivo de pérdida que se pregunta antes de cerrar como perdida.
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dragging, setDragging] = useState(false);
+  const [lostAsk, setLostAsk] = useState<{ ids: string[]; stageId: string; bulk: boolean } | null>(null);
+  const exitSelecting = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
+  useEffect(() => {
+    if (!selecting) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !lostAsk && exitSelecting();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selecting, lostAsk]);
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   // Llegar desde la bandeja: /pipeline?id=<embudo>&deal=<id> abre esa tarjeta.
   useEffect(() => {
@@ -172,8 +208,8 @@ export function KanbanBoard() {
   };
 
   const move = useMutation({
-    mutationFn: ({ dealId, stageId }: { dealId: string; stageId: string }) =>
-      moveDeal(dealId, stageId),
+    mutationFn: ({ dealId, stageId, lostReason }: { dealId: string; stageId: string; lostReason?: string | null }) =>
+      moveDeal(dealId, stageId, lostReason),
     // Actualización optimista: mover la tarjeta de inmediato.
     onMutate: async ({ dealId, stageId }) => {
       await queryClient.cancelQueries({ queryKey: qk });
@@ -198,6 +234,29 @@ export function KanbanBoard() {
       invalidate();
       setSelectedDealId(null);
       toast.success("Oportunidad descartada. Volverá sola si el contacto escribe.");
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const bulk = useMutation({
+    mutationFn: async (r: Exclude<BulkRequest, { action: "broadcast" }> & { ids: string[]; lostReason?: string | null }) => {
+      if (r.action === "flow") {
+        const res = await bulkFlow(r.ids, r.flowId);
+        return `«${r.flowName}» en marcha para ${res.queued} contacto${res.queued === 1 ? "" : "s"}, uno cada ${res.gapSeconds} s.`;
+      }
+      const res = await bulkDeals({
+        ids: r.ids,
+        action: r.action,
+        ...(r.action === "move" ? { stageId: r.stageId, ...(r.lostReason !== undefined ? { lostReason: r.lostReason } : {}) } : {}),
+        ...(r.action === "owner" ? { ownerId: r.ownerId } : {}),
+        ...(r.action === "tag" ? { tag: r.tag } : {}),
+      });
+      const verb = r.action === "move" ? "movida" : r.action === "owner" ? "reasignada" : r.action === "tag" ? "etiquetada" : "descartada";
+      return `${res.updated} ${verb}${res.updated === 1 ? "" : "s"}${res.skipped ? ` · ${res.skipped} sin cambios` : ""}.`;
+    },
+    onSuccess: (msg) => {
+      toast.success(msg);
+      invalidate();
+      setSelected(new Set());
     },
     onError: (e) => toast.error((e as Error).message),
   });
@@ -284,6 +343,18 @@ export function KanbanBoard() {
           <span style={{ color: "var(--muted)", fontSize: 14 }}>{current?.name}</span>
         )}
         <div style={{ flex: 1 }} />
+        {view === "open" && (
+          <button
+            onClick={() => (selecting ? exitSelecting() : setSelecting(true))}
+            style={{ ...ghostBtn, ...smBtn, ...(selecting ? { color: "var(--accent-text)", border: "1px solid var(--accent)" } : {}) }}
+            aria-pressed={selecting}
+            title="Elegir varias para moverlas, reasignarlas, etiquetarlas, lanzarles un flujo o descartarlas"
+            data-select-mode
+          >
+            <NavIcon name="check" size={14} />
+            {selecting ? "Seleccionando" : "Seleccionar"}
+          </button>
+        )}
         <button
           onClick={() => setView((v) => (v === "open" ? "discarded" : "open"))}
           style={{ ...ghostBtn, ...smBtn, color: view === "discarded" ? "var(--text)" : "var(--muted)" }}
@@ -410,8 +481,10 @@ export function KanbanBoard() {
                   e.preventDefault();
                   const dealId = e.dataTransfer.getData("text/plain");
                   const deal = data.deals.find((d) => d.id === dealId);
+                  setDragging(false);
                   if (dealId && deal && deal.stageId !== stage.id) {
-                    move.mutate({ dealId, stageId: stage.id });
+                    if (stage.isLost) setLostAsk({ ids: [dealId], stageId: stage.id, bulk: false });
+                    else move.mutate({ dealId, stageId: stage.id });
                   }
                 }}
                 style={column}
@@ -452,6 +525,23 @@ export function KanbanBoard() {
                   </span>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--muted)" }}>
                     {deals.length}
+                    {view === "open" && deals.length > 0 && (
+                      <button
+                        onClick={() =>
+                          broadcastTo({
+                            name: `Difusión a ${stage.name}`,
+                            label: `Etapa ${stage.name}`,
+                            audience: { stageIds: [stage.id] },
+                          })
+                        }
+                        style={gearBtn}
+                        title="Difusión: enviar una plantilla de WhatsApp a los contactos de esta etapa"
+                        aria-label={`Difusión a la etapa ${stage.name}`}
+                        data-stage-broadcast={stage.id}
+                      >
+                        <NavIcon name="megaphone" size={13} />
+                      </button>
+                    )}
                     <button
                       onClick={() => setConfigStageId(stage.id)}
                       style={gearBtn}
@@ -473,8 +563,12 @@ export function KanbanBoard() {
                       key={deal.id}
                       deal={deal}
                       entry={isEntry}
-                      onOpen={() => setSelectedDealId(deal.id)}
+                      closed={stage.isWon || stage.isLost}
+                      selecting={selecting}
+                      selected={selected.has(deal.id)}
+                      onOpen={() => (selecting ? toggleSelected(deal.id) : setSelectedDealId(deal.id))}
                       onDiscard={() => discard.mutate(deal.id)}
+                      onDragState={setDragging}
                     />
                   ))}
                   {isEntry && deals.length === 0 && !filtering && (
@@ -489,6 +583,77 @@ export function KanbanBoard() {
         </div>
       )}
 
+      {selecting && view === "open" && (
+        <BulkBar
+          count={selected.size}
+          visibleCount={filtered.length}
+          stages={data.stages}
+          busy={bulk.isPending}
+          onSelectAll={() => setSelected(new Set(filtered.map((d) => d.id)))}
+          onClear={() => setSelected(new Set())}
+          onExit={exitSelecting}
+          onRun={(r) => {
+            const ids = [...selected];
+            if (r.action === "broadcast") {
+              const pick = data.deals.filter((d) => selected.has(d.id));
+              const contactIds = [...new Set(pick.map((d) => d.contact.id))];
+              broadcastTo({
+                name: `Difusión a ${contactIds.length} contacto${contactIds.length === 1 ? "" : "s"}`,
+                label: `${ids.length} seleccionadas`,
+                // Elegidos a mano: sin «no repetir» (el recuento avisa si alguno no dio permiso).
+                audience: { contactIds, skipRecentDays: null },
+              });
+              return;
+            }
+            if (r.action === "move" && data.stages.find((s) => s.id === r.stageId)?.isLost) {
+              setLostAsk({ ids, stageId: r.stageId, bulk: true });
+              return;
+            }
+            if (r.action === "discard" || r.action === "flow") {
+              void confirmDialog({
+                title: r.action === "discard" ? "Descartar las seleccionadas" : "Lanzar un flujo",
+                message:
+                  r.action === "discard"
+                    ? `${ids.length} oportunidades pasarán a «Descartadas». No se borran y vuelven solas si el contacto escribe.`
+                    : `«${r.flowName}» se lanzará a los contactos de ${ids.length} oportunidades, uno cada pocos segundos. Si alguno lleva más de 24 h sin escribir, el flujo tiene que empezar con una plantilla.`,
+                confirmLabel: r.action === "discard" ? "Descartar" : "Lanzar",
+                danger: r.action === "discard",
+              }).then((ok) => ok && bulk.mutate({ ...r, ids }));
+              return;
+            }
+            bulk.mutate({ ...r, ids });
+          }}
+        />
+      )}
+
+      {dragging && !selecting && view === "open" && (
+        <DropZones
+          hasWon={data.stages.some((s) => s.isWon)}
+          hasLost={data.stages.some((s) => s.isLost)}
+          onDrop={(t: DropTarget, dealId: string) => {
+            setDragging(false);
+            const won = data.stages.find((s) => s.isWon);
+            const lost = data.stages.find((s) => s.isLost);
+            if (t === "won" && won) move.mutate({ dealId, stageId: won.id });
+            else if (t === "lost" && lost) setLostAsk({ ids: [dealId], stageId: lost.id, bulk: false });
+            else if (t === "discard") discard.mutate(dealId);
+          }}
+        />
+      )}
+
+      {lostAsk && (
+        <LostReasonDialog
+          count={lostAsk.ids.length}
+          onCancel={() => setLostAsk(null)}
+          onPick={(reason) => {
+            const ask = lostAsk;
+            setLostAsk(null);
+            if (ask.bulk) bulk.mutate({ action: "move", stageId: ask.stageId, ids: ask.ids, lostReason: reason });
+            else move.mutate({ dealId: ask.ids[0]!, stageId: ask.stageId, lostReason: reason });
+          }}
+        />
+      )}
+
       {(() => {
         const d = selectedDealId ? data.deals.find((x) => x.id === selectedDealId) : null;
         return d ? (
@@ -496,6 +661,7 @@ export function KanbanBoard() {
             key={d.id}
             deal={d}
             stages={data.stages}
+            onAskLost={(stageId) => setLostAsk({ ids: [d.id], stageId, bulk: false })}
             onClose={() => setSelectedDealId(null)}
             onChanged={invalidate}
             onDiscard={() => discard.mutate(d.id)}
@@ -534,23 +700,39 @@ export function KanbanBoard() {
 function DealCard({
   deal,
   entry,
+  closed,
+  selecting,
+  selected,
   onOpen,
   onDiscard,
+  onDragState,
 }: {
   deal: DealDto;
   entry: boolean;
+  /** Está en una etapa de ganado o perdido: no se cuentan los días. */
+  closed: boolean;
+  selecting: boolean;
+  selected: boolean;
   onOpen: () => void;
   onDiscard: () => void;
+  onDragState: (dragging: boolean) => void;
 }) {
   const convo = deal.conversation;
   const shownTags = deal.tags.slice(0, 3);
+  const days = closed ? null : daysInStage(deal.stageEnteredAt);
   return (
     <div
-      draggable
+      draggable={!selecting}
       role="button"
       tabIndex={0}
-      className="kb-card"
-      onDragStart={(e) => e.dataTransfer.setData("text/plain", deal.id)}
+      aria-pressed={selecting ? selected : undefined}
+      className={`kb-card${selecting ? " is-selecting" : ""}${selected ? " is-selected" : ""}`}
+      data-deal-card={deal.id}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", deal.id);
+        onDragState(true);
+      }}
+      onDragEnd={() => onDragState(false)}
       onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -611,6 +793,12 @@ function DealCard({
           )}
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {days !== null && (
+            <span className={`kb-age${days >= 7 ? " is-old" : ""}`} title={`${days} día${days === 1 ? "" : "s"} en esta etapa`} data-days={days}>
+              <NavIcon name="clock" size={11} />
+              {days} d
+            </span>
+          )}
           {entry && (
             <button
               onClick={(e) => {
@@ -630,7 +818,13 @@ function DealCard({
           )}
         </span>
       </div>
+      {deal.lostReason && <div className="kb-card__lost" title="Motivo de pérdida">{deal.lostReason}</div>}
       <EstadoChat deal={deal} style={{ marginTop: 6 }} />
+      {selecting && (
+        <span className={`kb-card__check${selected ? " is-on" : ""}`} aria-hidden="true">
+          {selected && <NavIcon name="check" size={12} />}
+        </span>
+      )}
     </div>
   );
 }
@@ -688,6 +882,7 @@ function DiscardedList({
 function DealDetail({
   deal,
   stages,
+  onAskLost,
   onClose,
   onChanged,
   onDiscard,
@@ -696,6 +891,8 @@ function DealDetail({
 }: {
   deal: DealDto;
   stages: StageDto[];
+  /** Cerrar como perdida: el tablero pregunta antes el motivo. */
+  onAskLost: (stageId: string) => void;
   onClose: () => void;
   onChanged: () => void;
   onDiscard: () => void;
@@ -864,7 +1061,7 @@ function DealDetail({
               </button>
             )}
             {lost && (
-              <button onClick={() => setStage.mutate(lost.id)} style={{ ...dangerBtn, flex: 1 }}>
+              <button onClick={() => onAskLost(lost.id)} style={{ ...dangerBtn, flex: 1 }}>
                 <NavIcon name="x" size={15} />
                 Perdido
               </button>
@@ -914,6 +1111,23 @@ function DealDetail({
               </button>
             </div>
           )}
+
+          {deal.lostReason && (
+            <div className="kb-lost-note">
+              <NavIcon name="x" size={13} />
+              <span>
+                <strong>Motivo de pérdida:</strong> {deal.lostReason}
+              </span>
+              <button type="button" className="kb-bulk__link" onClick={() => onAskLost(deal.stageId)}>
+                Cambiar
+              </button>
+            </div>
+          )}
+
+          <section className="kb-hist-wrap">
+            <h4>Historial</h4>
+            <DealHistory dealId={deal.id} />
+          </section>
 
           <button
             onClick={() => {

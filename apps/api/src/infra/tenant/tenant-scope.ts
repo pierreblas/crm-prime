@@ -38,6 +38,8 @@ const TENANT_MODELS = new Set<string>([
   "AiUsage",
   "ProductField",
   "Feedback",
+  "DealEvent",
+  "LossReason",
 ]);
 
 /**

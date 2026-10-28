@@ -132,10 +132,6 @@ export class CampaignProcessor extends WorkerHost {
         where: { id: message.id },
         data: { waMessageId: res.waMessageId, status: MessageStatus.SENT },
       });
-      await this.prisma.campaign.update({
-        where: { id: campaignId },
-        data: { sentCount: { increment: 1 } },
-      });
     } catch (e) {
       await this.prisma.message.update({
         where: { id: message.id },
@@ -144,15 +140,13 @@ export class CampaignProcessor extends WorkerHost {
           errorReason: (e as Error).message.slice(0, 500),
         },
       });
-      await this.prisma.campaign.update({
-        where: { id: campaignId },
-        data: { failedCount: { increment: 1 } },
-      });
       this.logger.warn(
         `Envío de difusión falló a ${contact.phone}: ${(e as Error).message}`,
       );
     }
 
+    // Cifras recalculadas desde los mensajes (un reintento sustituye al fallo).
+    await this.campaigns.refreshStats(campaignId);
     await this.campaigns.checkCompletion(campaignId);
   }
 

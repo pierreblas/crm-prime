@@ -621,26 +621,17 @@ export class MessagingService {
       select: { conversationId: true, campaignId: true, status: true },
     });
     if (!msg) return;
+    // Meta no garantiza el orden de los avisos: un «entregado» que llega
+    // después de «leído» no debe devolver el mensaje atrás.
+    const RANK: Record<string, number> = { QUEUED: 0, SENT: 1, DELIVERED: 2, READ: 3 };
+    if (status !== MessageStatus.FAILED && (RANK[msg.status] ?? 0) > (RANK[status] ?? 0)) return;
     await this.prisma.message.update({
       where: { waMessageId },
       data: { status },
     });
-    // Métricas de campaña: acumula entregados/leídos/fallidos.
+    // Métricas de la difusión: se recalculan desde los mensajes (no se suman a ciegas).
     if (msg.campaignId && msg.status !== status) {
-      const field =
-        status === MessageStatus.DELIVERED
-          ? "deliveredCount"
-          : status === MessageStatus.READ
-            ? "readCount"
-            : status === MessageStatus.FAILED
-              ? "failedCount"
-              : null;
-      if (field) {
-        await this.prisma.campaign.update({
-          where: { id: msg.campaignId },
-          data: { [field]: { increment: 1 } },
-        });
-      }
+      this.events.emit("campaign.stats_stale", { campaignId: msg.campaignId });
     }
     this.notify(msg.conversationId);
   }

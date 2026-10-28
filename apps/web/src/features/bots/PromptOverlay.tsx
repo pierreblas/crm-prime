@@ -36,13 +36,16 @@ export function PromptOverlay({
   const ta = useRef<HTMLTextAreaElement | null>(null);
   const backdrop = useRef<HTMLDivElement | null>(null);
   const [railOpen, setRailOpen] = useState(false);
+  // Dónde dejó el cursor la persona (null = aún no hizo clic en el texto). Las
+  // acciones y datos del panel se insertan ahí, nunca «al final» por defecto.
+  const caret = useRef<{ start: number; end: number } | null>(null);
+  const [needCaret, setNeedCaret] = useState(false);
+  // Lo recién insertado se ilumina un momento para que se vea dónde quedó.
+  const [flash, setFlash] = useState<{ start: number; end: number } | null>(null);
 
   useEffect(() => {
-    const el = ta.current;
-    if (el) {
-      el.focus();
-      el.setSelectionRange(el.value.length, el.value.length);
-    }
+    // Abre arriba del todo, sin mover la vista al final del texto.
+    ta.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -56,7 +59,20 @@ export function PromptOverlay({
   }, [onClose]);
 
   const marks = useMemo(() => collectMarks(value, tools), [value, tools]);
-  const parts = useMemo(() => segments(value, marks), [value, marks]);
+  const parts = useMemo(() => {
+    if (!flash || flash.end > value.length) return segments(value, marks);
+    // El tramo insertado manda sobre cualquier otra marca que lo pise.
+    const shown: Mark[] = [
+      ...marks.filter((m) => m.end <= flash.start || m.start >= flash.end),
+      { start: flash.start, end: flash.end, kind: "flash" as const, text: value.slice(flash.start, flash.end) },
+    ].sort((a, b) => a.start - b.start);
+    return segments(value, shown);
+  }, [value, marks, flash]);
+  useEffect(() => {
+    if (!flash) return;
+    const id = window.setTimeout(() => setFlash(null), 1800);
+    return () => window.clearTimeout(id);
+  }, [flash]);
   const pending = useMemo(() => pendingSummary(marks), [marks]);
   const pendingAll = useMemo(() => marks.filter((m) => m.kind === "pending"), [marks]);
   const headings = useMemo(() => findHeadings(value), [value]);
@@ -83,29 +99,64 @@ export function PromptOverlay({
       b.scrollTop = Math.max(0, el.offsetTop - b.clientHeight / 3);
       t.scrollTop = b.scrollTop;
     }
-    t.focus();
+    t.focus({ preventScroll: true });
     t.setSelectionRange(start, end);
+    caret.current = { start, end };
+    setNeedCaret(false);
     setRailOpen(false);
   }, []);
 
-  /** Inserta un texto donde está el cursor (con espacio delante si hace falta). */
+  const rememberCaret = useCallback(() => {
+    const t = ta.current;
+    if (!t || document.activeElement !== t) return;
+    caret.current = { start: t.selectionStart, end: t.selectionEnd };
+    setNeedCaret(false);
+  }, []);
+
+  /** Centra en la vista una posición del texto (el textarea y su capa de resaltado a la vez). */
+  const reveal = useCallback((pos: number) => {
+    const t = ta.current;
+    const b = backdrop.current;
+    const el = b?.querySelector<HTMLElement>(`[data-pos="${pos}"]`);
+    if (!t || !b || !el) return;
+    b.scrollTop = Math.max(0, el.offsetTop - b.clientHeight / 2);
+    t.scrollTop = b.scrollTop;
+  }, []);
+
+  /** Inserta un texto donde la persona dejó el cursor (con espacios alrededor si hace falta). */
   const insert = useCallback(
     (token: string) => {
       const t = ta.current;
-      const s = t?.selectionStart ?? value.length;
-      const e = t?.selectionEnd ?? value.length;
-      const before = value.slice(0, s);
-      const pad = before && !/\s$/.test(before) ? " " : "";
-      const next = `${before}${pad}${token}${value.slice(e)}`;
-      onChange(next);
-      const caret = s + pad.length + token.length;
-      requestAnimationFrame(() => {
-        t?.focus();
-        t?.setSelectionRange(caret, caret);
-      });
+      const at = caret.current;
+      if (!t || !at) {
+        // Sin sitio elegido no se adivina: se pide, y el cuadro se señala.
+        setNeedCaret(true);
+        setRailOpen(false);
+        return;
+      }
+      const before = value.slice(0, at.start);
+      const after = value.slice(at.end);
+      const padL = before && !/\s$/.test(before) ? " " : "";
+      const padR = after && !/^[\s.,;:)»]/.test(after) ? " " : "";
+      onChange(`${before}${padL}${token}${padR}${after}`);
+      const start = at.start + padL.length;
+      const end = start + token.length;
+      const next = end + padR.length;
+      caret.current = { start: next, end: next };
+      setFlash({ start, end });
       setRailOpen(false);
+      // Tras pintar el texto nuevo: cursor detrás de lo insertado y vista centrada en ello.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          const scroll = backdrop.current?.scrollTop ?? t.scrollTop;
+          t.focus({ preventScroll: true });
+          t.setSelectionRange(next, next);
+          t.scrollTop = scroll;
+          reveal(start);
+        }),
+      );
     },
-    [value, onChange],
+    [value, onChange, reveal],
   );
 
   const nextPending = useCallback(() => {
@@ -150,7 +201,7 @@ export function PromptOverlay({
         </header>
 
         <div className={`prompt-overlay__body${railOpen ? " is-rail-open" : ""}`}>
-          <div className="prompt-editor">
+          <div className={`prompt-editor${needCaret ? " is-asking" : ""}`}>
             <div className="prompt-editor__backdrop" ref={backdrop} aria-hidden="true">
               {parts.map((p, i) =>
                 p.mark ? (
@@ -169,6 +220,9 @@ export function PromptOverlay({
               value={value}
               onChange={(e) => onChange(e.target.value)}
               onScroll={syncScroll}
+              onKeyUp={rememberCaret}
+              onMouseUp={rememberCaret}
+              onInput={rememberCaret}
               aria-label="Cómo debe atender, en grande"
               spellCheck
             />
@@ -194,17 +248,23 @@ export function PromptOverlay({
 
             <section>
               <h4>Acciones del agente</h4>
+              {needCaret && (
+                <p className="prompt-rail__ask" role="status">
+                  <NavIcon name="target" size={13} />
+                  <span>Primero haz clic en el texto, justo donde quieres que vaya, y vuelve a pulsar.</span>
+                </p>
+              )}
               {enabledTools.length ? (
                 <>
                   <div className="prompt-rail__list">
                     {enabledTools.map((t) => (
-                      <button key={t.name} type="button" className={`prompt-chip prompt-chip--tool${mentioned.has(t.name) ? " is-used" : ""}`} onClick={() => insert(t.name)} title={`${t.title}. Clic para insertar el nombre donde está el cursor.`}>
+                      <button key={t.name} type="button" className={`prompt-chip prompt-chip--tool${mentioned.has(t.name) ? " is-used" : ""}`} onMouseDown={(e) => e.preventDefault()} onClick={() => insert(t.name)} title={`${t.title}. Clic para insertar el nombre donde está el cursor.`}>
                         {mentioned.has(t.name) && <NavIcon name="check" size={11} />}
                         {t.name}
                       </button>
                     ))}
                   </div>
-                  <p className="prompt-rail__hint">Nómbralas así para que la IA las use en un caso concreto. Con ✓, ya las nombras.</p>
+                  <p className="prompt-rail__hint">Haz clic en el texto donde quieras nombrarla y luego en la acción. Con ✓, ya la nombras.</p>
                 </>
               ) : (
                 <p className="prompt-rail__hint">Sin acciones activadas. Se activan en «Qué puede hacer».</p>
@@ -225,12 +285,12 @@ export function PromptOverlay({
                 <>
                   <div className="prompt-rail__list">
                     {catalogFields.map((f) => (
-                      <button key={`c-${f}`} type="button" className="prompt-chip" onClick={() => insert(f)} title="Dato de cada producto del catálogo. Clic para insertarlo.">
+                      <button key={`c-${f}`} type="button" className="prompt-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(f)} title="Dato de cada producto del catálogo. Clic para insertarlo.">
                         <NavIcon name="tag" size={11} /> {f}
                       </button>
                     ))}
                     {contactFields.map((f) => (
-                      <button key={`k-${f.key}`} type="button" className="prompt-chip" onClick={() => insert(f.label)} title="Dato guardado del contacto. Clic para insertarlo.">
+                      <button key={`k-${f.key}`} type="button" className="prompt-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(f.label)} title="Dato guardado del contacto. Clic para insertarlo.">
                         <NavIcon name="user" size={11} /> {f.label}
                       </button>
                     ))}

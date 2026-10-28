@@ -2,11 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { FlowSummary, StageAutomationDto, StageAutomationTrigger, StageConversionEvent, StageDto } from "@crm/shared";
+import type { FlowRule, FlowSummary, StageAutomationDto, StageAutomationTrigger, StageConversionEvent, StageDto } from "@crm/shared";
 import { metaStandardEvents, stageAutomationTriggers } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { dangerBtn, ghostBtn, input, smBtn } from "@/components/ui";
-import { createStageAutomation, deleteStageAutomation, fetchFlows, updateStage, updateStageAutomation } from "@/lib/bff";
+import {
+  applyStageAutomationExisting,
+  createStageAutomation,
+  deleteStageAutomation,
+  fetchAgents,
+  fetchCustomFields,
+  fetchFlows,
+  fetchSources,
+  fetchStages,
+  fetchTags,
+  fetchWhatsappChannels,
+  previewStageAutomationExisting,
+  updateStage,
+  updateStageAutomation,
+} from "@/lib/bff";
+import { confirmDialog } from "@/lib/confirm";
+import { RuleRow, newRule, type RuleLookups } from "@/features/flows/RuleRow";
+import { LossReasonsEditor } from "./LossReasons";
 import { toast } from "@/lib/toast";
 
 /**
@@ -140,6 +157,15 @@ export function StageConfigDialog({ stage, onClose, onChanged }: { stage: StageD
             <p style={hint}>«Cuando pase X, ejecuta el flujo Y». Tantas como quieras.</p>
             <AutomationsEditor stage={stage} flows={flows} onChanged={onChanged} />
           </section>
+          {stage.isLost && (
+            <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <h4 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                <NavIcon name="x" size={15} /> Motivos de pérdida
+              </h4>
+              <p style={hint}>Se ofrecen al marcar una oportunidad como perdida. En el panel ves cuáles se repiten.</p>
+              <LossReasonsEditor />
+            </section>
+          )}
         </div>
       </div>
     </div>
@@ -290,6 +316,22 @@ export function AutomationsEditor({
     onSuccess: onChanged,
     onError: (e) => toast.error((e as Error).message),
   });
+  // Catálogos para los filtros (etiquetas, fuentes, etapas…), los mismos que usan los flujos.
+  const { data: tags = [] } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
+  const { data: sources = [] } = useQuery({ queryKey: ["sources"], queryFn: fetchSources });
+  const { data: fields = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
+  const { data: stages = [] } = useQuery({ queryKey: ["stages-ref"], queryFn: fetchStages });
+  const { data: channels = [] } = useQuery({ queryKey: ["wa-channels"], queryFn: fetchWhatsappChannels });
+  const { data: agents = [] } = useQuery({ queryKey: ["agents"], queryFn: fetchAgents });
+  const lookups: RuleLookups = {
+    variables: [],
+    fields,
+    tags,
+    sources,
+    stages: stages.map((s) => ({ id: s.id, name: `${s.pipelineName} › ${s.name}` })),
+    channels: channels.map((c) => ({ id: c.id, label: c.label ?? null, displayPhoneNumber: c.displayPhoneNumber ?? null })),
+    agents: agents.map((ag) => ({ id: ag.id, name: ag.name ?? null, email: ag.email })),
+  };
   const copy = (url: string) => {
     void navigator.clipboard?.writeText(url).then(
       () => toast.success("URL copiada"),
@@ -300,7 +342,7 @@ export function AutomationsEditor({
   return (
     <div className="ps-autos" style={autosBox}>
       {stage.automations.map((a) => (
-        <AutomationRow key={a.id} a={a} flows={flows} onSave={(input) => save.mutate({ id: a.id, ...input })} onDelete={() => del.mutate(a.id)} onCopy={copy} />
+        <AutomationRow key={a.id} a={a} flows={flows} lookups={lookups} onSave={(input) => save.mutate({ id: a.id, ...input })} onDelete={() => del.mutate(a.id)} onCopy={copy} />
       ))}
       {flows.length === 0 ? (
         <div style={hint}>
@@ -312,7 +354,7 @@ export function AutomationsEditor({
             + Añadir automatización
           </button>
           {stage.automations.length === 0 && (
-            <span style={hint}>Ejemplo: «Entra a la etapa → Flujo de bienvenida», «Pasa 1 día sin respuesta → Flujo de seguimiento».</span>
+            <span style={hint}>Ejemplo: «Entra a la etapa, después de 1 día → Flujo de seguimiento», solo si «Etiqueta del contacto es VIP».</span>
           )}
         </div>
       )}
@@ -323,98 +365,244 @@ export function AutomationsEditor({
 function AutomationRow({
   a,
   flows,
+  lookups,
   onSave,
   onDelete,
   onCopy,
 }: {
   a: StageAutomationDto;
   flows: FlowSummary[];
+  lookups: RuleLookups;
   onSave: (input: Parameters<typeof updateStageAutomation>[1]) => void;
   onDelete: () => void;
   onCopy: (url: string) => void;
 }) {
   // Minutos ↔ unidad legible (min / h / días) sin perder lo que el usuario escribe.
-  const minutes = a.delayMinutes ?? 1440;
-  const unit: "min" | "h" | "d" = minutes % 1440 === 0 ? "d" : minutes % 60 === 0 ? "h" : "min";
-  const [amount, setAmount] = useState(String(unit === "d" ? minutes / 1440 : unit === "h" ? minutes / 60 : minutes));
-  const [u, setU] = useState<"min" | "h" | "d">(unit);
-  useEffect(() => {
-    const m = a.delayMinutes ?? 1440;
+  const toParts = (m: number) => {
     const un: "min" | "h" | "d" = m % 1440 === 0 ? "d" : m % 60 === 0 ? "h" : "min";
-    setU(un);
-    setAmount(String(un === "d" ? m / 1440 : un === "h" ? m / 60 : m));
-  }, [a.delayMinutes]);
+    return { un, amt: String(un === "d" ? m / 1440 : un === "h" ? m / 60 : m) };
+  };
+  const initial = toParts(a.delayMinutes ?? (a.trigger === "no_reply" ? 1440 : 60));
+  const [amount, setAmount] = useState(initial.amt);
+  const [u, setU] = useState<"min" | "h" | "d">(initial.un);
+  useEffect(() => {
+    const p = toParts(a.delayMinutes ?? (a.trigger === "no_reply" ? 1440 : 60));
+    setU(p.un);
+    setAmount(p.amt);
+  }, [a.delayMinutes, a.trigger]);
   const commitDelay = (amt: string, un: "min" | "h" | "d") => {
     const n = Math.max(1, Math.round(Number(amt) || 0));
     const m = Math.min(43200, un === "d" ? n * 1440 : un === "h" ? n * 60 : n);
     if (m !== a.delayMinutes) onSave({ delayMinutes: m });
   };
   const flowGone = !flows.some((f) => f.id === a.flowId);
+  const waits = a.trigger === "no_reply" || (a.trigger === "enters_stage" && a.delayMinutes != null);
+
+  // Filtros: borrador local; se guardan con un botón (no en cada tecla).
+  const [rules, setRules] = useState<FlowRule[]>(a.conditions.rules);
+  const [match, setMatch] = useState<"all" | "any">(a.conditions.match);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  useEffect(() => {
+    setRules(a.conditions.rules);
+    setMatch(a.conditions.match);
+  }, [a.conditions]);
+  const dirty = JSON.stringify({ match, rules }) !== JSON.stringify({ match: a.conditions.match, rules: a.conditions.rules });
+  // Un filtro sin valor (salvo «vacío / no vacío») no deja pasar a nadie: no se guarda.
+  const incomplete = rules.some((r) => !["empty", "not_empty"].includes(r.op) && !(r.value ?? "").trim());
+  const nFilters = a.conditions.rules.length;
+
+  // «Aplicar a los que ya están»: primero cuántos, luego confirmar.
+  const apply = useMutation({
+    mutationFn: async () => {
+      const p = await previewStageAutomationExisting(a.id);
+      if (p.toRun === 0) {
+        toast.success(
+          p.total === 0
+            ? "No hay oportunidades en esta etapa."
+            : p.matching === 0
+              ? `Hay ${p.total} en la etapa, pero ninguna cumple los filtros.`
+              : "Todas las que cumplen los filtros ya pasaron por esta automatización.",
+        );
+        return null;
+      }
+      const minutes = Math.ceil((p.toRun * p.gapSeconds) / 60);
+      const ok = await confirmDialog({
+        title: "Aplicar a los que ya están",
+        message:
+          `${p.toRun} de ${p.total} oportunidades de esta etapa recibirán «${a.flowName}»` +
+          (nFilters ? " (las que cumplen los filtros)" : "") +
+          (p.alreadyRan ? `. ${p.alreadyRan} ya pasaron por aquí y no se repiten` : "") +
+          `. Se lanza una cada ${p.gapSeconds} s, así que tardará unos ${minutes} min.` +
+          (p.matching > p.limit ? ` Como máximo ${p.limit} por vez.` : "") +
+          " Si alguna lleva más de 24 h sin escribir, el flujo tiene que empezar con una plantilla.",
+        confirmLabel: `Aplicar a ${p.toRun}`,
+      });
+      return ok ? applyStageAutomationExisting(a.id) : null;
+    },
+    onSuccess: (r) => r && toast.success(`En marcha: ${r.queued} en cola. Puedes cerrar esta ventana.`),
+    onError: (e) => toast.error((e as Error).message),
+  });
 
   return (
-    <div style={{ ...stageRow, opacity: a.enabled ? 1 : 0.55 }} data-automation={a.id}>
-      <span style={{ color: "var(--accent-text)", display: "inline-flex", width: 20, justifyContent: "center" }}>
-        <NavIcon name={TRIGGER_ICON[a.trigger]} size={14} />
-      </span>
-      <select
-        style={{ ...input, width: 190 }}
-        value={a.trigger}
-        onChange={(e) => onSave({ trigger: e.target.value as StageAutomationTrigger })}
-        aria-label="Cuándo"
-      >
-        {stageAutomationTriggers.map((t) => (
-          <option key={t} value={t}>
-            {TRIGGER_LABEL[t]}
-          </option>
-        ))}
-      </select>
-      {a.trigger === "no_reply" && (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <input
-            style={{ ...input, width: 56 }}
-            inputMode="numeric"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            onBlur={() => commitDelay(amount, u)}
-            onKeyDown={(e) => e.key === "Enter" && commitDelay(amount, u)}
-            aria-label="Cuánto tiempo"
-          />
-          <select style={{ ...input, width: 78 }} value={u} onChange={(e) => { const un = e.target.value as "min" | "h" | "d"; setU(un); commitDelay(amount, un); }} aria-label="Unidad">
-            <option value="min">min</option>
-            <option value="h">horas</option>
-            <option value="d">días</option>
-          </select>
+    <div className={`sa-card${a.enabled ? "" : " is-off"}`} data-automation={a.id}>
+      <div style={stageRow}>
+        <span style={{ color: "var(--accent-text)", display: "inline-flex", width: 20, justifyContent: "center" }}>
+          <NavIcon name={TRIGGER_ICON[a.trigger]} size={14} />
         </span>
-      )}
-      <span style={{ color: "var(--muted)", fontSize: 13 }}>→</span>
-      <select
-        style={{ ...input, flex: "1 1 140px", minWidth: 0, ...(flowGone ? { color: "#e08a8a" } : {}) }}
-        value={a.flowId}
-        onChange={(e) => onSave({ flowId: e.target.value })}
-        aria-label="Flujo"
-        title={a.flowActive ? "Flujo que se ejecuta" : "Este flujo está desactivado: actívalo en Flujos para que corra"}
-      >
-        {flowGone && <option value={a.flowId}>{a.flowName} (ya no existe)</option>}
-        {flows.map((f) => (
-          <option key={f.id} value={f.id}>
-            {f.name}
-            {!f.isActive ? " · desactivado" : ""}
-          </option>
-        ))}
-      </select>
-      {a.trigger === "webhook" && a.webhookUrl && (
-        <button onClick={() => onCopy(a.webhookUrl!)} style={{ ...ghostBtn, ...smBtn, padding: "6px 9px" }} title={`Copiar la URL del webhook
-${a.webhookUrl}`} aria-label="Copiar URL del webhook">
-          <NavIcon name="copy" size={14} />
+        <select
+          style={{ ...input, width: 190 }}
+          value={a.trigger}
+          onChange={(e) => onSave({ trigger: e.target.value as StageAutomationTrigger })}
+          aria-label="Cuándo"
+        >
+          {stageAutomationTriggers.map((t) => (
+            <option key={t} value={t}>
+              {TRIGGER_LABEL[t]}
+            </option>
+          ))}
+        </select>
+        {a.trigger === "enters_stage" && (
+          <select
+            style={{ ...input, width: 130 }}
+            value={a.delayMinutes == null ? "now" : "later"}
+            onChange={(e) => onSave({ delayMinutes: e.target.value === "now" ? null : 60 })}
+            aria-label="Cuándo actuar"
+            data-delay-mode
+          >
+            <option value="now">al instante</option>
+            <option value="later">después de…</option>
+          </select>
+        )}
+        {waits && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <input
+              style={{ ...input, width: 56 }}
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              onBlur={() => commitDelay(amount, u)}
+              onKeyDown={(e) => e.key === "Enter" && commitDelay(amount, u)}
+              aria-label="Cuánto tiempo"
+            />
+            <select
+              style={{ ...input, width: 78 }}
+              value={u}
+              onChange={(e) => {
+                const un = e.target.value as "min" | "h" | "d";
+                setU(un);
+                commitDelay(amount, un);
+              }}
+              aria-label="Unidad"
+            >
+              <option value="min">min</option>
+              <option value="h">horas</option>
+              <option value="d">días</option>
+            </select>
+          </span>
+        )}
+        <span style={{ color: "var(--muted)", fontSize: 13 }}>→</span>
+        <select
+          style={{ ...input, flex: "1 1 140px", minWidth: 0, ...(flowGone ? { color: "#e08a8a" } : {}) }}
+          value={a.flowId}
+          onChange={(e) => onSave({ flowId: e.target.value })}
+          aria-label="Flujo"
+          title={a.flowActive ? "Flujo que se ejecuta" : "Este flujo está desactivado: actívalo en Flujos para que corra"}
+        >
+          {flowGone && <option value={a.flowId}>{a.flowName} (ya no existe)</option>}
+          {flows.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+              {!f.isActive ? " · desactivado" : ""}
+            </option>
+          ))}
+        </select>
+        {a.trigger === "webhook" && a.webhookUrl && (
+          <button
+            onClick={() => onCopy(a.webhookUrl!)}
+            style={{ ...ghostBtn, ...smBtn, padding: "6px 9px" }}
+            title={`Copiar la URL del webhook\n${a.webhookUrl}`}
+            aria-label="Copiar URL del webhook"
+          >
+            <NavIcon name="copy" size={14} />
+          </button>
+        )}
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)", cursor: "pointer" }} title="Activa o pausa esta automatización">
+          <input type="checkbox" checked={a.enabled} onChange={(e) => onSave({ enabled: e.target.checked })} aria-label="Activa" />
+          activa
+        </label>
+        <button onClick={onDelete} style={{ ...dangerBtn, ...smBtn, padding: "6px 8px" }} title="Quitar automatización">
+          <NavIcon name="x" size={13} />
         </button>
+      </div>
+
+      <div className="sa-card__foot">
+        <button type="button" className={`sa-link${nFilters ? " is-on" : ""}`} onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen} data-filters-toggle>
+          <NavIcon name="target" size={12} />
+          {nFilters ? `Solo si cumple ${nFilters === 1 ? "1 filtro" : `${nFilters} filtros`}${nFilters > 1 ? (a.conditions.match === "all" ? " (todos)" : " (alguno)") : ""}` : "Con todos · añadir filtros"}
+        </button>
+        {a.trigger === "enters_stage" && (
+          <button type="button" className="sa-link" onClick={() => apply.mutate()} disabled={apply.isPending || !a.enabled} title={a.enabled ? "Lanzar este flujo a las oportunidades que ya estaban en la etapa" : "Actívala primero"} data-apply-existing>
+            <NavIcon name="play" size={12} />
+            {apply.isPending ? "Consultando…" : "Aplicar a los que ya están"}
+          </button>
+        )}
+      </div>
+
+      {filtersOpen && (
+        <div className="sa-filters" data-filters>
+          {rules.length > 1 && (
+            <label style={{ fontSize: 12.5, color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              Actúa si cumple
+              <select style={{ ...input, width: "auto", padding: "4px 8px", fontSize: 12.5 }} value={match} onChange={(e) => setMatch(e.target.value as "all" | "any")}>
+                <option value="all">todos los filtros</option>
+                <option value="any">alguno de los filtros</option>
+              </select>
+            </label>
+          )}
+          {rules.map((r, i) => (
+            <RuleRow
+              key={r.id}
+              rule={r}
+              lookups={lookups}
+              onChange={(p) => setRules(rules.map((x, j) => (j === i ? { ...x, ...p } : x)))}
+              onRemove={() => setRules(rules.filter((_, j) => j !== i))}
+            />
+          ))}
+          {rules.length === 0 && <span style={hint}>Sin filtros: actúa con todas las oportunidades. Por ejemplo, «Etiqueta del contacto es VIP» o «Valor de su oportunidad mayor que 500».</span>}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {rules.length < 10 && (
+              <button type="button" style={{ ...ghostBtn, ...smBtn }} onClick={() => setRules([...rules, newRule("tag", "is", "")])}>
+                + Filtro
+              </button>
+            )}
+            {dirty && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => onSave({ conditions: { match, rules } })}
+                  disabled={incomplete}
+                  title={incomplete ? "Completa el valor de cada filtro" : undefined}
+                  data-filters-save
+                >
+                  Guardar filtros
+                </button>
+                <button
+                  type="button"
+                  style={{ ...ghostBtn, ...smBtn }}
+                  onClick={() => {
+                    setRules(a.conditions.rules);
+                    setMatch(a.conditions.match);
+                  }}
+                >
+                  Descartar
+                </button>
+                {incomplete && <span style={{ ...hint, marginTop: 0 }}>Completa el valor de cada filtro para guardar.</span>}
+              </>
+            )}
+          </div>
+        </div>
       )}
-      <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)", cursor: "pointer" }} title="Activa o pausa esta automatización">
-        <input type="checkbox" checked={a.enabled} onChange={(e) => onSave({ enabled: e.target.checked })} aria-label="Activa" />
-        activa
-      </label>
-      <button onClick={onDelete} style={{ ...dangerBtn, ...smBtn, padding: "6px 8px" }} title="Quitar automatización">
-        <NavIcon name="x" size={13} />
-      </button>
     </div>
   );
 }

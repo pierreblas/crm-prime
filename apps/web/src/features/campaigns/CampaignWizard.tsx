@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  EMPTY_AUDIENCE,
   variableSources,
+  type CampaignAudience,
   type CreateCampaignInput,
   type TemplateFill,
   type VariableSource,
@@ -11,11 +13,13 @@ import {
 } from "@crm/shared";
 import {
   createCampaign,
-  fetchAudiencePreview,
   fetchCampaignMeta,
   launchCampaign,
+  sendCampaignTest,
   uploadMedia,
 } from "@/lib/bff";
+import { AudienceBuilder } from "./AudienceBuilder";
+import type { CampaignPreset } from "./preset";
 import { toast } from "@/lib/toast";
 import { box, ghostBtn, input, label, primaryBtn } from "./styles";
 
@@ -25,16 +29,20 @@ const SOURCE_LABEL: Record<VariableSource, string> = {
   contact_phone: "Teléfono del contacto",
 };
 
-export function CampaignWizard({ onDone }: { onDone: () => void }) {
+export function CampaignWizard({ onDone, preset }: { onDone: () => void; preset?: CampaignPreset | null }) {
   const queryClient = useQueryClient();
   const { data: meta } = useQuery({
     queryKey: ["campaign-meta"],
     queryFn: fetchCampaignMeta,
   });
 
-  const [name, setName] = useState("");
+  const [name, setName] = useState(preset?.name ?? "");
   const [templateId, setTemplateId] = useState("");
-  const [tagIds, setTagIds] = useState<string[]>([]);
+  // No repetir a quien recibió otra difusión la última semana: activado por defecto.
+  const [audienceDef, setAudienceDef] = useState<CampaignAudience>({ ...EMPTY_AUDIENCE, skipRecentDays: 7, ...preset?.audience });
+  const [count, setCount] = useState<{ count: number; skippedRecent: number } | null>(null);
+  const onCount = useCallback((c: { count: number; skippedRecent: number } | null) => setCount(c), []);
+  const [testPhone, setTestPhone] = useState("");
   const [channelId, setChannelId] = useState<string | null>(null);
   const [varValues, setVarValues] = useState<Record<number, VariableValue>>({});
   const [headerText, setHeaderText] = useState("");
@@ -46,11 +54,6 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
 
   const template = meta?.templates.find((t) => t.id === templateId) ?? null;
 
-  // Audiencia en vivo según las etiquetas elegidas.
-  const { data: audience } = useQuery({
-    queryKey: ["audience", tagIds],
-    queryFn: () => fetchAudiencePreview(tagIds),
-  });
 
   // Inicializa los valores de variables al elegir plantilla.
   useEffect(() => {
@@ -97,7 +100,8 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
         name,
         templateId,
         channelId,
-        tagIds,
+        tagIds: audienceDef.tags,
+        audience: audienceDef,
         fill,
         scheduledAt: schedule && scheduledAt ? new Date(scheduledAt).toISOString() : null,
       };
@@ -112,10 +116,11 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
   });
 
   const canSave = !!name && !!templateId;
-
-  function toggleTag(id: string) {
-    setTagIds((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
-  }
+  const test = useMutation({
+    mutationFn: () => sendCampaignTest({ templateId, channelId, fill, phone: testPhone }),
+    onSuccess: () => toast.success("Prueba enviada: revisa tu WhatsApp"),
+    onError: (e) => toast.error((e as Error).message),
+  });
   function setVar(index: number, patch: Partial<VariableValue>) {
     setVarValues((v) => ({ ...v, [index]: { ...v[index]!, ...patch, index } }));
   }
@@ -159,29 +164,8 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
         {/* 2. Audiencia */}
         <section style={box}>
           <SecTitle n={2}>Audiencia</SecTitle>
-          <div style={{ ...label, marginTop: 10 }}>
-            Etiquetas (sin seleccionar = todos los contactos con opt-in)
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {(meta?.tags ?? []).map((t) => (
-              <button
-                key={t.id}
-                onClick={() => toggleTag(t.id)}
-                style={{
-                  ...ghostBtn,
-                  borderColor: tagIds.includes(t.id) ? "var(--accent)" : "var(--border)",
-                  color: tagIds.includes(t.id) ? "var(--text)" : "var(--muted)",
-                  background: tagIds.includes(t.id) ? "var(--accent-soft)" : "transparent",
-                }}
-              >
-                {t.name} · {t.contactCount}
-              </button>
-            ))}
-            {meta && meta.tags.length === 0 && (
-              <span style={{ color: "var(--muted)", fontSize: 13 }}>
-                No hay etiquetas; se enviará a todos los contactos con opt-in.
-              </span>
-            )}
+          <div style={{ marginTop: 10 }}>
+            <AudienceBuilder value={audienceDef} onChange={setAudienceDef} tags={meta?.tags ?? []} onCount={onCount} />
           </div>
           <div style={{ marginTop: 12 }}>
             <div style={label}>Número emisor</div>
@@ -326,22 +310,41 @@ export function CampaignWizard({ onDone }: { onDone: () => void }) {
         <strong>Resumen</strong>
         <Summary label="Difusión" value={name || "—"} />
         <Summary label="Plantilla" value={template?.name ?? "—"} />
-        <Summary
-          label="Destinatarios"
-          value={audience ? `${audience.count} contactos` : "…"}
-          highlight
-        />
+        <Summary label="Destinatarios" value={count ? `${count.count} contacto${count.count === 1 ? "" : "s"}` : "…"} highlight />
+        {count && count.count === 0 && <p style={{ color: "#e0a458", fontSize: 12.5, margin: "4px 0 0" }}>Nadie cumple los filtros: revisa la audiencia.</p>}
         <Summary
           label="Envío"
           value={schedule ? (scheduledAt ? new Date(scheduledAt).toLocaleString() : "programar") : "ahora"}
         />
+        <div className="cw-test" data-campaign-test>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>Enviar una prueba</div>
+          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+            <input
+              style={{ ...input, padding: "7px 9px", fontSize: 13 }}
+              value={testPhone}
+              onChange={(e) => setTestPhone(e.target.value)}
+              placeholder="+51 999 999 999"
+              aria-label="Número para la prueba"
+              inputMode="tel"
+            />
+            <button
+              type="button"
+              onClick={() => test.mutate()}
+              disabled={!templateId || testPhone.replace(/\D/g, "").length < 7 || test.isPending}
+              style={{ ...ghostBtn, padding: "7px 10px", whiteSpace: "nowrap" }}
+              title={templateId ? "Llega como le llegará a tus contactos (el nombre sale como «Prueba»)" : "Elige primero la plantilla"}
+            >
+              {test.isPending ? "…" : "Probar"}
+            </button>
+          </div>
+        </div>
         {create.isError && (
           <p style={{ color: "#ff6b6b", fontSize: 13 }}>{(create.error as Error).message}</p>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
           <button
             onClick={() => create.mutate(true)}
-            disabled={!canSave || create.isPending}
+            disabled={!canSave || create.isPending || (count !== null && count.count === 0)}
             style={primaryBtn}
           >
             {create.isPending

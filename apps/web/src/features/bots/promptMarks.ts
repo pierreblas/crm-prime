@@ -17,7 +17,7 @@ export interface PromptTool {
   enabled: boolean;
 }
 
-export type MarkKind = "pending" | "tool" | "tool-off" | "head";
+export type MarkKind = "pending" | "tool" | "tool-off" | "head" | "flash";
 
 export interface Mark {
   start: number;
@@ -77,7 +77,7 @@ export function findTools(text: string, tools: PromptTool[]): Mark[] {
  * concreta: marcador > acción > título.
  */
 export function collectMarks(text: string, tools: PromptTool[]): Mark[] {
-  const rank: Record<MarkKind, number> = { pending: 0, tool: 1, "tool-off": 1, head: 2 };
+  const rank: Record<MarkKind, number> = { flash: -1, pending: 0, tool: 1, "tool-off": 1, head: 2 };
   const all = [...findPending(text), ...findTools(text, tools), ...findHeadings(text)].sort(
     (a, b) => a.start - b.start || rank[a.kind] - rank[b.kind] || a.end - b.end,
   );

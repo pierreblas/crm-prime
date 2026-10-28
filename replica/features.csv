@@ -1,0 +1,103 @@
+feature,area,priority,original,clone,notes
+Varios embudos,embudos,must,yes,yes,Driony: Pipeline con orden y predeterminado
+Etapas ordenables y renombrables,embudos,must,yes,yes,
+Color por etapa,embudos,could,yes,no,Driony no guarda color de etapa
+Etapa de entrantes,embudos,must,yes,yes,Driony: inboundStageId + descarte automático por días
+Etapas ganado y perdido,embudos,must,yes,yes,Driony: isWon/isLost (+ isQualified)
+Zonas Ganado/Perdido al arrastrar,embudos,should,yes,partial,El tablero tiene acción de ganado; revisar zona de perdido al soltar
+Motivos de pérdida,embudos,should,unknown,no,No confirmado en la doc leída de Kommo; útil igualmente
+Valor de venta en el lead,embudos,must,yes,yes,Deal.value + currency
+Puntuación de leads (fórmula),embudos,could,yes,no,Por etapa + UTM + campos; Pro/Enterprise en Kommo
+Permisos por embudo,embudos,should,yes,partial,Driony tiene permisos por alcance/fuentes; no por embudo
+Automatización por etapa que lanza un bot,automatizacion,must,yes,yes,Driony: stage automation → flujo
+Disparo al crear en la etapa,automatizacion,must,yes,yes,enters_stage cubre creación y movimiento
+Disparo al mover a la etapa (sin contar creación),automatizacion,could,yes,no,Driony no distingue creado vs movido
+Espera tras entrar a la etapa (5 min / 1 día / intervalo),automatizacion,must,yes,yes,Al instante o después de min/horas/días; al vencer comprueba que siga en la etapa
+Filtros: etiquetas y/o y sin etiquetas,automatizacion,must,yes,yes,Filtros por automatización con todos/alguno; etiqueta es / no es
+Filtros: responsable / valor / fuente / UTM,automatizacion,should,yes,partial,Asignado + fuente + valor de la oportunidad; UTM vía campo del contacto
+Aplicar a los leads que ya están en la etapa,automatizacion,must,yes,yes,Vista previa + envío escalonado cada 3 s; máx. 2000; sin repetir
+Horario activo del disparador,automatizacion,should,yes,partial,Con el bloque Horario dentro del flujo
+Mover o duplicar automatizaciones entre etapas,automatizacion,could,yes,no,
+Acción directa: crear tarea,automatizacion,should,yes,no,Driony no tiene tareas
+Acción directa: completar tareas,automatizacion,could,yes,no,Depende de tareas
+Acción directa: crear lead en otro embudo (copiando datos),automatizacion,should,yes,partial,Flujo action create_deal; no copia valor ni etiquetas
+Acción directa: cambiar etapa (también a otro embudo),automatizacion,must,yes,yes,move_deal
+Acción directa: añadir / quitar etiqueta,automatizacion,must,yes,yes,tag / untag (en el contacto)
+Acción directa: cambiar responsable,automatizacion,must,yes,yes,assign
+Acción directa: cambiar campo,automatizacion,must,yes,partial,setField solo en contacto; sin campos de oportunidad
+Acción directa: enviar webhook,automatizacion,must,yes,yes,Bloque HTTP + disparador webhook de etapa
+Acción directa: evento Conversions API de Meta,automatizacion,should,yes,yes,Eventos de conversión por etapa
+Acción directa: iniciar agente de IA,automatizacion,must,yes,yes,action ai + agente por embudo
+Acción directa: generar formulario,automatizacion,could,yes,no,
+Acción directa: enviar email,automatizacion,could,yes,skip,Driony no tiene canal de email
+Disparador: cambio de responsable,disparadores,should,yes,no,
+Disparador: etiqueta añadida,disparadores,must,yes,yes,tag_added
+Disparador: etiqueta quitada,disparadores,could,yes,no,
+Disparador: campo actualizado,disparadores,could,yes,no,Enterprise en Kommo
+Disparador: X horas antes o después de un campo fecha,disparadores,should,yes,no,Recordatorios de citas
+Disparador: fecha y hora fija,disparadores,could,yes,no,
+Disparador: recurrente (diario / semanal / mensual / anual),disparadores,could,yes,no,
+Disparador: formulario enviado,disparadores,must,yes,yes,meta_lead + lead_webhook
+Disparador: llamada recibida,disparadores,could,yes,partial,missed_call (solo perdidas)
+Disparador: conversación iniciada (entrante / saliente / cualquiera; por canal),disparadores,must,yes,partial,conversation_start entrante; sin saliente
+Disparador: mensaje entrante con pausa entre disparos,disparadores,should,yes,partial,inbound_message de etapa sin pausa configurable
+Disparador: mensaje saliente leído,disparadores,could,yes,no,
+Disparador: tras cerrar la conversación con espera,disparadores,should,yes,partial,conversation_closed sin espera
+Disparador: X horas tras el último mensaje entrante,disparadores,should,yes,partial,no_reply cuenta desde nuestro último mensaje
+Paso: mensaje con adjuntos,bot,must,yes,yes,sendMessage con mediaUrl
+Paso: botones de respuesta rápida,bot,must,yes,yes,3 en WhatsApp; Kommo hasta 13 en otros canales
+Paso: sinónimos de botones,bot,should,yes,partial,Driony acepta el texto o el número del botón
+Paso: botón URL,bot,could,yes,no,WhatsApp CTA URL
+Rama «otra respuesta»,bot,must,yes,yes,En botones
+Rama «sin respuesta» con temporizador,bot,must,yes,no,En botones y preguntas
+Ramas de entrega (enviado / entregado / fallido),bot,could,yes,no,
+Paso: lista de WhatsApp (hasta 10 opciones),bot,should,yes,no,
+Paso: condición,bot,must,yes,yes,15 campos y operadores con all/any
+Paso: pausa hasta mensaje,bot,must,yes,yes,askQuestion
+Paso: pausa por temporizador,bot,must,yes,partial,delay en minutos u horas; sin días
+Paso: pausa fuera de horario,bot,should,yes,yes,Bloque Horario
+Paso: validación (igual / contiene / longitud / regex / teléfono / email / rango),bot,should,yes,partial,any/phone/email/number/regex; sin longitud ni rango
+Paso: mensaje interno al equipo,bot,should,yes,partial,addNote; sin aviso al usuario
+Paso: ir a otro paso,bot,must,yes,yes,Conexiones del lienzo
+Paso: iniciar otro bot,bot,must,yes,yes,jumpToFlow
+Paso: round robin,bot,should,yes,no,Driony tiene A/B al azar; no rotación en orden
+Paso: código propio,bot,could,yes,skip,Riesgo en multi-empresa; HTTP cubre lo esencial
+Paso: widgets de terceros,bot,could,yes,skip,Marketplace de Kommo
+Paso: comentario de Instagram,bot,could,yes,skip,Sin canal de Instagram
+Acción del bot: cambiar estado de la conversación,bot,must,yes,yes,setStatus
+Acción del bot: añadir tarea,bot,should,yes,no,Depende de tareas
+Vista previa del bot,bot,must,yes,yes,Prueba de flujos
+Analítica del bot,bot,should,yes,unknown,Revisar si Driony mide por bloque
+Tareas: modelo y vista,tareas,should,yes,no,Tipo / vencimiento / responsable / resultado
+Disparador: visita a una web,disparadores,could,yes,skip,Depende de su píxel
+Disparador: abrir / cerrar vídeo,disparadores,could,yes,skip,Depende de su chat web
+Disparador: email recibido,disparadores,could,yes,skip,Sin canal de email
+Vista tablero con varios embudos,tablero,must,yes,yes,Pestañas por embudo
+Búsqueda en el embudo,tablero,must,yes,yes,Título / nombre / teléfono; Kommo además busca global con atajos
+Filtros (etiquetas / fuente / vendedor / fecha / valor),tablero,must,yes,yes,Más «esperando respuesta»
+Filtros predefinidos y guardados,tablero,should,yes,partial,Solo «esperando respuesta»; sin guardar filtros
+Número y total por etapa,tablero,must,yes,yes,Total por moneda
+Tarjeta: valor / contacto / etiquetas / responsable,tablero,must,yes,yes,Más chat con no leídos y estado
+Arrastrar y soltar entre etapas,tablero,must,yes,yes,
+Zonas Ganado / Perdido al arrastrar,tablero,should,yes,yes,Ganada / Perdida / Descartar abajo al arrastrar
+Alta rápida de oportunidad,tablero,must,yes,yes,
+Selección múltiple,tablero,must,yes,yes,Modo Seleccionar + seleccionar las visibles
+Acción masiva: cambiar etapa,tablero,must,yes,yes,Con motivo si es perdido
+Acción masiva: cambiar responsable,tablero,should,yes,yes,Incluye «sin vendedor»
+Acción masiva: etiquetas,tablero,should,yes,yes,Añadir etiqueta al contacto
+Acción masiva: borrar / descartar,tablero,should,yes,yes,Descartar (no borra)
+Acción masiva: añadir tarea,tablero,could,yes,no,Depende de tareas
+Acción masiva: lanzar flujo,tablero,should,no,yes,Escalonado cada 3 s; un envío por contacto
+Vista lista con columnas ordenables,tablero,should,yes,no,
+Exportar oportunidades a CSV,tablero,should,yes,no,
+Motivo de pérdida,tablero,should,unknown,yes,Lista editable + otro + sin motivo; en el panel
+Leads entrantes: aceptar / rechazar,tablero,must,yes,yes,Etapa de entrantes + descartar
+Leads entrantes: unir con existente,tablero,could,yes,no,
+Historial de la oportunidad (quién movió y cuándo),tablero,should,yes,yes,Disparador en BD + autor: persona / IA / flujo / API / sistema
+Tiempo en la etapa en la tarjeta,tablero,should,unknown,yes,Días en la etapa; ámbar desde 7
+Indicador de tareas en la tarjeta,tablero,should,yes,no,Depende de tareas
+Productos en la oportunidad con cantidad,tablero,could,yes,no,El catálogo ya existe
+Colores por etapa (tablero),tablero,could,yes,no,
+Campos propios de la oportunidad,tablero,could,yes,no,Driony tiene campos de contacto
+Unir contactos duplicados,tablero,could,yes,no,Driony identifica por teléfono
+Informe por etapa (entraron / perdidos / tiempo),tablero,should,yes,partial,El panel tiene embudo y tasa de cierre

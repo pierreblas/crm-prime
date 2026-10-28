@@ -32,6 +32,7 @@ export function MarketingHeader({ active, home = false }: { active?: string | nu
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [theme, toggleTheme] = useLpTheme();
 
   useEffect(() => setMounted(true), []);
 
@@ -82,6 +83,7 @@ export function MarketingHeader({ active, home = false }: { active?: string | nu
             <Link href="/docs">Docs</Link>
           </nav>
           <div className="lp-nav__cta">
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
             <Link href="/login" className="lp-nav__login">
               Iniciar sesión
             </Link>
@@ -103,7 +105,7 @@ export function MarketingHeader({ active, home = false }: { active?: string | nu
         </div>
       </header>
 
-      {menuOpen && mounted && createPortal(<MobileMenu home={home} onClose={() => setMenuOpen(false)} />, document.body)}
+      {menuOpen && mounted && createPortal(<MobileMenu home={home} onClose={() => setMenuOpen(false)} theme={theme} onToggleTheme={toggleTheme} />, document.body)}
     </>
   );
 }
@@ -142,8 +144,54 @@ export function MarketingFooter({ home = false }: { home?: boolean }) {
   );
 }
 
+/* ── Tema claro / oscuro ─────────────────────────────────────
+   Se guarda en el navegador y también se puede forzar con ?tema=claro u
+   ?tema=oscuro (para compartir un enlace). Un script en línea lo aplica
+   mientras se lee el HTML, así la página no parpadea en oscuro. */
+export type LpTheme = "dark" | "light";
+const LP_THEME_KEY = "lp-theme";
+const LP_THEME_SCRIPT = `(function(){try{var q=new URLSearchParams(location.search).get("tema");var t=q==="claro"||q==="light"?"light":q==="oscuro"||q==="dark"?"dark":null;if(t)localStorage.setItem("${LP_THEME_KEY}",t);else t=localStorage.getItem("${LP_THEME_KEY}");if(t==="light"){var r=document.currentScript&&document.currentScript.parentElement;if(r)r.setAttribute("data-theme","light");}}catch(e){}})();`;
+
+/** Primer hijo de la raíz .lp: aplica el tema guardado antes de pintar. */
+export function LpThemeScript() {
+  return <script dangerouslySetInnerHTML={{ __html: LP_THEME_SCRIPT }} />;
+}
+
+function useLpTheme(): [LpTheme, () => void] {
+  const [theme, setTheme] = useState<LpTheme>("dark");
+  useEffect(() => {
+    const root = document.getElementById("lp-root");
+    // Navegación en cliente: el script en línea no se ejecuta, así que se aplica aquí.
+    let t: LpTheme = root?.getAttribute("data-theme") === "light" ? "light" : "dark";
+    try {
+      if (localStorage.getItem(LP_THEME_KEY) === "light") t = "light";
+    } catch {}
+    root?.setAttribute("data-theme", t);
+    setTheme(t);
+  }, []);
+  const toggle = () => {
+    const next: LpTheme = theme === "light" ? "dark" : "light";
+    document.getElementById("lp-root")?.setAttribute("data-theme", next);
+    try {
+      localStorage.setItem(LP_THEME_KEY, next);
+    } catch {}
+    setTheme(next);
+  };
+  return [theme, toggle];
+}
+
+function ThemeToggle({ theme, onToggle, withLabel = false }: { theme: LpTheme; onToggle: () => void; withLabel?: boolean }) {
+  const label = theme === "light" ? "Cambiar a tema oscuro" : "Cambiar a tema claro";
+  return (
+    <button type="button" className="lp-theme" onClick={onToggle} aria-label={label} title={label}>
+      {theme === "light" ? <Moon /> : <Sun />}
+      {withLabel && <span>{theme === "light" ? "Tema oscuro" : "Tema claro"}</span>}
+    </button>
+  );
+}
+
 /* ── Menú móvil: <dialog> modal (trampa de foco y Esc nativos), por portal ── */
-function MobileMenu({ home, onClose }: { home: boolean; onClose: () => void }) {
+function MobileMenu({ home, onClose, theme, onToggleTheme }: { home: boolean; onClose: () => void; theme: LpTheme; onToggleTheme: () => void }) {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const firstRef = useRef<HTMLAnchorElement | null>(null);
   useEffect(() => {
@@ -156,6 +204,7 @@ function MobileMenu({ home, onClose }: { home: boolean; onClose: () => void }) {
       ref={dialogRef}
       className="lp lp-menu"
       id="lp-menu"
+      data-theme={theme}
       aria-label="Menú"
       lang="es"
       onCancel={(e) => {
@@ -195,12 +244,28 @@ function MobileMenu({ home, onClose }: { home: boolean; onClose: () => void }) {
         <Link href="/login" className="lp-btn lp-btn--ghost lp-btn--lg" onClick={onClose}>
           Iniciar sesión
         </Link>
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} withLabel />
       </div>
     </dialog>
   );
 }
 
 /* ── Iconografía (línea coherente, trazo 1.75) ── */
+function Sun() {
+  return (
+    <svg {...S}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4" />
+    </svg>
+  );
+}
+function Moon() {
+  return (
+    <svg {...S}>
+      <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
+    </svg>
+  );
+}
 const S = {
   width: 18,
   height: 18,

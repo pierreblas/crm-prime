@@ -7,9 +7,19 @@ import {
   OnModuleInit,
 } from "@nestjs/common";
 import { randomBytes } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { contactCurrency, parseStageConversionEvents } from "@crm/shared";
+import { contactCurrency, parseStageConversionEvents,
+  NO_CONDITIONS,
+  stageAutomationConditionsSchema,
+  type StageAutomationConditions,
+} from "@crm/shared";
+import { DEFAULT_LOSS_REASONS } from "@crm/shared";
 import type {
+  BulkDealsInput,
+  BulkDealsResult,
+  DealEventDto,
+  LossReasonDto,
   CreateDealInput,
   CreatePipelineInput,
   CreateStageAutomationInput,
@@ -30,6 +40,7 @@ import type {
   UpdateStageInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { runAsActor } from "../../infra/tenant/actor";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { PlansService } from "../plans/plans.service";
 import { PermissionsService } from "../permissions/permissions.service";
@@ -93,6 +104,7 @@ type AutomationRow = {
   trigger: string;
   flowId: string;
   delayMinutes: number | null;
+  conditions?: unknown;
   token: string | null;
   enabled: boolean;
   order: number;
@@ -393,7 +405,13 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     const deal = await this.prisma.deal
       .update({
         where: { id },
-        data: { stageId: input.stageId, discardedAt: null, discardReason: null },
+        data: {
+          stageId: input.stageId,
+          discardedAt: null,
+          discardReason: null,
+          // En una etapa de perdido, el motivo (si lo hay). Al salir, lo borra la base.
+          ...(stage.isLost && input.lostReason !== undefined ? { lostReason: input.lostReason?.trim() || null } : {}),
+        },
         include: DEAL_INCLUDE,
       })
       .catch(() => {
@@ -472,6 +490,10 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     channelId: string | null,
     conversationId: string | null = null,
   ): Promise<void> {
+    return runAsActor("system:whatsapp", () => this.intake(contactId, channelId, conversationId));
+  }
+
+  private async intake(contactId: string, channelId: string | null, conversationId: string | null): Promise<void> {
     const channel = channelId
       ? await this.prisma.whatsappConnection.findUnique({
           where: { id: channelId },
@@ -536,6 +558,162 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
    * La oportunidad llegó a una etapa (movida o creada ahí): lo escuchan los
    * flujos «cambia de etapa» y las automatizaciones de la etapa.
    */
+  // ── Historial ───────────────────────────────────────────────
+  async dealEvents(dealId: string): Promise<DealEventDto[]> {
+    const rows = await this.prisma.dealEvent.findMany({ where: { dealId }, orderBy: { createdAt: "desc" }, take: 100 });
+    const stageIds = new Set<string>();
+    const userIds = new Set<string>();
+    const flowIds = new Set<string>();
+    for (const r of rows) {
+      if (r.fromStageId) stageIds.add(r.fromStageId);
+      if (r.toStageId) stageIds.add(r.toStageId);
+      if (r.actor?.startsWith("user:")) userIds.add(r.actor.slice(5));
+      if (r.actor?.startsWith("flow:")) flowIds.add(r.actor.slice(5));
+      if (r.kind === "owner") {
+        const m = (r.meta ?? {}) as { from?: string | null; to?: string | null };
+        if (m.from) userIds.add(m.from);
+        if (m.to) userIds.add(m.to);
+      }
+    }
+    const [stages, users, flows] = await Promise.all([
+      this.prisma.pipelineStage.findMany({ where: { id: { in: [...stageIds] } }, select: { id: true, name: true } }),
+      this.prisma.user.findMany({ where: { id: { in: [...userIds] } }, select: { id: true, name: true, email: true } }),
+      this.prisma.flow.findMany({ where: { id: { in: [...flowIds] } }, select: { id: true, name: true } }),
+    ]);
+    const stageName = new Map(stages.map((s) => [s.id, s.name]));
+    const userName = new Map(users.map((u) => [u.id, u.name ?? u.email]));
+    const flowName = new Map(flows.map((f) => [f.id, f.name]));
+    const SYSTEM: Record<string, string> = {
+      "auto-discard": "Descarte automático",
+      whatsapp: "Entrada desde WhatsApp",
+    };
+    const actorOf = (a: string | null): DealEventDto["actor"] => {
+      if (!a) return { kind: "unknown", label: "Sistema" };
+      if (a === "ai") return { kind: "ai", label: "Agente de IA" };
+      if (a.startsWith("user:")) return { kind: "user", label: userName.get(a.slice(5)) ?? "Una persona del equipo" };
+      if (a.startsWith("flow:")) return { kind: "flow", label: `Flujo «${flowName.get(a.slice(5)) ?? "eliminado"}»` };
+      if (a.startsWith("api:")) return { kind: "api", label: "API" };
+      if (a.startsWith("system:")) return { kind: "system", label: SYSTEM[a.slice(7)] ?? "Proceso automático" };
+      return { kind: "unknown", label: "Sistema" };
+    };
+    const money = (v: unknown, c: unknown) => (v === null || v === undefined ? "sin valor" : `${Number(v).toLocaleString("es")} ${String(c ?? "")}`.trim());
+    return rows.map((r) => {
+      const m = (r.meta ?? {}) as Record<string, unknown>;
+      let detail: string | null = null;
+      if (r.kind === "owner") {
+        const from = m.from ? (userName.get(String(m.from)) ?? "otro vendedor") : "sin vendedor";
+        const to = m.to ? (userName.get(String(m.to)) ?? "otro vendedor") : "sin vendedor";
+        detail = `${from} → ${to}`;
+      } else if (r.kind === "discarded") {
+        detail = m.reason === "auto" ? "Sin respuesta del contacto" : m.reason && m.reason !== "manual" ? String(m.reason) : null;
+      } else if (r.kind === "lost_reason") {
+        detail = String(m.reason ?? "");
+      } else if (r.kind === "value") {
+        detail = `${money(m.from, m.currency)} → ${money(m.to, m.currency)}`;
+      }
+      return {
+        id: r.id,
+        kind: r.kind as DealEventDto["kind"],
+        fromStage: r.fromStageId ? (stageName.get(r.fromStageId) ?? "etapa eliminada") : null,
+        toStage: r.toStageId ? (stageName.get(r.toStageId) ?? "etapa eliminada") : null,
+        actor: actorOf(r.actor),
+        detail,
+        createdAt: r.createdAt.toISOString(),
+      };
+    });
+  }
+
+  // ── Motivos de pérdida ──────────────────────────────────────
+  async lossReasons(): Promise<LossReasonDto[]> {
+    let rows = await this.prisma.lossReason.findMany({ orderBy: [{ order: "asc" }, { createdAt: "asc" }], select: { id: true, name: true } });
+    if (rows.length === 0) {
+      // Primera vez: una lista de partida que la empresa puede cambiar.
+      await this.prisma.lossReason.createMany({
+        data: DEFAULT_LOSS_REASONS.map((name, i) => ({ orgId: this.tenant.orgId(), name, order: i })),
+        skipDuplicates: true,
+      });
+      rows = await this.prisma.lossReason.findMany({ orderBy: { order: "asc" }, select: { id: true, name: true } });
+    }
+    return rows;
+  }
+
+  async saveLossReasons(names: string[]): Promise<LossReasonDto[]> {
+    const unique = [...new Map(names.map((n) => [n.trim().toLowerCase(), n.trim()])).values()].filter(Boolean);
+    const orgId = this.tenant.orgId();
+    await this.prisma.lossReason.deleteMany({ where: { name: { notIn: unique } } });
+    for (let i = 0; i < unique.length; i++) {
+      await this.prisma.lossReason.upsert({
+        where: { orgId_name: { orgId, name: unique[i]! } },
+        create: { orgId, name: unique[i]!, order: i },
+        update: { order: i },
+      });
+    }
+    return this.prisma.lossReason.findMany({ orderBy: { order: "asc" }, select: { id: true, name: true } });
+  }
+
+  // ── Acciones en bloque ──────────────────────────────────────
+  async bulk(input: BulkDealsInput): Promise<BulkDealsResult> {
+    const deals = await this.prisma.deal.findMany({
+      where: { id: { in: input.ids } },
+      select: { id: true, contactId: true, stageId: true, discardedAt: true },
+    });
+    let updated = 0;
+    if (input.action === "move") {
+      const stage = await this.prisma.pipelineStage.findUnique({ where: { id: input.stageId! } });
+      if (!stage) throw new BadRequestException("Etapa inválida");
+      for (const d of deals) {
+        if (d.stageId === stage.id && !d.discardedAt) continue;
+        await this.prisma.deal.update({
+          where: { id: d.id },
+          data: {
+            stageId: stage.id,
+            discardedAt: null,
+            discardReason: null,
+            ...(stage.isLost && input.lostReason !== undefined ? { lostReason: input.lostReason?.trim() || null } : {}),
+          },
+        });
+        this.enteredStage(d.id, d.contactId, stage.id);
+        updated++;
+      }
+    } else if (input.action === "owner") {
+      if (input.ownerId) {
+        const user = await this.prisma.user.findFirst({ where: { id: input.ownerId, isActive: true }, select: { id: true } });
+        if (!user) throw new BadRequestException("Ese vendedor no existe o está desactivado");
+      }
+      const r = await this.prisma.deal.updateMany({
+        // «Distinto de X» en SQL deja fuera los vacíos: se piden explícitamente.
+        where: {
+          id: { in: deals.map((d) => d.id) },
+          ...(input.ownerId ? { OR: [{ ownerId: null }, { ownerId: { not: input.ownerId } }] } : { ownerId: { not: null } }),
+        },
+        data: { ownerId: input.ownerId ?? null },
+      });
+      updated = r.count;
+    } else if (input.action === "tag") {
+      const name = input.tag!.trim();
+      const orgId = this.tenant.orgId();
+      const tag = await this.prisma.tag.upsert({ where: { orgId_name: { orgId, name } }, create: { orgId, name }, update: {} });
+      const contactIds = [...new Set(deals.map((d) => d.contactId))];
+      const had = new Set(
+        (await this.prisma.contactTag.findMany({ where: { tagId: tag.id, contactId: { in: contactIds } }, select: { contactId: true } })).map((c) => c.contactId),
+      );
+      const fresh = contactIds.filter((c) => !had.has(c));
+      if (fresh.length) {
+        await this.prisma.contactTag.createMany({ data: fresh.map((contactId) => ({ contactId, tagId: tag.id })), skipDuplicates: true });
+        for (const contactId of fresh) this.events.emit("contact.tagged", { orgId, contactId, tag: name });
+      }
+      updated = fresh.length;
+    } else if (input.action === "discard") {
+      const r = await this.prisma.deal.updateMany({
+        where: { id: { in: deals.map((d) => d.id) }, discardedAt: null },
+        data: { discardedAt: new Date(), discardReason: "manual" },
+      });
+      updated = r.count;
+    }
+    this.changed();
+    return { updated, skipped: input.ids.length - updated };
+  }
+
   private enteredStage(dealId: string, contactId: string, stageId: string): void {
     this.events.emit("deal.stage_changed", { orgId: this.tenant.orgId(), dealId, contactId, stageId });
   }
@@ -552,7 +730,8 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         stageId,
         trigger: input.trigger,
         flowId: input.flowId,
-        delayMinutes: input.trigger === "no_reply" ? (input.delayMinutes ?? 1440) : (input.delayMinutes ?? null),
+        delayMinutes: input.trigger === "no_reply" ? (input.delayMinutes ?? 1440) : input.trigger === "enters_stage" ? (input.delayMinutes ?? null) : null,
+        conditions: (input.conditions ?? NO_CONDITIONS) as unknown as Prisma.InputJsonValue,
         token: input.trigger === "webhook" ? newToken() : null,
         enabled: input.enabled,
         order: (last?.order ?? -1) + 1,
@@ -575,6 +754,10 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         ...(input.flowId !== undefined ? { flowId: input.flowId } : {}),
         ...(input.delayMinutes !== undefined ? { delayMinutes: input.delayMinutes } : {}),
         ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+        ...(input.conditions !== undefined ? { conditions: input.conditions as unknown as Prisma.InputJsonValue } : {}),
+        // La espera solo tiene sentido en «sin respuesta» y «entra a la etapa».
+        ...(input.trigger !== undefined && input.trigger !== "no_reply" && input.trigger !== "enters_stage" ? { delayMinutes: null } : {}),
+        ...(input.trigger === "enters_stage" && current.trigger === "no_reply" && input.delayMinutes === undefined ? { delayMinutes: null } : {}),
         // «Sin respuesta» necesita un plazo; «webhook» necesita su token (que se conserva si ya lo tenía).
         ...(trigger === "no_reply" && !(input.delayMinutes ?? current.delayMinutes) ? { delayMinutes: 1440 } : {}),
         ...(trigger === "webhook" && !current.token ? { token: newToken() } : {}),
@@ -654,7 +837,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
       if (!entryId) continue;
       const cutoff = new Date(Date.now() - p.inboundDiscardDays * 86_400_000);
       try {
-        const r = await runInOrg(p.orgId, () =>
+        const r = await runInOrg(p.orgId, () => runAsActor("system:auto-discard", () =>
           this.prisma.deal.updateMany({
             where: {
               stageId: entryId,
@@ -667,7 +850,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
             },
             data: { discardedAt: new Date(), discardReason: "auto" },
           }),
-        );
+        ));
         if (r.count) {
           this.logger.log(`Descartadas ${r.count} entrantes sin respuesta (embudo ${p.id})`);
           this.events.emit("pipeline.changed", { orgId: p.orgId, dealId: "" });
@@ -846,6 +1029,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
       flowName: a.flow.name,
       flowActive: a.flow.isActive,
       delayMinutes: a.delayMinutes,
+      conditions: conditionsOf(a.conditions),
       webhookUrl: a.trigger === "webhook" && a.token && base ? `${base}/api/v1/hooks/stage/${a.token}` : null,
       enabled: a.enabled,
       order: a.order,
@@ -860,6 +1044,8 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     stageId: string;
     discardedAt: Date | null;
     discardReason: string | null;
+    stageEnteredAt?: Date;
+    lostReason?: string | null;
     createdAt: Date;
     stage: { pipelineId: string };
     contact: {
@@ -907,6 +1093,8 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         : null,
       discardedAt: d.discardedAt ? d.discardedAt.toISOString() : null,
       discardReason: d.discardReason,
+      stageEnteredAt: (d.stageEnteredAt ?? d.createdAt).toISOString(),
+      lostReason: d.lostReason ?? null,
       createdAt: d.createdAt.toISOString(),
     };
   }
@@ -920,4 +1108,10 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     }
     return out;
   }
+}
+
+/** Filtros guardados; lo irreconocible cuenta como «sin filtros». */
+function conditionsOf(raw: unknown): StageAutomationConditions {
+  const r = stageAutomationConditionsSchema.safeParse(raw ?? NO_CONDITIONS);
+  return r.success ? r.data : NO_CONDITIONS;
 }

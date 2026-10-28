@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from "@nestjs/common";
@@ -22,6 +23,10 @@ import {
   updatePipelineSchema,
   updateStageAutomationSchema,
   updateStageSchema,
+  bulkDealsSchema,
+  saveLossReasonsSchema,
+  type BulkDealsInput,
+  type SaveLossReasonsInput,
   type CreateDealInput,
   type CreatePipelineInput,
   type CreateStageAutomationInput,
@@ -105,6 +110,28 @@ export class PipelineController {
     @Body(new ZodValidationPipe(createDealSchema)) body: CreateDealInput,
   ) {
     return this.pipeline.createDeal(body);
+  }
+
+  /** Varias a la vez: mover, cambiar vendedor, etiquetar o descartar. */
+  @Post("deals/bulk")
+  bulkDeals(@Body(new ZodValidationPipe(bulkDealsSchema)) body: BulkDealsInput) {
+    return this.pipeline.bulk(body);
+  }
+
+  /** Quién la movió, cuándo y por qué. */
+  @Get("deals/:id/events")
+  dealEvents(@Param("id") id: string) {
+    return this.pipeline.dealEvents(id);
+  }
+
+  @Get("loss-reasons")
+  lossReasons() {
+    return this.pipeline.lossReasons();
+  }
+
+  @Put("loss-reasons")
+  saveLossReasons(@Body(new ZodValidationPipe(saveLossReasonsSchema)) body: SaveLossReasonsInput) {
+    return this.pipeline.saveLossReasons(body.names);
   }
 
   @Patch("deals/:id/stage")

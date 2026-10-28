@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -15,6 +16,12 @@ import {
   updateCampaignSchema,
   updateTemplateSchema,
   Role,
+  campaignAudienceSchema,
+  campaignTestSchema,
+  tagRespondersSchema,
+  type CampaignAudience,
+  type CampaignTestInput,
+  type TagRespondersInput,
   type CreateCampaignInput,
   type CreateTemplateInput,
   type UpdateCampaignInput,
@@ -85,6 +92,50 @@ export class CampaignsController {
   audience(@Query("tagIds") tagIds?: string) {
     const ids = tagIds ? tagIds.split(",").filter(Boolean) : [];
     return this.campaigns.audiencePreview(ids);
+  }
+
+  /** Recuento de la audiencia con todos los filtros (el asistente lo pide al vuelo). */
+  @Post("campaigns/audience-count")
+  @HttpCode(200)
+  audienceCount(@Body(new ZodValidationPipe(campaignAudienceSchema)) body: CampaignAudience) {
+    return this.campaigns.audienceCount(body);
+  }
+
+  /** La plantilla tal cual, a un número (el tuyo) antes de lanzar. */
+  @Post("campaigns/test")
+  @HttpCode(200)
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  sendTest(@Body(new ZodValidationPipe(campaignTestSchema)) body: CampaignTestInput) {
+    return this.campaigns.sendTest(body);
+  }
+
+  @Get("campaigns/:id/recipients")
+  recipients(@Param("id") id: string) {
+    return this.campaigns.recipients(id);
+  }
+
+  @Post("campaigns/:id/retry-failed")
+  @HttpCode(200)
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  retryFailed(@Param("id") id: string) {
+    return this.campaigns.retryFailed(id);
+  }
+
+  @Post("campaigns/:id/tag-responders")
+  @HttpCode(200)
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  tagResponders(@Param("id") id: string, @Body(new ZodValidationPipe(tagRespondersSchema)) body: TagRespondersInput) {
+    return this.campaigns.tagResponders(id, body.tag);
+  }
+
+  @Post("campaigns/:id/duplicate")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  duplicate(@Param("id") id: string) {
+    return this.campaigns.duplicate(id);
   }
 
   @Get("campaigns")

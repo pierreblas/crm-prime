@@ -27,13 +27,15 @@ export class TenantInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (context.getType() === "http") {
       const req = context.switchToHttp().getRequest<{
-        user?: { org?: string };
-        apiKey?: { orgId?: string } | null;
+        user?: { org?: string; sub?: string };
+        apiKey?: { orgId?: string; id?: string } | null;
       }>();
 
       const orgId = req.user?.org ?? req.apiKey?.orgId ?? null;
       const store = tenantStorage.getStore();
       if (orgId && store) store.orgId = orgId;
+      // Autor de los cambios para el historial de oportunidades.
+      if (store) store.actor = req.user?.sub ? `user:${req.user.sub}` : req.apiKey ? `api:${req.apiKey.id ?? ""}` : store.actor;
     }
     return next.handle();
   }

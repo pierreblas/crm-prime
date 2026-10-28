@@ -1,7 +1,7 @@
 "use client";
 
 import { NavIcon } from "@/components/NavIcons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
@@ -13,16 +13,37 @@ import {
   launchCampaign,
 } from "@/lib/bff";
 import { CampaignWizard } from "./CampaignWizard";
+import { CampaignDetail } from "./CampaignDetail";
+import { takeCampaignPreset, type CampaignPreset } from "./preset";
 import { TemplatesPanel } from "./TemplatesPanel";
 import { PlanGate } from "@/features/plans/usePlan";
-import { badge, box, ghostBtn, primaryBtn, STATUS_COLOR } from "./styles";
+import { box, ghostBtn, primaryBtn } from "./styles";
 
 type Tab = "campaigns" | "templates";
+
+export const STATUS_LABEL: Record<CampaignDto["status"], string> = {
+  DRAFT: "Borrador",
+  SCHEDULED: "Programada",
+  RUNNING: "Enviando",
+  COMPLETED: "Enviada",
+  CANCELLED: "Cancelada",
+};
 
 export function CampaignsManager() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("campaigns");
   const [wizard, setWizard] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [preset, setPreset] = useState<CampaignPreset | null>(null);
+  // Llegada desde el embudo («Difusión» en una etapa o en la selección).
+  useEffect(() => {
+    const p = takeCampaignPreset();
+    if (p) {
+      setPreset(p);
+      setTab("campaigns");
+      setWizard(true);
+    }
+  }, []);
 
   const { data: campaigns, isPending } = useQuery({
     queryKey: ["campaigns"],
@@ -74,7 +95,13 @@ export function CampaignsManager() {
         ) : wizard ? (
           <>
             <h2 style={{ marginTop: 0 }}>Nueva difusión</h2>
-            <CampaignWizard onDone={() => setWizard(false)} />
+            <CampaignWizard
+              preset={preset}
+              onDone={() => {
+                setWizard(false);
+                setPreset(null);
+              }}
+            />
           </>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -83,7 +110,16 @@ export function CampaignsManager() {
               <CampaignCard
                 key={c.id}
                 campaign={c}
-                onLaunch={() => launch.mutate(c.id)}
+                onOpen={() => setOpenId(c.id)}
+                onLaunch={() =>
+                  void confirmDialog({
+                    title: "Lanzar la difusión",
+                    message: c.scheduledAt && new Date(c.scheduledAt).getTime() > Date.now()
+                      ? `Se programará para el ${new Date(c.scheduledAt).toLocaleString("es")}.`
+                      : "Se empezará a enviar ahora a toda la audiencia. No se puede deshacer, solo cancelar lo que falte.",
+                    confirmLabel: "Lanzar",
+                  }).then((ok) => ok && launch.mutate(c.id))
+                }
                 onCancel={() => cancel.mutate(c.id)}
                 onDelete={() => {
                   void confirmDialog({
@@ -106,17 +142,23 @@ export function CampaignsManager() {
           </div>
         )}
       </div>
+      {(() => {
+        const c = openId ? campaigns?.find((x) => x.id === openId) : undefined;
+        return c ? <CampaignDetail campaign={c} onClose={() => setOpenId(null)} /> : null;
+      })()}
     </div>
   );
 }
 
 function CampaignCard({
   campaign: c,
+  onOpen,
   onLaunch,
   onCancel,
   onDelete,
 }: {
   campaign: CampaignDto;
+  onOpen: () => void;
   onLaunch: () => void;
   onCancel: () => void;
   onDelete: () => void;
@@ -127,10 +169,12 @@ function CampaignCard({
   const running = c.status === "RUNNING";
 
   return (
-    <div style={box}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <strong style={{ fontSize: 16 }}>{c.name}</strong>
-        <span style={badge(STATUS_COLOR[c.status] ?? "var(--surface-3)")}>{c.status}</span>
+    <div style={box} className="cm-card" data-campaign={c.id}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <button type="button" className="cm-card__name" onClick={onOpen} title="Ver resultados y destinatarios">
+          {c.name}
+        </button>
+        <span className={`cm-status is-${c.status.toLowerCase()}`}>{STATUS_LABEL[c.status]}</span>
         <span
           style={{
             color: "var(--muted)",
@@ -150,6 +194,11 @@ function CampaignCard({
           )}
         </span>
         <div style={{ flex: 1 }} />
+        {(running || c.status === "COMPLETED" || c.status === "CANCELLED") && (
+          <button onClick={onOpen} style={ghostBtn} data-open-detail>
+            Ver resultados
+          </button>
+        )}
         {canLaunch && (
           <button onClick={onLaunch} style={primaryBtn}>
             {c.status === "SCHEDULED" ? "Lanzar ahora" : "Lanzar"}
@@ -170,12 +219,22 @@ function CampaignCard({
         )}
       </div>
 
-      {(running || c.status === "COMPLETED") && (
-        <div style={{ marginTop: 14, display: "flex", gap: 18, flexWrap: "wrap" }}>
+      {c.status === "SCHEDULED" && c.scheduledAt && (
+        <p style={{ margin: "8px 0 0", color: "var(--muted)", fontSize: 13 }}>
+          Se enviará el {new Date(c.scheduledAt).toLocaleString("es", { dateStyle: "long", timeStyle: "short" })}.
+        </p>
+      )}
+      {running && (
+        <div className="cm-progress" aria-label={`Enviado ${pct(c.sentCount + c.failedCount)}%`}>
+          <span style={{ width: `${pct(c.sentCount + c.failedCount)}%` }} />
+        </div>
+      )}
+      {(running || c.status === "COMPLETED" || c.status === "CANCELLED") && (
+        <div style={{ marginTop: 14, display: "flex", gap: 22, flexWrap: "wrap" }}>
           <Metric label="Destinatarios" value={c.totalRecipients} />
-          <Metric label="Enviados" value={c.sentCount} sub={`${pct(c.sentCount)}%`} />
           <Metric label="Entregados" value={c.deliveredCount} sub={`${pct(c.deliveredCount)}%`} />
-          <Metric label="Leídos" value={c.readCount} sub={`${pct(c.readCount)}%`} color="#7ee2a8" />
+          <Metric label="Leídos" value={c.readCount} sub={`${pct(c.readCount)}%`} />
+          <Metric label="Respondieron" value={c.repliedCount} sub={`${pct(c.repliedCount)}%`} color="#7ee2a8" />
           <Metric label="Fallidos" value={c.failedCount} color={c.failedCount ? "#e08a8a" : undefined} />
         </div>
       )}

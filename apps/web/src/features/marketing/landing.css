@@ -1312,3 +1312,135 @@
     transform: none;
   }
 }
+
+/* ══ Tema claro ═══════════════════════════════════════════════
+   La misma página en blanco: fondo casi blanco teñido de violeta (no
+   crema), tinta morada muy oscura y el violeta de marca intacto. La banda
+   violeta, el cierre y los botones primarios no cambian: son la identidad.
+   Se activa con data-theme="light" en .lp (selector de la cabecera,
+   ?tema=claro o lo que se eligió la última vez). */
+.lp[data-theme="light"] {
+  --bg: #faf8ff;
+  --surface: #ffffff;
+  --surface-2: #f4f1fb;
+  --border: rgba(55, 25, 105, 0.14);
+  --border-soft: rgba(55, 25, 105, 0.09);
+  --ink: #170f2a;
+  --ink-dim: #3a3051;
+  --muted: #5c5373;
+  --accent-bright: #7a1fd6;
+  --accent-text: #6a14c6;
+  --accent-soft: rgba(138, 43, 226, 0.09);
+  --accent-line: rgba(138, 43, 226, 0.34);
+  --positive: #157a47;
+  --glass-line: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background:
+    radial-gradient(1000px 560px at 8% -6%, rgba(138, 43, 226, 0.11), transparent 62%),
+    radial-gradient(800px 500px at 102% 18%, rgba(190, 100, 255, 0.08), transparent 60%),
+    var(--bg);
+  color-scheme: light;
+}
+.lp[data-theme="light"] ::selection {
+  background: rgba(138, 43, 226, 0.18);
+  color: var(--ink);
+}
+/* Superficies que en oscuro eran un velo blanco: en claro, un velo violeta. */
+.lp[data-theme="light"] .lp-btn--ghost {
+  background: #fff;
+}
+.lp[data-theme="light"] .lp-nav__links a[aria-current="true"],
+.lp[data-theme="light"] .lp-nav__login:hover,
+.lp[data-theme="light"] .lp-foot__links a:hover,
+.lp[data-theme="light"] .lp-chip,
+.lp[data-theme="light"] .lp-plan__tag {
+  background: rgba(55, 25, 105, 0.05);
+}
+.lp[data-theme="light"] .lp-partner {
+  background: #fff;
+}
+.lp[data-theme="light"] .lp-meter__bar {
+  background: rgba(55, 25, 105, 0.08);
+}
+.lp[data-theme="light"] .lp-trace__ev {
+  background: var(--accent-soft);
+}
+.lp[data-theme="light"] .lp-col--bad .lp-row__ic {
+  color: #8a819f;
+}
+/* Cabecera y menú: vidrio blanco en vez de negro. */
+.lp[data-theme="light"] .lp-nav {
+  background: rgba(250, 248, 255, 0.78);
+}
+.lp-menu[data-theme="light"] {
+  background: rgba(250, 248, 255, 0.97);
+}
+/* Tarjetas: en claro las separa una sombra corta, no el contraste del fondo. */
+.lp[data-theme="light"] .lp-card,
+.lp[data-theme="light"] .lp-col,
+.lp[data-theme="light"] .lp-plan {
+  box-shadow: 0 1px 2px rgba(40, 15, 80, 0.05), 0 8px 24px -16px rgba(40, 15, 80, 0.18);
+}
+.lp[data-theme="light"] .lp-card--feature,
+.lp[data-theme="light"] .lp-col--good,
+.lp[data-theme="light"] .lp-plan--cloud {
+  background:
+    radial-gradient(90% 100% at 100% 0%, rgba(138, 43, 226, 0.08), transparent 60%),
+    var(--surface);
+}
+/* Las capturas son del panel (oscuro): marco fino y sombra violeta suave. */
+.lp[data-theme="light"] .lp-shot {
+  background: #0d0a18;
+  box-shadow: 0 0 0 1px rgba(55, 25, 105, 0.14), 0 30px 70px -38px rgba(55, 20, 120, 0.45);
+}
+.lp[data-theme="light"] .lp-btn--primary {
+  box-shadow: 0 0 0 1px rgba(138, 43, 226, 0.25), 0 10px 24px -12px rgba(138, 43, 226, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+/* Selector de tema (sol / luna) */
+.lp-theme {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+}
+.lp-theme:hover {
+  color: var(--ink);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.lp-theme:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+.lp-theme svg {
+  transition: transform 0.3s var(--ease);
+}
+.lp-theme:hover svg {
+  transform: rotate(-18deg);
+}
+.lp-menu .lp-theme {
+  width: auto;
+  height: 44px;
+  padding: 0 14px;
+  gap: 8px;
+  display: inline-flex;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-theme svg {
+    transition: none;
+  }
+  .lp-theme:hover svg {
+    transform: none;
+  }
+}

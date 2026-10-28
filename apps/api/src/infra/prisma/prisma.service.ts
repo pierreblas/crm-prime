@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
 import { tenantScopeExtension } from "../tenant/tenant-scope";
 import { createRlsExtension, withAtomicTransactions } from "../tenant/rls";
+import { createActorExtension } from "../tenant/actor";
 
 @Injectable()
 export class PrismaService
@@ -31,6 +32,8 @@ export function createPrismaService(): PrismaService {
   const base = new PrismaService();
   const extended = base
     .$extends(tenantScopeExtension)
-    .$extends(createRlsExtension(base));
+    .$extends(createRlsExtension(base))
+    // La última en añadirse es la primera en correr: firma el autor antes que RLS.
+    .$extends(createActorExtension(base));
   return withAtomicTransactions(extended, base) as unknown as PrismaService;
 }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import "./landing.css";
-import { Arrow, Check, GITHUB, IconGit, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
+import { Arrow, Check, GITHUB, IconGit, LpThemeScript, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
 
 // Frases de la banda violeta. Se pintan dos veces para que la marquesina
 // haga un bucle sin salto.
@@ -92,7 +92,8 @@ export function Landing() {
   }, []);
 
   return (
-    <div className="lp" id="lp-root" ref={rootRef} lang="es">
+    <div className="lp" id="lp-root" ref={rootRef} lang="es" suppressHydrationWarning>
+      <LpThemeScript />
       <a href="#contenido" className="lp-skip">
         Saltar al contenido
       </a>

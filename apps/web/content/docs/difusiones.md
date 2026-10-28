@@ -15,11 +15,27 @@ Consejos para que las aprueben:
 ## Crear una difusión
 
 1. **Difusiones → Nueva**: nombre, número desde el que sale y plantilla.
-2. **Audiencia**: una o varias etiquetas. Solo se incluyen contactos con consentimiento (los que escribieron BAJA/STOP quedan fuera).
+2. **Audiencia**: el recuento se actualiza mientras eliges. Siempre son solo contactos con consentimiento (los que escribieron BAJA/STOP quedan fuera).
+   - **Etiquetas**: con *alguna* o con *todas* las que marques.
+   - **No repetir** (activado por defecto, 7 días): deja fuera a quien recibió otra difusión hace poco. Demasiados mensajes de marketing bajan la calidad de tu número.
+   - **Más filtros**: excluir etiquetas, contactos con una oportunidad abierta en ciertas etapas, fuente, país (por el prefijo del teléfono) y actividad (escribió en los últimos N días, o lleva más de N días sin escribir).
 3. Rellena las variables de la plantilla (pueden tomar datos del contacto).
-4. **Enviar ahora** o **programar** fecha y hora.
+4. **Enviar una prueba** a tu propio número para ver cómo llega. El nombre del contacto sale como «Prueba».
+5. **Enviar ahora** o **programar** fecha y hora.
 
-Mientras se envía ves el avance: enviados, entregados, leídos y fallidos. Los envíos van en cola respetando los límites de WhatsApp.
+**Desde el embudo**: el icono de megáfono en la cabecera de una etapa abre una difusión para los contactos de esa etapa. Con **Seleccionar**, elige oportunidades sueltas y pulsa **Difusión** en la barra de abajo. En los dos casos el asistente se abre ya rellenado; los contactos sin consentimiento quedan fuera igualmente.
+
+## Resultados
+
+Cada difusión muestra su estado (borrador, programada, enviando, enviada, cancelada) y, mientras se envía, una barra de avance. Abre **Ver resultados** para ver la ficha:
+
+- **Embudo**: enviados → entregados → leídos → respondieron, y los fallidos. «Respondieron» cuenta a quien te escribió en los 7 días siguientes al envío.
+- **Destinatarios**: cada contacto con su estado, el motivo si falló y un acceso directo a su chat. Puedes filtrar por respondieron, leídos, sin entregar o fallidos, y exportar la lista a CSV.
+- **Etiquetar a quienes respondieron**: les pone una etiqueta para seguir con ellos (un flujo, una etapa o la próxima difusión).
+- **Reintentar los fallidos**: vuelve a enviar solo a quien sigue con consentimiento. Revisa antes el motivo: un número sin WhatsApp volverá a fallar.
+- **Duplicar**: crea un borrador con la misma plantilla, variables y audiencia.
+
+Las métricas se calculan a partir del último estado de cada mensaje, así que no se inflan si WhatsApp avisa dos veces o fuera de orden.
 
 ## Lo que debes saber de WhatsApp
 

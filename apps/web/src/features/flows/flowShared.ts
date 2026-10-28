@@ -122,6 +122,7 @@ export const CONDITION_FIELDS: ConditionFieldMeta[] = [
   { field: "is_new", label: "Es su primer mensaje", group: "Conversación", kind: "bool" },
   { field: "messages_count", label: "Mensajes que ha enviado", group: "Conversación", kind: "number" },
   { field: "stage", label: "Etapa de su oportunidad", group: "Embudo", kind: "enum" },
+  { field: "deal_value", label: "Valor de su oportunidad", group: "Embudo", kind: "number" },
 ];
 export const CONDITION_FIELD_BY: Record<string, ConditionFieldMeta> = Object.fromEntries(CONDITION_FIELDS.map((f) => [f.field, f]));
 export const CONDITION_GROUPS: ConditionFieldMeta["group"][] = ["Mensaje del cliente", "Contacto", "Conversación", "Embudo"];

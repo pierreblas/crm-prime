@@ -1,8 +1,15 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
-import type { StageWebhookBody } from "@crm/shared";
+import {
+  NO_CONDITIONS,
+  stageAutomationConditionsSchema,
+  type StageAutomationApplyResult,
+  type StageAutomationConditions,
+  type StageAutomationExisting,
+  type StageWebhookBody,
+} from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
 import { QUEUE_FLOW } from "../../infra/queue/queue.constants";
@@ -20,6 +27,14 @@ export interface StageNoReplyJob {
   messageId: string;
 }
 
+/** Trabajo diferido que actúa si la oportunidad sigue en la etapa: «entra a la etapa» con espera, o «aplicar a los que ya están». */
+export interface StageDelayedJob {
+  orgId: string;
+  automationId: string;
+  dealId: string;
+  contactId: string;
+}
+
 type Automation = {
   id: string;
   orgId: string;
@@ -28,7 +43,19 @@ type Automation = {
   flowId: string;
   delayMinutes: number | null;
   enabled: boolean;
+  conditions: unknown;
 };
+
+/** «Aplicar a los que ya están»: uno cada tantos segundos, para no saturar WhatsApp ni el modelo. */
+const APPLY_GAP_MS = 3_000;
+/** Máximo de oportunidades por aplicación. */
+const APPLY_LIMIT = 2_000;
+
+/** Filtros guardados; lo irreconocible cuenta como «sin filtros». */
+function conditionsOf(raw: unknown): StageAutomationConditions {
+  const r = stageAutomationConditionsSchema.safeParse(raw ?? NO_CONDITIONS);
+  return r.success ? r.data : NO_CONDITIONS;
+}
 
 /**
  * Automatizaciones de etapa (Ajustes › Embudos): en cada etapa, una lista
@@ -72,7 +99,16 @@ export class StageAutomationsService {
     if (!autos.length) return;
 
     for (const a of autos.filter((x) => x.trigger === "enters_stage")) {
-      await this.fire(a, e.dealId, e.contactId);
+      if (a.delayMinutes) {
+        // Con espera: al vencer se comprueba que siga en la etapa (y los filtros).
+        const data: StageDelayedJob = { orgId: a.orgId, automationId: a.id, dealId: e.dealId, contactId: e.contactId };
+        await this.flowQueue.add("stage_enter_delay", data, {
+          delay: a.delayMinutes * 60_000,
+          jobId: `stage-enter-${a.id}-${e.dealId}-${Date.now()}`,
+        });
+      } else {
+        await this.fire(a, e.dealId, e.contactId);
+      }
     }
 
     // Si lo último que hay es un mensaje nuestro, el reloj del silencio ya corre.
@@ -148,6 +184,105 @@ export class StageAutomationsService {
     await this.fire(a, job.dealId, deal.contactId, {}, { once: true });
   }
 
+  /**
+   * Venció la espera de «entra a la etapa» (o le toca el turno en «aplicar a
+   * los que ya están»): actúa si la oportunidad sigue abierta en la etapa.
+   * Una vez por estancia: si sale y vuelve, cuenta como una estancia nueva.
+   */
+  async checkStillInStage(job: StageDelayedJob): Promise<void> {
+    const a = await this.prisma.stageAutomation.findUnique({ where: { id: job.automationId } });
+    if (!a || !a.enabled || a.trigger !== "enters_stage") return;
+    const deal = await this.prisma.deal.findUnique({
+      where: { id: job.dealId },
+      select: { stageId: true, discardedAt: true, contactId: true },
+    });
+    if (!deal || deal.discardedAt || deal.stageId !== a.stageId) return;
+    await this.fire(a, job.dealId, deal.contactId, {}, { once: true });
+  }
+
+  // ── Lanzar un flujo a varias oportunidades (desde el tablero) ──
+  async queueFlowForDeals(ids: string[], flowId: string): Promise<{ queued: number; gapSeconds: number }> {
+    const flow = await this.prisma.flow.findUnique({ where: { id: flowId }, select: { id: true, isActive: true } });
+    if (!flow) throw new NotFoundException("Ese flujo no existe");
+    if (!flow.isActive) throw new BadRequestException("Ese flujo está desactivado: actívalo en Flujos.");
+    const deals = await this.prisma.deal.findMany({ where: { id: { in: ids } }, select: { contactId: true, orgId: true } });
+    // Un contacto con dos oportunidades recibe el flujo una vez.
+    const contacts = [...new Map(deals.map((d) => [d.contactId, d.orgId])).entries()];
+    const stamp = Date.now();
+    for (let i = 0; i < contacts.length; i++) {
+      const [contactId, orgId] = contacts[i]!;
+      await this.flowQueue.add(
+        "bulk_flow",
+        { orgId, flowId, contactId },
+        { delay: i * APPLY_GAP_MS, jobId: `bulk-flow-${flowId}-${contactId}-${stamp}` },
+      );
+    }
+    this.logger.log(`Flujo ${flowId} lanzado a ${contacts.length} contactos desde el tablero`);
+    return { queued: contacts.length, gapSeconds: APPLY_GAP_MS / 1000 };
+  }
+
+  /** Turno de un contacto en «lanzar flujo a varias». */
+  async runBulkFlow(job: { flowId: string; contactId: string }): Promise<void> {
+    const started = await this.engine.runFlowForContact(job.flowId, job.contactId);
+    this.logger.log(`Flujo ${job.flowId} desde el tablero: ${started ? "iniciado" : "no arrancó"} para ${job.contactId}`);
+  }
+
+  // ── Aplicar a los que ya están en la etapa ──────────────────
+  private async existingTargets(id: string) {
+    const a = await this.prisma.stageAutomation.findUnique({ where: { id } });
+    if (!a) throw new NotFoundException("Automatización no encontrada");
+    if (a.trigger !== "enters_stage") {
+      throw new BadRequestException("Solo las automatizaciones de «Entra a la etapa» se pueden aplicar a quien ya está en ella.");
+    }
+    const deals = await this.prisma.deal.findMany({
+      where: { stageId: a.stageId, discardedAt: null },
+      orderBy: { updatedAt: "asc" },
+      select: { id: true, contactId: true },
+      take: APPLY_LIMIT * 2,
+    });
+    const cond = conditionsOf(a.conditions);
+    const matching: { id: string; contactId: string }[] = [];
+    for (const d of deals) {
+      if (await this.engine.contactRulesMatch(d.contactId, cond.rules, cond.match)) matching.push(d);
+    }
+    const ran = new Set(
+      (
+        await this.prisma.stageAutomationRun.findMany({
+          where: { automationId: a.id, dealId: { in: matching.map((d) => d.id) } },
+          select: { dealId: true },
+        })
+      ).map((r) => r.dealId),
+    );
+    return { a, total: deals.length, matching, toRun: matching.filter((d) => !ran.has(d.id)), alreadyRan: ran.size };
+  }
+
+  async previewExisting(id: string): Promise<StageAutomationExisting> {
+    const t = await this.existingTargets(id);
+    return {
+      total: t.total,
+      matching: t.matching.length,
+      alreadyRan: t.alreadyRan,
+      toRun: Math.min(t.toRun.length, APPLY_LIMIT),
+      gapSeconds: APPLY_GAP_MS / 1000,
+      limit: APPLY_LIMIT,
+    };
+  }
+
+  /** Encola el flujo para cada una, escalonado. Se vuelve a comprobar todo en el momento de actuar. */
+  async applyExisting(id: string): Promise<StageAutomationApplyResult> {
+    const t = await this.existingTargets(id);
+    if (!t.a.enabled) throw new BadRequestException("La automatización está pausada: actívala antes de aplicarla.");
+    const batch = t.toRun.slice(0, APPLY_LIMIT);
+    const stamp = Date.now();
+    for (let i = 0; i < batch.length; i++) {
+      const d = batch[i]!;
+      const data: StageDelayedJob = { orgId: t.a.orgId, automationId: t.a.id, dealId: d.id, contactId: d.contactId };
+      await this.flowQueue.add("stage_apply", data, { delay: i * APPLY_GAP_MS, jobId: `stage-apply-${t.a.id}-${d.id}-${stamp}` });
+    }
+    this.logger.log(`Automatización ${t.a.id}: aplicada a ${batch.length} oportunidades que ya estaban en la etapa`);
+    return { queued: batch.length, skipped: t.matching.length - batch.length };
+  }
+
   // ── Llega un mensaje del cliente ────────────────────────────
   /** true si algún flujo de etapa arrancó (la IA no debe responder ese turno). */
   async onInbound(conversationId: string): Promise<boolean> {
@@ -207,7 +342,7 @@ export class StageAutomationsService {
     return this.prisma.stageAutomation.findMany({
       where: { stageId, enabled: true },
       orderBy: { order: "asc" },
-      select: { id: true, orgId: true, stageId: true, trigger: true, flowId: true, delayMinutes: true, enabled: true },
+      select: { id: true, orgId: true, stageId: true, trigger: true, flowId: true, delayMinutes: true, enabled: true, conditions: true },
     });
   }
 
@@ -230,6 +365,12 @@ export class StageAutomationsService {
     vars: Record<string, string> = {},
     opts: { once?: boolean } = {},
   ): Promise<boolean> {
+    // Filtros de la automatización: con quien no los cumple, no hace nada.
+    const cond = conditionsOf(a.conditions);
+    if (cond.rules.length && !(await this.engine.contactRulesMatch(contactId, cond.rules, cond.match))) {
+      this.logger.log(`Automatización ${a.trigger} de la etapa ${a.stageId}: ${contactId} no cumple los filtros`);
+      return false;
+    }
     if (opts.once) {
       try {
         await this.prisma.stageAutomationRun.create({ data: { orgId: a.orgId, automationId: a.id, dealId } });

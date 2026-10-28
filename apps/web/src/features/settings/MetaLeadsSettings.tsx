@@ -168,14 +168,18 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
   const webhookUrl = `${API_URL}/api/v1/meta/webhook`;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <header>
-        <h3 style={{ margin: "0 0 4px" }}>Leads de formularios de Meta</h3>
-        <p style={muted}>
-          Conecta tus páginas de Facebook y los leads de tus formularios
-          (Facebook e Instagram) entrarán solos al CRM como contactos.
-        </p>
-      </header>
+    <div className="ch-panel">
+      <div className="ch-panel__head">
+        <div>
+          <h4>Páginas de Facebook</h4>
+          <p>Conecta tus páginas y los leads de sus formularios (Facebook e Instagram) entrarán solos como contactos.</p>
+        </div>
+        {APP_ID && (
+          <button onClick={login} disabled={(!hub && !sdkReady) || available.isPending} className="btn btn-primary btn-sm ch-add" data-meta-login>
+            {available.isPending ? "Consultando…" : pages.length ? "Añadir páginas" : "Conectar con Facebook"}
+          </button>
+        )}
+      </div>
 
       {!APP_ID ? (
         <div style={card}>
@@ -185,21 +189,7 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
             frontend. Es la misma app de Meta que usa WhatsApp.
           </p>
         </div>
-      ) : (
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <button
-            onClick={login}
-            disabled={(!hub && !sdkReady) || available.isPending}
-            style={primaryBtn}
-            data-meta-login
-          >
-            {available.isPending ? "Consultando…" : "Conectar con Facebook"}
-          </button>
-          <span style={{ ...muted, fontSize: 12.5 }}>
-            Se te pedirán permisos para ver tus páginas y leer sus leads.
-          </span>
-        </div>
-      )}
+      ) : null}
 
       {/* Elegir páginas */}
       {picker && (
@@ -228,9 +218,13 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
       {!isPending && pages.length === 0 && !picker && (
         <div style={empty}>
           <div style={{ color: "var(--muted)", opacity: 0.6 }}>
-            <NavIcon name="target" size={30} />
+            <NavIcon name="target" size={26} />
           </div>
-          <p style={muted}>Aún no hay páginas conectadas.</p>
+          <p style={{ ...muted, margin: 0 }}>
+            <strong style={{ color: "var(--text)" }}>Aún no hay páginas conectadas.</strong>
+            <br />
+            Pulsa «Conectar con Facebook»: Meta te pedirá permiso para ver tus páginas y leer sus leads.
+          </p>
         </div>
       )}
 
@@ -253,11 +247,11 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
       )}
 
       {/* Ayuda */}
-      <details style={{ ...card, fontSize: 13 }}>
-        <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-          Qué configurar en el panel de Meta
+      <details className="ch-details">
+        <summary>
+          Configuración avanzada <small>· qué configurar en el panel de Meta</small>
         </summary>
-        <ol style={{ color: "var(--muted)", lineHeight: 1.7, paddingLeft: 18 }}>
+        <ol className="ch-details__body" style={{ margin: 0, paddingLeft: 32 }}>
           <li>
             En tu app → Webhooks, suscribe el objeto <strong>Página</strong> al
             campo <code>leadgen</code>, con esta URL:
@@ -578,7 +572,7 @@ const empty: React.CSSProperties = {
   alignItems: "center",
   gap: 10,
   textAlign: "center",
-  padding: "50px 24px",
+  padding: "28px 24px",
   border: "1px dashed var(--border)",
   borderRadius: 12,
 };

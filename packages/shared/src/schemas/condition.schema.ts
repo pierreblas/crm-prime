@@ -21,6 +21,7 @@ export const conditionFields = [
   "ai_mode", // OFF | COPILOT | AUTOPILOT
   "assigned", // agente asignado (value = id; "none" = nadie)
   "stage", // etapa de su oportunidad abierta (value = id)
+  "deal_value", // valor de su oportunidad abierta (número)
   "is_new", // es su primer mensaje ("yes" | "no")
   "messages_count", // mensajes que ha enviado el contacto
 ] as const;

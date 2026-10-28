@@ -14,6 +14,8 @@ import { AiReplyProcessor } from "./ai-reply.processor";
 import { MediaUnderstandingService } from "./media-understanding.service";
 import { FlowProcessor } from "./flow.processor";
 import { StageAutomationsService } from "./stage-automations.service";
+import { StageAutomationOpsController } from "./stage-automation-ops.controller";
+import { BulkFlowController } from "./bulk-flow.controller";
 import { FollowUpService } from "./follow-up.service";
 import { StageWebhookController } from "./stage-webhook.controller";
 import { AiController } from "./ai.controller";
@@ -37,6 +39,8 @@ import { OnboardingModule } from "../onboarding/onboarding.module";
     CopilotController,
     AiUsageController,
     StageWebhookController,
+    StageAutomationOpsController,
+    BulkFlowController,
   ],
   providers: [
     AgentService,

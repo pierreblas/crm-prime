@@ -19,6 +19,7 @@ import {
 import { isWithinHours } from "../../common/utils/business-hours";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { runAsActor } from "../../infra/tenant/actor";
 import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { QUEUE_FLOW } from "../../infra/queue/queue.constants";
@@ -44,6 +45,8 @@ interface CondCtx {
   contact: { name: string | null; phone: string; tags: string[]; sourceId: string | null; fields: Record<string, string> };
   convo: { status: string; assignedAgentId: string | null; channelId: string | null; aiMode: string };
   stageId: string | null;
+  /** Valor de su oportunidad abierta, o null. */
+  dealValue: number | null;
   inboundCount: number;
   /** País por el prefijo del teléfono (código ISO), o null si no se reconoce. */
   country: string | null;
@@ -437,6 +440,17 @@ export class FlowEngineService {
 
   // ── Recorrido del grafo ─────────────────────────────────────
   private async walk(
+    flow: FlowRow,
+    conversationId: string,
+    startId: string | null,
+    lastText: string,
+    vars: Vars,
+  ): Promise<void> {
+    // Lo que cambie en las oportunidades queda firmado con este flujo.
+    return runAsActor(`flow:${flow.id}`, () => this.walkGraph(flow, conversationId, startId, lastText, vars));
+  }
+
+  private async walkGraph(
     flow: FlowRow,
     conversationId: string,
     startId: string | null,
@@ -914,6 +928,57 @@ export class FlowEngineService {
     return match === "any" ? results.some(Boolean) : results.every(Boolean);
   }
 
+  /**
+   * ¿Cumple el contacto estas condiciones? Para los filtros de las
+   * automatizaciones de etapa: mira su conversación más reciente (o solo su
+   * ficha si aún no tiene). Sin reglas, sí.
+   */
+  async contactRulesMatch(contactId: string, rules: FlowRule[], match: "all" | "any"): Promise<boolean> {
+    if (!rules.length) return true;
+    const convo = await this.prisma.conversation.findFirst({
+      where: { contactId },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true },
+    });
+    const ctx = convo ? await this.condCtx(convo.id, "", {}) : await this.contactOnlyCtx(contactId);
+    const results = rules.map((r) => this.ruleMatches(r, ctx));
+    return match === "any" ? results.some(Boolean) : results.every(Boolean);
+  }
+
+  private async contactOnlyCtx(contactId: string): Promise<CondCtx> {
+    const [contact, deal] = await Promise.all([
+      this.prisma.contact.findUnique({
+        where: { id: contactId },
+        include: { tags: { include: { tag: { select: { name: true } } } } },
+      }),
+      this.prisma.deal.findFirst({
+        where: { contactId, discardedAt: null },
+        orderBy: { updatedAt: "desc" },
+        select: { stageId: true, value: true },
+      }),
+    ]);
+    const fields: Record<string, string> = {};
+    for (const [k, v] of Object.entries((contact?.metadata as Record<string, unknown> | null) ?? {})) {
+      if (v != null) fields[k] = String(v);
+    }
+    return {
+      text: "",
+      vars: {},
+      contact: {
+        name: contact?.name ?? null,
+        phone: contact?.phone ?? "",
+        tags: contact?.tags.map((t) => t.tag.name) ?? [],
+        sourceId: contact?.sourceId ?? null,
+        fields,
+      },
+      convo: { status: "", assignedAgentId: null, channelId: null, aiMode: "" },
+      stageId: deal?.stageId ?? null,
+      dealValue: deal?.value != null ? Number(deal.value) : null,
+      inboundCount: 0,
+      country: contact ? (countryFromPhone(contact.phone)?.code ?? null) : null,
+    };
+  }
+
   private async condCtx(conversationId: string, text: string, vars: Vars): Promise<CondCtx> {
     const convo = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
@@ -925,6 +990,7 @@ export class FlowEngineService {
       contact: { name: null, phone: "", tags: [], sourceId: null, fields: {} },
       convo: { status: "", assignedAgentId: null, channelId: null, aiMode: "" },
       stageId: null,
+      dealValue: null,
       inboundCount: 0,
       country: null,
     };
@@ -933,7 +999,7 @@ export class FlowEngineService {
       this.prisma.deal.findFirst({
         where: { contactId: convo.contactId, discardedAt: null },
         orderBy: { updatedAt: "desc" },
-        select: { stageId: true },
+        select: { stageId: true, value: true },
       }),
       this.prisma.message.count({ where: { conversationId, direction: "INBOUND" } }),
     ]);
@@ -958,6 +1024,7 @@ export class FlowEngineService {
         aiMode: convo.aiMode,
       },
       stageId: deal?.stageId ?? null,
+      dealValue: deal?.value != null ? Number(deal.value) : null,
       inboundCount,
       country: countryFromPhone(convo.contact.phone)?.code ?? null,
     };
@@ -1046,6 +1113,8 @@ export class FlowEngineService {
         return ctx.convo.assignedAgentId ?? "none";
       case "stage":
         return ctx.stageId ?? "";
+      case "deal_value":
+        return ctx.dealValue != null ? String(ctx.dealValue) : "";
       case "country":
         return ctx.country ?? "";
       case "is_new":

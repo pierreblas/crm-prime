@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FEATURE_LABELS, formatPlanLimit, formatRetention, PLAN_FEATURES, PLAN_KEYS, PLANS, SELF_HOSTED_PLAN, type PlanDef, type PlanLimit } from "@crm/shared";
 import "./landing.css";
-import { Arrow, Check, CONTACT, GITHUB, IconGit, MarketingFooter, MarketingHeader, Minus } from "./chrome";
+import { Arrow, Check, CONTACT, GITHUB, IconGit, LpThemeScript, MarketingFooter, MarketingHeader, Minus } from "./chrome";
 
 /** Lo que llevan todos los planes de la nube, también el gratis. */
 const INCLUDED = [
@@ -53,7 +53,8 @@ const FAQ = [
 /** Página de precios: los planes salen del catálogo compartido, así que cambian aquí cuando cambian en el código. */
 export function Pricing() {
   return (
-    <div className="lp" id="lp-root" lang="es">
+    <div className="lp" id="lp-root" lang="es" suppressHydrationWarning>
+      <LpThemeScript />
       <a href="#contenido" className="lp-skip">
         Saltar al contenido
       </a>

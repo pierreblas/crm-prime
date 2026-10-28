@@ -186,6 +186,8 @@ model Organization {
   knowledgeSuggestions KnowledgeSuggestion[]
   aiUsage              AiUsage[]
   platformAudit        PlatformAuditLog[]
+  dealEvents           DealEvent[]
+  lossReasons          LossReason[]
   feedback             Feedback[]
 
   @@map("organizations")
@@ -831,6 +833,8 @@ model Campaign {
   startedAt       DateTime?
   completedAt     DateTime?
   variableValues  Json? // valores de las variables de la plantilla para este envío
+  audience        Json? // filtros de audiencia (campaignAudienceSchema); null = solo las etiquetas de CampaignTag
+  repliedCount    Int            @default(0) // destinatarios que escribieron en los 7 días siguientes
   // Métricas agregadas (también derivables de Message, cacheadas aquí).
   totalRecipients Int            @default(0)
   sentCount       Int            @default(0)
@@ -936,6 +940,8 @@ model Deal {
   // la base (migración deal_closed_at), venga el cambio de donde venga.
   closedAt      DateTime?
   createdAt     DateTime  @default(now())
+  stageEnteredAt DateTime @default(now()) // lo reinicia un disparador al cambiar de etapa
+  lostReason     String? // por qué se perdió (se borra al salir de la etapa de perdido)
   updatedAt     DateTime  @updatedAt
 
   contact          Contact              @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -943,6 +949,7 @@ model Deal {
   owner            User?                @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   conversionEvents ConversionEvent[]
   automationRuns   StageAutomationRun[]
+  events           DealEvent[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -1372,7 +1379,8 @@ model StageAutomation {
   stageId      String
   trigger      String // enters_stage | inbound_message | webhook | no_reply (stageAutomationTriggers en @crm/shared)
   flowId       String
-  delayMinutes Int? // no_reply: minutos sin respuesta del cliente
+  delayMinutes Int? // no_reply: minutos sin respuesta del cliente; enters_stage: espera antes de actuar (null = al instante)
+  conditions   Json? // filtros { match, rules } (mismas reglas que el bloque «Condición»)
   token        String?  @unique // webhook: secreto de la URL pública
   enabled      Boolean  @default(true)
   order        Int      @default(0)
@@ -1470,4 +1478,39 @@ model Feedback {
   @@index([orgId, createdAt])
   @@index([status, createdAt])
   @@map("feedback")
+}
+
+/// Historial de una oportunidad. Lo escribe un disparador de Postgres (ver la
+/// migración deal_history_loss_reasons); la aplicación solo lo lee.
+model DealEvent {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  orgId       String
+  dealId      String
+  kind        String // created | stage | owner | discarded | restored | lost_reason | value
+  fromStageId String?
+  toStageId   String?
+  meta        Json?
+  actor       String? // user:<id> | ai | flow:<id> | system:<motivo> | api:<id>
+  createdAt   DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, createdAt])
+  @@index([orgId, createdAt])
+  @@map("deal_events")
+}
+
+/// Motivos de pérdida que se ofrecen al marcar una oportunidad como perdida.
+model LossReason {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, name])
+  @@map("loss_reasons")
 }

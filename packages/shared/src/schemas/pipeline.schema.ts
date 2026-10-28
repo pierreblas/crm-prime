@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { stageConversionEventSchema, stageConversionEventsSchema } from "./conversions.schema.js";
+import { flowRuleSchema, ruleMatchModes } from "./condition.schema.js";
 
 // ── Automatizaciones de etapa ───────────────────────────────
 /**
@@ -12,6 +13,37 @@ import { stageConversionEventSchema, stageConversionEventsSchema } from "./conve
 export const stageAutomationTriggers = ["enters_stage", "inbound_message", "webhook", "no_reply"] as const;
 export type StageAutomationTrigger = (typeof stageAutomationTriggers)[number];
 
+/**
+ * Filtros de una automatización: solo actúa con quien los cumple (mismas
+ * reglas que el bloque «Condición» de los flujos). Sin reglas = con todos.
+ */
+export const stageAutomationConditionsSchema = z.object({
+  match: z.enum(ruleMatchModes).default("all"),
+  rules: z.array(flowRuleSchema).max(10).default([]),
+});
+export type StageAutomationConditions = z.infer<typeof stageAutomationConditionsSchema>;
+export const NO_CONDITIONS: StageAutomationConditions = { match: "all", rules: [] };
+
+/** Quiénes están ya en la etapa y cuántos cumplen los filtros (antes de aplicarles la automatización). */
+export const stageAutomationExistingSchema = z.object({
+  /** Oportunidades abiertas en la etapa. */
+  total: z.number(),
+  /** Las que cumplen los filtros. */
+  matching: z.number(),
+  /** De esas, las que ya pasaron por esta automatización en su estancia actual (no se repiten). */
+  alreadyRan: z.number(),
+  /** Las que recibirían el flujo ahora. */
+  toRun: z.number(),
+  /** Segundos entre una y otra al aplicar. */
+  gapSeconds: z.number(),
+  /** Máximo por aplicación. */
+  limit: z.number(),
+});
+export type StageAutomationExisting = z.infer<typeof stageAutomationExistingSchema>;
+
+export const stageAutomationApplyResultSchema = z.object({ queued: z.number(), skipped: z.number() });
+export type StageAutomationApplyResult = z.infer<typeof stageAutomationApplyResultSchema>;
+
 export const stageAutomationDtoSchema = z.object({
   id: z.string(),
   stageId: z.string(),
@@ -19,8 +51,9 @@ export const stageAutomationDtoSchema = z.object({
   flowId: z.string(),
   flowName: z.string(),
   flowActive: z.boolean(),
-  /** Solo no_reply: minutos de silencio. */
+  /** no_reply: minutos de silencio. enters_stage: espera antes de actuar (null = al instante). */
   delayMinutes: z.number().nullable(),
+  conditions: stageAutomationConditionsSchema,
   /** Solo webhook: URL pública con su token. */
   webhookUrl: z.string().nullable(),
   enabled: z.boolean(),
@@ -31,16 +64,18 @@ export type StageAutomationDto = z.infer<typeof stageAutomationDtoSchema>;
 export const createStageAutomationSchema = z.object({
   trigger: z.enum(stageAutomationTriggers),
   flowId: z.string().min(1),
-  delayMinutes: z.number().int().min(1).max(43200).optional(), // hasta 30 días
+  delayMinutes: z.number().int().min(1).max(43200).nullable().optional(), // hasta 30 días
   enabled: z.boolean().default(true),
+  conditions: stageAutomationConditionsSchema.optional(),
 });
 export type CreateStageAutomationInput = z.infer<typeof createStageAutomationSchema>;
 
 export const updateStageAutomationSchema = z.object({
   trigger: z.enum(stageAutomationTriggers).optional(),
   flowId: z.string().min(1).optional(),
-  delayMinutes: z.number().int().min(1).max(43200).optional(),
+  delayMinutes: z.number().int().min(1).max(43200).nullable().optional(),
   enabled: z.boolean().optional(),
+  conditions: stageAutomationConditionsSchema.optional(),
 });
 export type UpdateStageAutomationInput = z.infer<typeof updateStageAutomationSchema>;
 
@@ -132,9 +167,72 @@ export const dealDtoSchema = z.object({
   // Descartada: no era venta, o nadie la atendió a tiempo ("auto").
   discardedAt: z.string().nullable(),
   discardReason: z.string().nullable(),
+  /** Desde cuándo está en su etapa actual (lo mantiene la base de datos). */
+  stageEnteredAt: z.string(),
+  /** Por qué se perdió (solo en una etapa de perdido). */
+  lostReason: z.string().nullable().default(null),
   createdAt: z.string(),
 });
 export type DealDto = z.infer<typeof dealDtoSchema>;
+
+// ── Historial de una oportunidad ────────────────────────────
+export const dealEventKinds = ["created", "stage", "owner", "discarded", "restored", "lost_reason", "value"] as const;
+export type DealEventKind = (typeof dealEventKinds)[number];
+export const dealActorKinds = ["user", "ai", "flow", "system", "api", "unknown"] as const;
+export type DealActorKind = (typeof dealActorKinds)[number];
+
+export const dealEventDtoSchema = z.object({
+  id: z.string(),
+  kind: z.enum(dealEventKinds),
+  fromStage: z.string().nullable(),
+  toStage: z.string().nullable(),
+  /** Un texto ya resuelto: «Ana», «Agente de IA», «Flujo Bienvenida», «Descarte automático». */
+  actor: z.object({ kind: z.enum(dealActorKinds), label: z.string() }),
+  /** Detalle según el tipo: motivo, vendedor anterior y nuevo, valor anterior y nuevo. */
+  detail: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type DealEventDto = z.infer<typeof dealEventDtoSchema>;
+
+// ── Motivos de pérdida ──────────────────────────────────────
+export const lossReasonDtoSchema = z.object({ id: z.string(), name: z.string() });
+export type LossReasonDto = z.infer<typeof lossReasonDtoSchema>;
+export const DEFAULT_LOSS_REASONS = ["Precio", "Eligió a la competencia", "Dejó de responder", "No era el momento", "No le sirve el producto"];
+export const saveLossReasonsSchema = z.object({
+  names: z.array(z.string().trim().min(1).max(80)).min(1, "deja al menos un motivo").max(30),
+});
+export type SaveLossReasonsInput = z.infer<typeof saveLossReasonsSchema>;
+
+// ── Acciones en bloque ──────────────────────────────────────
+export const BULK_MAX = 500;
+export const bulkDealActions = ["move", "owner", "tag", "discard"] as const;
+export type BulkDealAction = (typeof bulkDealActions)[number];
+export const bulkDealsSchema = z
+  .object({
+    ids: z.array(z.string().min(1)).min(1).max(BULK_MAX),
+    action: z.enum(bulkDealActions),
+    stageId: z.string().optional(),
+    /** owner: null = sin vendedor. */
+    ownerId: z.string().nullable().optional(),
+    tag: z.string().trim().min(1).max(60).optional(),
+    lostReason: z.string().trim().max(120).nullable().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.action === "move" && !v.stageId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["stageId"], message: "elige la etapa" });
+    if (v.action === "owner" && v.ownerId === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["ownerId"], message: "elige el vendedor" });
+    if (v.action === "tag" && !v.tag) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["tag"], message: "escribe la etiqueta" });
+  });
+export type BulkDealsInput = z.infer<typeof bulkDealsSchema>;
+export const bulkDealsResultSchema = z.object({ updated: z.number(), skipped: z.number() });
+export type BulkDealsResult = z.infer<typeof bulkDealsResultSchema>;
+
+export const bulkFlowSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(BULK_MAX),
+  flowId: z.string().min(1),
+});
+export type BulkFlowInput = z.infer<typeof bulkFlowSchema>;
+export const bulkFlowResultSchema = z.object({ queued: z.number(), gapSeconds: z.number() });
+export type BulkFlowResult = z.infer<typeof bulkFlowResultSchema>;
 
 export const pipelineViews = ["open", "discarded"] as const;
 export type PipelineView = (typeof pipelineViews)[number];
@@ -174,6 +272,8 @@ export type UpdateDealInput = z.infer<typeof updateDealSchema>;
 
 export const moveDealSchema = z.object({
   stageId: z.string(),
+  /** Al mover a una etapa de perdido: por qué (opcional). */
+  lostReason: z.string().trim().max(120).nullable().optional(),
 });
 export type MoveDealInput = z.infer<typeof moveDealSchema>;
 

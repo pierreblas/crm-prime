@@ -257,3 +257,26 @@ test("el panel funciona con el rol restringido y solo cuenta lo de su empresa", 
   assert.equal(r.heatmap.length, 7);
   assert.equal(r.funnel.pipelines.every((p: { id: string }) => p.id === "pl_a"), true, "solo embudos propios");
 });
+
+test("las difusiones (sin orgId) solo las ve la empresa de su plantilla", async () => {
+  await ctx.runUnscoped("test", async () => {
+    await prisma.$executeRawUnsafe(`DELETE FROM campaigns WHERE id IN ('camp_a','camp_b')`);
+    await prisma.$executeRawUnsafe(`DELETE FROM templates WHERE id IN ('tpl_a','tpl_b')`);
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO templates (id,"orgId",name,body,"updatedAt") VALUES ('tpl_a','o_a','promo','hola',now()),('tpl_b','o_b','promo','hola',now())`,
+    );
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO campaigns (id,name,"templateId","updatedAt") VALUES ('camp_a','A','tpl_a',now()),('camp_b','B','tpl_b',now())`,
+    );
+  });
+  await ctx.runInOrg("o_a", async () => {
+    const filas: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM campaigns WHERE id IN ('camp_a','camp_b')`);
+    assert.deepEqual(filas.map((r) => r.id), ["camp_a"]);
+    // Por id, como hace el servicio: la de otra empresa no aparece.
+    assert.equal(await prisma.campaign.findFirst({ where: { id: "camp_b" } }), null);
+  });
+  await ctx.runUnscoped("test", async () => {
+    await prisma.$executeRawUnsafe(`DELETE FROM campaigns WHERE id IN ('camp_a','camp_b')`);
+    await prisma.$executeRawUnsafe(`DELETE FROM templates WHERE id IN ('tpl_a','tpl_b')`);
+  });
+});

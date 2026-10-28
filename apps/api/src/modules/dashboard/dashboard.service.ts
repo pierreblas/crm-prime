@@ -159,6 +159,13 @@ export class DashboardService {
       },
       daily: [...daily.values()],
       sources: sources.map((r) => ({ name: String(r.name), count: n(r.n) })),
+      lossReasons: (
+        await q`SELECT coalesce(nullif(d."lostReason", ''), 'Sin motivo') AS reason, count(*) AS n
+          FROM deals d JOIN pipeline_stages st ON st.id = d."stageId"
+          WHERE d."orgId" = ${orgId} AND st."isLost" AND d."discardedAt" IS NULL
+            AND d."closedAt" >= ${from} AND d."closedAt" < ${to}
+          GROUP BY 1 ORDER BY 2 DESC LIMIT 12`
+      ).map((r) => ({ reason: String(r.reason), count: n(r.n) })),
       funnel: await this.funnel(orgId, pipelineId, currency),
       team: team.map((r) => ({
         userId: (r.uid as string | null) ?? null,

@@ -18,7 +18,7 @@ Cada etapa tiene una lista libre de automatizaciones: **«cuando pase X, ejecuta
 
 | Cuándo | Qué pasa |
 |---|---|
-| **Entra a la etapa** | La oportunidad llega a la columna: a mano, por el agente de IA, por otro flujo o al crearse ahí (también la entrada automática de WhatsApp). |
+| **Entra a la etapa** | La oportunidad llega a la columna: a mano, por el agente de IA, por otro flujo o al crearse ahí (también la entrada automática de WhatsApp). Puede actuar **al instante** o **después de** un tiempo (minutos, horas o días): al vencer, solo actúa si la oportunidad sigue en la etapa. |
 | **Llega un mensaje del cliente** | Con cada mensaje que escribe mientras su oportunidad está en la etapa. Si el flujo arranca, la IA no responde ese turno. |
 | **Llega un webhook** | Un sistema tuyo llama a la URL de la automatización (botón *Copiar URL*) con `{ "phone": "+51…" }` o `{ "contactId": "…" }`, y opcionalmente `"vars": { … }` para el flujo. Solo actúa si la oportunidad del contacto está en esa etapa. |
 | **Pasa tiempo sin respuesta** | El cliente lleva ese tiempo sin contestar vuestro último mensaje estando en la etapa. Una vez por estancia: si vuelve a entrar en la etapa, puede repetirse. |
@@ -26,6 +26,10 @@ Cada etapa tiene una lista libre de automatizaciones: **«cuando pase X, ejecuta
 Los flujos se crean en [Flujos](/docs/flujos); para uno que solo deba correr desde el embudo, elige el disparador **«Solo desde una etapa del embudo»**. El flujo corre en la conversación abierta del contacto (o abre una nueva); si otro flujo está a medias esperando su respuesta, no arranca. Un flujo desactivado no corre aunque esté enganchado: pausa la automatización con su casilla *activa* o actívalo en Flujos.
 
 Ejemplos: *Entrantes* → «Entra a la etapa → Bienvenida»; *Propuesta* → «Pasa 1 día sin respuesta → Seguimiento» y «Llega un webhook → Enviar cotización» desde tu ERP; *Ganado* → «Entra a la etapa → Gracias y encuesta».
+
+**Filtros.** Cada automatización puede actuar solo con quien cumple unas condiciones, las mismas del bloque «Condición» de los flujos: etiqueta del contacto, fuente, país, un campo del contacto, número de WhatsApp, a quién está asignada, o el **valor de su oportunidad** (por ejemplo, mayor que 500). Pulsa *Con todos · añadir filtros* debajo de la automatización y guarda.
+
+**Aplicar a los que ya están.** Una automatización de «Entra a la etapa» se puede lanzar también a las oportunidades que ya estaban en la etapa antes de crearla. Driony te dice primero cuántas son (y cuántas cumplen los filtros) y las envía de una en una, cada pocos segundos, para no saturar tu número. Las que ya pasaron por esa automatización no se repiten. Si alguna lleva más de 24 h sin escribir, el flujo tiene que empezar con una plantilla.
 
 ## Conversiones de Meta por etapa
 
@@ -44,6 +48,31 @@ En **Pipeline** ves el embudo con sus columnas. Arrastra las tarjetas de una eta
 Cada tarjeta muestra la **fuente** del contacto, sus **etiquetas**, el vendedor y el estado de su chat: si el cliente **espera respuesta** (y cuánto lleva; en rojo pasada una hora) o cuándo fue el último mensaje. El icono de mensaje abre la conversación en la bandeja; desde el panel de la tarjeta, **Abrir chat** hace lo mismo. La columna con el icono de bandeja es la **etapa de entrada** (ver abajo).
 
 Encima de las columnas puedes **buscar** por título, nombre o teléfono y, con **Filtros**, acotar por etiquetas (varias a la vez, o «sin etiqueta»), fuente, vendedor, fecha (de creación o del último mensaje: hoy, 7 días, 30 días o un rango) y valor mínimo/máximo; aparte, **Esperando respuesta** deja solo las que tienen al cliente esperando. Los totales de cada columna se recalculan con lo filtrado. Desde la bandeja, **Ver tablero** en el panel del contacto abre su tarjeta aquí.
+
+## Trabajar con varias a la vez
+
+Pulsa **Seleccionar** en la cabecera del tablero y toca las tarjetas que quieras (o *Seleccionar las N visibles*, que respeta la búsqueda y los filtros). Abajo aparece una barra para:
+
+- **Mover a…** otra etapa. Si es la de perdido, te pregunta el motivo.
+- **Vendedor…** para reasignarlas (o dejarlas sin vendedor).
+- **Etiquetar…** a sus contactos.
+- **Lanzar flujo…**: el flujo se envía a cada contacto, uno cada pocos segundos para no saturar tu número.
+- **Difusión**: abre una difusión con una plantilla de WhatsApp solo para esos contactos. Para toda una etapa, usa el megáfono de su cabecera.
+- **Descartar**.
+
+Esc o *Listo* salen de la selección.
+
+## Ganada, perdida o descartada al arrastrar
+
+Al arrastrar una tarjeta aparecen abajo tres zonas: **Ganada**, **Perdida** y **Descartar**. Suéltala en una y listo, sin buscar la columna.
+
+## Motivos de pérdida
+
+Al marcar una oportunidad como perdida (desde la ficha, arrastrándola a la columna o a la zona *Perdida*, o en bloque), Driony pregunta **por qué**: precio, eligió a la competencia, dejó de responder… o un motivo escrito en el momento. También puedes cerrarla sin motivo. La lista se edita en el engranaje de la etapa de perdido, y el **Panel** muestra *Por qué se pierden* en el periodo. Si la oportunidad vuelve a una etapa abierta, el motivo se borra.
+
+## Historial y días en la etapa
+
+Cada tarjeta muestra cuántos **días lleva en su etapa** (en ámbar a partir de 7). En la ficha, el **Historial** cuenta cada cambio: de qué etapa a cuál, cambios de vendedor y de valor, descartes y motivos de pérdida, con **quién** lo hizo: una persona del equipo, el agente de IA, un flujo, la API o un proceso automático como el descarte por inactividad.
 
 ## Entrada automática desde WhatsApp
 

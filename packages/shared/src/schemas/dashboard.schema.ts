@@ -45,6 +45,8 @@ export const dashboardSchema = z.object({
     }),
   ),
   sources: z.array(z.object({ name: z.string(), count: z.number() })),
+  /** Perdidas del periodo por motivo («Sin motivo» si no se indicó). */
+  lossReasons: z.array(z.object({ reason: z.string(), count: z.number() })).default([]),
   funnel: z.object({
     pipelineId: z.string().nullable(),
     pipelineName: z.string().nullable(),

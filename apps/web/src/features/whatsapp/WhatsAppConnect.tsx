@@ -38,7 +38,9 @@ declare global {
  * de la página de fuera: el usuario no sale de su subdominio y aun así el SDK
  * arranca en el dominio listado.
  */
-export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
+export function WhatsAppConnect({ hub = false, embedded = false }: { hub?: boolean; embedded?: boolean }) {
+  // Configuración avanzada (alta manual, webhook): se abre sola al renovar un token.
+  const [techOpen, setTechOpen] = useState(false);
   const queryClient = useQueryClient();
   const [sdkReady, setSdkReady] = useState(false);
   const [hubError, setHubError] = useState<string | null>(null);
@@ -265,35 +267,43 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
   // Alta con la app propia de la empresa: abre el formulario y lo deja a la vista.
   const abrirManual = () => {
     setEditing(null);
+    setTechOpen(true);
     setManualOpen(true);
     requestAnimationFrame(() => manualRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-        }}
-      >
-        <h2 style={{ marginTop: 0, marginBottom: 0 }}>Números de WhatsApp</h2>
+    <div className="ch-panel" style={embedded ? undefined : { maxWidth: 760, margin: "0 auto", padding: 24 }}>
+      <div className="ch-panel__head">
+        <div>
+          <h4>Números de WhatsApp</h4>
+          <p>Conecta uno o varios. Cada conversación se responde por el número por el que entró.</p>
+        </div>
         {!missingConfig && list.length > 0 && !pendingApproval && (
-          <button onClick={launch} disabled={!ready || connecting} style={addBtn} data-tour="wa-connect">
+          <button onClick={launch} disabled={!ready || connecting} className="btn btn-primary btn-sm ch-add" data-tour="wa-connect">
             <WaIcon />
             {connecting ? "Conectando…" : "Añadir número"}
           </button>
         )}
       </div>
-      <p style={{ color: "var(--muted)", marginTop: 6 }}>
-        Conecta uno o varios números; cada conversación se responde por el número
-        por el que entró. La <strong>Coexistencia</strong> (seguir usando el número
-        también en la app del celular) solo la activa Meta a través de un
-        proveedor aprobado, con el botón «Conectar WhatsApp»: no se puede activar
-        por cuenta propia. Un número añadido a mano trabaja en modo API.
-      </p>
+
+      <details className="ch-details" data-wa-modes>
+        <summary>
+          ¿Modo API o Coexistencia? <small>· en qué se diferencian</small>
+        </summary>
+        <div className="ch-details__body">
+          <div className="ch-modes">
+            <div className="ch-mode">
+              <strong>Coexistencia</strong>
+              Sigues usando el número también en la app de WhatsApp Business del celular, y los mensajes se ven en los dos lados. Solo la activa Meta con el botón «Conectar WhatsApp».
+            </div>
+            <div className="ch-mode">
+              <strong>API</strong>
+              El número se atiende solo desde Driony. Es el modo de los números añadidos a mano con un token de Meta.
+            </div>
+          </div>
+        </div>
+      </details>
 
       {/* Plan Gratis: el botón conecta en modo API; la coexistencia es de Pro. */}
       <PlanGate feature="coexistence">
@@ -315,21 +325,20 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
         </p>
       )}
 
-      <div style={card}>
-        {isPending ? (
-          <p style={{ color: "var(--muted)" }}>Verificando estado…</p>
-        ) : missingConfig ? (
-          <PendingConfig hasAppId={!!APP_ID} />
-        ) : list.length === 0 && pendingApproval ? (
-          <EmptyPending onManual={abrirManual} />
-        ) : list.length === 0 ? (
-          <Empty
-            ready={ready}
-            connecting={connecting}
-            onConnect={launch}
-          />
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {isPending ? (
+        <div className="skeleton" style={{ height: 76, borderRadius: 12 }} />
+      ) : missingConfig || list.length === 0 ? (
+        <div style={card}>
+          {missingConfig ? (
+            <PendingConfig hasAppId={!!APP_ID} />
+          ) : pendingApproval ? (
+            <EmptyPending onManual={abrirManual} />
+          ) : (
+            <Empty ready={ready} connecting={connecting} onConnect={launch} />
+          )}
+        </div>
+      ) : (
+          <div className="ch-list" data-wa-list>
             {list.map((ch) => (
               <ChannelRow
                 routing={routing.describe(ch)}
@@ -338,6 +347,7 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
                 channel={ch}
                 onUpdateToken={() => {
                   setEditing(ch);
+                  setTechOpen(true);
                   setManualOpen(true);
                   // Que el formulario quede a la vista al abrirlo desde arriba.
                   requestAnimationFrame(() =>
@@ -355,62 +365,68 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
               />
             ))}
           </div>
-        )}
-      </div>
-
-      {!missingConfig && list.length > 0 && (
-        <>
-          <div style={syncNote}>
-            <strong style={{ color: "var(--text)" }}>
-              Sincronización bidireccional activa
-            </strong>
-            <p style={{ margin: "6px 0 0" }}>
-              Los mensajes que escribas desde la app de WhatsApp en el celular
-              también aparecen en el CRM, y la IA se pausa automáticamente cuando
-              respondes tú. Para que funcione, en Meta → WhatsApp → Configuración →
-              Webhooks, suscribe los campos <code>messages</code> y{" "}
-              <code>message_echoes</code>.
-            </p>
-          </div>
-          <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 14 }}>
-            Al conectar aceptas nuestra{" "}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>
-              Política de Privacidad
-            </a>
-            .
-          </p>
-        </>
       )}
 
-      {/* Alta manual: para pruebas y para entornos sin Embedded Signup
-          (en localhost el popup de Facebook no es viable). */}
-      <div style={{ marginTop: 18 }} ref={manualRef}>
-        <button
-          onClick={() => {
-            setManualOpen((v) => !v);
-            setEditing(null);
-          }}
-          style={linkBtn}
-          data-tour="wa-manual"
-        >
-          <span style={chevron(manualOpen)} aria-hidden>
-            <NavIcon name="chevron-down" size={14} />
-          </span>
-          {editing
-            ? `Actualizar el token de ${editing.label ?? editing.phoneNumberId}`
-            : "Añadir un número a mano (token de Meta)"}
-        </button>
-        {manualOpen && (
-          <ManualConnect
-            channel={editing}
-            hub={hub}
-            onDone={() => {
-              setEditing(null);
-              queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
-            }}
-          />
-        )}
-      </div>
+      {/* Lo técnico, junto y plegado: alta manual con token, webhook y
+          sincronización. Se abre solo al renovar un token. */}
+      <details
+        className="ch-details"
+        open={techOpen}
+        onToggle={(e) => setTechOpen((e.currentTarget as HTMLDetailsElement).open)}
+        data-wa-advanced
+      >
+        <summary data-tour="wa-manual">
+          Configuración avanzada <small>· número a mano con token, webhook y sincronización</small>
+        </summary>
+        <div className="ch-details__body">
+          {/* Alta manual: para pruebas y para entornos sin Embedded Signup
+              (en localhost el popup de Facebook no es viable). */}
+          <div ref={manualRef}>
+            <button
+              onClick={() => {
+                setManualOpen((v) => !v);
+                setEditing(null);
+              }}
+              style={linkBtn}
+            >
+              <span style={chevron(manualOpen)} aria-hidden>
+                <NavIcon name="chevron-down" size={14} />
+              </span>
+              {editing
+                ? `Actualizar el token de ${editing.label ?? editing.phoneNumberId}`
+                : "Añadir un número a mano (token de Meta)"}
+            </button>
+            {manualOpen && (
+              <ManualConnect
+                channel={editing}
+                hub={hub}
+                onDone={() => {
+                  setEditing(null);
+                  queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
+                }}
+              />
+            )}
+          </div>
+
+          {!missingConfig && list.length > 0 && (
+            <p>
+              <strong>Sincronización con el celular.</strong> Lo que escribas desde la app de WhatsApp
+              también aparece en el CRM, y la IA se pausa cuando respondes tú. Requiere los campos{" "}
+              <code>messages</code> y <code>message_echoes</code> suscritos en el webhook.
+            </p>
+          )}
+
+          <WebhookInfo hub={hub} />
+        </div>
+      </details>
+
+      <p style={{ color: "var(--muted)", fontSize: 12, margin: 0 }}>
+        Al conectar aceptas nuestra{" "}
+        <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-text)" }}>
+          Política de Privacidad
+        </a>
+        .
+      </p>
 
       {configuring && (
         <ChannelConfigDialog
@@ -418,8 +434,6 @@ export function WhatsAppConnect({ hub = false }: { hub?: boolean }) {
           onClose={() => setConfiguring(null)}
         />
       )}
-
-      <WebhookInfo hub={hub} />
 
       {hubUrl && (
         <div className="confirm-backdrop" onClick={cerrarConector}>
@@ -811,11 +825,10 @@ const field: React.CSSProperties = {
 };
 
 const syncNote: React.CSSProperties = {
-  marginTop: 16,
-  padding: 14,
-  borderRadius: 10,
-  border: "1px solid #1f6f46",
-  background: "rgba(37,211,102,0.07)",
+  padding: 12,
+  borderRadius: 8,
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
   color: "var(--muted)",
   fontSize: 13,
   lineHeight: 1.6,
@@ -848,132 +861,104 @@ function ChannelRow({
       queryClient.invalidateQueries({ queryKey: ["wa-channels"] }),
   });
 
+  const state = broken ? "error" : online ? "ok" : "off";
+  const name = channel.label || channel.displayPhoneNumber || channel.phoneNumberId;
+  const phone = channel.label ? channel.displayPhoneNumber ?? channel.phoneNumberId : null;
+
   return (
-    <div style={row}>
-      <span style={dot(online ? "var(--accent)" : "#7a8aa0")} />
-      {/* En pantallas estrechas los botones bajan de línea; el texto no se parte. */}
-      <div style={{ flex: "1 1 220px", minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <strong style={{ fontSize: 15 }}>
-            {channel.label ||
-              channel.displayPhoneNumber ||
-              channel.phoneNumberId}
-          </strong>
-          <span style={pill(channel.source === "env" ? "var(--surface-3)" : "#1f6f46")}>
+    <div className={`ch-row is-${state}`} data-wa-row={channel.phoneNumberId}>
+      <span className="ch-row__avatar" aria-hidden="true">
+        <WaIcon />
+      </span>
+      <div className="ch-row__main">
+        <div className="ch-row__title">
+          <strong>{name}</strong>
+          {phone && <span className="ch-row__phone">{phone}</span>}
+        </div>
+        <div className="ch-row__meta">
+          <span className={`ch-badge is-${state}`}>
+            {broken && <NavIcon name="alert" size={11} />}
+            {broken ? "Token caducado" : online ? "Conectado" : "Inactivo"}
+          </span>
+          <span className="ch-badge" title={channel.mode === "coexistence" ? "También se usa en la app del celular" : "Se atiende solo desde Driony"}>
             {channel.mode === "coexistence" ? "Coexistencia" : "API"}
             {channel.source === "env" ? " · .env" : ""}
           </span>
-          {!online && <span style={pill("#5a4a2a")}>Inactivo</span>}
-          {broken && (
-            <span
-              style={{
-                ...pill("#6b3232"),
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              <NavIcon name="alert" size={12} />
-              Token caducado
-            </span>
+          {channel.source !== "env" && (
+            <>
+              <span title="Embudo al que entran las conversaciones nuevas de este número">
+                <NavIcon name="pipeline" size={12} />
+                {routing.pipeline}
+              </span>
+              <span title="Agente de IA que atiende este número">
+                <NavIcon name="bot" size={12} />
+                {routing.bot}
+              </span>
+              {routing.flows > 0 && (
+                <span title="Flujos que escuchan solo este número">
+                  <NavIcon name="flow" size={12} />
+                  {routing.flows === 1 ? "1 flujo" : `${routing.flows} flujos`}
+                </span>
+              )}
+            </>
           )}
         </div>
-        {(channel.displayPhoneNumber || channel.label) && (
-          <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 2 }}>
-            {channel.displayPhoneNumber ?? channel.phoneNumberId}
-          </div>
-        )}
+      </div>
+      <div className="ch-row__actions">
         {channel.source !== "env" && (
-          <div style={routingRow}>
-            <span style={routingChip} title="Embudo al que entran las conversaciones nuevas de este número">
-              <NavIcon name="pipeline" size={12} />
-              {routing.pipeline}
-            </span>
-            <span style={routingChip} title="Agente de IA que atiende este número">
-              <NavIcon name="bot" size={12} />
-              {routing.bot}
-            </span>
-            {routing.flows > 0 && (
-              <span style={routingChip} title="Flujos que escuchan solo este número">
-                <NavIcon name="flow" size={12} />
-                {routing.flows === 1 ? "1 flujo" : `${routing.flows} flujos`}
-              </span>
-            )}
-          </div>
+          <button onClick={onConfigure} className="btn btn-ghost btn-sm" title="Alias, embudo de entrada y agente de IA de este número">
+            <NavIcon name="settings" size={13} />
+            Configurar
+          </button>
         )}
-        {broken && (
-          <div style={errorNote}>
-            {channel.statusReason}
-            <div style={{ marginTop: 4, opacity: 0.85 }}>
-              Vuelve a conectarlo abajo con un token nuevo. Para no repetirlo
-              cada 24 h, usa un token de usuario de sistema (no caduca).
-            </div>
-          </div>
+        <button onClick={() => test.mutate()} disabled={test.isPending} className="btn btn-ghost btn-sm" title="Comprobar token, plataforma, suscripción y webhook">
+          {test.isPending ? "Probando…" : "Probar"}
+        </button>
+        {channel.source !== "env" && (
+          <button onClick={onUpdateToken} className={`btn ${broken ? "btn-primary" : "btn-ghost"} btn-sm`} title="Pegar un token nuevo para este número">
+            Actualizar token
+          </button>
         )}
-        {test.data && (
-          <div
-            style={{
-              ...errorNote,
-              borderColor: test.data.ok ? "#2f6b52" : "#6b3232",
-              background: test.data.ok
-                ? "rgba(63,140,110,0.12)"
-                : "rgba(200,80,80,0.12)",
-              color: test.data.ok ? "#8fe6c0" : "#ffb3b3",
-            }}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <NavIcon name={test.data.ok ? "check" : "x"} size={14} />
-              {test.data.message}
-            </span>
-            {test.data.checks.length > 0 && (
-              <ul style={{ listStyle: "none", margin: "8px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 4 }} data-channel-checks>
-                {test.data.checks.map((c) => (
-                  <li key={c.key} style={{ display: "flex", gap: 6, alignItems: "flex-start", color: c.ok === false ? "#ffb3b3" : c.ok ? "#8fe6c0" : "var(--muted)" }}>
-                    <span style={{ flexShrink: 0, marginTop: 1 }}>
-                      <NavIcon name={c.ok === false ? "x" : c.ok ? "check" : "question"} size={13} />
-                    </span>
-                    <span>
-                      <strong style={{ fontWeight: 600 }}>{c.label}</strong>
-                      {c.detail && <span style={{ opacity: 0.85 }}> · {c.detail}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+        {channel.source !== "env" && online && (
+          <button onClick={onDisconnect} disabled={disconnecting} className="btn btn-ghost btn-sm ch-danger">
+            {disconnecting ? "…" : "Desconectar"}
+          </button>
         )}
       </div>
-      {channel.source !== "env" && (
-        <button
-          onClick={onConfigure}
-          style={{ ...ghostBtn, borderColor: "var(--border)", color: "var(--text)" }}
-          title="Alias, embudo de entrada y agente de IA de este número"
-        >
-          <NavIcon name="settings" size={13} />
-          Configurar
-        </button>
+
+      {broken && (
+        <div className="ch-row__note is-error" role="alert">
+          <div className="ch-row__note-title">
+            <NavIcon name="alert" size={13} />
+            {channel.statusReason || "El token de este número ya no vale."}
+          </div>
+          <div style={{ marginTop: 4, opacity: 0.9 }}>
+            Pulsa «Actualizar token» y pega uno nuevo. Para no repetirlo cada 24 h, usa un token de usuario de sistema, que no caduca.
+          </div>
+        </div>
       )}
-      <button
-        onClick={() => test.mutate()}
-        disabled={test.isPending}
-        style={ghostBtn}
-        title="Comprobar que el token sigue valiendo"
-      >
-        {test.isPending ? "…" : "Probar"}
-      </button>
-      {channel.source !== "env" && (
-        <button
-          onClick={onUpdateToken}
-          style={broken ? primaryBtn : ghostBtn}
-          title="Pegar un token nuevo para este número"
-        >
-          Actualizar token
-        </button>
-      )}
-      {channel.source !== "env" && online && (
-        <button onClick={onDisconnect} disabled={disconnecting} style={ghostBtn}>
-          {disconnecting ? "…" : "Desconectar"}
-        </button>
+      {test.data && (
+        <div className={`ch-row__note ${test.data.ok ? "is-ok" : "is-error"}`} data-channel-checks-box>
+          <div className="ch-row__note-title">
+            <NavIcon name={test.data.ok ? "check" : "x"} size={13} />
+            {test.data.message}
+          </div>
+          {test.data.checks.length > 0 && (
+            <ul data-channel-checks>
+              {test.data.checks.map((c) => (
+                <li key={c.key} className={c.ok === false ? "is-bad" : c.ok ? "is-good" : "is-unknown"}>
+                  <span style={{ flexShrink: 0, marginTop: 1 }}>
+                    <NavIcon name={c.ok === false ? "x" : c.ok ? "check" : "question"} size={13} />
+                  </span>
+                  <span>
+                    <strong style={{ fontWeight: 600, color: "inherit" }}>{c.label}</strong>
+                    {c.detail && <span style={{ opacity: 0.85 }}> · {c.detail}</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   );
@@ -1203,7 +1188,7 @@ function PendingConfig({ hasAppId }: { hasAppId: boolean }) {
   );
 }
 
-function WaIcon() {
+export function WaIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.7-.6-3-1.3-4.9-4.3-5.1-4.5-.1-.2-1.2-1.5-1.2-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .5l-.3.5-.4.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.2.1.4.1.6-.1l.7-.9c.2-.2.4-.2.6-.1l1.8.9c.3.1.4.2.5.3 0 .2 0 .8-.2 1.6Z" />

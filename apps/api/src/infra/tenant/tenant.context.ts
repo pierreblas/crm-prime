@@ -5,6 +5,8 @@ export interface TenantStore {
   orgId: string | null;
   /** Escapatoria deliberada: ver `runUnscoped`. */
   unscoped?: boolean;
+  /** Quién hace los cambios (historial de oportunidades): ver infra/tenant/actor.ts. */
+  actor?: string;
 }
 
 /**
