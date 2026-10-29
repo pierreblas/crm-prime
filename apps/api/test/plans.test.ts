@@ -94,7 +94,7 @@ test("mine() devuelve el plan, el uso y el catálogo", async () => {
   const mine = await svc.mine();
   assert.equal(mine.saas, true);
   assert.equal(mine.plan.key, "pro");
-  assert.deepEqual(mine.usage, { numbers: 2, users: 4, contacts: 0, deals: 0, activeContacts: 0 });
+  assert.deepEqual(mine.usage, { numbers: 2, users: 4, contacts: 0, deals: 0, activeContacts: 0, aiConversations: 0 });
   assert.deepEqual(
     mine.plans.map((p) => p.key),
     ["free", "pro", "business"],

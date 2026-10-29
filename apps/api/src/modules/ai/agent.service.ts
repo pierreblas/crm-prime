@@ -5,6 +5,7 @@ import {
   countryFromPhone,
   estimateAiCost,
   formatFieldValue,
+  HANDOFF_REASON_AI_INCLUDED_FULL,
   HANDOFF_REASON_MEDIA,
   priceFor,
 } from "@crm/shared";
@@ -22,6 +23,7 @@ import { MediaUnderstandingService } from "./media-understanding.service";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { AgentActionsService } from "./agent-actions.service";
 import { BotService } from "./bot.service";
+import { AiSettingsService } from "./ai-settings.service";
 import { LLM_PROVIDER, type LLMProvider } from "./llm.provider";
 import type {
   LlmMessage,
@@ -49,6 +51,7 @@ export class AgentService {
     private readonly bots: BotService,
     private readonly actions: AgentActionsService,
     @Inject(LLM_PROVIDER) private readonly llm: LLMProvider,
+    private readonly aiSettings: AiSettingsService,
   ) {}
 
   async suggest(conversationId: string): Promise<AiSuggestion> {
@@ -97,6 +100,24 @@ export class AgentService {
     const ragEnabled = (config?.enabledTools ?? []).includes("search_knowledge");
     const knowledge =
       ragEnabled && lastUserText ? await this.retrieveSafe(lastUserText) : [];
+
+    // IA incluida con el cupo lleno: el agente termina lo que ya atendía este
+    // mes, pero no empieza conversaciones nuevas (pasan al equipo).
+    if (!(await this.aiSettings.allowsConversation(conversationId))) {
+      this.logger.log(`Cupo de IA incluida lleno: ${conversationId} pasa al equipo`);
+      return {
+        runId: "",
+        suggestion: null,
+        classification: null,
+        escalate: true,
+        escalationReason: HANDOFF_REASON_AI_INCLUDED_FULL,
+        windowOpen,
+        model: config?.model ?? "—",
+        provider: this.llm.name,
+        toolsUsed: [],
+        pendingActions: [],
+      };
+    }
 
     // Presupuesto mensual: si ya se agotó, ni se llama al modelo. Antes este
     // campo se guardaba y no cortaba nada, así que no era un límite real.
@@ -845,6 +866,8 @@ export class AgentService {
       include: { contact: true },
     });
     if (!conversation) return null;
+    // Un seguimiento no abre una conversación nueva del cupo si ya está lleno.
+    if (!(await this.aiSettings.allowsConversation(conversationId))) return null;
     const config = await this.bots.resolveForConversation(conversation);
     const system = this.buildSystemParts(config?.systemPrompt, conversation.contact);
     const history = await this.buildHistory(conversationId);

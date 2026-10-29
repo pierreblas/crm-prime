@@ -67,6 +67,9 @@ export function KnowledgeManager() {
 function IndexBanner() {
   const queryClient = useQueryClient();
   const { data } = useQuery({ queryKey: ["knowledge-status"], queryFn: fetchKnowledgeStatus });
+  const { data: ai } = useAiStatus();
+  // Sin clave propia de OpenAI, se indexa con la IA incluida en el plan.
+  const viaDriony = !!ai?.included && ai.source !== "own" && data?.embedder === "openai";
   const reindex = useMutation({
     mutationFn: reindexKnowledge,
     onSuccess: (r) => {
@@ -92,7 +95,11 @@ function IndexBanner() {
             otro proveedor. Reindexa para que la búsqueda los encuentre.
           </>
         ) : (
-          <>Indexado con {EMBEDDER_LABEL[data.embedder] ?? data.embedder}. Sin créditos: cada búsqueda va con tu clave.</>
+          viaDriony ? (
+            <>Indexado con la IA incluida en tu plan. Buscar en el conocimiento no gasta conversaciones de tu cupo.</>
+          ) : (
+            <>Indexado con {EMBEDDER_LABEL[data.embedder] ?? data.embedder}. Sin créditos: cada búsqueda va con tu clave.</>
+          )
         )}
       </span>
       {!fake && data.stale > 0 && (
@@ -256,7 +263,7 @@ function GapsTab({ gaps }: { gaps: KnowledgeSuggestionDto[] }) {
           className="btn btn-primary"
           disabled={analyze.isPending || (ai && !ai.ready)}
           onClick={() => analyze.mutate()}
-          title={ai && !ai.ready ? "Configura tu clave de IA en Ajustes › Inteligencia Artificial" : undefined}
+          title={ai && !ai.ready ? (ai.included?.exhausted ? "La IA incluida llegó a su límite este mes: conecta tu clave en Ajustes › Inteligencia Artificial" : "Configura tu clave de IA en Ajustes › Inteligencia Artificial") : undefined}
         >
           <NavIcon name="sparkles" size={14} />
           {analyze.isPending ? "Analizando…" : "Analizar conversaciones"}

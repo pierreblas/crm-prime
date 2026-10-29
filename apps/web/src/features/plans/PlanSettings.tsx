@@ -1,6 +1,6 @@
 "use client";
 
-import { FEATURE_LABELS, PLAN_FEATURES, formatPlanPrice, type PlanDef, formatRetention } from "@crm/shared";
+import { FEATURE_LABELS, PLAN_FEATURES, formatAiIncluded, formatPlanPrice, type PlanDef, formatRetention } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { useMyPlan } from "./usePlan";
 
@@ -78,11 +78,22 @@ export function PlanSettings() {
           <Usage label="Contactos" used={usage.contacts} limit={plan.limits.contacts} />
           <Usage label="Oportunidades abiertas" used={usage.deals} limit={plan.limits.deals} />
           <Usage label="Contactos activos este mes" used={usage.activeContacts} limit={plan.limits.activeContacts} />
+          {plan.aiConversations !== null && (
+            <Usage label="Conversaciones con IA incluida este mes" used={usage.aiConversations} limit={plan.aiConversations} />
+          )}
         </div>
         <p className="plan-fairuse">
           Contactos, oportunidades y contactos activos son de <strong>uso razonable</strong>: quien te escribe por
           WhatsApp entra siempre; al tope se frena crear o importar a mano. Si superas los activos del mes de forma
           sostenida, te propondremos el plan que te corresponde. {formatRetention(plan.mediaRetentionDays)}.
+          {plan.aiConversations !== null && (
+            <>
+              {" "}
+              La IA incluida cuenta conversaciones atendidas, no mensajes: al llegar al cupo, el agente termina
+              las que ya atendía y los chats nuevos pasan a tu equipo hasta el día 1. Con tu propia clave de IA no
+              hay cupo.
+            </>
+          )}
         </p>
 
         <ul className="plan-features">
@@ -157,6 +168,12 @@ function PlanCard({ plan, current }: { plan: PlanDef; current: boolean }) {
           <NavIcon name="message" size={13} />
           {lim(plan.limits.activeContacts, "contacto activo al mes", "contactos activos al mes")}
         </li>
+        {plan.aiConversations !== null && (
+          <li>
+            <NavIcon name="sparkles" size={13} />
+            {formatAiIncluded(plan.aiConversations)}
+          </li>
+        )}
         <li>
           <NavIcon name="paperclip" size={13} />
           {formatRetention(plan.mediaRetentionDays)}

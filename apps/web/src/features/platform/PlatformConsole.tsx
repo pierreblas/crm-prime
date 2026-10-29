@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PLANS, PLAN_KEYS, planFor, type PlatformHealth, type PlatformOrg, type UpdatePlatformOrgInput } from "@crm/shared";
+import { PLANS, PLAN_KEYS, includedAiCapUsd, planFor, type PlatformHealth, type PlatformOrg, type UpdatePlatformOrgInput } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { toast } from "@/lib/toast";
 import { fetchPlatformAudit, fetchPlatformHealth, fetchPlatformOrgs, fetchPlatformOverview, updatePlatformOrg } from "@/lib/bff";
@@ -12,7 +12,7 @@ import { date, dateTime, describeAudit, expiry, money, relative, toCsv } from ".
 
 type SortKey = "created" | "activity" | "messages" | "name" | "expiry";
 type Tab = "orgs" | "health" | "audit" | "feedback";
-type StateFilter = "all" | "active" | "suspended" | "paying" | "expiring" | "quiet" | "problems" | "limit" | "overuse" | "onboarding";
+type StateFilter = "all" | "active" | "suspended" | "paying" | "expiring" | "quiet" | "problems" | "limit" | "overuse" | "ai" | "onboarding";
 
 const STATE_LABEL: Record<StateFilter, string> = {
   all: "Todas",
@@ -24,6 +24,7 @@ const STATE_LABEL: Record<StateFilter, string> = {
   problems: "Con problemas",
   limit: "Al tope de contactos del plan",
   overuse: "Más activos al mes que su plan",
+  ai: "Al cupo de IA incluida",
   onboarding: "Primeros pasos sin terminar",
 };
 
@@ -38,6 +39,17 @@ const atContactLimit = (o: PlatformOrg) => {
   const lim = planFor(o.plan).limits.contacts;
   return lim !== null && o.contacts >= lim;
 };
+
+/**
+ * IA incluida: ¿llegó al cupo de conversaciones de su plan? Con clave propia no
+ * usa la IA de Driony, así que no cuenta. Es la mejor señal para subir de plan.
+ */
+const aiFull = (o: PlatformOrg) =>
+  o.aiIncludedLimit !== null && !o.aiOwnKey && o.aiIncludedConversations >= o.aiIncludedLimit;
+
+/** ¿Tocó el tope en dólares de la IA incluida (freno de seguridad: bucle o abuso)? */
+const aiCapped = (o: PlatformOrg) =>
+  o.aiIncludedLimit !== null && !o.aiOwnKey && o.aiPlatformCostMonthUsd >= includedAiCapUsd(o.aiIncludedLimit);
 
 /**
  * Consola del operador del SaaS: cuántas empresas hay, cuántas se dan de alta,
@@ -105,6 +117,8 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
           return atContactLimit(o);
         case "overuse":
           return overActive(o);
+        case "ai":
+          return aiFull(o) || aiCapped(o);
         case "onboarding":
           return !o.onboardingCompletedAt;
         default:
@@ -137,6 +151,10 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
         mensajes_30d: o.messages30d,
         ultima_actividad: o.lastMessageAt ?? "",
         ia_mes_usd: o.aiCostMonthUsd.toFixed(2),
+        ia_driony_usd: o.aiPlatformCostMonthUsd.toFixed(2),
+        ia_conversaciones: o.aiIncludedConversations,
+        ia_cupo: o.aiIncludedLimit ?? "",
+        ia_clave_propia: o.aiOwnKey ? "sí" : "no",
         alta: o.createdAt.slice(0, 10),
         notas: o.platformNotes ?? "",
       })),
@@ -161,7 +179,32 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
         <Kpi label="Números" value={o?.numbers} sub={o ? `${o.coexistenceNumbers} en coexistencia` : undefined} />
         <Kpi label="Números con error" value={o?.numbersWithError} sub="token caducado, etc." warn={!!o && o.numbersWithError > 0} />
         <Kpi label="Mensajes en 7 días" value={o?.messages7d} />
-        <Kpi label="Gasto IA del mes" value={o ? money(o.aiCostMonthUsd) : undefined} sub="lo pagan ellas" />
+        <Kpi
+          label="IA de Driony"
+          value={o ? money(o.aiIncluded.platformCostUsd) : undefined}
+          sub={
+            o
+              ? o.aiIncluded.enabled
+                ? `${o.aiIncluded.conversations.toLocaleString("es")} conversaciones · ${o.aiIncluded.orgsUsing} ${o.aiIncluded.orgsUsing === 1 ? "empresa" : "empresas"} · ${o.aiIncluded.model} · a precio de lista`
+                : "apagada (AI_INCLUDED)"
+              : undefined
+          }
+        />
+        <Kpi
+          label="Al cupo de IA"
+          value={o?.aiIncluded.orgsFull}
+          sub={
+            o
+              ? o.aiIncluded.orgsCapped > 0
+                ? `${o.aiIncluded.orgsCapped} en el tope de gasto`
+                : o.aiIncluded.orgsFull === 1
+                  ? "candidata a subir de plan"
+                  : "candidatas a subir de plan"
+              : undefined
+          }
+          warn={!!o && o.aiIncluded.orgsCapped > 0}
+        />
+        <Kpi label="IA con su clave" value={o ? money(o.aiIncluded.ownCostUsd) : undefined} sub="lo pagan ellas" />
       </section>
 
       <div className="pc-tabs">
@@ -319,7 +362,26 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
                         <td className="num">{org.contacts.toLocaleString("es")}</td>
                         <td className="num">{org.messages30d.toLocaleString("es")}</td>
                         <td title={org.lastMessageAt ?? undefined}>{relative(org.lastMessageAt)}</td>
-                        <td className="num">{org.aiCostMonthUsd > 0 ? money(org.aiCostMonthUsd) : "—"}</td>
+                        <td
+                          className="num"
+                          title={
+                            org.aiOwnKey
+                              ? "Usa su propia clave de IA: el gasto lo paga ella"
+                              : org.aiIncludedLimit !== null
+                                ? `IA de Driony: ${org.aiIncludedConversations.toLocaleString("es")} de ${org.aiIncludedLimit.toLocaleString("es")} conversaciones este mes · ${money(org.aiPlatformCostMonthUsd)} a precio de lista`
+                                : undefined
+                          }
+                        >
+                          {org.aiCostMonthUsd > 0 ? money(org.aiCostMonthUsd) : "—"}
+                          {org.aiOwnKey ? (
+                            <small> · clave propia</small>
+                          ) : org.aiIncludedLimit !== null && org.aiIncludedConversations > 0 ? (
+                            <small>
+                              {" "}
+                              · {org.aiIncludedConversations.toLocaleString("es")}/{org.aiIncludedLimit.toLocaleString("es")}
+                            </small>
+                          ) : null}
+                        </td>
                         <td>
                           <span className="pc-alerts">
                             {org.numbersWithError > 0 && (
@@ -341,6 +403,17 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
                               <span className="pc-warn" title="Al tope de contactos de su plan: candidata a subir de plan">
                                 contactos al tope
                               </span>
+                            )}
+                            {aiCapped(org) ? (
+                              <span className="pc-danger" title="Tocó el tope de gasto de la IA incluida: el agente no responde hasta el mes que viene. Revisa si hay un bucle o abuso.">
+                                IA al tope de gasto
+                              </span>
+                            ) : (
+                              aiFull(org) && (
+                                <span className="pc-warn" title="Llegó al cupo de conversaciones con IA incluida: los chats nuevos pasan a su equipo. Candidata a subir de plan o a poner su clave.">
+                                  IA al cupo
+                                </span>
+                              )
                             )}
                             {!org.onboardingCompletedAt && <span className="pc-muted" title="Primeros pasos sin terminar">en curso</span>}
                             {org.numbersWithError === 0 && org.failedMessages24h === 0 && org.onboardingCompletedAt && <span className="pc-ok"><NavIcon name="check" size={13} /></span>}

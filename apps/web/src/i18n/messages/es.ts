@@ -241,6 +241,8 @@ export const es: Messages = {
     copilotConfigure: "Configurar",
     copilotTitle: "Copiloto",
     copilotOwnKey: "Con tu clave de {provider} · sin créditos",
+    copilotIncluded: "IA de Driony incluida en tu plan",
+    copilotIncludedExhausted: "La IA incluida en tu plan llegó a su límite este mes. Conecta tu clave de IA para seguir usándola.",
     copilotSummarize: "Resumir conversación",
     copilotSummarizing: "Resumiendo…",
     copilotNextStep: "Siguiente paso",
@@ -341,6 +343,8 @@ export const es: Messages = {
     aiNoKeyTitle: "La IA no puede responder en este chat",
     aiNoKeyBody: "Tu empresa aún no tiene clave de IA. Hasta que la pongas, los chats en autopilot pasan a tu equipo en vez de recibir respuesta automática.",
     aiNoKeyAction: "Configurar la clave",
+    aiIncludedExhaustedBody: "La IA incluida en tu plan llegó a su límite de uso este mes. Hasta el mes que viene, los chats en autopilot pasan a tu equipo.",
+    aiIncludedAction: "Conectar mi clave",
     // Hilo
     emptyThread: "Todavía no hay mensajes",
     emptyThreadHint: "Escribe abajo para empezar la conversación.",

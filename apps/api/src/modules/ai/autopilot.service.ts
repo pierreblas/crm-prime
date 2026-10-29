@@ -8,6 +8,7 @@ import {
   ConversationStatus,
   DEFAULT_HANDOFF_MESSAGE,
   HANDOFF_REASON_MEDIA,
+  HANDOFF_REASON_AI_INCLUDED_EXHAUSTED,
   HANDOFF_REASON_NO_AI_KEY,
   MessageAuthor,
   MessageType,
@@ -236,12 +237,18 @@ export class AutopilotService {
       // Sin clave de IA no hay agente: nada de respuestas simuladas a clientes
       // reales. El chat pasa al equipo con el motivo a la vista (y, como el
       // traspaso lo deja en copilot, no se repite con cada mensaje).
-      if (!(await this.aiSettings.status()).ready) {
-        this.logger.warn(`Autopilot sin clave de IA en ${conversationId}: el chat pasa al equipo`);
+      // Igual si se agotó la IA incluida del plan, con el motivo que toca.
+      const ai = await this.aiSettings.status();
+      if (!ai.ready) {
+        const exhausted = !!ai.included?.exhausted;
+        this.logger.warn(
+          `Autopilot ${exhausted ? "con la IA incluida agotada" : "sin clave de IA"} en ${conversationId}: el chat pasa al equipo`,
+        );
         if (convo.status !== ConversationStatus.PENDING) {
           await this.messaging.setStatus(conversationId, ConversationStatus.PENDING);
         }
-        await this.handoff(conversationId, convo.orgId, HANDOFF_REASON_NO_AI_KEY, false, convo.contact);
+        const reason = exhausted ? HANDOFF_REASON_AI_INCLUDED_EXHAUSTED : HANDOFF_REASON_NO_AI_KEY;
+        await this.handoff(conversationId, convo.orgId, reason, false, convo.contact);
         return;
       }
 

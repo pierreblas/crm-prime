@@ -176,8 +176,8 @@ export function FlowAssistant({
 
               {t.meta && t.meta.provider === "fake" && (
                 <div style={fakeNote}>
-                  Sin API key: respuesta simulada. Configúrala en Ajustes ›
-                  Inteligencia Artificial.
+                  Sin IA disponible (sin clave, o la IA incluida llegó a su límite este mes): respuesta
+                  simulada. Revisa Ajustes › Inteligencia Artificial.
                 </div>
               )}
             </div>

@@ -549,10 +549,11 @@ export function ChatWindow({
           <div className="chat-handoff" role="alert" data-ai-key-banner>
             <NavIcon name="alert" size={15} />
             <span className="chat-handoff__text">
-              <strong>{t("inbox.aiNoKeyTitle")}</strong> · {t("inbox.aiNoKeyBody")}
+              <strong>{t("inbox.aiNoKeyTitle")}</strong> ·{" "}
+              {aiStatus.included?.exhausted ? t("inbox.aiIncludedExhaustedBody") : t("inbox.aiNoKeyBody")}
             </span>
             <Link href="/settings?tab=ai" className="btn btn-primary btn-sm">
-              {t("inbox.aiNoKeyAction")}
+              {aiStatus.included?.exhausted ? t("inbox.aiIncludedAction") : t("inbox.aiNoKeyAction")}
             </Link>
           </div>
         )}

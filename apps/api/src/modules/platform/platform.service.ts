@@ -5,8 +5,12 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { JwtService } from "@nestjs/jwt";
 import type { Queue } from "bullmq";
 import {
+  AI_INCLUDED_COUNTED,
+  AI_INCLUDED_MODEL,
   estimateAiCost,
+  includedAiCapUsd,
   PLANS,
+  planFor,
   type FeedbackKind,
   type FeedbackStatus,
   type PlatformAuditEntry,
@@ -30,6 +34,7 @@ import {
 } from "../../infra/queue/queue.constants";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { runUnscoped } from "../../infra/tenant/tenant.context";
+import { AiSettingsService } from "../ai/ai-settings.service";
 
 /**
  * Cifras de toda la plataforma para su operador.
@@ -122,7 +127,7 @@ export class PlatformService {
         numbers: n(totals?.numbers),
         coexistenceNumbers: n(totals?.coexistence),
         messages7d: n(totals?.messages7),
-        aiCostMonthUsd: [...(await this.monthCostByOrg()).values()].reduce((a, b) => a + b, 0),
+        ...(await this.aiOverview()),
         payingOrgs: n(totals?.paying),
         mrrUsd: mrr,
         expiring7d: n(totals?.expiring7),
@@ -145,8 +150,8 @@ export class PlatformService {
         ORDER BY o."createdAt" DESC
         LIMIT 500
       `;
-      const costs = await this.monthCostByOrg();
-      return rows.map((r) => this.toOrg(r, costs.get(r.id) ?? 0));
+      const ai = await this.monthAiByOrg();
+      return rows.map((r) => this.toOrg(r, ai.get(r.id)));
     });
   }
 
@@ -154,12 +159,12 @@ export class PlatformService {
     return runUnscoped("consola de plataforma: una empresa", async () => {
       const [row] = await this.prisma.$queryRaw<Array<OrgRow>>`${ORG_SELECT} WHERE o.id = ${id}`;
       if (!row) throw new NotFoundException("Empresa no encontrada");
-      const costs = await this.monthCostByOrg(id);
-      return this.toOrg(row, costs.get(id) ?? 0);
+      const ai = await this.monthAiByOrg(id);
+      return this.toOrg(row, ai.get(id));
     });
   }
 
-  private toOrg(r: OrgRow, aiCostMonthUsd: number): PlatformOrg {
+  private toOrg(r: OrgRow, ai: OrgAi | undefined): PlatformOrg {
     return {
       id: r.id,
       slug: r.slug,
@@ -179,7 +184,12 @@ export class PlatformService {
       failedMessages24h: Number(r.failed24),
       wonDeals30d: Number(r.won30),
       lastMessageAt: r.last_message_at?.toISOString() ?? null,
-      aiCostMonthUsd,
+      aiCostMonthUsd: (ai?.ownUsd ?? 0) + (ai?.platformUsd ?? 0),
+      aiPlatformCostMonthUsd: ai?.platformUsd ?? 0,
+      aiIncludedConversations: ai?.conversations ?? 0,
+      // Solo cuenta si el servidor tiene la IA incluida encendida.
+      aiIncludedLimit: AiSettingsService.includedEnabled() ? planFor(r.plan).aiConversations : null,
+      aiOwnKey: r.ai_own_key,
       onboardingCompletedAt: r.onboarding_completed_at?.toISOString() ?? null,
       planExpiresAt: r.planExpiresAt?.toISOString() ?? null,
       platformNotes: r.platformNotes,
@@ -213,10 +223,10 @@ export class PlatformService {
           capiEnabled: true,
         },
       });
-      const ai = await this.prisma.$queryRaw<Array<{ feature: string; model: string; input: bigint; output: bigint; calls: bigint }>>`
-        SELECT feature, model, sum("inputTokens")::bigint AS input, sum("outputTokens")::bigint AS output, count(*) AS calls
+      const ai = await this.prisma.$queryRaw<Array<{ source: string; feature: string; model: string; input: bigint; output: bigint; calls: bigint }>>`
+        SELECT source, feature, model, sum("inputTokens")::bigint AS input, sum("outputTokens")::bigint AS output, count(*) AS calls
         FROM ai_usage WHERE "orgId" = ${id} AND "createdAt" >= date_trunc('month', now())
-        GROUP BY 1, 2 ORDER BY 3 DESC
+        GROUP BY 1, 2, 3 ORDER BY 4 DESC
       `;
       const activity = await this.prisma.$queryRaw<Array<{ day: Date; inbound: bigint; outbound: bigint }>>`
         SELECT date_trunc('day', "createdAt")::date AS day,
@@ -266,6 +276,7 @@ export class PlatformService {
           capiEnabled: w.capiEnabled,
         })),
         ai: ai.map((r) => ({
+          source: r.source === "platform" ? ("platform" as const) : ("own" as const),
           feature: r.feature,
           model: r.model,
           inputTokens: n(r.input),
@@ -290,29 +301,82 @@ export class PlatformService {
   }
 
   /**
-   * Gasto estimado de IA del mes por empresa (lo pagan ellas con su clave; es
-   * para saber quién usa la IA). Precio por modelo, calculado al leer.
+   * IA del mes por empresa: gasto estimado con su clave (lo pagan ellas), con
+   * la IA incluida de Driony (lo paga la plataforma) y conversaciones del cupo.
+   * Precio por modelo, calculado al leer; a precio de lista, sin la caché.
    */
-  private async monthCostByOrg(orgId?: string): Promise<Map<string, number>> {
-    const rows = await runUnscoped("consola de plataforma: consumo de IA", () =>
-      orgId
-        ? this.prisma.$queryRaw<Array<{ orgId: string; model: string; input: bigint; output: bigint }>>`
-            SELECT "orgId", model, sum("inputTokens")::bigint AS input, sum("outputTokens")::bigint AS output
-            FROM ai_usage WHERE "orgId" = ${orgId} AND "createdAt" >= date_trunc('month', now())
-            GROUP BY 1, 2
-          `
-        : this.prisma.$queryRaw<Array<{ orgId: string; model: string; input: bigint; output: bigint }>>`
-            SELECT "orgId", model, sum("inputTokens")::bigint AS input, sum("outputTokens")::bigint AS output
-            FROM ai_usage WHERE "createdAt" >= date_trunc('month', now())
-            GROUP BY 1, 2
-          `,
+  private async monthAiByOrg(orgId?: string): Promise<Map<string, OrgAi>> {
+    const only = orgId ? Prisma.sql`AND "orgId" = ${orgId}` : Prisma.empty;
+    const [costs, convs] = await runUnscoped("consola de plataforma: consumo de IA", () =>
+      Promise.all([
+        this.prisma.$queryRaw<Array<{ orgId: string; source: string; model: string; input: bigint; output: bigint }>>`
+          SELECT "orgId", source, model, sum("inputTokens")::bigint AS input, sum("outputTokens")::bigint AS output
+          FROM ai_usage WHERE "createdAt" >= date_trunc('month', now()) ${only}
+          GROUP BY 1, 2, 3
+        `,
+        this.prisma.$queryRaw<Array<{ orgId: string; count: bigint }>>`
+          SELECT "orgId", count(DISTINCT "conversationId") AS count
+          FROM ai_usage
+          WHERE source = 'platform' AND "conversationId" IS NOT NULL
+            AND feature = ANY(${[...AI_INCLUDED_COUNTED]}::text[])
+            AND "createdAt" >= date_trunc('month', now() AT TIME ZONE 'UTC') ${only}
+          GROUP BY 1
+        `,
+      ]),
     );
-    const out = new Map<string, number>();
-    for (const r of rows) {
-      const cost = estimateAiCost(r.model, Number(r.input), Number(r.output)) ?? 0;
-      out.set(r.orgId, (out.get(r.orgId) ?? 0) + cost);
+    const out = new Map<string, OrgAi>();
+    const get = (id: string) => out.get(id) ?? out.set(id, { ownUsd: 0, platformUsd: 0, conversations: 0 }).get(id)!;
+    for (const r of costs) {
+      const input = Number(r.input);
+      const output = Number(r.output);
+      const cost = estimateAiCost(r.model, input, output) ?? (r.source === "platform" ? estimateAiCost(AI_INCLUDED_MODEL, input, output) ?? 0 : 0);
+      const acc = get(r.orgId);
+      if (r.source === "platform") acc.platformUsd += cost;
+      else acc.ownUsd += cost;
     }
+    for (const r of convs) get(r.orgId).conversations = Number(r.count);
     return out;
+  }
+
+  /** Resumen de la IA del mes para las cifras globales. */
+  private async aiOverview(): Promise<Pick<PlatformOverview, "aiCostMonthUsd" | "aiIncluded">> {
+    const [byOrg, plans] = await Promise.all([
+      this.monthAiByOrg(),
+      runUnscoped("consola de plataforma: planes", () =>
+        this.prisma.organization.findMany({ select: { id: true, plan: true } }),
+      ),
+    ]);
+    const planOf = new Map(plans.map((o) => [o.id, o.plan]));
+    let own = 0;
+    let platform = 0;
+    let conversations = 0;
+    let orgsUsing = 0;
+    let orgsFull = 0;
+    let orgsCapped = 0;
+    for (const [id, a] of byOrg) {
+      own += a.ownUsd;
+      platform += a.platformUsd;
+      conversations += a.conversations;
+      if (a.platformUsd > 0) orgsUsing++;
+      const limit = planFor(planOf.get(id)).aiConversations;
+      if (limit !== null && limit > 0) {
+        if (a.conversations >= limit) orgsFull++;
+        if (a.platformUsd >= includedAiCapUsd(limit)) orgsCapped++;
+      }
+    }
+    return {
+      aiCostMonthUsd: own + platform,
+      aiIncluded: {
+        enabled: AiSettingsService.includedEnabled(),
+        model: env("AI_INCLUDED_MODEL") ?? AI_INCLUDED_MODEL,
+        platformCostUsd: platform,
+        ownCostUsd: own,
+        conversations,
+        orgsUsing,
+        orgsFull,
+        orgsCapped,
+      },
+    };
   }
 
   /** Cambiar de plan, vencimiento, notas, o suspender/reactivar. `organizations` no lleva RLS. */
@@ -566,6 +630,13 @@ interface OrgRow {
   won30: bigint;
   last_message_at: Date | null;
   onboarding_completed_at: Date | null;
+  ai_own_key: boolean;
+}
+
+interface OrgAi {
+  ownUsd: number;
+  platformUsd: number;
+  conversations: number;
 }
 
 // La proyección de una empresa para la consola, compartida por el listado y la ficha.
@@ -582,7 +653,8 @@ const ORG_SELECT = Prisma.sql`
     (SELECT count(*) FROM messages m WHERE m."orgId" = o.id AND m.status = 'FAILED' AND m.direction = 'OUTBOUND' AND m."createdAt" >= now() - interval '24 hours') AS failed24,
     (SELECT count(*) FROM deals d JOIN pipeline_stages s ON s.id = d."stageId" WHERE d."orgId" = o.id AND s."isWon" AND coalesce(d."closedAt", d."updatedAt") >= now() - interval '30 days') AS won30,
     (SELECT max(m."createdAt") FROM messages m WHERE m."orgId" = o.id)                            AS last_message_at,
-    (SELECT s."completedAt" FROM onboarding_states s WHERE s."orgId" = o.id)                     AS onboarding_completed_at
+    (SELECT s."completedAt" FROM onboarding_states s WHERE s."orgId" = o.id)                     AS onboarding_completed_at,
+    EXISTS (SELECT 1 FROM ai_settings a WHERE a."orgId" = o.id AND (a."openaiKeyEnc" IS NOT NULL OR a."anthropicKeyEnc" IS NOT NULL)) AS ai_own_key
   FROM organizations o
 `;
 

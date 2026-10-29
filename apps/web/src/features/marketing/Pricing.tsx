@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { FEATURE_LABELS, formatPlanLimit, formatRetention, PLAN_FEATURES, PLAN_KEYS, PLANS, SELF_HOSTED_PLAN, type PlanDef, type PlanLimit } from "@crm/shared";
+import { FEATURE_LABELS, formatAiIncluded, formatPlanLimit, formatRetention, PLAN_FEATURES, PLAN_KEYS, PLANS, SELF_HOSTED_PLAN, type PlanDef, type PlanLimit } from "@crm/shared";
 import "./landing.css";
 import { Arrow, Check, CONTACT, GITHUB, IconGit, LpThemeScript, MarketingFooter, MarketingHeader, Minus } from "./chrome";
 
 /** Lo que llevan todos los planes de la nube, también el gratis. */
 const INCLUDED = [
   "Bandeja en tiempo real, multi-número",
-  "Agentes de IA con tu propia clave",
+  "Agente de IA incluido, o con tu propia clave sin cupo",
   "Embudos con automatizaciones por etapa",
   "Flujos y respuestas por palabra clave",
   "Catálogo con precios en varias monedas",
@@ -38,7 +38,7 @@ const FAQ = [
   },
   {
     q: "¿La inteligencia artificial está incluida en el precio?",
-    a: "El agente, los flujos y el asistente sí. Los tokens los pagas a tu proveedor (OpenAI, Anthropic o cualquier API compatible) con tu propia clave y a su precio, sin margen nuestro. Driony te muestra el gasto de cada agente y te deja ponerle un tope.",
+    a: "Sí. Cada plan trae un cupo de conversaciones atendidas por la IA de Driony al mes (100 en Gratis, 2.000 en Pro y 10.000 en Empresa), sin claves ni configuración. Cuenta cada conversación que el agente atiende en el mes, no cada mensaje. Al llegar al cupo, el agente termina las que ya atendía y los chats nuevos pasan a tu equipo hasta el mes siguiente. Si conectas tu propia clave de OpenAI, Anthropic o cualquier API compatible, no hay cupo, eliges el modelo de cada agente y pagas a tu proveedor a su precio, sin margen nuestro.",
   },
   {
     q: "¿Y las conversaciones de WhatsApp?",
@@ -195,6 +195,14 @@ function PlanCard({ plan, highlight }: { plan: PlanDef; highlight: boolean }) {
             {formatPlanLimit(k, plan.limits[k])}
           </div>
         ))}
+        {plan.aiConversations !== null && (
+          <div className="lp-row" title="Con tu propia clave de IA no hay cupo.">
+            <span className="lp-row__ic">
+              <Check />
+            </span>
+            {formatAiIncluded(plan.aiConversations)}
+          </div>
+        )}
         <div className="lp-row">
           <span className="lp-row__ic">
             <Check />

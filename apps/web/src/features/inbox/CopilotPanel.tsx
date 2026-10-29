@@ -13,7 +13,7 @@ type Turn = { role: "user" | "assistant"; content: string };
 
 /**
  * Copiloto de la conversación: resumen, preguntas sobre el cliente y su
- * memoria. Todo con la clave de IA de la empresa; sin clave, se explica cómo
+ * memoria. Con la clave de IA de la empresa o la IA incluida en su plan; sin IA, se explica cómo
  * activarlo en vez de mostrar botones que fallarían.
  */
 export function CopilotPanel({
@@ -68,14 +68,16 @@ export function CopilotPanel({
         </span>
         {status && ready && (
           <span className="copilot__key">
-            {t("inbox.copilotOwnKey", { provider: PROVIDER_LABEL[status.provider] ?? status.provider })}
+            {status.source === "included"
+              ? t("inbox.copilotIncluded")
+              : t("inbox.copilotOwnKey", { provider: PROVIDER_LABEL[status.provider] ?? status.provider })}
           </span>
         )}
       </header>
 
       {status && !ready && (
         <div className="copilot__nokey">
-          <span>{t("inbox.copilotNoKey")}</span>
+          <span>{status.included?.exhausted ? t("inbox.copilotIncludedExhausted") : t("inbox.copilotNoKey")}</span>
           <Link href="/settings?tab=ai" className="btn btn-ghost btn-sm">
             {t("inbox.copilotConfigure")}
           </Link>

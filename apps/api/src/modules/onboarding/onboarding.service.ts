@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import {
   ONBOARDING_STEP_KEYS,
+  planFor,
   type OnboardingDto,
   type OnboardingStep,
   type OnboardingStepKey,
@@ -94,9 +95,13 @@ export class OnboardingService {
       (a) => !a.isDefault || a.systemPrompt.trim() !== PROMPT_POR_DEFECTO || a.welcomeEnabled,
     );
 
-    // Con key propia, o con las de la plataforma prestadas, la IA responde.
+    // Con key propia, con las de la plataforma prestadas, o con la IA
+    // incluida en su plan, la IA responde sin que la empresa haga nada.
     const aiReady =
-      !!aiSetting?.openaiKeyEnc || !!aiSetting?.anthropicKeyEnc || AiSettingsService.platformKeysShared();
+      !!aiSetting?.openaiKeyEnc ||
+      !!aiSetting?.anthropicKeyEnc ||
+      AiSettingsService.platformKeysShared() ||
+      (AiSettingsService.includedEnabled() && (await this.planHasIncludedAi()));
 
     return {
       whatsapp: { done: whatsapp > 0, count: whatsapp },
@@ -108,6 +113,14 @@ export class OnboardingService {
       first_chat: { done: conversations > 0, count: conversations },
       team: { done: users > 1, count: users },
     };
+  }
+
+  private async planHasIncludedAi(): Promise<boolean> {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: this.tenant.orgId() },
+      select: { plan: true },
+    });
+    return (planFor(org?.plan).aiConversations ?? 0) > 0;
   }
 
   async skip(key: OnboardingStepKey, skipped: boolean): Promise<void> {

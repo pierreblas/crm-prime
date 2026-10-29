@@ -34,6 +34,7 @@ import { smBtn } from "@/components/ui";
 import { PromptAssistant } from "./PromptAssistant";
 import { PromptOverlay, PromptStatusLine } from "./PromptOverlay";
 import { FollowUpsEditor, defaultFollowUpStep } from "./FollowUpsEditor";
+import { useAiStatus } from "@/features/copilot/useAiStatus";
 import {
   EFFORT_LABEL,
   MODEL_OPTIONS,
@@ -279,6 +280,8 @@ export function BotEditor({
   // Lo que el agente puede consultar (catálogo) e insertar (contacto): para la ayuda de «Cómo debe atender».
   const { data: productFieldDefs = [] } = useQuery({ queryKey: ["product-fields"], queryFn: fetchProductFields });
   const { data: contactFieldDefs = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
+  // Con la IA incluida el modelo es el de la plataforma: «Modelo y gasto» lo dice.
+  const { data: aiStatus } = useAiStatus();
   const [form, setForm] = useState<Form>(() => toForm(bot));
   // Última versión guardada: con ella se sabe si hay cambios pendientes.
   const [saved, setSaved] = useState<Form>(() => toForm(bot));
@@ -771,10 +774,24 @@ export function BotEditor({
                   </p>
                 )}
               </div>
-              <Hint>Los modelos de OpenAI necesitan tu clave de OpenAI; los Claude, tu clave de Anthropic (Ajustes › Inteligencia Artificial).</Hint>
+              {aiStatus?.source === "included" ? (
+                <Hint>
+                  Ahora tu agente usa la IA incluida en tu plan, con el modelo {aiStatus.model}. El modelo que elijas aquí se usa
+                  cuando conectes tu clave de OpenAI o Anthropic (Ajustes › Inteligencia Artificial).
+                </Hint>
+              ) : (
+                <Hint>Los modelos de OpenAI necesitan tu clave de OpenAI; los Claude, tu clave de Anthropic (Ajustes › Inteligencia Artificial).</Hint>
+              )}
             </Card>
 
-            <Card title="Límite de gasto al mes" subtitle="Al llegar al límite deja de responder hasta el mes siguiente y sus chats pasan a tu equipo. El gasto se corta de verdad.">
+            <Card
+              title="Límite de gasto al mes"
+              subtitle={
+                aiStatus?.source === "included"
+                  ? "Con la IA incluida no pagas por uso: lo que cuenta es el cupo de conversaciones de tu plan. Este límite sirve sobre todo con tu propia clave."
+                  : "Al llegar al límite deja de responder hasta el mes siguiente y sus chats pasan a tu equipo. El gasto se corta de verdad."
+              }
+            >
               <BudgetPicker model={form.model} value={form.monthlyTokenBudget} onChange={(v) => set("monthlyTokenBudget", v)} />
               {!isNew && bot && <BudgetMeter bot={bot} limit={form.monthlyTokenBudget} model={form.model} />}
             </Card>

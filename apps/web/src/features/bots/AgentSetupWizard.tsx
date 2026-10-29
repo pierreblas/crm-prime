@@ -394,7 +394,7 @@ export function AgentSetupWizard({
                   <p className="aw-why">
                     {ai.data?.ready
                       ? "Las redactó la IA con tus respuestas. Léelas como si fueran el manual de alguien nuevo: cambia lo que no encaje."
-                      : "Sin clave de IA no podemos redactarlas por ti: te dejamos una base con tus respuestas. Actívala en Ajustes › Inteligencia Artificial para mejorarlas."}
+                      : "Ahora mismo no hay IA disponible para redactarlas por ti: te dejamos una base con tus respuestas. Revisa Ajustes › Inteligencia Artificial para mejorarlas."}
                   </p>
                   {write.isPending ? (
                     <div className="aw-writing">

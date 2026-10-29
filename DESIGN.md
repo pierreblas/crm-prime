@@ -438,8 +438,15 @@ hora; la fila activa lleva el degradado violeta y la barra indicadora.
 Franja a todo ancho en degradado Violeta Profundo → Caliente, texto blanco en
 Space Grotesk mayúsculas con puntos luminosos, en marquesina lenta (se pausa al
 pasar el cursor y se detiene con `prefers-reduced-motion`). La misma materia
-cierra la página: sección a pantalla completa con rejilla blanca tenue, la marca en
-contorno y el botón primario invertido.
+cierra la página: sección a pantalla completa, limpia (sin rejilla ni marca de
+fondo), con el botón primario invertido.
+
+### Conversación en vivo (hero de la landing)
+Una venta de principio a fin en vez de una captura reducida: el chat (burbuja
+entrante en Capa 2, saliente en violeta, sello «IA») y al lado el registro de lo
+que hace el CRM, con un hilo vertical y el paso actual con halo violeta. Se
+reproduce una vez al cargar y se repite con «Ver otra vez». El HTML del servidor
+trae el estado final, así que sin JS o con movimiento reducido se ve completa.
 
 ## 6. Do's and Don'ts
 

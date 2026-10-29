@@ -246,6 +246,44 @@ test("la consola de plataforma agrega todas las empresas con el rol restringido"
   assert.ok(Array.isArray(salud.numbersWithError) && Array.isArray(salud.failedByOrg) && Array.isArray(salud.webhooksFailing));
 });
 
+test("la IA incluida se cuenta con el rol restringido, por empresa y en la consola", async () => {
+  // Cupo de la IA de Driony: SQL crudo sobre ai_usage desde tres sitios (el
+  // cupo, Ajustes › Plan y la consola). Con RLS, cada uno ve lo que debe.
+  const { AiUsageService } = await import("../src/modules/ai/ai-usage.service");
+  const { PlansService } = await import("../src/modules/plans/plans.service");
+  const { PlatformService } = await import("../src/modules/platform/platform.service");
+  const fila = (orgId: string, conversationId: string, source: string, feature = "agent") => ({
+    orgId, feature, model: "gpt-5-mini", inputTokens: 10_000, outputTokens: 1_000, conversationId, source,
+  });
+  await ctx.runInOrg("o_a", () =>
+    prisma.aiUsage.createMany({
+      data: [fila("o_a", "cv_a1", "platform"), fila("o_a", "cv_a1", "platform"), fila("o_a", "cv_a2", "platform", "copilot"), fila("o_a", "cv_a3", "own")],
+    }),
+  );
+  await ctx.runInOrg("o_b", () => prisma.aiUsage.create({ data: fila("o_b", "cv_b1", "platform") }));
+
+  const usage = new AiUsageService(prisma, { orgId: () => "o_a" } as any);
+  const inc = await ctx.runInOrg("o_a", () => usage.includedUsage("o_a"));
+  assert.equal(inc.conversations, 1, "solo cuentan las del agente con la IA de Driony, y solo las suyas");
+  assert.ok(inc.costUsd > 0);
+  assert.equal(await ctx.runInOrg("o_a", () => usage.countedThisMonth("o_a", "cv_a1")), true);
+  assert.equal(await ctx.runInOrg("o_a", () => usage.countedThisMonth("o_a", "cv_b1")), false, "la conversación de otra empresa no cuenta");
+
+  const plans = new PlansService(prisma, { orgId: () => "o_a" } as any);
+  assert.equal((await ctx.runInOrg("o_a", () => plans.usage())).aiConversations, 1);
+
+  const colaRota = { getJobCounts: async () => { throw new Error("sin redis"); } } as any;
+  const svc = new PlatformService(prisma, {} as any, colaRota, colaRota, colaRota, colaRota, colaRota, colaRota, colaRota);
+  const a = (await svc.orgs("")).find((o) => o.id === "o_a")!;
+  assert.equal(a.aiIncludedConversations, 1);
+  assert.ok(a.aiPlatformCostMonthUsd > 0 && a.aiCostMonthUsd > a.aiPlatformCostMonthUsd, "separa lo de Driony de lo suyo");
+  const overview = await svc.overview();
+  assert.equal(overview.aiIncluded.conversations, 2, "suma las de todas las empresas");
+  assert.equal(overview.aiIncluded.orgsUsing, 2);
+  const ficha = await svc.detail("o_a");
+  assert.ok(ficha.ai.some((r) => r.source === "platform") && ficha.ai.some((r) => r.source === "own"));
+});
+
 test("el panel funciona con el rol restringido y solo cuenta lo de su empresa", async () => {
   // Son consultas SQL crudas: la capa de Prisma no las filtra, así que se
   // comprueba aquí que llevan el filtro de empresa y que RLS no las rompe.

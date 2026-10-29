@@ -173,9 +173,11 @@ export default function TermsPage() {
       <Section id="ia" title="6. Inteligencia artificial">
         <ul>
           <li>
-            Los agentes de IA funcionan con tu propia clave de OpenAI, Anthropic u otro proveedor compatible,
-            y ese proveedor te cobra directamente. Driony registra el gasto y te deja ponerle un tope por
-            agente.
+            Cada plan incluye un cupo mensual de conversaciones atendidas con la IA de Driony. Al llegar al
+            cupo, el agente termina las conversaciones que ya atendía y las nuevas pasan a tu equipo hasta el
+            mes siguiente. Para evitar abusos, la IA incluida tiene además un límite de uso mensual. Si conectas tu
+            propia clave de OpenAI, Anthropic u otro proveedor compatible, no hay cupo y ese proveedor te
+            cobra directamente. Driony registra el gasto y te deja ponerle un tope por agente.
           </li>
           <li>
             Las respuestas las genera un modelo de lenguaje a partir de tus instrucciones, tu catálogo y tu

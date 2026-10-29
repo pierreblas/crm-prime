@@ -51,6 +51,12 @@ export const planDefSchema = z.object({
      */
     activeContacts: z.number().nullable(),
   }),
+  /**
+   * Conversaciones al mes que el agente atiende con la IA de Driony, para
+   * quien no conecta su propia clave. Con clave propia no hay cupo. null =
+   * sin IA de Driony (instalación propia: la clave es del servidor).
+   */
+  aiConversations: z.number().nullable(),
   /** Días que se guardan los adjuntos de los mensajes. null = sin plazo (instalación propia). */
   mediaRetentionDays: z.number().nullable(),
   features: z.object({
@@ -85,6 +91,7 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     tagline: "Para probar Driony con un número y el agente de IA.",
     priceUsd: 0,
     limits: { numbers: 1, users: 2, contacts: 500, deals: 200, activeContacts: 300 },
+    aiConversations: 100,
     mediaRetentionDays: 90,
     features: { coexistence: false, broadcasts: false, api: false, prioritySupport: false },
   },
@@ -94,6 +101,7 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     tagline: "Para equipos que venden por WhatsApp todos los días.",
     priceUsd: 49,
     limits: { numbers: 3, users: 10, contacts: 5000, deals: 2000, activeContacts: 3000 },
+    aiConversations: 2000,
     mediaRetentionDays: 365,
     features: { coexistence: true, broadcasts: true, api: true, prioritySupport: false },
   },
@@ -103,6 +111,7 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     tagline: "Varios números, equipo grande y soporte prioritario.",
     priceUsd: 149,
     limits: { numbers: null, users: null, contacts: null, deals: null, activeContacts: 15000 },
+    aiConversations: 10000,
     mediaRetentionDays: 1095,
     features: { coexistence: true, broadcasts: true, api: true, prioritySupport: true },
   },
@@ -115,6 +124,7 @@ export const SELF_HOSTED_PLAN: PlanDef = {
   tagline: "Tu servidor, tus claves, sin límites.",
   priceUsd: null,
   limits: { numbers: null, users: null, contacts: null, deals: null, activeContacts: null },
+  aiConversations: null,
   mediaRetentionDays: null,
   features: { coexistence: true, broadcasts: true, api: true, prioritySupport: false },
 };
@@ -144,4 +154,10 @@ export function formatRetention(days: number | null): string {
     return `Adjuntos guardados ${y} ${y === 1 ? "año" : "años"}`;
   }
   return `Adjuntos guardados ${days} días`;
+}
+
+/** "100 conversaciones con IA incluida al mes", o "" si el plan no la trae. */
+export function formatAiIncluded(n: number | null): string {
+  if (n === null) return "";
+  return `${n.toLocaleString("es")} conversaciones con IA incluida al mes`;
 }

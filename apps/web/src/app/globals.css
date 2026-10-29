@@ -2273,6 +2273,42 @@ code {
 .byok span {
   color: var(--text);
 }
+/* IA de Driony agotada: mismo bloque, en tono de aviso. */
+.byok.is-warn {
+  border-color: rgba(224, 183, 102, 0.4);
+  background: rgba(224, 183, 102, 0.08);
+}
+.byok.is-warn > svg {
+  color: #e0b766;
+}
+.byok__meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.byok .byok__bar {
+  flex: 1;
+  max-width: 260px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.byok__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--positive);
+}
+.byok.is-warn .byok__bar i {
+  background: #e0b766;
+}
+.byok .byok__count {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ── Conocimiento ─────────────────────────────────────────── */
 .kb {

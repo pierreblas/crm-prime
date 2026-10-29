@@ -4,13 +4,25 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import "./landing.css";
 import { Arrow, Check, GITHUB, IconGit, LpThemeScript, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
+import { HeroChat } from "./HeroChat";
+
+// Antes y después, emparejados: cada problema al lado de lo que lo resuelve.
+const COMPARE = [
+  ["Leads que esperan horas por una respuesta", "Respuesta en segundos, las 24 horas"],
+  ["Mensajes que se pierden entre vendedores", "Todo en una bandeja, con dueño claro"],
+  ["Responder uno por uno, todo el día", "La IA responde y califica por ti"],
+  ["Sin saber en qué quedó cada conversación", "Cada lead con su historial, etapa y notas"],
+  ["Leads que se enfrían sin que nadie lo note", "Cada conversación entra al embudo y se asigna sola"],
+  ["Comprobantes en foto que nadie revisa a tiempo", "La IA entiende la foto y pasa el chat a tu equipo"],
+  ["Anuncios que optimizan a clics, no a ventas", "Meta aprende de tus ventas reales y trae mejores leads"],
+];
 
 // Frases de la banda violeta. Se pintan dos veces para que la marquesina
 // haga un bucle sin salto.
 const BAND_ITEMS = [
   "Tiempo real",
   "Multi-número",
-  "Tu propio modelo de IA",
+  "IA incluida o tu propia clave",
   "Meta Business Partner",
   "Anuncios que aprenden de tus ventas",
   "Gasto bajo control",
@@ -25,7 +37,7 @@ const FAQ = [
   },
   {
     q: "¿Cuánto cuesta la inteligencia artificial?",
-    a: "La IA se paga a tu proveedor (OpenAI, Anthropic o cualquier API compatible) con tu propia clave, no a Driony. Cada respuesta registra sus tokens y su coste en dólares, y puedes ponerle un tope mensual a cada agente.",
+    a: "Cada plan trae conversaciones con IA incluidas al mes (100 en Gratis, 2.000 en Pro y 10.000 en Empresa), sin configurar nada. Si prefieres otro modelo o no tener cupo, conectas tu clave de OpenAI, Anthropic o cualquier API compatible y pagas a tu proveedor a su precio, sin recargo. Cada respuesta registra sus tokens y su coste, y puedes ponerle un tope mensual a cada agente.",
   },
   {
     q: "¿Qué incluye empezar gratis en la nube?",
@@ -126,8 +138,8 @@ export function Landing() {
               <div className="lp-hero__trust lp-anim" style={{ animationDelay: "0.32s" }}>
                 <Check />
                 <span>
-                  <b>Sin tarjeta.</b> Conectas tu número en minutos y usas la IA con tu propia
-                  clave. Código abierto.
+                  <b>Sin tarjeta.</b> Conectas tu número en minutos y el agente de IA ya viene
+                  incluido. Código abierto.
                 </span>
               </div>
               <div className="lp-partner lp-anim" style={{ animationDelay: "0.4s" }} title="Driony forma parte del programa de partners de Meta">
@@ -139,16 +151,9 @@ export function Landing() {
               </div>
             </div>
 
-            <figure className="lp-shot lp-shot--hero lp-anim" style={{ animationDelay: "0.2s" }}>
-              <img
-                src="/landing/bandeja.webp"
-                alt="La bandeja de Driony: conversaciones de WhatsApp de varios números, con filtros de pendientes y el agente de IA en modo Copilot"
-                width={2160}
-                height={1350}
-                decoding="async"
-                fetchPriority="high"
-              />
-            </figure>
+            <div className="lp-anim" style={{ animationDelay: "0.2s" }}>
+              <HeroChat />
+            </div>
           </div>
         </section>
 
@@ -188,8 +193,32 @@ export function Landing() {
               </p>
             </div>
 
+            <figure className="lp-stage lp-reveal">
+              <div className="lp-shot">
+                <img
+                  src="/landing/bandeja.webp"
+                  alt="La bandeja de Driony: conversaciones de WhatsApp de varios números, con filtros de pendientes y el agente de IA en modo Copilot"
+                  width={2160}
+                  height={1350}
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+              <figcaption className="lp-stage__notes">
+                <p>
+                  <b>Todos tus números, una bandeja.</b> En vivo, con dueño claro y el tiempo que lleva esperando cada cliente.
+                </p>
+                <p>
+                  <b>La IA a la vista.</b> Responde sola, te sugiere la respuesta o se aparta: lo eliges por conversación.
+                </p>
+                <p>
+                  <b>Nada se queda sin dueño.</b> Filtros de pendientes, sin asignar y míos, y avisos cuando alguien espera.
+                </p>
+              </figcaption>
+            </figure>
+
             <div className="lp-bento">
-              <article className="lp-card lp-card--wide lp-card--feature lp-reveal">
+              <article className="lp-card lp-card--full lp-card--feature lp-reveal">
                 <div className="lp-card__media">
                   <img
                     src="/landing/agentes.webp"
@@ -202,12 +231,10 @@ export function Landing() {
                 </div>
                 <h3>Un agente de IA que atiende como tu mejor vendedor</h3>
                 <p>
-                  Responde al instante, entiende qué busca el cliente, lo califica y
-                  agenda. Responde con <b>tu</b> información: tu catálogo, tu base de
-                  conocimiento y los datos de cada contacto. Entiende las fotos y los
-                  comprobantes que le mandan, recuerda al cliente de una conversación a
-                  la siguiente y escribe por partes, como una persona. Cuando el caso lo
-                  pide, pasa el chat a tu equipo y lo deja claro en la bandeja.
+                  Responde con <b>tu</b> información: tu catálogo, tu base de
+                  conocimiento y los datos de cada contacto. Recuerda al cliente de una
+                  conversación a la siguiente, mueve la oportunidad de etapa y, cuando el
+                  caso lo pide, pasa el chat a tu equipo y lo deja claro en la bandeja.
                 </p>
                 <div className="lp-mini">
                   <span className="lp-chip">Responde 24/7</span>
@@ -216,24 +243,6 @@ export function Landing() {
                   <span className="lp-chip">Escribe como una persona</span>
                   <span className="lp-chip">Pasa a una persona cuando toca</span>
                 </div>
-              </article>
-
-              <article className="lp-card lp-card--tall lp-reveal">
-                <div className="lp-card__media">
-                  <img
-                    src="/landing/bandeja-lista.webp"
-                    alt="Lista de conversaciones con filtros: todas, sin asignar, mías, y cuánto lleva esperando cada cliente"
-                    width={540}
-                    height={930}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-                <h3>Bandeja en tiempo real</h3>
-                <p>
-                  Todos tus números en una bandeja viva, con dueño claro, avisos y
-                  el tiempo que lleva esperando cada cliente.
-                </p>
               </article>
 
               <article className="lp-card lp-card--half lp-reveal">
@@ -257,7 +266,7 @@ export function Landing() {
               </article>
 
               <article className="lp-card lp-card--half lp-reveal">
-                <div className="lp-card__media">
+                <div className="lp-card__media lp-card__media--canvas">
                   <img
                     src="/landing/flujos.webp"
                     alt="El editor visual de flujos: un bloque de mensaje seguido de una condición por palabras clave"
@@ -344,27 +353,15 @@ export function Landing() {
                 </div>
               </article>
 
-              <article className="lp-card lp-card--third lp-reveal">
-                <h3>Trae tu propio modelo</h3>
+              <article className="lp-card lp-card--two-thirds lp-reveal">
+                <h3>IA incluida, o tu modelo con tu clave</h3>
                 <p>
-                  OpenAI, Claude o cualquier API compatible con OpenAI, con <b>tu</b>{" "}
-                  clave. El modelo se elige <b>por agente</b>: uno rápido y barato para
-                  las preguntas de siempre, uno potente para la venta que lo merece.
-                </p>
-                <div className="lp-mini">
-                  <span className="lp-chip">OpenAI</span>
-                  <span className="lp-chip">Claude</span>
-                  <span className="lp-chip">API compatible con OpenAI</span>
-                  <span className="lp-chip">Modelo por agente</span>
-                </div>
-              </article>
-
-              <article className="lp-card lp-card--third lp-reveal">
-                <h3>Sabes cuánto gasta cada agente</h3>
-                <p>
-                  Cada respuesta registra sus tokens y su coste en dólares. Ves el
-                  gasto del mes por agente y le pones un <b>tope</b>: al llegar, la IA
-                  se detiene y la conversación pasa a tu equipo.
+                  Tu plan trae <b>conversaciones con IA incluidas</b> cada mes, sin
+                  configurar nada. Cuando quieras más, conectas OpenAI, Claude o
+                  cualquier API compatible con <b>tu</b> clave y eliges un modelo
+                  distinto <b>por agente</b>, sin cupo y sin recargo. Cada respuesta
+                  registra lo que costó y cada agente tiene su <b>tope</b> mensual: al
+                  llegar, la IA se detiene y la conversación pasa a tu equipo.
                 </p>
                 <div className="lp-meter" aria-hidden="true">
                   <div className="lp-meter__head">
@@ -419,45 +416,23 @@ export function Landing() {
             <div className="lp-head lp-reveal">
               <h2>La diferencia entre responder tarde y cerrar la venta.</h2>
             </div>
-            <div className="lp-compare lp-reveal">
-              <div className="lp-col lp-col--bad">
-                <div className="lp-col__label">WhatsApp a mano</div>
-                {[
-                  "Leads que esperan horas por una respuesta",
-                  "Mensajes que se pierden entre vendedores",
-                  "Responder uno por uno, todo el día",
-                  "Sin saber en qué quedó cada conversación",
-                  "Sin saber cuántos leads se enfriaron sin respuesta",
-                  "Comprobantes en foto que nadie revisa a tiempo",
-                  "Anuncios que optimizan a clics, no a ventas",
-                ].map((t) => (
-                  <div className="lp-row" key={t}>
-                    <span className="lp-row__ic">
-                      <Minus />
-                    </span>
-                    {t}
-                  </div>
-                ))}
+            <div className="lp-vs lp-reveal" role="table" aria-label="WhatsApp a mano frente a Driony">
+              <div className="lp-vs__row lp-vs__row--head" role="row">
+                <span role="columnheader">WhatsApp a mano</span>
+                <span role="columnheader">Con Driony</span>
               </div>
-              <div className="lp-col lp-col--good">
-                <div className="lp-col__label">Con Driony</div>
-                {[
-                  "Respuesta en segundos, las 24 horas",
-                  "Todo en una bandeja, con dueño claro",
-                  "La IA responde y califica por ti",
-                  "Cada lead con su historial, etapa y notas",
-                  "Cada conversación nueva entra al embudo y se asigna sola",
-                  "La IA entiende la foto y pasa el chat a tu equipo",
-                  "Meta aprende de tus ventas reales y trae mejores leads",
-                ].map((t) => (
-                  <div className="lp-row" key={t}>
-                    <span className="lp-row__ic">
-                      <Check />
-                    </span>
-                    {t}
-                  </div>
-                ))}
-              </div>
+              {COMPARE.map(([bad, good]) => (
+                <div className="lp-vs__row" role="row" key={bad}>
+                  <span className="lp-vs__bad" role="cell">
+                    <Minus />
+                    {bad}
+                  </span>
+                  <span className="lp-vs__good" role="cell">
+                    <Check />
+                    {good}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </section>

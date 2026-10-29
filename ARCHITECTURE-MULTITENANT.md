@@ -314,7 +314,7 @@ Aquí los dos modos divergen de verdad:
 | `WHATSAPP_APP_SECRET` | Del negocio, en Ajustes › Integraciones | **De la plataforma**, en el entorno |
 | Verify token | Del negocio | De la plataforma |
 | Cómo conecta el cliente | Pega token y Phone number ID a mano | **Embedded Signup**: autoriza y su WABA se suscribe a tu app |
-| Keys de IA (OpenAI, Anthropic) | Del negocio: BD con respaldo en el `.env` | **De cada empresa**, en Ajustes › IA. Las del entorno son de la plataforma y no se prestan salvo `AI_SHARED_KEYS=true` |
+| Keys de IA (OpenAI, Anthropic) | Del negocio: BD con respaldo en el `.env` | **De cada empresa**, en Ajustes › IA. Las del entorno son de la plataforma y no se prestan salvo `AI_SHARED_KEYS=true`, o con cupo por plan si `AI_INCLUDED=true` (IA de Driony, modelo fijo) |
 
 Es decir: `IntegrationSetting.whatsappAppSecret` es por organización en modo
 abierto, pero en SaaS el secreto es **uno solo, de la plataforma**, porque la

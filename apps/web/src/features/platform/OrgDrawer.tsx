@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PLANS, PLAN_KEYS, planFor, type PlatformOrgDetail, type UpdatePlatformOrgInput } from "@crm/shared";
+import { PLANS, PLAN_KEYS, includedAiCapUsd, planFor, type PlatformOrgDetail, type UpdatePlatformOrgInput } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
@@ -251,17 +251,25 @@ export function OrgDrawer({ id, myOrgSlug, onClose }: { id: string; myOrgSlug?: 
               {/* IA */}
               <section className="pc-section">
                 <h3>Inteligencia artificial · este mes</h3>
+                <p className="pc-muted" style={{ margin: "0 0 10px", fontSize: 13 }}>
+                  {org.aiOwnKey
+                    ? "Usa su propia clave de IA: no gasta la IA de Driony y el consumo lo paga ella."
+                    : org.aiIncludedLimit !== null
+                      ? `IA de Driony: ${org.aiIncludedConversations.toLocaleString("es")} de ${org.aiIncludedLimit.toLocaleString("es")} conversaciones · ${money(org.aiPlatformCostMonthUsd)} de ${money(includedAiCapUsd(org.aiIncludedLimit))} de tope (a precio de lista).`
+                      : "Sin clave propia y sin IA incluida: su agente no responde."}
+                </p>
                 {d.ai.length === 0 ? (
                   <p className="pc-empty">Sin uso de IA este mes.</p>
                 ) : (
                   <table className="pc-table is-compact">
                     <thead>
-                      <tr><th>Función</th><th>Modelo</th><th className="num">Llamadas</th><th className="num">Tokens</th><th className="num">USD</th></tr>
+                      <tr><th>Función</th><th>Clave</th><th>Modelo</th><th className="num">Llamadas</th><th className="num">Tokens</th><th className="num">USD lista</th></tr>
                     </thead>
                     <tbody>
                       {d.ai.map((r) => (
-                        <tr key={`${r.feature}-${r.model}`}>
+                        <tr key={`${r.source}-${r.feature}-${r.model}`}>
                           <td>{FEATURE_LABEL[r.feature] ?? r.feature}</td>
+                          <td>{r.source === "platform" ? <span className="pc-chip">Driony</span> : <span className="pc-muted">propia</span>}</td>
                           <td>{r.model}</td>
                           <td className="num">{r.calls.toLocaleString("es")}</td>
                           <td className="num">{(r.inputTokens + r.outputTokens).toLocaleString("es")}</td>

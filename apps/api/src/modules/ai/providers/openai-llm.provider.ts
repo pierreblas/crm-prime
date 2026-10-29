@@ -58,6 +58,7 @@ export class OpenAILLMProvider implements LLMProvider {
     apiKey: string;
     model: string;
     baseUrl: string;
+    included: boolean;
   }> {
     const c = await this.settings.resolveFor("openai");
     if (!c.apiKey) {
@@ -70,6 +71,7 @@ export class OpenAILLMProvider implements LLMProvider {
       model: c.model || env("OPENAI_MODEL") || "gpt-4o-mini",
       baseUrl:
         c.baseUrl ?? env("OPENAI_BASE_URL") ?? "https://api.openai.com/v1",
+      included: !!c.included,
     };
   }
 
@@ -89,9 +91,11 @@ export class OpenAILLMProvider implements LLMProvider {
       ...this.toOaiMessages(req.messages),
     ];
 
+    // Con la IA de Driony el modelo es fijo: el del bot solo vale con clave propia.
+    const model = cfg.included ? cfg.model : this.resolveModel(req.model, cfg.model);
     const body: Record<string, unknown> = {
-      model: this.resolveModel(req.model, cfg.model),
-      max_tokens: req.maxTokens ?? 1024,
+      model,
+      ...outputLimit(model, req.maxTokens ?? 1024, cfg.included ? "low" : req.effort),
       messages,
       ...(req.cacheKey ? { prompt_cache_key: req.cacheKey } : {}),
     };
@@ -148,7 +152,7 @@ export class OpenAILLMProvider implements LLMProvider {
       const cfg = await this.config();
       const data = await this.call<OaiResponse>("/chat/completions", {
         model: cfg.model,
-        max_tokens: 256,
+        ...outputLimit(cfg.model, 256, "low"),
         messages: [
           {
             role: "system",
@@ -279,4 +283,16 @@ export class OpenAILLMProvider implements LLMProvider {
         return reason ?? "end_turn";
     }
   }
+}
+
+/**
+ * Límite de salida según la familia del modelo. Los de razonamiento (gpt-5,
+ * o1/o3/o4) rechazan max_tokens: piden max_completion_tokens, que además
+ * incluye el razonamiento interno, así que se deja margen para que no se coma
+ * la respuesta. El esfuerzo del bot (low…max) se traduce a reasoning_effort.
+ */
+export function outputLimit(model: string, max: number, effort?: string): Record<string, unknown> {
+  if (!/^(gpt-5|o[134])/i.test(model)) return { max_tokens: max };
+  const reasoning = effort === "low" ? "low" : effort === "high" || effort === "xhigh" || effort === "max" ? "high" : "medium";
+  return { max_completion_tokens: max + 4096, reasoning_effort: reasoning };
 }

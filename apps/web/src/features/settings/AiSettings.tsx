@@ -13,6 +13,7 @@ import {
   type LlmProviderName,
 } from "@crm/shared";
 import { fetchAiSettings, testAiConnection, updateAiSettings } from "@/lib/bff";
+import { resetLabel } from "@/features/copilot/useAiStatus";
 import { toast } from "@/lib/toast";
 import { ghostBtn as ghostBase, primaryBtn, smBtn } from "@/components/ui";
 
@@ -91,28 +92,72 @@ export function AiSettings() {
   const sinRespaldo = saas && !data.platformKeys;
   const fallbackDe = (envVar: string) =>
     saas ? (data.platformKeys ? "la key de la plataforma" : null) : envVar;
+  // IA de Driony: sin clave propia, el agente usa la de la plataforma con
+  // cupo de conversaciones según el plan.
+  const included = data.included;
+  const conClavePropia = data.openaiKey.source === "db" || data.anthropicKey.source === "db";
+  const usaIncluida = !!included && !conClavePropia && !included.exhausted && data.provider !== "fake";
 
   return (
     <Panel
       title="Inteligencia Artificial"
       subtitle={
-        saas
+        included
+          ? "Tu plan trae IA incluida, con un cupo de conversaciones al mes: el agente, el copiloto y los asistentes la usan sin que configures nada. Aquí puedes conectar tu propia clave para elegir el modelo y no tener cupo."
+          : saas
           ? "Las API keys con las que trabajan tus agentes, el copilot del inbox y el asistente de flujos. Son tuyas: se guardan cifradas, solo las usa tu empresa y el consumo se carga a tu cuenta del proveedor."
           : "La API key que usarán los agentes IA, el copilot del inbox y el asistente de flujos. Se guarda cifrada; si la dejas vacía se usa la del archivo .env."
       }
     >
-      {/* La IA de Driony no se paga a Driony: va con la clave de la empresa. */}
-      <div className="byok">
-        <NavIcon name="key" size={16} />
-        <div>
-          <strong>Tu clave, tu consumo. Sin créditos ni recargos.</strong>
-          <span>
-            El agente, el copiloto del chat, la memoria de clientes, las preguntas sin respuesta y la búsqueda
-            en el conocimiento usan esta clave. Pagas a OpenAI o Anthropic directamente, al precio de su lista;
-            Driony no cobra nada por la IA.
-          </span>
+      {included ? (
+        <div className={`byok${(included.full || included.exhausted) && !conClavePropia ? " is-warn" : ""}`} data-ai-included>
+          <NavIcon name={conClavePropia ? "key" : "sparkles"} size={16} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <strong>
+              {conClavePropia
+                ? "Usas tu propia clave: sin cupo y con el modelo que elijas."
+                : included.exhausted
+                  ? "La IA incluida en tu plan llegó a su límite de uso este mes."
+                  : included.full
+                    ? "Llegaste a las conversaciones con IA incluidas en tu plan este mes."
+                    : "IA de Driony incluida en tu plan."}
+            </strong>
+            <span>
+              {conClavePropia
+                ? `Pagas a tu proveedor a precio de lista. Si quitas tu clave, el agente vuelve a usar la IA de Driony (${included.limit.toLocaleString("es")} conversaciones al mes en tu plan).`
+                : included.exhausted
+                  ? `Hasta ${resetLabel(included)}, el agente no responde y los chats en autopilot pasan a tu equipo. Conecta tu clave de OpenAI o Anthropic abajo para seguir ya, o cambia de plan en Ajustes › Plan.`
+                  : included.full
+                    ? `El agente termina las conversaciones que ya atendía; los chats nuevos pasan a tu equipo hasta ${resetLabel(included)}. Conecta tu clave abajo para que atienda también los nuevos, o cambia de plan en Ajustes › Plan.`
+                    : `Tu agente responde sin que configures nada. Cuenta cada conversación que atiende en el mes, no cada mensaje; el cupo vuelve ${resetLabel(included)}. Si conectas tu clave de OpenAI o Anthropic, eliges el modelo, no hay cupo y pagas a tu proveedor a precio de lista, sin recargo.`}
+            </span>
+            {!conClavePropia && (
+              <div className="byok__meter" aria-label="Conversaciones con IA de Driony este mes">
+                <span className="byok__bar">
+                  <i style={{ width: `${Math.min(100, (included.conversations / included.limit) * 100)}%` }} />
+                </span>
+                <span className="byok__count">
+                  {included.conversations.toLocaleString("es")} de {included.limit.toLocaleString("es")} conversaciones
+                  este mes
+                </span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        /* La IA no se paga a Driony: va con la clave de la empresa. */
+        <div className="byok">
+          <NavIcon name="key" size={16} />
+          <div>
+            <strong>Tu clave, tu consumo. Sin créditos ni recargos.</strong>
+            <span>
+              El agente, el copiloto del chat, la memoria de clientes, las preguntas sin respuesta y la búsqueda
+              en el conocimiento usan esta clave. Pagas a OpenAI o Anthropic directamente, al precio de su lista;
+              Driony no cobra nada por la IA.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Estado actual */}
       <div style={card}>
@@ -124,13 +169,22 @@ export function AiSettings() {
           />
           <strong style={{ fontSize: 14 }}>
             {data.activeProvider === "fake"
-              ? sinRespaldo
-                ? "Sin API key — tus agentes no responderán hasta que introduzcas una"
-                : "Sin API key — respuestas simuladas"
-              : `Activo: ${llmProviderLabels[data.activeProvider]}`}
+              ? included?.exhausted && !conClavePropia
+                ? `IA incluida al límite — tus agentes no responderán hasta ${resetLabel(included)} o hasta que pongas tu clave`
+                : sinRespaldo
+                  ? "Sin API key — tus agentes no responderán hasta que introduzcas una"
+                  : "Sin API key — respuestas simuladas"
+              : usaIncluida
+                ? "Activo: IA de Driony"
+                : `Activo: ${llmProviderLabels[data.activeProvider]}`}
           </strong>
           {data.activeProvider !== "fake" && (
             <code style={chip}>{data.activeModel}</code>
+          )}
+          {usaIncluida && (
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+              El proveedor y los modelos de abajo se usan solo con tu clave.
+            </span>
           )}
           <div style={{ flex: 1 }} />
           <button
@@ -156,7 +210,7 @@ export function AiSettings() {
           </div>
         )}
 
-        {sinRespaldo && data.activeProvider === "fake" && (
+        {sinRespaldo && !included && data.activeProvider === "fake" && (
           <div style={{ ...testBox(false), borderColor: "#7a6f4a", background: "rgba(224,183,102,0.08)", color: "#e0b766" }}>
             <strong>Para activar la IA necesitas una API key tuya.</strong> Crea una
             en <em>platform.openai.com</em> (OpenAI) o en <em>console.anthropic.com</em>{" "}

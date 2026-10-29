@@ -152,8 +152,9 @@ export default function PrivacyPage() {
           Cada empresa elige el proveedor de modelos y el modelo con el que
           trabaja su agente: OpenAI, Anthropic o cualquier servicio compatible
           con la API de OpenAI, con su propia clave o con la de la plataforma.
-          El contenido de la conversación se envía a ese proveedor solo para
-          generar la respuesta. Para la base de conocimiento usamos Voyage AI
+          Sin clave propia, el agente usa la IA incluida en el plan, que
+          funciona con OpenAI bajo la cuenta de Driony. El contenido de la
+          conversación se envía a ese proveedor solo para generar la respuesta. Para la base de conocimiento usamos Voyage AI
           para convertir textos en vectores de búsqueda.
         </p>
         <p>
@@ -173,7 +174,7 @@ export default function PrivacyPage() {
         <p>Solo con los proveedores necesarios para que el servicio funcione:</p>
         <ul>
           <li><strong>Meta Platforms</strong> — WhatsApp Business Platform y Facebook.</li>
-          <li><strong>OpenAI</strong> y <strong>Anthropic</strong> — generación de respuestas de IA (cuando la empresa los elige).</li>
+          <li><strong>OpenAI</strong> y <strong>Anthropic</strong> — generación de respuestas de IA (cuando la empresa los elige, y OpenAI para la IA incluida en el plan).</li>
           <li><strong>Voyage AI</strong> — vectores de búsqueda para la base de conocimiento.</li>
           <li><strong>Cloudflare</strong> — DNS y protección del tráfico web.</li>
           <li>El proveedor de alojamiento donde se ejecutan los servidores y la base de datos.</li>

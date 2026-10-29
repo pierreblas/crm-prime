@@ -8,8 +8,9 @@ const BATCH = 96;
 
 /**
  * Embeddings con la clave de OpenAI de la propia empresa (Ajustes ›
- * Inteligencia Artificial). Así la búsqueda en el conocimiento tampoco la
- * paga la plataforma: cada empresa usa su clave para todo.
+ * Inteligencia Artificial) o, sin clave, con la IA incluida de Driony. Para
+ * indexar se pide la clave aunque la IA incluida haya llegado a su tope: cuesta
+ * céntimos y cambiar de embedder dejaría el conocimiento sin encontrar.
  *
  * text-embedding-3-small admite fijar las dimensiones; se piden 1024 para que
  * encajen en la misma columna vector(1024) que usa Voyage.
@@ -25,12 +26,12 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
   ) {}
 
   async available(): Promise<boolean> {
-    const c = await this.settings.resolveFor("openai");
+    const c = await this.settings.resolveFor("openai", { purpose: "embeddings" });
     return !!c.apiKey;
   }
 
   async embed(texts: string[]): Promise<number[][]> {
-    const { apiKey, baseUrl } = await this.settings.resolveFor("openai");
+    const { apiKey, baseUrl } = await this.settings.resolveFor("openai", { purpose: "embeddings" });
     if (!apiKey) throw new Error("No hay clave de OpenAI configurada");
     const url = `${(baseUrl || "https://api.openai.com/v1").replace(/\/$/, "")}/embeddings`;
     const out: number[][] = [];

@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import {
+  AI_INCLUDED_COUNTED,
   FEATURE_LABELS,
   PLAN_KEYS,
   PLANS,
@@ -49,9 +50,16 @@ export class PlansService {
     return planFor(org?.plan);
   }
 
-  async usage(): Promise<{ numbers: number; users: number; contacts: number; deals: number; activeContacts: number }> {
+  async usage(): Promise<{
+    numbers: number;
+    users: number;
+    contacts: number;
+    deals: number;
+    activeContacts: number;
+    aiConversations: number;
+  }> {
     const orgId = this.tenant.orgId();
-    const [numbers, users, contacts, deals, active] = await Promise.all([
+    const [numbers, users, contacts, deals, active, ai] = await Promise.all([
       this.prisma.whatsappConnection.count({ where: { isActive: true } }),
       this.prisma.user.count({ where: { isActive: true } }),
       this.prisma.contact.count(),
@@ -63,8 +71,22 @@ export class PlansService {
         FROM messages m JOIN conversations c ON c.id = m."conversationId"
         WHERE m."orgId" = ${orgId} AND m."campaignId" IS NULL AND m."createdAt" >= date_trunc('month', now())
       `,
+      // Conversaciones atendidas este mes con la IA de Driony (el cupo del plan).
+      this.prisma.$queryRaw<Array<{ count: bigint | number }>>`
+        SELECT count(DISTINCT "conversationId") AS count FROM ai_usage
+        WHERE "orgId" = ${orgId} AND source = 'platform' AND "conversationId" IS NOT NULL
+          AND feature = ANY(${[...AI_INCLUDED_COUNTED]}::text[])
+          AND "createdAt" >= date_trunc('month', now() AT TIME ZONE 'UTC')
+      `,
     ]);
-    return { numbers, users, contacts, deals, activeContacts: Number(active[0]?.count ?? 0) };
+    return {
+      numbers,
+      users,
+      contacts,
+      deals,
+      activeContacts: Number(active[0]?.count ?? 0),
+      aiConversations: Number(ai[0]?.count ?? 0),
+    };
   }
 
   async mine(): Promise<MyPlanDto> {

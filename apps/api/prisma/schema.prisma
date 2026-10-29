@@ -206,11 +206,15 @@ model AiUsage {
   inputTokens    Int      @default(0)
   outputTokens   Int      @default(0)
   conversationId String?
+  // De quién era la clave: own (la empresa o el servidor propio) | platform
+  // (la IA de Driony, que cuenta para el cupo del plan).
+  source         String   @default("own")
   createdAt      DateTime @default(now())
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId, createdAt])
+  @@index([orgId, source, createdAt])
   @@map("ai_usage")
 }
 

@@ -14,7 +14,7 @@ import { primaryBtn } from "./styles";
 import { softBtn } from "@/components/ui";
 import { NavIcon } from "@/components/NavIcons";
 import Link from "next/link";
-import { useAiStatus } from "@/features/copilot/useAiStatus";
+import { resetLabel, useAiStatus } from "@/features/copilot/useAiStatus";
 
 type Selection = { kind: "none" } | { kind: "new" } | { kind: "edit"; id: string };
 
@@ -79,14 +79,46 @@ export function BotsManager() {
     {aiStatus && !aiStatus.ready && (
       <div className="kb-banner is-warn" role="alert" data-ai-key-banner style={{ maxWidth: 1060, margin: "20px auto -8px" }}>
         <NavIcon name="alert" size={16} />
-        <span className="kb-banner__text">
-          <strong>Tus agentes no pueden responder: falta la clave de IA.</strong> Hasta que la pongas, los chats en autopilot pasan a Pendientes para tu equipo, sin respuesta automática.
-        </span>
+        {aiStatus.included?.exhausted ? (
+          <span className="kb-banner__text">
+            <strong>La IA incluida en tu plan llegó a su límite de uso este mes.</strong> Hasta {resetLabel(aiStatus.included)}, los chats en autopilot pasan a Pendientes para tu equipo. Conecta tu clave de IA para seguir ya, o cambia de plan.
+          </span>
+        ) : (
+          <span className="kb-banner__text">
+            <strong>Tus agentes no pueden responder: falta la clave de IA.</strong> Hasta que la pongas, los chats en autopilot pasan a Pendientes para tu equipo, sin respuesta automática.
+          </span>
+        )}
         <Link href="/settings?tab=ai" className="btn btn-primary btn-sm">
-          Configurar la clave
+          {aiStatus.included?.exhausted ? "Conectar mi clave" : "Configurar la clave"}
         </Link>
       </div>
     )}
+    {/* IA de Driony con el cupo lleno o cerca: avisar antes de que el agente deje de atender lo nuevo. */}
+    {aiStatus?.ready &&
+      aiStatus.source === "included" &&
+      aiStatus.included &&
+      aiStatus.included.conversations >= aiStatus.included.limit * 0.8 && (
+        <div className={`kb-banner${aiStatus.included.full ? " is-warn" : ""}`} role="status" data-ai-included-banner style={{ maxWidth: 1060, margin: "20px auto -8px" }}>
+          <NavIcon name={aiStatus.included.full ? "alert" : "sparkles"} size={16} />
+          {aiStatus.included.full ? (
+            <span className="kb-banner__text">
+              <strong>Llegaste a las {aiStatus.included.limit.toLocaleString("es")} conversaciones con IA incluidas este mes.</strong>{" "}
+              Tus agentes terminan las que ya atendían; los chats nuevos pasan a Pendientes para tu equipo hasta {resetLabel(aiStatus.included)}.
+            </span>
+          ) : (
+            <span className="kb-banner__text">
+              <strong>
+                Llevas {aiStatus.included.conversations.toLocaleString("es")} de{" "}
+                {aiStatus.included.limit.toLocaleString("es")} conversaciones con IA incluida este mes.
+              </strong>{" "}
+              Al llegar al cupo, tus agentes terminan las que ya atendían y los chats nuevos pasan a tu equipo. Con tu propia clave no hay cupo.
+            </span>
+          )}
+          <Link href="/settings?tab=ai" className="btn btn-sm">
+            Conectar mi clave
+          </Link>
+        </div>
+      )}
     <div style={wrap} className="agents-wrap">
       {/* Lista */}
       <aside style={listCol} className="agents-list" data-tour="agents-list">

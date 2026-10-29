@@ -230,8 +230,8 @@ export function PromptAssistant({
                 )}
                 {t.meta?.provider === "fake" && (
                   <div style={fakeNote}>
-                    Sin API key: no se usó ningún modelo. Configúrala en Ajustes › Inteligencia
-                    Artificial para que el asistente redacte de verdad.
+                    Sin IA disponible (sin clave, o la IA incluida llegó a su límite este mes): no se usó
+                    ningún modelo. Revisa Ajustes › Inteligencia Artificial para que el asistente redacte de verdad.
                   </div>
                 )}
               </div>

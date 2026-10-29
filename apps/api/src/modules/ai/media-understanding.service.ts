@@ -9,6 +9,7 @@ import {
   type StorageProvider,
 } from "../../infra/storage/storage.provider";
 import { AiSettingsService } from "./ai-settings.service";
+import { outputLimit } from "./providers/openai-llm.provider";
 import { AiUsageService } from "./ai-usage.service";
 
 /** Tipos de mensaje que la IA puede «leer» además del texto. */
@@ -194,7 +195,7 @@ export class MediaUnderstandingService {
         headers: { Authorization: `Bearer ${active.apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model,
-          max_tokens: 200,
+          ...outputLimit(model, 200, "low"),
           messages: [
             {
               role: "user",

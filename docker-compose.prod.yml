@@ -52,6 +52,10 @@ services:
       PLATFORM_ADMIN_PASSWORD_HASH: ${PLATFORM_ADMIN_PASSWORD_HASH:-}
       # SaaS: prestar las claves de IA de la plataforma a las empresas.
       AI_SHARED_KEYS: ${AI_SHARED_KEYS:-}
+      # SaaS: IA de Driony con cupo por plan para empresas sin clave propia
+      # (usa OPENAI_API_KEY). "false" o vacío la apaga al instante.
+      AI_INCLUDED: ${AI_INCLUDED:-}
+      AI_INCLUDED_MODEL: ${AI_INCLUDED_MODEL:-}
       # SaaS: "true" cuando Meta apruebe a la plataforma como proveedor
       # tecnológico; hasta entonces las empresas ven un aviso en WhatsApp.
       WHATSAPP_TECH_PROVIDER_APPROVED: ${WHATSAPP_TECH_PROVIDER_APPROVED:-}

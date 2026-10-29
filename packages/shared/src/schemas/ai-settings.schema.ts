@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { aiIncludedSchema } from "../ai-usage.js";
 
 // ── Proveedores de LLM disponibles ───────────────────────────
 // "auto" = elegir el primero que tenga credencial (OpenAI → Anthropic → simulado).
@@ -41,6 +42,8 @@ export const aiSettingsSchema = z.object({
   // propia, se usan las de la plataforma (AI_SHARED_KEYS) o no hay respaldo.
   saas: z.boolean(),
   platformKeys: z.boolean(),
+  // IA de Driony: el respaldo con cupo cuando la empresa no tiene clave.
+  included: aiIncludedSchema.nullable(),
 });
 export type AiSettingsDto = z.infer<typeof aiSettingsSchema>;
 

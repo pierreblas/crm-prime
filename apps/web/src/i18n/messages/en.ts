@@ -242,6 +242,8 @@ export const en = {
     copilotConfigure: "Set up",
     copilotTitle: "Copilot",
     copilotOwnKey: "With your {provider} key · no credits",
+    copilotIncluded: "Driony AI included in your plan",
+    copilotIncludedExhausted: "The AI included in your plan reached its limit this month. Connect your own AI key to keep using it.",
     copilotSummarize: "Summarize conversation",
     copilotSummarizing: "Summarizing…",
     copilotNextStep: "Next step",
@@ -342,6 +344,8 @@ export const en = {
     aiNoKeyTitle: "The AI can't reply in this chat",
     aiNoKeyBody: "Your company has no AI key yet. Until you add one, autopilot chats go to your team instead of getting an automatic reply.",
     aiNoKeyAction: "Set up the key",
+    aiIncludedExhaustedBody: "The AI included in your plan reached its usage limit this month. Until next month, autopilot chats go to your team.",
+    aiIncludedAction: "Connect my key",
     // Hilo
     emptyThread: "No messages yet",
     emptyThreadHint: "Write below to start the conversation.",

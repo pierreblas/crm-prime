@@ -1,11 +1,11 @@
 import { z } from "zod";
+import { aiIncludedSchema } from "../ai-usage.js";
 
 /**
  * Copiloto de Driony: la IA que ayuda al equipo (no la que responde sola).
  *
- * Todo funciona con la clave de IA de cada empresa (Ajustes › Inteligencia
- * Artificial). Driony no vende créditos ni cobra por uso: el coste lo paga la
- * empresa directamente a OpenAI o Anthropic.
+ * Funciona con la clave de IA de la empresa (Ajustes › Inteligencia
+ * Artificial) o, sin clave, con la IA de Driony dentro del cupo del plan.
  */
 
 // ── Estado de la IA para esta empresa ─────────────────────────
@@ -14,9 +14,14 @@ export const aiStatusSchema = z.object({
   ready: z.boolean(),
   provider: z.string(),
   model: z.string(),
-  /** De quién es la clave: la empresa, la plataforma (si la presta) o nadie. */
-  source: z.enum(["own", "platform", "none"]),
+  /**
+   * De quién es la clave: la empresa, la plataforma (si el operador la presta
+   * sin cupo), la IA de Driony con cupo del plan, o nadie.
+   */
+  source: z.enum(["own", "platform", "included", "none"]),
   saas: z.boolean(),
+  /** Uso de la IA de Driony este mes; null si la empresa no puede usarla (o es instalación propia). */
+  included: aiIncludedSchema.nullable(),
 });
 export type AiStatus = z.infer<typeof aiStatusSchema>;
 

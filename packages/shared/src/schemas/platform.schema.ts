@@ -7,7 +7,7 @@ export const myPlanSchema = z.object({
   /** false = instalación propia: no hay planes ni límites. */
   saas: z.boolean(),
   plan: planDefSchema,
-  usage: z.object({ numbers: z.number(), users: z.number(), contacts: z.number(), deals: z.number(), activeContacts: z.number() }),
+  usage: z.object({ numbers: z.number(), users: z.number(), contacts: z.number(), deals: z.number(), activeContacts: z.number(), aiConversations: z.number() }),
   /** El catálogo completo, para comparar. Vacío en instalación propia. */
   plans: z.array(planDefSchema),
   /** A quién escribir para cambiar de plan (no hay cobro automático). */
@@ -31,7 +31,25 @@ export const platformOverviewSchema = z.object({
   numbers: z.number(),
   coexistenceNumbers: z.number(),
   messages7d: z.number(),
+  /** Gasto estimado de IA del mes, todo junto (con su clave y con la de Driony). */
   aiCostMonthUsd: z.number(),
+  /**
+   * IA incluida de Driony este mes. `enabled` es el interruptor del servidor
+   * (AI_INCLUDED); el coste es a precio de lista, la factura real suele ser
+   * menor por la caché de OpenAI.
+   */
+  aiIncluded: z.object({
+    enabled: z.boolean(),
+    model: z.string(),
+    platformCostUsd: z.number(),
+    ownCostUsd: z.number(),
+    conversations: z.number(),
+    orgsUsing: z.number(),
+    /** Empresas al cupo de conversaciones de su plan. */
+    orgsFull: z.number(),
+    /** Empresas que tocaron el tope en dólares (freno de seguridad). */
+    orgsCapped: z.number(),
+  }),
   /** Empresas activas en un plan de pago, y lo que suman a precio de lista al mes. */
   payingOrgs: z.number(),
   mrrUsd: z.number(),
@@ -65,6 +83,13 @@ export const platformOrgSchema = z.object({
   wonDeals30d: z.number(),
   lastMessageAt: z.string().nullable(),
   aiCostMonthUsd: z.number(),
+  /** Parte del gasto del mes que corrió con la IA de Driony (la paga la plataforma). */
+  aiPlatformCostMonthUsd: z.number(),
+  /** Conversaciones del mes atendidas con la IA de Driony, frente al cupo de su plan (null = sin cupo). */
+  aiIncludedConversations: z.number(),
+  aiIncludedLimit: z.number().nullable(),
+  /** Tiene una clave de IA propia guardada (entonces no usa la de Driony). */
+  aiOwnKey: z.boolean(),
   onboardingCompletedAt: z.string().nullable(),
   /** Hasta cuándo está pagado el plan (lo lleva el operador a mano). */
   planExpiresAt: z.string().nullable(),
@@ -122,9 +147,10 @@ export const platformOrgDetailSchema = z.object({
       capiEnabled: z.boolean(),
     }),
   ),
-  /** Consumo de IA del mes por función y modelo. */
+  /** Consumo de IA del mes por función, modelo y de quién era la clave. */
   ai: z.array(
     z.object({
+      source: z.enum(["own", "platform"]),
       feature: z.string(),
       model: z.string(),
       inputTokens: z.number(),
