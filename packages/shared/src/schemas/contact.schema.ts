@@ -112,6 +112,8 @@ export type CustomFieldDto = z.infer<typeof customFieldDtoSchema>;
 
 export const createCustomFieldSchema = z.object({
   label: z.string().min(1).max(80),
+  /** Clave para la API y la importación. Si no se indica, sale del nombre. No cambia después. */
+  key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/, "La clave solo puede llevar minúsculas, números y _ (y empezar por letra)").optional(),
   type: z.enum(customFieldTypes).default("text"),
   options: z.array(z.string()).default([]),
 });

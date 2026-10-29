@@ -139,9 +139,10 @@ export class WhatsappConnectionService {
         version: this.version,
       };
     }
+    // En SaaS la WABA del .env es de la plataforma: ningún cliente ve sus plantillas.
     const envWaba = process.env.WHATSAPP_WABA_ID;
     const envToken = process.env.WHATSAPP_TOKEN;
-    if (envWaba && envToken) {
+    if (tenancyMode !== "multi" && envWaba && envToken) {
       return { wabaId: envWaba, token: envToken, version: this.version };
     }
     return null;
@@ -247,6 +248,7 @@ export class WhatsappConnectionService {
     const envPhone = process.env.WHATSAPP_PHONE_NUMBER_ID;
     const envToken = process.env.WHATSAPP_TOKEN;
     if (
+      tenancyMode !== "multi" &&
       envPhone &&
       envToken &&
       !rows.some((r) => r.phoneNumberId === envPhone)
@@ -647,6 +649,48 @@ export class WhatsappConnectionService {
   }
 
   // ── Desconectar un número concreto ───────────────────────────
+  /**
+   * Borra un número desconectado. Las conversaciones, difusiones, flujos y
+   * agentes que lo usaban se quedan, sin número (la base pone el campo a null).
+   */
+  async remove(id: string): Promise<WhatsappChannel[]> {
+    const conn = await this.prisma.whatsappConnection.findUnique({ where: { id } });
+    if (!conn) throw new NotFoundException("Número no encontrado");
+    if (conn.isActive && conn.status === "connected") {
+      throw new BadRequestException("Desconéctalo antes de eliminarlo.");
+    }
+    await this.prisma.whatsappConnection.delete({ where: { id } });
+    this.logger.log(`WhatsApp eliminado ${conn.phoneNumberId}`);
+    return this.listChannels();
+  }
+
+  /**
+   * Pasa el número del .env a la base: desde ese momento se configura, se le
+   * renueva el token y se quita desde Ajustes como cualquier otro. El .env
+   * deja de usarse para ese número (la fila tiene prioridad).
+   */
+  async importEnv(): Promise<WhatsappChannel[]> {
+    if (tenancyMode === "multi") throw new BadRequestException("El número del servidor no se puede asignar a una empresa.");
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const token = process.env.WHATSAPP_TOKEN;
+    if (!phoneNumberId || !token) throw new BadRequestException("No hay número configurado en el .env.");
+    const exists = await this.prisma.whatsappConnection.findUnique({ where: { phoneNumberId } });
+    if (exists) throw new ConflictException("Ese número ya está en el CRM.");
+    await this.prisma.whatsappConnection.create({
+      data: {
+        orgId: this.tenant.orgId(),
+        phoneNumberId,
+        wabaId: process.env.WHATSAPP_WABA_ID ?? null,
+        accessToken: token,
+        mode: "api",
+        isActive: true,
+        status: "connected",
+      },
+    });
+    this.logger.log(`WhatsApp del .env pasado al CRM ${phoneNumberId}`);
+    return this.listChannels();
+  }
+
   async disconnect(phoneNumberId: string): Promise<WhatsappChannel[]> {
     await this.prisma.whatsappConnection.updateMany({
       where: { phoneNumberId },

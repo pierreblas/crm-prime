@@ -4,24 +4,20 @@ import { NavIcon } from "@/components/NavIcons";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  CustomFieldDto,
-  CustomFieldType,
   SourceDto,
 } from "@crm/shared";
 import {
-  createCustomField,
   createSource,
   createStage,
-  deleteCustomField,
   deleteSource,
   deleteStage,
-  fetchCustomFields,
   fetchSources,
   reorderStages,
   updateSource,
 } from "@/lib/bff";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
+import { CustomFieldsEditor } from "@/features/contacts/CustomFieldsEditor";
 
 // ── Fuentes ──────────────────────────────────────────────────
 export function SourcesSettings() {
@@ -120,113 +116,14 @@ function SourceRow({ source, onChanged }: { source: SourceDto; onChanged: () => 
 }
 
 // ── Campos personalizados ────────────────────────────────────
-const TYPE_LABEL: Record<CustomFieldType, string> = {
-  text: "Texto",
-  number: "Número",
-  date: "Fecha",
-  select: "Lista",
-};
-
 export function CustomFieldsSettings() {
-  const queryClient = useQueryClient();
-  const { data: fields = [], isPending } = useQuery({
-    queryKey: ["custom-fields"],
-    queryFn: fetchCustomFields,
-  });
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["custom-fields"] });
-
-  const [label, setLabel] = useState("");
-  const [type, setType] = useState<CustomFieldType>("text");
-  const [options, setOptions] = useState("");
-
-  const create = useMutation({
-    mutationFn: () =>
-      createCustomField({
-        label: label.trim(),
-        type,
-        options:
-          type === "select"
-            ? options.split(",").map((o) => o.trim()).filter(Boolean)
-            : [],
-      }),
-    onSuccess: () => {
-      setLabel("");
-      setType("text");
-      setOptions("");
-      refresh();
-    },
-    onError: (e) => toast.error((e as Error).message),
-  });
-
-  const remove = useMutation({
-    mutationFn: deleteCustomField,
-    onSuccess: refresh,
-    onError: (e) => toast.error((e as Error).message),
-  });
-
-  const canCreate =
-    label.trim().length > 0 && (type !== "select" || options.trim().length > 0);
-
   return (
     <Panel
       title="Campos personalizados"
-      subtitle="Datos extra que quieres guardar en cada contacto (cumpleaños, ciudad, talla…). Aparecen en la ficha del contacto."
+      subtitle="Datos extra de cada contacto (cumpleaños, ciudad, talla…). Cada campo tiene una clave fija para la API, los webhooks y la importación."
     >
-      <div style={{ ...card, display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            style={input}
-            value={label}
-            placeholder="Nombre del campo (ej. Ciudad)"
-            onChange={(e) => setLabel(e.target.value)}
-          />
-          <select style={{ ...input, flex: "0 0 130px" }} value={type} onChange={(e) => setType(e.target.value as CustomFieldType)}>
-            <option value="text">Texto</option>
-            <option value="number">Número</option>
-            <option value="date">Fecha</option>
-            <option value="select">Lista</option>
-          </select>
-          <button onClick={() => create.mutate()} disabled={!canCreate || create.isPending} style={primaryBtn}>
-            Añadir
-          </button>
-        </div>
-        {type === "select" && (
-          <input
-            style={input}
-            value={options}
-            placeholder="Opciones separadas por coma (ej. Pequeña, Mediana, Grande)"
-            onChange={(e) => setOptions(e.target.value)}
-          />
-        )}
-      </div>
-      {isPending && <p style={muted}>Cargando…</p>}
-      {fields.map((f) => (
-        <FieldRow key={f.id} field={f} onDelete={() => remove.mutate(f.id)} />
-      ))}
+      <CustomFieldsEditor />
     </Panel>
-  );
-}
-
-function FieldRow({ field, onDelete }: { field: CustomFieldDto; onDelete: () => void }) {
-  return (
-    <div style={{ ...card, display: "flex", gap: 10, alignItems: "center" }}>
-      <strong style={{ flex: 1, minWidth: 0 }}>{field.label}</strong>
-      <span style={badge("var(--surface-3)")}>{TYPE_LABEL[field.type]}</span>
-      {field.type === "select" && field.options.length > 0 && (
-        <span style={{ ...muted, fontSize: 12.5 }}>{field.options.join(" · ")}</span>
-      )}
-      <button
-        onClick={() => {
-          void confirmDialog({ message: `¿Eliminar el campo "${field.label}"?`, danger: true }).then(
-            (ok) => ok && onDelete(),
-          );
-        }}
-        style={dangerBtn}
-        title="Eliminar"
-      >
-        <NavIcon name="x" size={14} />
-      </button>
-    </div>
   );
 }
 

@@ -3,12 +3,15 @@
 import { NavIcon } from "@/components/NavIcons";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "@/lib/toast";
+import { confirmDialog } from "@/lib/confirm";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { WhatsappChannel } from "@crm/shared";
 import { ChannelConfigDialog, useChannelRouting } from "./ChannelConfigDialog";
 import {
   connectWhatsapp,
   disconnectWhatsapp,
+  importEnvWhatsapp,
+  removeWhatsappChannel,
   fetchWhatsappChannels,
   fetchWhatsappConnectStatus,
   fetchIntegrationSettings,
@@ -86,6 +89,23 @@ export function WhatsAppConnect({ hub = false, embedded = false }: { hub?: boole
       toast.success("Número desconectado");
       queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
     },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const remove = useMutation({
+    mutationFn: removeWhatsappChannel,
+    onSuccess: () => {
+      toast.success("Número eliminado");
+      queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const importEnv = useMutation({
+    mutationFn: importEnvWhatsapp,
+    onSuccess: () => {
+      toast.success("Número pasado al CRM: ya puedes configurarlo");
+      queryClient.invalidateQueries({ queryKey: ["wa-channels"] });
+    },
+    onError: (e) => toast.error((e as Error).message),
   });
 
   // Vuelta del conector: `?connected=1`. Se limpia de la URL para que un
@@ -327,7 +347,7 @@ export function WhatsAppConnect({ hub = false, embedded = false }: { hub?: boole
 
       {isPending ? (
         <div className="skeleton" style={{ height: 76, borderRadius: 12 }} />
-      ) : missingConfig || list.length === 0 ? (
+      ) : list.length === 0 ? (
         <div style={card}>
           {missingConfig ? (
             <PendingConfig hasAppId={!!APP_ID} />
@@ -357,11 +377,29 @@ export function WhatsAppConnect({ hub = false, embedded = false }: { hub?: boole
                     }),
                   );
                 }}
-                onDisconnect={() => disconnect.mutate(ch.phoneNumberId)}
+                onDisconnect={() =>
+                  void confirmDialog({
+                    title: "Desconectar el número",
+                    message: "Dejará de recibir y enviar mensajes desde Driony. Las conversaciones se conservan y puedes volver a conectarlo con «Actualizar token».",
+                    confirmLabel: "Desconectar",
+                    danger: true,
+                  }).then((ok) => ok && disconnect.mutate(ch.phoneNumberId))
+                }
                 disconnecting={
                   disconnect.isPending &&
                   disconnect.variables === ch.phoneNumberId
                 }
+                onRemove={() =>
+                  void confirmDialog({
+                    title: "Eliminar el número",
+                    message: "Se borra de Driony. Las conversaciones, difusiones y flujos que lo usaban se conservan, pero quedan sin número asignado.",
+                    confirmLabel: "Eliminar",
+                    danger: true,
+                  }).then((ok) => ok && remove.mutate(ch.id))
+                }
+                removing={remove.isPending && remove.variables === ch.id}
+                onImportEnv={() => importEnv.mutate()}
+                importing={importEnv.isPending}
               />
             ))}
           </div>
@@ -841,8 +879,16 @@ function ChannelRow({
   onDisconnect,
   onUpdateToken,
   disconnecting,
+  onRemove,
+  removing,
+  onImportEnv,
+  importing,
 }: {
   channel: WhatsappChannel;
+  onRemove: () => void;
+  removing: boolean;
+  onImportEnv: () => void;
+  importing: boolean;
   /** A qué embudo entra y qué agente lo atiende, en palabras. */
   routing: { pipeline: string; bot: string; flows: number };
   onConfigure: () => void;
@@ -920,11 +966,33 @@ function ChannelRow({
           </button>
         )}
         {channel.source !== "env" && online && (
-          <button onClick={onDisconnect} disabled={disconnecting} className="btn btn-ghost btn-sm ch-danger">
+          <button onClick={onDisconnect} disabled={disconnecting} className="btn btn-ghost btn-sm ch-danger" data-wa-disconnect>
             {disconnecting ? "…" : "Desconectar"}
           </button>
         )}
+        {channel.source !== "env" && !online && (
+          <button onClick={onRemove} disabled={removing} className="btn btn-ghost btn-sm ch-danger" data-wa-remove>
+            {removing ? "…" : "Eliminar"}
+          </button>
+        )}
+        {channel.source === "env" && (
+          <button onClick={onImportEnv} disabled={importing} className="btn btn-primary btn-sm" data-wa-import-env title="Crea el número en el CRM con las credenciales del .env">
+            {importing ? "…" : "Pasar al CRM"}
+          </button>
+        )}
       </div>
+
+      {channel.source === "env" && (
+        <div className="ch-row__note" data-wa-env-note>
+          <div className="ch-row__note-title">
+            <NavIcon name="settings" size={13} />
+            Este número viene del archivo .env del servidor
+          </div>
+          <div style={{ marginTop: 4, opacity: 0.9 }}>
+            Por eso no se puede configurar ni quitar desde aquí. Pulsa «Pasar al CRM» para gestionarlo como los demás: alias, embudo, agente, token y desconectar. Después puedes borrar las variables WHATSAPP_* del .env.
+          </div>
+        </div>
+      )}
 
       {broken && (
         <div className="ch-row__note is-error" role="alert">

@@ -77,6 +77,18 @@ curl -X PATCH https://tu-empresa.driony.com/api/public/v1/contacts/cmu0… \
 
 El teléfono se normaliza a E.164: da igual `51999888777`, `+51 999 888 777` o `0051999888777`.
 
+### Campos personalizados
+
+Cada campo tiene una **clave** fija (`ciudad`, `presupuesto`…) que ves y copias en **Contactos › Campos**. Úsala en `fields`: no cambia aunque renombres el campo, así que tu integración no se rompe.
+
+- También se acepta el nombre visible del campo, escrito como sea: `"Ciudad"` o `"ciudad"` van al mismo sitio.
+- Una clave que no es de ningún campo se guarda igual (en minúsculas y con `_`). Aparece en **Contactos › Campos › Datos que llegan sin campo**, desde donde la conviertes en campo con un clic.
+- Para borrar un valor, envíalo vacío: `"fields": {"ciudad": ""}`.
+
+### Importar desde Excel o CSV
+
+En **Contactos › Importar**: el teléfono es obligatorio; nombre, etiquetas y fuente se reconocen por el título de la columna. El resto de columnas va a un campo existente, a un campo nuevo (con su clave a la vista antes de importar) o se ignora. Los números sin prefijo reciben el del país que elijas. Si el teléfono ya existe, el contacto se completa sin tocar su consentimiento. Los importados no disparan flujos de «lead nuevo»: para escribirles, usa una difusión.
+
 ## Oportunidades
 
 ```bash

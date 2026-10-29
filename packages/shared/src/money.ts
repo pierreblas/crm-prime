@@ -88,6 +88,13 @@ export const COUNTRIES: CountryInfo[] = Array.from(
   new Map(PREFIXES.map(([, info]) => [info.code, info])).values(),
 ).sort((a, b) => a.name.localeCompare(b.name, "es"));
 
+/** Prefijo internacional de un país (sin «+»): «51» para PE. */
+export function dialCodeOf(code: string): string | null {
+  let best: string | null = null;
+  for (const [prefix, info] of PREFIXES) if (info.code === code && (!best || prefix.length < best.length)) best = prefix;
+  return best;
+}
+
 export function countryFromPhone(phone: string | null | undefined): CountryInfo | null {
   const digits = (phone ?? "").replace(/\D/g, "");
   if (!digits) return null;

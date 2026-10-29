@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import {
   connectWhatsappSchema,
   disconnectWhatsappSchema,
@@ -37,6 +37,24 @@ export class ConnectionController {
     body: ConnectWhatsappInput,
   ) {
     const channels = await this.connection.connect(body);
+    return { channels };
+  }
+
+  // El número del .env pasa a la base (editable). Solo con una empresa.
+  @Post("import-env")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  async importEnv() {
+    const channels = await this.connection.importEnv();
+    return { channels };
+  }
+
+  // Borra un número ya desconectado.
+  @Delete(":id")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  async remove(@Param("id") id: string) {
+    const channels = await this.connection.remove(id);
     return { channels };
   }
 

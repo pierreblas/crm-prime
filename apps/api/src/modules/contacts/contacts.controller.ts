@@ -34,6 +34,10 @@ import { TenantService } from "../../infra/tenant/tenant.service";
 import { PlansService } from "../plans/plans.service";
 import { PermissionsService } from "../permissions/permissions.service";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { ContactImportService } from "./contact-import.service";
+import { importContactsSchema, Role, type ImportContactsInput, type ImportContactsResult } from "@crm/shared";
 import { maskPhone, type AccessTokenClaims } from "@crm/shared";
 
 // Lo que necesita una fila del directorio (y la ficha del panel de la bandeja).
@@ -59,6 +63,7 @@ export class ContactsController {
     private readonly events: EventEmitter2,
     private readonly plans: PlansService,
     private readonly perms: PermissionsService,
+    private readonly importer: ContactImportService,
   ) {}
 
   // Autocompletar (id/name/phone) — lo usa el pipeline.
@@ -221,6 +226,14 @@ export class ContactsController {
       sourceUrl: str(r.sourceUrl),
       ctwaClid: str(r.ctwaClid),
     };
+  }
+
+  /** Importar desde Excel o CSV (filas ya validadas en el navegador). */
+  @Post("import")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  importContacts(@Body(new ZodValidationPipe(importContactsSchema)) body: ImportContactsInput): Promise<ImportContactsResult> {
+    return this.importer.import(body);
   }
 
   @Post()

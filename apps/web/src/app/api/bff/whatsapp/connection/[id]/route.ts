@@ -9,3 +9,9 @@ export async function PATCH(
   const body = await req.text();
   return relay(await apiForward(`/whatsapp/connection/${id}`, { method: "PATCH", body }));
 }
+
+// Borra un número desconectado.
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return relay(await apiForward(`/whatsapp/connection/${encodeURIComponent(id)}`, { method: "DELETE" }));
+}

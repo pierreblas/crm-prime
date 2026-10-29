@@ -7,12 +7,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import {
   contactOriginLabels,
-  customFieldTypes,
   type ContactListItem,
-  type CustomFieldDto,
   type SourceDto,
 } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
+import { CustomFieldsEditor } from "./CustomFieldsEditor";
+import { ImportContactsDialog } from "./ImportContactsDialog";
 import {
   ContactDrawer,
   ORIGIN_COLORS,
@@ -21,9 +21,7 @@ import {
 } from "./ContactDrawer";
 import {
   createContact,
-  createCustomField,
   createDeal,
-  deleteCustomField,
   fetchContactDirectory,
   fetchCustomFields,
   fetchSources,
@@ -37,6 +35,7 @@ export function ContactsManager() {
   const [creating, setCreating] = useState(false);
   const [showFields, setShowFields] = useState(false);
   const [showWebhook, setShowWebhook] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
   const { data: contacts, isPending } = useQuery({
@@ -74,13 +73,22 @@ export function ContactsManager() {
           <NavIcon name="settings" size={15} />
           Campos
         </button>
+        <button onClick={() => setImporting(true)} style={toolBtn} data-open-import>
+          <NavIcon name="arrow-up" size={15} />
+          Importar
+        </button>
         <button onClick={() => setCreating((v) => !v)} style={primaryBtn}>
           Nuevo contacto
         </button>
       </div>
+      {importing && <ImportContactsDialog onClose={() => setImporting(false)} />}
 
       {showWebhook && <WebhookInfo />}
-      {showFields && <CustomFieldsPanel fields={fields} />}
+      {showFields && (
+        <div style={infoBox}>
+          <CustomFieldsEditor />
+        </div>
+      )}
 
       {creating && (
         <NewContactForm
@@ -157,77 +165,6 @@ function WebhookInfo() {
       </p>
       <code style={urlBox}>{url}</code>
       <pre style={pre}>{example}</pre>
-    </div>
-  );
-}
-
-function CustomFieldsPanel({ fields }: { fields: CustomFieldDto[] }) {
-  const queryClient = useQueryClient();
-  const [label, setLabel] = useState("");
-  const [type, setType] = useState("text");
-  const [options, setOptions] = useState("");
-  const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["custom-fields"] });
-    queryClient.invalidateQueries({ queryKey: ["contact-directory"] });
-  };
-
-  const create = useMutation({
-    mutationFn: () =>
-      createCustomField({
-        label: label.trim(),
-        type: type as CustomFieldDto["type"],
-        options:
-          type === "select"
-            ? options.split(",").map((o) => o.trim()).filter(Boolean)
-            : [],
-      }),
-    onSuccess: () => {
-      setLabel("");
-      setOptions("");
-      refresh();
-    },
-  });
-  const remove = useMutation({ mutationFn: deleteCustomField, onSuccess: refresh });
-
-  return (
-    <div style={infoBox}>
-      <strong>Campos personalizados del lead</strong>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "10px 0" }}>
-        {fields.map((f) => (
-          <span key={f.id} style={fieldChip}>
-            {f.label} <span style={{ opacity: 0.6 }}>· {f.type}</span>
-            <button
-              onClick={() => {
-                void confirmDialog({
-                  message: `¿Eliminar el campo "${f.label}"?`,
-                  danger: true,
-                }).then((ok) => ok && remove.mutate(f.id));
-              }}
-              style={chipX}
-              title="Eliminar"
-            >
-              <NavIcon name="x" size={12} />
-            </button>
-          </span>
-        ))}
-        {fields.length === 0 && <span style={muted}>Aún no hay campos.</span>}
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <input style={{ ...input, minWidth: 160 }} value={label} placeholder="Nombre del campo (ej. Ciudad)" onChange={(e) => setLabel(e.target.value)} />
-        <select style={{ ...input, minWidth: 120, flex: "0 0 auto" }} value={type} onChange={(e) => setType(e.target.value)}>
-          {customFieldTypes.map((t) => (
-            <option key={t} value={t}>
-              {t === "text" ? "Texto" : t === "number" ? "Número" : t === "date" ? "Fecha" : "Lista"}
-            </option>
-          ))}
-        </select>
-        {type === "select" && (
-          <input style={{ ...input, minWidth: 160 }} value={options} placeholder="Opciones (coma)" onChange={(e) => setOptions(e.target.value)} />
-        )}
-        <button onClick={() => create.mutate()} disabled={!label.trim() || create.isPending} style={primaryBtn}>
-          Añadir campo
-        </button>
-      </div>
     </div>
   );
 }
@@ -586,27 +523,6 @@ const pre: React.CSSProperties = {
   color: "#aebfd6",
   overflowX: "auto",
   whiteSpace: "pre-wrap",
-};
-
-const fieldChip: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  fontSize: 13,
-  padding: "4px 10px",
-  borderRadius: 999,
-  background: "var(--surface-3)",
-  color: "var(--accent-text)",
-};
-
-const chipX: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
-  color: "var(--accent-text)",
-  cursor: "pointer",
-  fontSize: 11,
-  opacity: 0.7,
-  padding: 0,
 };
 
 function chip(color: string | null): React.CSSProperties {

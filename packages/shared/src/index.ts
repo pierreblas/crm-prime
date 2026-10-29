@@ -27,6 +27,7 @@ export * from "./schemas/feedback.schema.js";
 export * from "./schemas/copilot.schema.js";
 export * from "./schemas/dashboard.schema.js";
 export * from "./schemas/contact.schema.js";
+export * from "./schemas/contact-import.schema.js";
 export * from "./schemas/tag.schema.js";
 export * from "./schemas/lead-webhook.schema.js";
 export * from "./schemas/meta-leads.schema.js";

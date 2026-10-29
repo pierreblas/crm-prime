@@ -379,7 +379,23 @@ export async function disconnectWhatsapp(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ phoneNumberId }),
   });
-  if (!res.ok) throw new Error("No se pudo desconectar");
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo desconectar"));
+  const data = (await res.json()) as { channels: WhatsappChannel[] };
+  return data.channels ?? [];
+}
+
+/** Borra un número ya desconectado. */
+export async function removeWhatsappChannel(id: string): Promise<WhatsappChannel[]> {
+  const res = await bffFetch(`/api/bff/whatsapp/connection/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo eliminar el número"));
+  const data = (await res.json()) as { channels: WhatsappChannel[] };
+  return data.channels ?? [];
+}
+
+/** Pasa el número del .env al CRM, donde se puede configurar y quitar. */
+export async function importEnvWhatsapp(): Promise<WhatsappChannel[]> {
+  const res = await bffFetch("/api/bff/whatsapp/connection/import-env", { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo pasar el número al CRM"));
   const data = (await res.json()) as { channels: WhatsappChannel[] };
   return data.channels ?? [];
 }
@@ -1418,7 +1434,25 @@ export async function createCustomField(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  if (!res.ok) throw new Error("No se pudo crear el campo");
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo crear el campo"));
+  return res.json();
+}
+
+/** Datos que llegan en los contactos con una clave sin campo definido. */
+export async function fetchUnmappedFields(): Promise<import("@crm/shared").UnmappedField[]> {
+  const res = await bffFetch("/api/bff/custom-fields/unmapped");
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar los datos sin campo"));
+  return res.json();
+}
+
+/** Importa contactos desde un archivo ya leído y validado en el navegador. */
+export async function importContacts(input: import("@crm/shared").ImportContactsInput): Promise<import("@crm/shared").ImportContactsResult> {
+  const res = await bffFetch("/api/bff/contacts/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo importar"));
   return res.json();
 }
 
@@ -1431,7 +1465,7 @@ export async function updateCustomField(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  if (!res.ok) throw new Error("No se pudo guardar el campo");
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar el campo"));
   return res.json();
 }
 

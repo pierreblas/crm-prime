@@ -28,6 +28,12 @@ export class CustomFieldsController {
     return this.leads.listFields();
   }
 
+  // Claves que llegan en los contactos sin campo definido.
+  @Get("unmapped")
+  unmapped() {
+    return this.leads.unmappedFields();
+  }
+
   @Post()
   create(
     @Body(new ZodValidationPipe(createCustomFieldSchema))

@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Prisma } from "@prisma/client";
+import { fieldKeyFromLabel, resolveFieldKeys, utmKeys } from "@crm/shared";
 import type {
+  UnmappedField,
   CreateCustomFieldInput,
   CustomFieldDto,
   CustomFieldType,
@@ -28,7 +30,11 @@ export class LeadService {
   }
 
   async createField(input: CreateCustomFieldInput): Promise<CustomFieldDto> {
-    const key = await this.uniqueKey(this.slug(input.label));
+    // Clave elegida a mano: tiene que estar libre. Si no, sale del nombre.
+    if (input.key && (await this.prisma.customField.findFirst({ where: { key: input.key } }))) {
+      throw new ConflictException(`Ya hay un campo con la clave «${input.key}»`);
+    }
+    const key = input.key ?? (await this.uniqueKey(fieldKeyFromLabel(input.label)));
     const count = await this.prisma.customField.count();
     const f = await this.prisma.customField.create({
       data: {
@@ -67,6 +73,33 @@ export class LeadService {
     return { ok: true };
   }
 
+  /** Traduce nombres o claves de fuera a las claves de los campos definidos. */
+  async resolveFields(fields: Record<string, string>): Promise<Record<string, string>> {
+    if (!Object.keys(fields).length) return fields;
+    const defs = await this.prisma.customField.findMany({ select: { key: true, label: true } });
+    return resolveFieldKeys(fields, defs);
+  }
+
+  /**
+   * Datos que llegan en los contactos (API, webhooks, formularios de Meta,
+   * importaciones) con una clave que no es de ningún campo: no se ven en la
+   * ficha hasta que se crea el campo. Los UTM tienen su propio sitio.
+   */
+  async unmappedFields(): Promise<UnmappedField[]> {
+    const orgId = this.tenant.orgId();
+    const defined = new Set((await this.prisma.customField.findMany({ select: { key: true } })).map((f) => f.key));
+    const rows = await this.prisma.$queryRaw<{ key: string; contacts: number; sample: string | null }[]>`
+      SELECT k AS key, count(*)::int AS contacts, left(min(c.metadata->>k), 80) AS sample
+      FROM contacts c
+      CROSS JOIN LATERAL jsonb_object_keys(CASE WHEN jsonb_typeof(c.metadata) = 'object' THEN c.metadata ELSE '{}'::jsonb END) AS k
+      WHERE c."orgId" = ${orgId}
+      GROUP BY k
+      ORDER BY count(*) DESC
+      LIMIT 200`;
+    const skip = new Set<string>(utmKeys as readonly string[]);
+    return rows.filter((r) => !defined.has(r.key) && !skip.has(r.key)).slice(0, 50);
+  }
+
   // ── Webhook de lead entrante ─────────────────────────────────
   async ingestLead(
     input: LeadWebhookInput,
@@ -92,10 +125,11 @@ export class LeadService {
       sourceId = source.id;
     }
 
-    // Campos personalizados → metadata (fusiona con lo existente).
+    // Campos personalizados → metadata (fusiona con lo existente). Se aceptan
+    // la clave o el nombre del campo; lo desconocido se guarda con clave limpia.
     const metadata = {
       ...((existing?.metadata as Record<string, unknown> | null) ?? {}),
-      ...(input.fields ?? {}),
+      ...(await this.resolveFields(input.fields ?? {})),
     } as Prisma.InputJsonValue;
 
     const contact = await this.prisma.contact.upsert({
@@ -147,18 +181,6 @@ export class LeadService {
   }
 
   // ── Helpers ──────────────────────────────────────────────────
-  private slug(label: string): string {
-    return (
-      label
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[̀-ͯ]/g, "")
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "")
-        .slice(0, 40) || "campo"
-    );
-  }
-
   private async uniqueKey(base: string): Promise<string> {
     let key = base;
     let i = 1;

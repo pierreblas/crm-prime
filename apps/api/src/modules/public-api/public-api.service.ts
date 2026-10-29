@@ -20,6 +20,7 @@ import {
   type SendPublicMessageResult,
   type StatsSummary,
   type UpdatePublicContactInput,
+  resolveFieldKeys,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
@@ -119,7 +120,7 @@ export class PublicApiService {
         name: input.name ?? null,
         optIn: input.optIn ?? true,
         ...(sourceId ? { sourceId } : {}),
-        metadata: (input.fields ?? {}) as Prisma.InputJsonObject,
+        metadata: (await this.resolveFields(input.fields ?? {})) as Prisma.InputJsonObject,
         origin: "webhook",
         originDetail: viaApiKey,
       },
@@ -142,7 +143,7 @@ export class PublicApiService {
     const metadata = input.fields
       ? {
           ...((existing.metadata as Record<string, unknown> | null) ?? {}),
-          ...input.fields,
+          ...(await this.resolveFields(input.fields)),
         }
       : undefined;
 
@@ -159,6 +160,13 @@ export class PublicApiService {
   }
 
   // Reemplaza el juego de etiquetas, creando las que no existan.
+  /** Acepta la clave del campo o su nombre visible («Ciudad» → ciudad). */
+  private async resolveFields(fields: Record<string, string>): Promise<Record<string, string>> {
+    if (!Object.keys(fields).length) return fields;
+    const defs = await this.prisma.customField.findMany({ select: { key: true, label: true } });
+    return resolveFieldKeys(fields, defs);
+  }
+
   private async setTags(contactId: string, names: string[]): Promise<void> {
     const orgId = this.tenant.orgId();
     const clean = [...new Set(names.map((t) => t.trim()).filter(Boolean))];

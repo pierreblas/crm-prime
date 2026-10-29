@@ -316,6 +316,25 @@ export function ContactDrawer({
               ))
             )}
           </Section>
+
+          {(() => {
+            const defined = new Set(fields.map((f) => f.key));
+            const extra = Object.entries(contact.fields).filter(([k, v]) => !defined.has(k) && v !== "");
+            if (!extra.length) return null;
+            return (
+              <Section title="Otros datos">
+                <p style={hint}>Llegaron por la API, un webhook, un formulario o una importación, con una clave que no es de ningún campo. Para editarlos, crea el campo en Contactos › Campos.</p>
+                <dl className="cd-extra" data-extra-fields>
+                  {extra.map(([k, v]) => (
+                    <div key={k}>
+                      <dt><code>{k}</code></dt>
+                      <dd>{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </Section>
+            );
+          })()}
         </div>
 
         <footer style={foot}>
