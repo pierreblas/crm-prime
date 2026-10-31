@@ -521,6 +521,7 @@ function PendingLeadRow({
         <div style={{ ...muted, fontSize: 12.5 }}>
           {lead.pageName}
           {lead.formName ? ` · ${lead.formName}` : ""}
+          {lead.campaignName ? ` · Campaña: ${lead.campaignName}` : ""}
           {lead.email ? ` · ${lead.email}` : ""}
         </div>
         <div style={{ ...muted, fontSize: 12, marginTop: 4 }}>

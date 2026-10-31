@@ -1,6 +1,6 @@
 "use client";
 
-import { FEATURE_LABELS, PLAN_FEATURES, formatAiIncluded, formatPlanPrice, type PlanDef, formatRetention } from "@crm/shared";
+import { FEATURE_LABELS, PLAN_FEATURES, formatAiIncluded, formatPlanPrice, type MyPlanDto, type PlanDef, formatRetention } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { useMyPlan } from "./usePlan";
 
@@ -8,6 +8,9 @@ import { useMyPlan } from "./usePlan";
  * Ajustes › Plan: qué plan tiene la empresa, cuánto lleva usado y qué
  * incluye cada uno. No hay cobro automático: cambiar de plan es escribir al
  * operador, que lo hace desde la consola de plataforma.
+ *
+ * Durante la prueba del alta el plan que se ve es el que se prueba (Pro), con
+ * los días que quedan; al terminar, un aviso de que sigue en Gratis.
  */
 export function PlanSettings() {
   const { data, isPending, isError, refetch } = useMyPlan();
@@ -45,8 +48,11 @@ export function PlanSettings() {
     );
   }
 
-  const { plan, usage, plans } = data;
-  const subject = encodeURIComponent(`Cambio de plan (ahora: ${plan.name})`);
+  const { plan, usage, plans, trial } = data;
+  const trialing = !!trial?.active;
+  const subject = encodeURIComponent(
+    trialing ? `Quiero quedarme con ${plan.name} (estoy en la prueba)` : `Cambio de plan (ahora: ${plan.name})`,
+  );
 
   return (
     <div className="plan">
@@ -58,16 +64,20 @@ export function PlanSettings() {
         </p>
       </header>
 
+      {trial && <TrialNotice trial={trial} />}
+
       <section className="plan-current">
         <div className="plan-current__head">
           <div>
             <span className="plan-current__name">{plan.name}</span>
-            <span className="plan-current__price">{formatPlanPrice(plan)}</span>
+            <span className="plan-current__price">
+              {trialing ? `Prueba gratis hasta el ${longDate(trial!.endsAt)}` : formatPlanPrice(plan)}
+            </span>
             <p className="plan-current__tagline">{plan.tagline}</p>
           </div>
           {data.contactEmail && (
             <a className="btn btn-primary" href={`mailto:${data.contactEmail}?subject=${subject}`}>
-              Cambiar de plan
+              {trialing ? `Quedarme con ${plan.name}` : "Cambiar de plan"}
             </a>
           )}
         </div>
@@ -110,11 +120,58 @@ export function PlanSettings() {
         <h4 className="plan-all__title">Todos los planes</h4>
         <div className="plan-grid">
           {plans.map((p) => (
-            <PlanCard key={p.key} plan={p} current={p.key === plan.key} />
+            <PlanCard key={p.key} plan={p} current={p.key === plan.key} trialing={trialing} />
           ))}
         </div>
       </section>
     </div>
+  );
+}
+
+/** "14 de noviembre". */
+function longDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("es", { day: "numeric", month: "long" });
+}
+
+/** El aviso ya terminado se enseña dos semanas; después la prueba es historia. */
+const ENDED_NOTICE_MS = 14 * 86_400_000;
+
+function TrialNotice({ trial }: { trial: NonNullable<MyPlanDto["trial"]> }) {
+  if (trial.active) {
+    const left = trial.daysLeft === 1 ? "es tu último día" : `te quedan ${trial.daysLeft} días`;
+    return (
+      <section className={`plan-trial${trial.daysLeft <= 3 ? " is-ending" : ""}`} role="status">
+        <span className="plan-trial__icon" aria-hidden="true">
+          <NavIcon name="sparkles" size={18} />
+        </span>
+        <div className="plan-trial__text">
+          <strong>
+            Estás probando {trial.planName}: {left}
+          </strong>
+          <span>
+            Tienes todo {trial.planName} hasta el {longDate(trial.endsAt)}. Al terminar sigues en Gratis sin perder
+            nada: tus chats, contactos y agentes se quedan como están.
+          </span>
+        </div>
+      </section>
+    );
+  }
+  if (Date.now() - new Date(trial.endsAt).getTime() > ENDED_NOTICE_MS) return null;
+  return (
+    <section className="plan-trial is-ended" role="status">
+      <span className="plan-trial__icon" aria-hidden="true">
+        <NavIcon name="check" size={18} />
+      </span>
+      <div className="plan-trial__text">
+        <strong>
+          Tu prueba de {trial.planName} terminó el {longDate(trial.endsAt)}
+        </strong>
+        <span>
+          Sigues en Gratis y no se borró nada. Lo que ya tenías por encima de los límites se queda; lo que se frena es
+          añadir más. Difusiones, API y coexistencia vuelven con {trial.planName}.
+        </span>
+      </div>
+    </section>
   );
 }
 
@@ -136,14 +193,14 @@ function Usage({ label, used, limit }: { label: string; used: number; limit: num
   );
 }
 
-function PlanCard({ plan, current }: { plan: PlanDef; current: boolean }) {
+function PlanCard({ plan, current, trialing }: { plan: PlanDef; current: boolean; trialing: boolean }) {
   const lim = (n: number | null, one: string, many: string) =>
     n === null ? `${many} sin límite` : `${n} ${n === 1 ? one : many}`;
   return (
     <article className={`plan-card${current ? " is-current" : ""}`}>
       <div className="plan-card__head">
         <span className="plan-card__name">{plan.name}</span>
-        {current && <span className="plan-card__badge">Tu plan</span>}
+        {current && <span className="plan-card__badge">{trialing ? "En prueba" : "Tu plan"}</span>}
       </div>
       <span className="plan-card__price">{formatPlanPrice(plan)}</span>
       <p className="plan-card__tagline">{plan.tagline}</p>

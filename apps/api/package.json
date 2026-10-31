@@ -33,7 +33,9 @@
     "test:followups": "tsx --test test/follow-ups.test.ts",
     "test:copilot": "tsx --test test/copilot.test.ts",
     "test:dashboard": "tsx --test test/dashboard.test.ts",
-    "test:setup": "tsx --test test/business-setup.test.ts"
+    "test:setup": "tsx --test test/business-setup.test.ts",
+    "test:conversions": "tsx --test test/conversions.test.ts",
+    "test:attribution": "tsx --test test/attribution.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

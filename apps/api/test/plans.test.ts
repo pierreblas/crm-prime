@@ -19,9 +19,9 @@ before(async () => {
   ({ PlansService } = await import("../src/modules/plans/plans.service"));
 });
 
-function service(state: { plan: string | null; numbers: number; users: number; contacts?: number; deals?: number; activeContacts?: number }) {
+function service(state: { plan: string | null; numbers: number; users: number; contacts?: number; deals?: number; activeContacts?: number; trialEndsAt?: Date | null }) {
   const prisma = {
-    organization: { findUnique: async () => (state.plan === null ? null : { plan: state.plan }) },
+    organization: { findUnique: async () => (state.plan === null ? null : { plan: state.plan, trialEndsAt: state.trialEndsAt ?? null }) },
     whatsappConnection: { count: async () => state.numbers },
     user: { count: async () => state.users },
     contact: { count: async () => state.contacts ?? 0 },
@@ -145,4 +145,46 @@ test("la retención borra solo los adjuntos antiguos del almacén y marca el men
   assert.equal(n, 1, "solo el adjunto de más de 90 días del plan Gratis");
   assert.deepEqual(borrados, ["a.jpg"]);
   assert.deepEqual(marcados, ["m1"]);
+});
+
+test("la prueba del alta: Pro durante 15 días, luego Gratis; un plan de pago manda", () => {
+  const { TRIAL_DAYS, effectivePlan, inTrial, trialDaysLeft, trialEndsFrom } = shared;
+  assert.equal(TRIAL_DAYS, 15);
+  const now = new Date("2026-11-01T12:00:00Z");
+  const ends = trialEndsFrom(now);
+  assert.equal(ends.toISOString(), "2026-11-16T12:00:00.000Z");
+
+  assert.equal(effectivePlan("free", ends, now).key, "pro", "en prueba cuenta como Pro");
+  assert.equal(inTrial("free", ends, now), true);
+  assert.equal(trialDaysLeft(ends, now), 15);
+  assert.equal(trialDaysLeft(ends, new Date("2026-11-16T11:00:00Z")), 1, "el último día cuenta como 1");
+
+  const despues = new Date("2026-11-16T12:00:01Z");
+  assert.equal(effectivePlan("free", ends, despues).key, "free", "al terminar, Gratis");
+  assert.equal(inTrial("free", ends, despues), false);
+  assert.equal(trialDaysLeft(ends, despues), 0);
+
+  assert.equal(effectivePlan("business", ends, now).key, "business", "un plan de pago no se pisa con la prueba");
+  assert.equal(inTrial("business", ends, now), false);
+  assert.equal(effectivePlan("free", null, now).key, "free", "sin prueba (empresas de antes)");
+});
+
+test("en prueba se puede lo de Pro; terminada, vuelven los límites de Gratis", async () => {
+  const enPrueba = service({ plan: "free", numbers: 1, users: 2, trialEndsAt: new Date(Date.now() + 3 * 86_400_000) });
+  await assert.doesNotReject(() => enPrueba.assertCanAdd("numbers"), "Pro admite 3 números");
+  await assert.doesNotReject(() => enPrueba.assertFeature("broadcasts"));
+  const mine = await enPrueba.mine();
+  assert.equal(mine.plan.key, "pro");
+  assert.equal(mine.trial?.active, true);
+  assert.equal(mine.trial?.daysLeft, 3);
+  assert.equal(mine.trial?.planName, "Pro");
+
+  const terminada = service({ plan: "free", numbers: 1, users: 2, trialEndsAt: new Date(Date.now() - 86_400_000) });
+  await assert.rejects(() => terminada.assertCanAdd("numbers"), /admite 1 número/);
+  const after = await terminada.mine();
+  assert.equal(after.plan.key, "free");
+  assert.equal(after.trial?.active, false, "se avisa de que terminó");
+
+  const pagando = await service({ plan: "pro", numbers: 1, users: 2, trialEndsAt: new Date(Date.now() + 86_400_000) }).mine();
+  assert.equal(pagando.trial, null, "con plan de pago la prueba ya no se enseña");
 });

@@ -10,7 +10,8 @@ import {
   estimateAiCost,
   includedAiCapUsd,
   PLANS,
-  planFor,
+  effectivePlan,
+  inTrial,
   type FeedbackKind,
   type FeedbackStatus,
   type PlatformAuditEntry,
@@ -91,6 +92,7 @@ export class PlatformService {
           (SELECT count(*) FROM messages WHERE "createdAt" >= now() - interval '7 days')          AS messages7,
           (SELECT count(*) FROM organizations WHERE plan <> 'free' AND "isActive")               AS paying,
           (SELECT count(*) FROM organizations WHERE "planExpiresAt" IS NOT NULL AND "planExpiresAt" < now() + interval '7 days' AND "isActive") AS expiring7,
+          (SELECT count(*) FROM organizations WHERE plan = 'free' AND "trialEndsAt" > now() AND "isActive") AS trialing,
           (SELECT count(*) FROM whatsapp_connections WHERE "isActive" AND status = 'error')      AS numbers_error
       `;
       const days = await this.prisma.$queryRaw<Array<{ day: Date; count: bigint }>>`
@@ -131,6 +133,7 @@ export class PlatformService {
         payingOrgs: n(totals?.paying),
         mrrUsd: mrr,
         expiring7d: n(totals?.expiring7),
+        trialing: n(totals?.trialing),
         numbersWithError: n(totals?.numbers_error),
         signupsByDay: days.map((d) => ({ day: toDay(d.day), count: n(d.count) })),
         messagesByDay: msgDays.map((d) => ({ day: toDay(d.day), inbound: n(d.inbound), outbound: n(d.outbound) })),
@@ -188,10 +191,12 @@ export class PlatformService {
       aiPlatformCostMonthUsd: ai?.platformUsd ?? 0,
       aiIncludedConversations: ai?.conversations ?? 0,
       // Solo cuenta si el servidor tiene la IA incluida encendida.
-      aiIncludedLimit: AiSettingsService.includedEnabled() ? planFor(r.plan).aiConversations : null,
+      aiIncludedLimit: AiSettingsService.includedEnabled() ? effectivePlan(r.plan, r.trialEndsAt).aiConversations : null,
       aiOwnKey: r.ai_own_key,
       onboardingCompletedAt: r.onboarding_completed_at?.toISOString() ?? null,
       planExpiresAt: r.planExpiresAt?.toISOString() ?? null,
+      trialEndsAt: r.trialEndsAt?.toISOString() ?? null,
+      inTrial: inTrial(r.plan, r.trialEndsAt),
       platformNotes: r.platformNotes,
     };
   }
@@ -343,10 +348,10 @@ export class PlatformService {
     const [byOrg, plans] = await Promise.all([
       this.monthAiByOrg(),
       runUnscoped("consola de plataforma: planes", () =>
-        this.prisma.organization.findMany({ select: { id: true, plan: true } }),
+        this.prisma.organization.findMany({ select: { id: true, plan: true, trialEndsAt: true } }),
       ),
     ]);
-    const planOf = new Map(plans.map((o) => [o.id, o.plan]));
+    const planOf = new Map(plans.map((o) => [o.id, effectivePlan(o.plan, o.trialEndsAt)]));
     let own = 0;
     let platform = 0;
     let conversations = 0;
@@ -358,7 +363,7 @@ export class PlatformService {
       platform += a.platformUsd;
       conversations += a.conversations;
       if (a.platformUsd > 0) orgsUsing++;
-      const limit = planFor(planOf.get(id)).aiConversations;
+      const limit = (planOf.get(id) ?? PLANS.free).aiConversations;
       if (limit !== null && limit > 0) {
         if (a.conversations >= limit) orgsFull++;
         if (a.platformUsd >= includedAiCapUsd(limit)) orgsCapped++;
@@ -383,7 +388,7 @@ export class PlatformService {
   async update(id: string, input: UpdatePlatformOrgInput, actor: string): Promise<PlatformOrg> {
     const org = await this.prisma.organization.findUnique({
       where: { id },
-      select: { id: true, plan: true, isActive: true, planExpiresAt: true },
+      select: { id: true, plan: true, isActive: true, planExpiresAt: true, trialEndsAt: true },
     });
     if (!org) throw new NotFoundException("Empresa no encontrada");
     await this.prisma.organization.update({
@@ -392,6 +397,7 @@ export class PlatformService {
         ...(input.plan !== undefined ? { plan: input.plan } : {}),
         ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
         ...(input.planExpiresAt !== undefined ? { planExpiresAt: input.planExpiresAt ? new Date(input.planExpiresAt) : null } : {}),
+        ...(input.trialEndsAt !== undefined ? { trialEndsAt: input.trialEndsAt ? new Date(input.trialEndsAt) : null } : {}),
         ...(input.platformNotes !== undefined ? { platformNotes: input.platformNotes?.trim() || null } : {}),
       },
     });
@@ -405,6 +411,12 @@ export class PlatformService {
       const before = org.planExpiresAt?.toISOString() ?? null;
       if (before !== (input.planExpiresAt ?? null)) {
         await this.audit(actor, "expiry_changed", id, { from: before, to: input.planExpiresAt ?? null });
+      }
+    }
+    if (input.trialEndsAt !== undefined) {
+      const before = org.trialEndsAt?.toISOString() ?? null;
+      if (before !== (input.trialEndsAt ?? null)) {
+        await this.audit(actor, "trial_changed", id, { from: before, to: input.trialEndsAt ?? null });
       }
     }
     if (input.platformNotes !== undefined) await this.audit(actor, "notes_changed", id, null);
@@ -617,6 +629,7 @@ interface OrgRow {
   isActive: boolean;
   createdAt: Date;
   planExpiresAt: Date | null;
+  trialEndsAt: Date | null;
   platformNotes: string | null;
   admin_email: string | null;
   users: bigint;
@@ -641,7 +654,7 @@ interface OrgAi {
 
 // La proyección de una empresa para la consola, compartida por el listado y la ficha.
 const ORG_SELECT = Prisma.sql`
-  SELECT o.id, o.slug, o.name, o.plan, o."isActive", o."createdAt", o."planExpiresAt", o."platformNotes",
+  SELECT o.id, o.slug, o.name, o.plan, o."isActive", o."createdAt", o."planExpiresAt", o."trialEndsAt", o."platformNotes",
     (SELECT u.email FROM users u WHERE u."orgId" = o.id AND u.role = 'ADMIN' ORDER BY u."createdAt" LIMIT 1) AS admin_email,
     (SELECT count(*) FROM users u WHERE u."orgId" = o.id AND u."isActive")                        AS users,
     (SELECT count(*) FROM whatsapp_connections w WHERE w."orgId" = o.id AND w."isActive")         AS numbers,

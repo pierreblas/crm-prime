@@ -6,22 +6,26 @@ import { z } from "zod";
  * WhatsApp avanza en el embudo. Se atribuyen con el ctwa_clid del anuncio.
  * Cada etapa del embudo lleva su propia lista de eventos (varios por etapa);
  * un embudo nuevo arranca con LeadSubmitted en «Potencial» y Purchase en «Ganada».
+ *
+ * Son los eventos que Meta admite para mensajería (FAQ de
+ * developers.facebook.com/docs/marketing-api/conversions-api/business-messaging).
+ * Un nombre propio se puede poner, pero Meta no garantiza aceptarlo.
  */
 export const metaStandardEvents = [
   "LeadSubmitted",
+  "QualifiedLead",
   "Purchase",
-  "Contact",
-  "Schedule",
-  "SubmitApplication",
-  "CompleteRegistration",
-  "StartTrial",
-  "Subscribe",
   "InitiateCheckout",
   "AddToCart",
-  "AddPaymentInfo",
   "ViewContent",
-  "Lead",
-  "Other",
+  "CartAbandoned",
+  "OrderCreated",
+  "OrderShipped",
+  "OrderDelivered",
+  "OrderCanceled",
+  "OrderReturned",
+  "RatingProvided",
+  "ReviewProvided",
 ] as const;
 export type MetaStandardEvent = (typeof metaStandardEvents)[number];
 /** Compatibilidad: los dos eventos que ya existían. */

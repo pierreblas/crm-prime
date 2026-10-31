@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import {
   ONBOARDING_STEP_KEYS,
-  planFor,
+  effectivePlan,
   type OnboardingDto,
   type OnboardingStep,
   type OnboardingStepKey,
@@ -119,9 +119,9 @@ export class OnboardingService {
   private async planHasIncludedAi(): Promise<boolean> {
     const org = await this.prisma.organization.findUnique({
       where: { id: this.tenant.orgId() },
-      select: { plan: true },
+      select: { plan: true, trialEndsAt: true },
     });
-    return (planFor(org?.plan).aiConversations ?? 0) > 0;
+    return (effectivePlan(org?.plan, org?.trialEndsAt).aiConversations ?? 0) > 0;
   }
 
   async skip(key: OnboardingStepKey, skipped: boolean): Promise<void> {

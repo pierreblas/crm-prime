@@ -35,6 +35,7 @@ import { MessageText } from "./MessageText";
 import { SendTemplateDialog } from "./SendTemplateDialog";
 import { SendButtonsDialog } from "./SendButtonsDialog";
 import { MediaBubble } from "./MediaBubble";
+import { AdReferralCard } from "./AdReferralCard";
 import { AiModeSwitch } from "./AiModeSwitch";
 import { Composer } from "./Composer";
 import { ContactPanel, type ContactPanelTab } from "./ContactPanel";
@@ -816,6 +817,8 @@ function MessageBubble({
           position: "relative",
         }}
       >
+        {/* El anuncio que lo trajo, como en WhatsApp Business. */}
+        {m.ad && <AdReferralCard ad={m.ad} />}
         {/* Cita: qué se está respondiendo, como en WhatsApp. */}
         {m.replyTo && (
           <div style={quotedBlock}>

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { phoneField } from "./contact.schema.js";
 import { templateFillSchema } from "./template.schema.js";
+import { readAdReferral } from "../attribution.js";
 import {
   AiMode,
   ConversationStatus,
@@ -70,6 +71,42 @@ export const simulateInboundSchema = z
 export type SimulateInboundInput = z.infer<typeof simulateInboundSchema>;
 
 // ── DTOs de salida ──────────────────────────────────────────
+/**
+ * El anuncio de Meta que trajo un mensaje o una conversación, para pintarlo
+ * (sin el ctwa_clid, que solo usa el servidor para las conversiones).
+ */
+export const adSummarySchema = z.object({
+  /** Id del anuncio (o de la publicación si sourceType es "post"). */
+  sourceId: z.string().nullable(),
+  sourceType: z.string().nullable(),
+  sourceUrl: z.string().nullable(),
+  headline: z.string().nullable(),
+  body: z.string().nullable(),
+  mediaType: z.string().nullable(),
+  imageUrl: z.string().nullable(),
+  thumbnailUrl: z.string().nullable(),
+  /** El saludo automático que el anuncio le mostró en WhatsApp antes de escribir. */
+  welcomeMessage: z.string().nullable(),
+});
+export type AdSummary = z.infer<typeof adSummarySchema>;
+
+/** Del referral guardado a lo que se pinta; null si no vino de un anuncio. */
+export function adSummaryOf(raw: unknown): AdSummary | null {
+  const r = readAdReferral(raw);
+  if (!r) return null;
+  return {
+    sourceId: r.sourceId,
+    sourceType: r.sourceType,
+    sourceUrl: r.sourceUrl,
+    headline: r.headline,
+    body: r.body,
+    mediaType: r.mediaType,
+    imageUrl: r.imageUrl,
+    thumbnailUrl: r.thumbnailUrl,
+    welcomeMessage: r.welcomeMessage,
+  };
+}
+
 export const messageDtoSchema = z.object({
   id: z.string(),
   direction: z.nativeEnum(MessageDirection),
@@ -86,6 +123,8 @@ export const messageDtoSchema = z.object({
   createdAt: z.string(),
   /** Botones enviados con el mensaje (interactivo), para pintarlos en el hilo. */
   buttons: z.array(z.object({ id: z.string(), title: z.string() })).nullable(),
+  /** Anuncio Click-to-WhatsApp que trajo este mensaje (el primero tras el clic). */
+  ad: adSummarySchema.nullable().optional(),
   // Mensaje citado, aplanado a lo justo para pintar la cita sin otra consulta.
   replyTo: z
     .object({
@@ -142,6 +181,8 @@ export const conversationDtoSchema = z.object({
   // cancelado hasta que el cliente escriba) y cuándo se envía (null = ninguno).
   followUpStep: z.number().default(0),
   followUpDueAt: z.string().nullable().default(null),
+  // El último anuncio por el que llegó a esta conversación (null = no vino de uno).
+  ad: adSummarySchema.nullable().default(null),
   // La IA pasó el chat a una persona (null = nadie lo pasó o ya se atendió).
   handoffAt: z.string().nullable().default(null),
   handoffReason: z.string().nullable().default(null),

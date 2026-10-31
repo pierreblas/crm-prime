@@ -77,6 +77,12 @@ export const en = {
     navPending: "{n} steps left",
     navPendingOne: "1 step left",
   },
+  // Sign-up trial, in the sidebar.
+  trial: {
+    navDays: "{plan} trial: {n} days",
+    navLastDay: "{plan} trial: last day",
+    navCta: "See plan",
+  },
   // Conector de Meta en el dominio raíz (SaaS): el SDK solo carga ahí.
   connect: {
     title: "Connect your WhatsApp",
@@ -352,6 +358,18 @@ export const en = {
     noSearchMatches: "No message contains “{query}”.",
     you: "You",
     customer: "Customer",
+    fromAd: "From a Meta ad",
+    fromPost: "From a boosted post",
+    viewAd: "View ad",
+    adWelcome: "Ad greeting",
+    adWelcomeHint: "What WhatsApp showed the customer before they wrote",
+    adChip: "Ad",
+    origin: "Origin",
+    originThisChat: "Ad for this chat",
+    originFirstAd: "First ad that brought them",
+    originForm: "Meta lead form",
+    originCampaign: "Campaign",
+    originAd: "Ad",
     reply: "Reply",
     react: "React",
     // IA

@@ -38,7 +38,7 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { ContactImportService } from "./contact-import.service";
 import { importContactsSchema, Role, type ImportContactsInput, type ImportContactsResult } from "@crm/shared";
-import { maskPhone, type AccessTokenClaims } from "@crm/shared";
+import { maskPhone, readAdReferral, type AccessTokenClaims } from "@crm/shared";
 
 // Lo que necesita una fila del directorio (y la ficha del panel de la bandeja).
 const LIST_INCLUDE = {
@@ -49,7 +49,17 @@ const LIST_INCLUDE = {
     where: { referral: { not: Prisma.DbNull } },
     orderBy: { createdAt: "asc" },
     take: 1,
-    select: { referral: true },
+    select: {
+      referral: true,
+      // La conversación guarda el ÚLTIMO clic; el primero está en su primer
+      // mensaje con anuncio (si es de cuando ya se guardaba por mensaje).
+      messages: {
+        where: { referral: { not: Prisma.DbNull } },
+        orderBy: { createdAt: "asc" },
+        take: 1,
+        select: { referral: true },
+      },
+    },
   },
 } satisfies Prisma.ContactInclude;
 type ContactRow = Prisma.ContactGetPayload<{ include: typeof LIST_INCLUDE }>;
@@ -183,7 +193,7 @@ export class ContactsController {
       originDetail: c.originDetail,
       attribution: {
         utms: this.utmsFrom(c.metadata),
-        ad: this.adFrom(c.conversations[0]?.referral),
+        ad: this.adFrom(c.conversations[0]?.messages[0]?.referral ?? c.conversations[0]?.referral),
       },
       // Sin los utm_*: van en `attribution`, y si salieran también aquí el
       // panel los reescribiría como si fueran campos editables del negocio.
@@ -216,16 +226,9 @@ export class ContactsController {
   }
 
   private adFrom(referral: unknown): ContactListItem["attribution"]["ad"] {
-    if (!referral || typeof referral !== "object") return null;
-    const r = referral as Record<string, unknown>;
-    const str = (v: unknown) => (typeof v === "string" && v ? v : null);
-    return {
-      sourceId: str(r.sourceId),
-      headline: str(r.headline),
-      body: str(r.body),
-      sourceUrl: str(r.sourceUrl),
-      ctwaClid: str(r.ctwaClid),
-    };
+    const r = readAdReferral(referral);
+    if (!r) return null;
+    return { sourceId: r.sourceId, headline: r.headline, body: r.body, sourceUrl: r.sourceUrl, ctwaClid: r.ctwaClid };
   }
 
   /** Importar desde Excel o CSV (filas ya validadas en el navegador). */

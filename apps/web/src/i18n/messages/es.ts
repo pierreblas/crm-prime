@@ -76,6 +76,12 @@ export const es: Messages = {
     navPending: "{n} pasos pendientes",
     navPendingOne: "1 paso pendiente",
   },
+  // Prueba del alta, en el menú lateral.
+  trial: {
+    navDays: "Prueba {plan}: {n} días",
+    navLastDay: "Prueba {plan}: último día",
+    navCta: "Ver plan",
+  },
   // Conector de Meta en el dominio raíz (SaaS): el SDK solo carga ahí.
   connect: {
     title: "Conecta tu WhatsApp",
@@ -351,6 +357,18 @@ export const es: Messages = {
     noSearchMatches: "Ningún mensaje contiene «{query}».",
     you: "Tú",
     customer: "Cliente",
+    fromAd: "Desde un anuncio de Meta",
+    fromPost: "Desde una publicación promocionada",
+    viewAd: "Ver anuncio",
+    adWelcome: "Saludo del anuncio",
+    adWelcomeHint: "Lo que WhatsApp le mostró al cliente antes de que escribiera",
+    adChip: "Anuncio",
+    origin: "Origen",
+    originThisChat: "Anuncio de este chat",
+    originFirstAd: "Primer anuncio que lo trajo",
+    originForm: "Formulario de Meta",
+    originCampaign: "Campaña",
+    originAd: "Anuncio",
     reply: "Responder",
     react: "Reaccionar",
     // IA

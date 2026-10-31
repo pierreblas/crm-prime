@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { planFor } from "@crm/shared";
+import { effectivePlan } from "@crm/shared";
 import { env } from "../../common/utils/env";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { STORAGE_PROVIDER, parseStorageRef, type StorageProvider } from "../../infra/storage/storage.provider";
@@ -50,13 +50,14 @@ export class MediaRetentionService implements OnModuleInit, OnModuleDestroy {
     this.running = true;
     try {
       return await runUnscoped("retención de adjuntos", async () => {
-        const orgs = await this.prisma.organization.findMany({ select: { id: true, plan: true, name: true } });
+        const orgs = await this.prisma.organization.findMany({ select: { id: true, plan: true, trialEndsAt: true, name: true } });
         let total = 0;
         for (const org of orgs) {
-          const days = planFor(org.plan).mediaRetentionDays;
+          const plan = effectivePlan(org.plan, org.trialEndsAt);
+          const days = plan.mediaRetentionDays;
           if (days === null) continue;
           const n = await this.purgeOrg(org.id, days);
-          if (n > 0) this.log.log(`${org.name}: ${n} adjuntos borrados (más de ${days} días, plan ${planFor(org.plan).name})`);
+          if (n > 0) this.log.log(`${org.name}: ${n} adjuntos borrados (más de ${days} días, plan ${plan.name})`);
           total += n;
         }
         return total;

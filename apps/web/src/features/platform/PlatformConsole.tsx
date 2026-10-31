@@ -8,17 +8,18 @@ import { toast } from "@/lib/toast";
 import { fetchPlatformAudit, fetchPlatformHealth, fetchPlatformOrgs, fetchPlatformOverview, updatePlatformOrg } from "@/lib/bff";
 import { OrgDrawer } from "./OrgDrawer";
 import { FeedbackPanel } from "./FeedbackPanel";
-import { date, dateTime, describeAudit, expiry, money, relative, toCsv } from "./platformFormat";
+import { date, dateTime, describeAudit, expiry, money, relative, toCsv, trialTag } from "./platformFormat";
 
 type SortKey = "created" | "activity" | "messages" | "name" | "expiry";
 type Tab = "orgs" | "health" | "audit" | "feedback";
-type StateFilter = "all" | "active" | "suspended" | "paying" | "expiring" | "quiet" | "problems" | "limit" | "overuse" | "ai" | "onboarding";
+type StateFilter = "all" | "active" | "suspended" | "paying" | "trial" | "expiring" | "quiet" | "problems" | "limit" | "overuse" | "ai" | "onboarding";
 
 const STATE_LABEL: Record<StateFilter, string> = {
   all: "Todas",
   active: "Activas",
   suspended: "Suspendidas",
   paying: "De pago",
+  trial: "En prueba de Pro",
   expiring: "Vencen en 7 días o vencidas",
   quiet: "Sin actividad en 14 días",
   problems: "Con problemas",
@@ -107,6 +108,8 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
           return !o.isActive;
         case "paying":
           return o.isActive && o.plan !== "free";
+        case "trial":
+          return o.isActive && o.inTrial;
         case "expiring":
           return o.isActive && expiry(o).days <= 7;
         case "quiet":
@@ -143,6 +146,7 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
         url: o.url,
         plan: planFor(o.plan).name,
         pagado_hasta: o.planExpiresAt ? o.planExpiresAt.slice(0, 10) : "",
+        prueba_hasta: o.trialEndsAt ? o.trialEndsAt.slice(0, 10) : "",
         estado: o.isActive ? "activa" : "suspendida",
         administrador: o.adminEmail ?? "",
         usuarios: o.users,
@@ -175,6 +179,7 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
         <Kpi label="Altas en 7 días" value={o?.new7d} sub={o ? `${o.new30d} en 30 días` : undefined} accent />
         <Kpi label="Con actividad" value={o?.orgsActive7d} sub="mensajes esta semana" />
         <Kpi label="De pago" value={o?.payingOrgs} sub={o ? `${money(o.mrrUsd)} al mes a precio de lista` : undefined} />
+        <Kpi label="En prueba" value={o?.trialing} sub="Pro de 15 días al darse de alta" />
         <Kpi label="Vencen en 7 días" value={o?.expiring7d} sub="o ya vencidas" warn={!!o && o.expiring7d > 0} />
         <Kpi label="Números" value={o?.numbers} sub={o ? `${o.coexistenceNumbers} en coexistencia` : undefined} />
         <Kpi label="Números con error" value={o?.numbersWithError} sub="token caducado, etc." warn={!!o && o.numbersWithError > 0} />
@@ -344,6 +349,7 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
                               </option>
                             ))}
                           </select>
+                          <TrialChip org={org} />
                         </td>
                         <td>
                           {ex.kind === "expired" ? (
@@ -691,5 +697,16 @@ function TrafficChart({ data, loading }: { data: { day: string; inbound: number;
         <span style={{ marginLeft: "auto" }}>{date(days[0]!.day)} → hoy</span>
       </div>
     </div>
+  );
+}
+
+/** «prueba · 12 d» junto al plan mientras la empresa prueba Pro. */
+function TrialChip({ org }: { org: PlatformOrg }) {
+  const t = trialTag(org);
+  if (t.kind === "none") return null;
+  return (
+    <span className={`pc-chip pc-chip--trial${t.kind === "ending" ? " is-ending" : ""}`} title={`Prueba de Pro hasta el ${date(org.trialEndsAt!)}`}>
+      {t.label}
+    </span>
   );
 }

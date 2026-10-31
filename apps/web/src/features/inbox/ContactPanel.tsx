@@ -31,6 +31,7 @@ import { ContactDrawer } from "@/features/contacts/ContactDrawer";
 import { useCalls } from "@/features/calls/CallProvider";
 import { TagEditor } from "@/features/contacts/TagEditor";
 import { CopilotPanel } from "./CopilotPanel";
+import { OriginSection } from "./OriginSection";
 
 export type ContactPanelTab = "contact" | "copilot";
 
@@ -125,6 +126,7 @@ export function ContactPanel({
           ) : (
             <>
               <Identity conversation={conversation} contact={contact ?? null} sources={sources} fields={fields} />
+              <OriginSection ad={conversation.ad} contact={contact ?? null} />
               <DealsSection contactId={contactId} contactName={conversation.contact.name ?? conversation.contact.phone} />
               <section className="cp-section">
                 <div className="cp-section__title">{t("inbox.tags")}</div>

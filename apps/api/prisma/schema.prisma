@@ -150,6 +150,8 @@ model Organization {
   isActive      Boolean   @default(true)
   // Consola de plataforma: hasta cuándo está pagado el plan y notas del operador.
   planExpiresAt DateTime?
+  // Prueba de Pro al darse de alta en la nube (ver TRIAL_DAYS en @crm/shared).
+  trialEndsAt   DateTime?
   platformNotes String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -658,6 +660,10 @@ model Message {
   // Botones enviados (mensaje interactivo) o botón que pulsó el contacto.
   interactive    Json?
   buttonPayload  String?
+  // Anuncio Click-to-WhatsApp que trajo ESTE mensaje (AdReferral en camelCase).
+  // Meta lo manda con el primer mensaje tras cada clic, también en chats ya
+  // abiertos; la conversación guarda el último.
+  referral       Json?
   templateId     String?
   campaignId     String? // si el mensaje salió de una campaña/broadcast
   reaction       String? // emoji de reacción sobre este mensaje (o null si se quitó)
@@ -793,6 +799,11 @@ model MetaLead {
   formId    String?
   formName  String?
   adId      String?
+  // Nombres del anuncio y la campaña, si Meta los da con el token de la
+  // página (si no, quedan vacíos); platform: fb | ig.
+  adName       String?
+  campaignName String?
+  platform     String?
   fieldData Json // respuestas tal cual las manda Meta
   name      String?
   phone     String?

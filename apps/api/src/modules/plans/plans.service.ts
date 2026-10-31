@@ -5,8 +5,12 @@ import {
   PLAN_KEYS,
   PLANS,
   SELF_HOSTED_PLAN,
+  TRIAL_PLAN,
+  effectivePlan,
+  inTrial,
   planFor,
   planWithFeature,
+  trialDaysLeft,
   type MyPlanDto,
   type PlanDef,
   type PlanFeature,
@@ -28,6 +32,9 @@ import { tenancyMode } from "../../infra/tenant/tenant.context";
  * entra siempre (sería absurdo no atender a un cliente nuevo); lo que se frena
  * al llegar al tope es crear o importar a mano y la API pública.
  *
+ * Durante la prueba del alta (ver TRIAL_DAYS) una empresa en Gratis cuenta
+ * como Pro; al terminar vuelve a Gratis sin tocar nada.
+ *
  * En instalación propia no hay planes: todo pasa.
  */
 @Injectable()
@@ -43,11 +50,15 @@ export class PlansService {
 
   async current(): Promise<PlanDef> {
     if (!this.saas) return SELF_HOSTED_PLAN;
-    const org = await this.prisma.organization.findUnique({
+    const org = await this.org();
+    return effectivePlan(org?.plan, org?.trialEndsAt);
+  }
+
+  private org() {
+    return this.prisma.organization.findUnique({
       where: { id: this.tenant.orgId() },
-      select: { plan: true },
+      select: { plan: true, trialEndsAt: true },
     });
-    return planFor(org?.plan);
   }
 
   async usage(): Promise<{
@@ -90,13 +101,26 @@ export class PlansService {
   }
 
   async mine(): Promise<MyPlanDto> {
-    const [plan, usage] = await Promise.all([this.current(), this.usage()]);
+    const [org, usage] = await Promise.all([this.saas ? this.org() : null, this.usage()]);
+    const plan = this.saas ? effectivePlan(org?.plan, org?.trialEndsAt) : SELF_HOSTED_PLAN;
+    // La prueba solo se enseña mientras la empresa siga en Gratis: si ya pasó
+    // a un plan de pago, la prueba es historia.
+    const trial =
+      this.saas && org?.trialEndsAt && planFor(org.plan).key === "free"
+        ? {
+            active: inTrial(org.plan, org.trialEndsAt),
+            endsAt: org.trialEndsAt.toISOString(),
+            daysLeft: trialDaysLeft(org.trialEndsAt),
+            planName: PLANS[TRIAL_PLAN].name,
+          }
+        : null;
     return {
       saas: this.saas,
       plan,
       usage,
       plans: this.saas ? PLAN_KEYS.map((k) => PLANS[k]) : [],
       contactEmail: env("NEXT_PUBLIC_CONTACT_EMAIL") ?? env("CONTACT_EMAIL") ?? null,
+      trial,
     };
   }
 

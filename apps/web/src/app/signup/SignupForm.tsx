@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
+  PLANS,
+  TRIAL_DAYS,
+  TRIAL_PLAN,
   signupAccountStepSchema,
   signupCompanyStepSchema,
   orgSlugSchema,
@@ -355,6 +358,10 @@ export function SignupForm({ baseDomain }: { baseDomain: string }) {
               {enviando ? "Creando…" : "Crear empresa"}
             </button>
           </div>
+          <p style={{ ...pista, textAlign: "center", marginTop: 14 }}>
+            Empiezas con {TRIAL_DAYS} días de {PLANS[TRIAL_PLAN].name} gratis, sin tarjeta. Al terminar
+            sigues en el plan Gratis sin perder nada.
+          </p>
         </section>
       )}
 
@@ -374,6 +381,8 @@ export function SignupForm({ baseDomain }: { baseDomain: string }) {
             …
           </p>
           <p style={{ ...pista, textAlign: "center", marginTop: 18 }}>
+            Tu prueba de {PLANS[TRIAL_PLAN].name} de {TRIAL_DAYS} días ya está en marcha.
+            <br />
             Guarda esa dirección: es por donde entrará tu equipo.
             <br />
             Si no te lleva solo,{" "}

@@ -53,22 +53,22 @@ export const TRIGGER_ICON: Record<StageAutomationTrigger, "pipeline" | "message"
 };
 
 // ── Conversiones de Meta ────────────────────────────────────
-// Eventos estándar de la Conversions API de Meta para mensajería, con su nombre legible.
+// Eventos que Meta admite para mensajería, con su nombre legible.
 export const EVENT_LABEL: Record<string, string> = {
   LeadSubmitted: "Lead enviado (LeadSubmitted)",
+  QualifiedLead: "Lead calificado (QualifiedLead)",
   Purchase: "Compra (Purchase)",
-  Contact: "Contacto (Contact)",
-  Schedule: "Cita agendada (Schedule)",
-  SubmitApplication: "Solicitud enviada (SubmitApplication)",
-  CompleteRegistration: "Registro completado (CompleteRegistration)",
-  StartTrial: "Prueba iniciada (StartTrial)",
-  Subscribe: "Suscripción (Subscribe)",
   InitiateCheckout: "Inicio de pago (InitiateCheckout)",
   AddToCart: "Añadido al carrito (AddToCart)",
-  AddPaymentInfo: "Datos de pago (AddPaymentInfo)",
   ViewContent: "Contenido visto (ViewContent)",
-  Lead: "Cliente potencial (Lead)",
-  Other: "Otro (Other)",
+  CartAbandoned: "Carrito abandonado (CartAbandoned)",
+  OrderCreated: "Pedido creado (OrderCreated)",
+  OrderShipped: "Pedido enviado (OrderShipped)",
+  OrderDelivered: "Pedido entregado (OrderDelivered)",
+  OrderCanceled: "Pedido cancelado (OrderCanceled)",
+  OrderReturned: "Pedido devuelto (OrderReturned)",
+  RatingProvided: "Valoración dada (RatingProvided)",
+  ReviewProvided: "Reseña dada (ReviewProvided)",
 };
 const CUSTOM = "__custom__";
 const isStandard = (name: string) => (metaStandardEvents as readonly string[]).includes(name);
@@ -185,7 +185,7 @@ export function ConversionsEditor({ stage, onChanged }: { stage: StageDto; onCha
     onError: (e) => toast.error((e as Error).message),
   });
   const list = stage.conversionEvents;
-  const firstFree = metaStandardEvents.find((n) => !list.some((e) => e.eventName === n)) ?? "Other";
+  const firstFree = metaStandardEvents.find((n) => !list.some((e) => e.eventName === n)) ?? metaStandardEvents[0];
   const set = (i: number, patch: Partial<StageConversionEvent>) =>
     save.mutate(list.map((e, j) => (j === i ? { ...e, ...patch } : e)));
 
@@ -260,7 +260,9 @@ function ConversionRow({
             {EVENT_LABEL[n]}
           </option>
         ))}
-        <option value={CUSTOM}>Nombre propio…</option>
+        <option value={CUSTOM} title="Meta no garantiza aceptar eventos fuera de su lista">
+          Nombre propio (Meta puede rechazarlo)…
+        </option>
       </select>
       {custom && (
         <input

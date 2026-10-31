@@ -198,6 +198,29 @@ export class MetaGraphClient {
     };
   }
 
+  /**
+   * Anuncio, campaña y plataforma del lead. Llamada aparte y sin errores: según
+   * los permisos del token de la página, Meta puede negar estos campos, y eso
+   * no debe impedir guardar el lead. null si no los da.
+   */
+  async getLeadAdInfo(
+    leadgenId: string,
+    pageToken: string,
+  ): Promise<{ adName: string | null; campaignName: string | null; platform: string | null } | null> {
+    try {
+      const { graphVersion } = await this.requireApp();
+      const res = await fetch(
+        `${this.baseUrl}/${graphVersion}/${leadgenId}` +
+          `?fields=ad_name,campaign_name,platform&access_token=${encodeURIComponent(pageToken)}`,
+      );
+      if (!res.ok) return null;
+      const data = (await res.json()) as { ad_name?: string; campaign_name?: string; platform?: string };
+      return { adName: data.ad_name ?? null, campaignName: data.campaign_name ?? null, platform: data.platform ?? null };
+    } catch {
+      return null;
+    }
+  }
+
   /** Nombre del formulario, solo para mostrarlo en el CRM. */
   async getFormName(formId: string, pageToken: string): Promise<string | null> {
     const { graphVersion } = await this.requireApp();

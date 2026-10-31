@@ -33,7 +33,7 @@ export interface TriggerMeta {
 export const TRIGGER_META: TriggerMeta[] = [
   { type: "conversation_start", label: "Al iniciar un chat", short: "al iniciar chat", hint: "Cuando un contacto escribe por primera vez o abre una conversación nueva.", icon: "message", needs: null },
   { type: "keyword", label: "Por palabra clave", short: "palabra clave", hint: "Cuando un mensaje del contacto contiene alguna de estas palabras.", icon: "search", needs: "keywords" },
-  { type: "ad_click", label: "Llega desde un anuncio", short: "desde anuncio", hint: "Cuando la conversación nace de un anuncio Click to WhatsApp de Meta.", icon: "megaphone", needs: null },
+  { type: "ad_click", label: "Llega desde un anuncio", short: "desde anuncio", hint: "Cuando el cliente escribe tras tocar un anuncio Click to WhatsApp de Meta: al abrir el chat, o si vuelve por otro anuncio con el chat abierto.", icon: "megaphone", needs: null },
   { type: "meta_lead", label: "Nuevo lead de Meta Ads (formulario)", short: "lead de Meta", hint: "Cuando entra un lead de un formulario de Meta Lead Ads. El lead aún no te escribió: para hablarle usa el bloque «Enviar plantilla».", icon: "target", needs: "forms" },
   { type: "lead_webhook", label: "Nuevo lead por API o formulario web", short: "lead por API", hint: "Cuando entra un lead por el webhook de leads o la API (tu web, n8n, Zapier…). Para escribirle usa «Enviar plantilla».", icon: "plug", needs: null },
   { type: "tag_added", label: "Se le pone una etiqueta", short: "etiqueta", hint: "Cuando alguien, la IA u otro flujo etiqueta al contacto.", icon: "tag", needs: "tags" },

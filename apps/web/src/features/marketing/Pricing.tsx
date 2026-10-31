@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FEATURE_LABELS, formatAiIncluded, formatPlanLimit, formatRetention, PLAN_FEATURES, PLAN_KEYS, PLANS, SELF_HOSTED_PLAN, type PlanDef, type PlanLimit } from "@crm/shared";
+import { FEATURE_LABELS, formatAiIncluded, formatPlanLimit, formatRetention, PLAN_FEATURES, PLAN_KEYS, PLANS, SELF_HOSTED_PLAN, TRIAL_DAYS, TRIAL_PLAN, type PlanDef, type PlanLimit } from "@crm/shared";
 import "./landing.css";
 import { Arrow, Check, CONTACT, GITHUB, IconGit, LpThemeScript, MarketingFooter, MarketingHeader, Minus } from "./chrome";
 
@@ -22,7 +22,11 @@ const INCLUDED = [
 const FAQ = [
   {
     q: "¿Necesito tarjeta para empezar?",
-    a: "No. El plan Gratis no pide tarjeta ni caduca. Pasas a Pro o Empresa cuando lo necesites.",
+    a: `No. Al crear tu cuenta tienes ${TRIAL_DAYS} días de Pro gratis, sin tarjeta. Al terminar sigues en el plan Gratis, que no caduca, y pasas a Pro o Empresa cuando lo necesites.`,
+  },
+  {
+    q: "¿Qué pasa cuando termina la prueba?",
+    a: "No se corta ni se borra nada: tu cuenta pasa al plan Gratis con tus chats, contactos, embudos y agentes. Si durante la prueba conectaste más números o invitaste a más personas de las que admite Gratis, se quedan; lo que se frena es añadir más. Las difusiones, la API y la coexistencia vuelven con Pro. En el panel ves cada día cuánto te queda de prueba.",
   },
   {
     q: "¿Cómo se paga Pro o Empresa?",
@@ -66,8 +70,8 @@ export function Pricing() {
             <div className="lp-head">
               <h1>Precios claros, sin sorpresas.</h1>
               <p className="lp-lede">
-                Empieza gratis y sin tarjeta. Pasas a Pro o Empresa cuando crezcan el equipo o los
-                números. La IA y WhatsApp los pagas a su proveedor con tus propias cuentas, sin margen
+                Pruébalo {TRIAL_DAYS} días con todo Pro, sin tarjeta. Después sigues gratis, o pasas a
+                Pro o Empresa cuando crezcan el equipo o los números. La IA y WhatsApp los pagas a su proveedor con tus propias cuentas, sin margen
                 nuestro.
               </p>
             </div>
@@ -153,10 +157,10 @@ export function Pricing() {
         <section className="lp-cta-band">
           <div className="lp-wrap lp-cta-band__inner">
             <h2>Empieza hoy, paga cuando crezcas.</h2>
-            <p>Tu espacio en tu-empresa.driony.com en dos minutos. Sin tarjeta.</p>
+            <p>Tu espacio en tu-empresa.driony.com en dos minutos. {TRIAL_DAYS} días de Pro gratis, sin tarjeta.</p>
             <div className="lp-cta__row">
               <Link href="/register" className="lp-btn lp-btn--white lp-btn--lg">
-                Empezar gratis <Arrow />
+                Probar {TRIAL_DAYS} días gratis <Arrow />
               </Link>
               <a href={`mailto:${CONTACT}?subject=Planes%20de%20Driony`} className="lp-btn lp-btn--outline lp-btn--lg">
                 Hablar con nosotros
@@ -176,6 +180,8 @@ const TAG: Record<string, string> = { free: "Para probar", pro: "Más elegido", 
 
 function PlanCard({ plan, highlight }: { plan: PlanDef; highlight: boolean }) {
   const free = plan.priceUsd === 0;
+  // El plan de la prueba se empieza igual que el gratis: creando la cuenta.
+  const trial = plan.key === TRIAL_PLAN;
   const LIMITS: PlanLimit[] = ["numbers", "users", "contacts", "deals", "activeContacts"];
   return (
     <article className={`lp-plan${highlight ? " lp-plan--cloud" : ""}`} data-plan={plan.key}>
@@ -217,16 +223,22 @@ function PlanCard({ plan, highlight }: { plan: PlanDef; highlight: boolean }) {
         ))}
       </div>
       <div className="lp-plan__cta">
-        {free ? (
-          <Link href="/register" className="lp-btn lp-btn--primary">
-            Empezar gratis <Arrow />
+        {free || trial ? (
+          <Link href="/register" className={`lp-btn ${highlight ? "lp-btn--primary" : "lp-btn--ghost"}`}>
+            {trial ? `Probar ${TRIAL_DAYS} días gratis` : "Empezar gratis"} <Arrow />
           </Link>
         ) : (
           <a href={`mailto:${CONTACT}?subject=Plan%20${encodeURIComponent(plan.name)}%20de%20Driony`} className={`lp-btn ${highlight ? "lp-btn--primary" : "lp-btn--ghost"}`}>
             Hablar con nosotros
           </a>
         )}
-        <p className="lp-plan__note">{free ? "Sin tarjeta. No caduca." : "Se activa en el día desde Ajustes › Plan. Sin permanencia."}</p>
+        <p className="lp-plan__note">
+          {free
+            ? `Sin tarjeta. No caduca. Empiezas con ${TRIAL_DAYS} días de ${PLANS[TRIAL_PLAN].name}.`
+            : trial
+              ? `${TRIAL_DAYS} días gratis al crear tu cuenta. Después se activa en el día desde Ajustes › Plan, sin permanencia.`
+              : "Se activa en el día desde Ajustes › Plan. Sin permanencia."}
+        </p>
       </div>
     </article>
   );

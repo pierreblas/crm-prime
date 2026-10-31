@@ -202,6 +202,12 @@ export function ConversationList({
                     {c.channel.label ?? c.channel.displayPhoneNumber}
                   </span>
                 )}
+                {c.ad && (
+                  <span style={{ ...metaChip, color: "var(--accent-text)" }} title={c.ad.headline ?? c.ad.sourceId ?? undefined} data-from-ad>
+                    <NavIcon name="megaphone" size={10} />
+                    {t("inbox.adChip")}
+                  </span>
+                )}
                 {c.contact.tags.slice(0, 3).map((tag) => (
                   <span key={tag.name} style={tagChip(tag.color)}>
                     {tag.name}

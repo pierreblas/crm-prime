@@ -3,9 +3,12 @@
  *
  * Hay dos vías distintas y conviene no confundirlas:
  *
- *  1. Anuncios Click-to-WhatsApp: Meta adjunta un objeto `referral` al primer
- *     mensaje de la conversación. NO trae utm_*; trae el id del anuncio y el
- *     `ctwa_clid`, que es lo que permite devolver conversiones a Meta.
+ *  1. Anuncios Click-to-WhatsApp: Meta adjunta un objeto `referral` al
+ *     mensaje que el cliente envía tras tocar el anuncio (texto, imagen, audio,
+ *     ubicación…; no a las respuestas de botones). NO trae utm_*; trae el id
+ *     del anuncio y el `ctwa_clid`, que es lo que permite devolver
+ *     conversiones a Meta. Meta omite el `ctwa_clid` en los anuncios de
+ *     Estados de WhatsApp.
  *  2. Enlaces wa.me con texto prellenado (`wa.me/519...?text=Hola utm_source=ig`):
  *     ahí sí viajan los utm_*, pero dentro del texto del mensaje, así que hay
  *     que extraerlos y limpiar el texto para que el agente no vea el churro.
@@ -23,12 +26,44 @@ export interface AdReferral {
   videoUrl: string | null;
   thumbnailUrl: string | null;
   ctwaClid: string | null; // click id (Conversions API)
-  welcomeMessage: string | null;
+  welcomeMessage: string | null; // saludo que el anuncio le mostró antes de escribir
+  ref: string | null; // campo nuevo de Meta, sin documentar: se guarda tal cual
 }
 
 // Etiqueta corta para mostrar en la UI: el titular, o el id del anuncio.
-export function adReferralLabel(r: AdReferral): string {
+export function adReferralLabel(r: Pick<AdReferral, "headline" | "sourceId">): string {
   return r.headline?.trim() || r.sourceId?.trim() || "Anuncio";
+}
+
+/**
+ * Lee un referral guardado (Conversation.referral, Message.referral). Se
+ * guarda en camelCase, pero se acepta también la forma de Meta (snake_case)
+ * por si alguna fila antigua o una importación lo dejó así. null si no es un
+ * referral.
+ */
+export function readAdReferral(raw: unknown): AdReferral | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const s = (camel: string, snake: string): string | null => {
+    const v = r[camel] ?? r[snake];
+    return typeof v === "string" && v.trim() ? v : null;
+  };
+  const welcome = r.welcomeMessage ?? (r.welcome_message as { text?: unknown } | undefined)?.text;
+  const out: AdReferral = {
+    sourceUrl: s("sourceUrl", "source_url"),
+    sourceId: s("sourceId", "source_id"),
+    sourceType: s("sourceType", "source_type"),
+    headline: s("headline", "headline"),
+    body: s("body", "body"),
+    mediaType: s("mediaType", "media_type"),
+    imageUrl: s("imageUrl", "image_url"),
+    videoUrl: s("videoUrl", "video_url"),
+    thumbnailUrl: s("thumbnailUrl", "thumbnail_url"),
+    ctwaClid: s("ctwaClid", "ctwa_clid"),
+    welcomeMessage: typeof welcome === "string" && welcome.trim() ? welcome : null,
+    ref: s("ref", "ref"),
+  };
+  return out.sourceId || out.ctwaClid || out.sourceUrl || out.headline ? out : null;
 }
 
 // ── 2. UTMs en el texto del primer mensaje ───────────────────

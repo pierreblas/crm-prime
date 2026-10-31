@@ -8,6 +8,7 @@ import {
   HANDOFF_REASON_AI_INCLUDED_FULL,
   HANDOFF_REASON_MEDIA,
   priceFor,
+  readAdReferral,
 } from "@crm/shared";
 import type {
   AiSuggestion,
@@ -77,6 +78,7 @@ export class AgentService {
     const system = this.buildSystemParts(config?.systemPrompt, conversation.contact, config?.enabledTools ?? [], !!config?.splitReplies, {
       catalogFields: catalogFields.map((f) => f.label),
       contactFields: contactFieldDefs,
+      referral: conversation.referral,
     });
     const messages = await this.buildHistory(conversationId);
     // Las acciones necesitan los valores reales (etiquetas, etapas, vendedores)
@@ -793,7 +795,7 @@ export class AgentService {
     contact: { name: string | null; phone: string; currency?: string | null; aiMemory?: unknown; metadata?: unknown },
     enabledTools: string[] = [],
     splitReplies = false,
-    extra: { catalogFields?: string[]; contactFields?: { key: string; label: string }[] } = {},
+    extra: { catalogFields?: string[]; contactFields?: { key: string; label: string }[]; referral?: unknown } = {},
   ): { system: string; systemDynamic: string } {
     const country = countryFromPhone(contact.phone);
     const memory = memoryText(contact.aiMemory);
@@ -846,6 +848,7 @@ export class AgentService {
         ? `\n\nDatos guardados de este contacto: ${contactFields.map((f) => `${f.label}: ${f.value}`).join("; ")}.`
         : "",
       memory ? `\n\nLo que sabemos de este cliente (de conversaciones anteriores):\n${memory}` : "",
+      originText(extra.referral, meta),
     ].join("");
     return { system, systemDynamic };
   }
@@ -869,7 +872,9 @@ export class AgentService {
     // Un seguimiento no abre una conversación nueva del cupo si ya está lleno.
     if (!(await this.aiSettings.allowsConversation(conversationId))) return null;
     const config = await this.bots.resolveForConversation(conversation);
-    const system = this.buildSystemParts(config?.systemPrompt, conversation.contact);
+    const system = this.buildSystemParts(config?.systemPrompt, conversation.contact, [], false, {
+      referral: conversation.referral,
+    });
     const history = await this.buildHistory(conversationId);
     const ask =
       "[Nota del sistema, no es un mensaje del cliente] El cliente lleva un tiempo sin responder. Escribe UN solo mensaje de seguimiento, breve (una o dos frases), cálido y sin presionar, que retome lo último que hablaban. No saludes como si fuera el primer contacto ni repitas lo que ya dijiste." +
@@ -939,4 +944,30 @@ export function memoryText(raw: unknown): string {
     for (const f of m.facts) if (typeof f === "string" && f.trim()) lines.push(`- ${f.trim()}`);
   }
   return lines.join("\n");
+}
+
+/**
+ * Por dónde llegó el cliente, para que el agente sepa de qué le habla: el
+ * anuncio de Meta que abrió el chat (su titular y su texto) o el formulario
+ * de Meta que llenó. "" si no vino de ninguno.
+ */
+export function originText(referral: unknown, metadata: Record<string, unknown>): string {
+  const ad = readAdReferral(referral);
+  if (ad) {
+    const headline = ad.headline?.trim();
+    const body = ad.body?.trim().slice(0, 400);
+    const what = [headline ? `titular «${headline}»` : "", body ? `texto «${body}»` : ""].filter(Boolean).join(", ");
+    const post = ad.sourceType === "post" ? " (una publicación promocionada)" : "";
+    const welcome = ad.welcomeMessage?.trim().slice(0, 300);
+    return (
+      `\n\n## Cómo llegó\nEste cliente escribió tras tocar un anuncio de Meta${post}${what ? `: ${what}` : ""}.` +
+      " Si pregunta por «eso», «el precio» o «lo del anuncio» sin decir qué, se refiere a lo que anunciaba." +
+      (welcome ? ` Antes de escribir, WhatsApp le mostró este saludo del anuncio: «${welcome}». No lo repitas.` : "")
+    );
+  }
+  const form = typeof metadata.formulario === "string" ? metadata.formulario.trim() : "";
+  if (form) {
+    return `\n\n## Cómo llegó\nEste cliente llenó el formulario de Meta «${form}» antes de escribir: ya dejó sus datos, no se los vuelvas a pedir.`;
+  }
+  return "";
 }

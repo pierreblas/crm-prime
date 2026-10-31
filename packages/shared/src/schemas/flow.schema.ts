@@ -147,7 +147,8 @@ export type FlowEdge = z.infer<typeof flowEdgeSchema>;
  * Cuándo arranca un flujo.
  *  - conversation_start: primer mensaje de una conversación nueva.
  *  - keyword: un mensaje entrante contiene alguna palabra clave.
- *  - ad_click: la conversación nace desde un anuncio Click-to-WhatsApp.
+ *  - ad_click: el cliente escribe tras tocar un anuncio Click-to-WhatsApp (al
+ *    nacer la conversación, o de vuelta por otro anuncio con el chat abierto).
  *  - meta_lead: entra un lead de un formulario de Meta Lead Ads.
  *  - lead_webhook: entra un lead por la API o un webhook (formulario web, n8n…).
  *  - tag_added: se le pone una etiqueta al contacto.

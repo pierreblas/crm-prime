@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from "@nes
 import { OnEvent } from "@nestjs/event-emitter";
 import { Prisma } from "@prisma/client";
 import type { ConversionChannel, ConversionEventDto, ConversionsOverview, StageConversionEvent } from "@crm/shared";
-import { parseStageConversionEvents } from "@crm/shared";
+import { parseStageConversionEvents, readAdReferral } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { runInOrg } from "../../infra/tenant/tenant.context";
@@ -150,6 +150,41 @@ export class ConversionsService {
     return this.overview();
   }
 
+  /**
+   * El último clic en un anuncio que trae ctwa_clid, y el número que lo
+   * recibió. Primero en los mensajes (cada clic queda en el mensaje que lo
+   * trajo, también con el chat abierto); si no hay, en las conversaciones
+   * (filas anteriores a guardar el referral por mensaje). Los anuncios de
+   * Estados de WhatsApp no traen ctwa_clid: se saltan y cuenta el anterior.
+   *
+   * El referral se guarda en camelCase (ctwaClid); readAdReferral acepta
+   * también la forma de Meta. Antes se buscaba solo ctwa_clid y ningún chat
+   * real lo tenía: las conversiones no salían nunca.
+   */
+  private async lastAdClick(contactId: string): Promise<{ clid: string; channelId: string } | null> {
+    const messages = await this.prisma.message.findMany({
+      where: { conversation: { contactId }, direction: "INBOUND", referral: { not: Prisma.DbNull } },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: { referral: true, conversation: { select: { channelId: true } } },
+    });
+    for (const m of messages) {
+      const clid = readAdReferral(m.referral)?.ctwaClid;
+      if (clid && m.conversation.channelId) return { clid, channelId: m.conversation.channelId };
+    }
+    const convos = await this.prisma.conversation.findMany({
+      where: { contactId, referral: { not: Prisma.DbNull } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: { referral: true, channelId: true },
+    });
+    for (const c of convos) {
+      const clid = readAdReferral(c.referral)?.ctwaClid;
+      if (clid && c.channelId) return { clid, channelId: c.channelId };
+    }
+    return null;
+  }
+
   /** Todos los eventos configurados en la etapa, en orden; cada uno una sola vez por oportunidad. */
   private async report(dealId: string, contactId: string, stageId: string): Promise<void> {
     const stage = await this.prisma.pipelineStage.findUnique({
@@ -167,16 +202,9 @@ export class ConversionsService {
     opts: { force?: boolean } = {},
   ): Promise<void> {
     const eventName = ev.eventName;
-    // El chat que vino de un anuncio (el más reciente con ctwa_clid).
-    const convos = await this.prisma.conversation.findMany({
-      where: { contactId, referral: { not: Prisma.DbNull } },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      select: { referral: true, channelId: true },
-    });
-    const fromAd = convos.find((c) => typeof (c.referral as { ctwa_clid?: unknown } | null)?.ctwa_clid === "string");
-    const clid = (fromAd?.referral as { ctwa_clid?: string } | null)?.ctwa_clid;
-    if (!fromAd || !clid || !fromAd.channelId) return; // no vino de un anuncio: nada que atribuir
+    const fromAd = await this.lastAdClick(contactId);
+    if (!fromAd) return; // no vino de un anuncio: nada que atribuir
+    const { clid } = fromAd;
 
     const conn = await this.prisma.whatsappConnection.findUnique({ where: { id: fromAd.channelId } });
     if (!conn?.capiEnabled || !conn.capiDatasetId || !conn.wabaId || !conn.accessToken) return;

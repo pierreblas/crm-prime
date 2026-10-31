@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { TRIAL_DAYS } from "@crm/shared";
 import "./landing.css";
 import { Arrow, Check, GITHUB, IconGit, LpThemeScript, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
 import { HeroChat } from "./HeroChat";
@@ -20,6 +21,7 @@ const COMPARE = [
 // Frases de la banda lima. Se pintan dos veces para que la marquesina
 // haga un bucle sin salto.
 const BAND_ITEMS = [
+  `${TRIAL_DAYS} días de Pro gratis`,
   "Tiempo real",
   "Multi-número",
   "IA incluida o tu propia clave",
@@ -40,8 +42,8 @@ const FAQ = [
     a: "Cada plan trae conversaciones con IA incluidas al mes (100 en Gratis, 2.000 en Pro y 10.000 en Empresa), sin configurar nada. Si prefieres otro modelo o no tener cupo, conectas tu clave de OpenAI, Anthropic o cualquier API compatible y pagas a tu proveedor a su precio, sin recargo. Cada respuesta registra sus tokens y su coste, y puedes ponerle un tope mensual a cada agente.",
   },
   {
-    q: "¿Qué incluye empezar gratis en la nube?",
-    a: "Tu espacio en tu-empresa.driony.com con la bandeja, los agentes de IA, el embudo y los flujos, sin tarjeta, para un número de WhatsApp y dos personas del equipo. Los planes Pro y Empresa amplían números, usuarios, difusiones y API; están en la página de precios.",
+    q: "¿Cómo es la prueba gratis?",
+    a: `Al crear tu cuenta tienes ${TRIAL_DAYS} días del plan Pro completo, sin tarjeta: tres números, diez personas, difusiones, API y 2.000 conversaciones con IA incluida. Al terminar no se corta nada: sigues en el plan Gratis (un número, dos personas y 100 conversaciones con IA al mes) con tus chats, contactos y agentes, y pasas a Pro o Empresa cuando quieras.`,
   },
   {
     q: "¿Cómo sé cuándo la IA pasó un chat a una persona?",
@@ -129,7 +131,7 @@ export function Landing() {
               </p>
               <div className="lp-hero__cta lp-anim" style={{ animationDelay: "0.24s" }}>
                 <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
-                  Empezar gratis <Arrow />
+                  Probar {TRIAL_DAYS} días gratis <Arrow />
                 </Link>
                 <a href="#como" className="lp-btn lp-btn--ghost lp-btn--lg">
                   Ver cómo funciona
@@ -138,8 +140,8 @@ export function Landing() {
               <div className="lp-hero__trust lp-anim" style={{ animationDelay: "0.32s" }}>
                 <Check />
                 <span>
-                  <b>Sin tarjeta.</b> Conectas tu número en minutos y el agente de IA ya viene
-                  incluido. Código abierto.
+                  <b>{TRIAL_DAYS} días de Pro gratis, sin tarjeta.</b> Después sigues en el plan
+                  Gratis o eliges el tuyo. El agente de IA ya viene incluido.
                 </span>
               </div>
               <div className="lp-partner lp-anim" style={{ animationDelay: "0.4s" }} title="Driony forma parte del programa de partners de Meta">
@@ -483,13 +485,13 @@ export function Landing() {
               <article className="lp-plan lp-plan--cloud lp-reveal">
                 <div className="lp-plan__tag">Nube · gestionado por Driony</div>
                 <h3>Nosotros lo alojamos</h3>
-                <p className="lp-plan__price">Empieza gratis, sin tarjeta</p>
+                <p className="lp-plan__price">{TRIAL_DAYS} días de Pro gratis, sin tarjeta</p>
                 <p>
                   Tu espacio en <b>tu-empresa.driony.com</b> en dos minutos. Sin
                   servidores ni actualizaciones que hacer, y con tus datos aislados de
-                  los de cualquier otra empresa. Empiezas en el plan Gratis; cuando
-                  crezcas, Pro y Empresa amplían números, usuarios y características
-                  (<Link href="/precios">ver precios</Link>).
+                  los de cualquier otra empresa. Empiezas con {TRIAL_DAYS} días del plan
+                  Pro completo; después sigues en Gratis, o pasas a Pro o Empresa cuando
+                  crezcas (<Link href="/precios">ver precios</Link>).
                 </p>
                 <div className="lp-plan__rows">
                   {[
@@ -510,7 +512,7 @@ export function Landing() {
                 </div>
                 <div className="lp-plan__cta">
                   <Link href="/register" className="lp-btn lp-btn--primary">
-                    Empezar gratis <Arrow />
+                    Probar {TRIAL_DAYS} días gratis <Arrow />
                   </Link>
                 </div>
               </article>
@@ -541,11 +543,11 @@ export function Landing() {
             <h2>Pon a tu agente a vender hoy.</h2>
             <p>
               Conecta tu número, entrena tu IA y deja de perder leads en WhatsApp.
-              Sin tarjeta.
+              {" "}{TRIAL_DAYS} días de Pro gratis, sin tarjeta.
             </p>
             <div className="lp-cta__row">
               <Link href="/register" className="lp-btn lp-btn--white lp-btn--lg">
-                Empezar gratis <Arrow />
+                Probar {TRIAL_DAYS} días gratis <Arrow />
               </Link>
               <Link href="/login" className="lp-btn lp-btn--outline lp-btn--lg">
                 Iniciar sesión

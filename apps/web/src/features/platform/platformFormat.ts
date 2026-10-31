@@ -16,6 +16,14 @@ export function relative(iso: string | null): string {
   return date(iso);
 }
 
+/** La prueba del alta mientras corre («prueba · 12 d»); terminada no se marca. */
+export function trialTag(org: Pick<PlatformOrg, "inTrial" | "trialEndsAt">): { kind: "active" | "ending" | "none"; label: string } {
+  if (!org.trialEndsAt) return { kind: "none", label: "" };
+  const days = Math.ceil((new Date(org.trialEndsAt).getTime() - Date.now()) / 86_400_000);
+  if (org.inTrial) return { kind: days <= 3 ? "ending" : "active", label: days <= 1 ? "prueba · último día" : `prueba · ${days} d` };
+  return { kind: "none", label: "" };
+}
+
 /** Estado del vencimiento del plan: vencido, a punto, lejos, o sin fecha. */
 export function expiry(org: Pick<PlatformOrg, "planExpiresAt">): { kind: "none" | "expired" | "soon" | "ok"; label: string; days: number } {
   if (!org.planExpiresAt) return { kind: "none", label: "—", days: Infinity };
@@ -54,6 +62,8 @@ export function describeAudit(e: PlatformAuditEntry): string {
       return "Reactivó la empresa";
     case "expiry_changed":
       return d.to ? `Puso el vencimiento el ${date(String(d.to))}` : "Quitó el vencimiento";
+    case "trial_changed":
+      return d.to ? `Puso la prueba hasta el ${date(String(d.to))}` : "Quitó la prueba";
     case "notes_changed":
       return "Editó las notas internas";
     case "login_as":

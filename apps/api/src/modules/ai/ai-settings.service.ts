@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import {
   AI_INCLUDED_MODEL,
   includedAiCapUsd,
-  planFor,
+  effectivePlan,
   type AiIncluded,
   type AiStatus,
   type AiSettingsDto,
@@ -238,8 +238,8 @@ export class AiSettingsService {
     const hit = this.includedCache.get(orgId);
     if (hit && now - hit.at < AiSettingsService.TTL_MS) return hit.value;
 
-    const org = await this.prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true } });
-    const limit = planFor(org?.plan).aiConversations;
+    const org = await this.prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, trialEndsAt: true } });
+    const limit = effectivePlan(org?.plan, org?.trialEndsAt).aiConversations;
     let value: AiIncluded | null = null;
     if (limit !== null && limit > 0) {
       const used = await this.usage.includedUsage(orgId);

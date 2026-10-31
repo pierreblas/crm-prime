@@ -6,6 +6,7 @@ import { NavIcon, type IconName } from "./NavIcons";
 import { useT } from "@/i18n/I18nProvider";
 import type { MessageKey } from "@/i18n/translate";
 import { OnboardingNavCard } from "@/features/onboarding/OnboardingNavCard";
+import { TrialNavChip } from "@/features/plans/TrialNavChip";
 import { useRealtimeCtx } from "./RealtimeProvider";
 import { useQuery } from "@tanstack/react-query";
 import type { PermissionSection } from "@crm/shared";
@@ -179,7 +180,10 @@ export function SideNav({
 
       <nav style={{ padding: collapsed ? "8px 8px" : "4px 10px", overflowY: "auto", flex: 1 }}>
         {role === "ADMIN" && (
-          <OnboardingNavCard collapsed={collapsed} active={active === "gettingStarted"} />
+          <>
+            <OnboardingNavCard collapsed={collapsed} active={active === "gettingStarted"} />
+            <TrialNavChip collapsed={collapsed} />
+          </>
         )}
         {NAV.map((group) => {
           const items = group.items.filter(

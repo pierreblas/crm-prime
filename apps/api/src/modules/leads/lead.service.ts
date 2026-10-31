@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Prisma } from "@prisma/client";
-import { fieldKeyFromLabel, resolveFieldKeys, utmKeys } from "@crm/shared";
+import { fieldKeyFromLabel, phoneVariants, resolveFieldKeys, utmKeys } from "@crm/shared";
 import type {
   UnmappedField,
   CreateCustomFieldInput,
@@ -109,10 +109,15 @@ export class LeadService {
     // Por dónde entró, para los flujos que arrancan con un lead nuevo.
     opts: { via?: "meta" | "webhook" | "api"; formName?: string | null; formId?: string | null } = {},
   ): Promise<{ id: string; created: boolean }> {
-    // Ya viene normalizado a E.164 por el esquema (phoneField).
-    const phone = input.phone;
+    // Ya viene normalizado a E.164 por el esquema (phoneField). Si el contacto
+    // ya existe con otra forma del mismo móvil (su WhatsApp de México «+521…»
+    // o Argentina «+549…»), el lead se une a ese y conserva su número.
     const orgId = this.tenant.orgId();
-    const existing = await this.prisma.contact.findFirst({ where: { phone } });
+    const variants = phoneVariants(input.phone);
+    const existing =
+      (await this.prisma.contact.findFirst({ where: { phone: input.phone } })) ??
+      (await this.prisma.contact.findFirst({ where: { phone: { in: variants } } }));
+    const phone = existing?.phone ?? input.phone;
 
     // Fuente: se crea si no existe.
     let sourceId: string | undefined;

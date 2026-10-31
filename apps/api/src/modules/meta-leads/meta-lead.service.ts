@@ -1,8 +1,10 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import {
+  countryFromPhone,
+  dialCodeOf,
   mapMetaLeadFields,
-  normalizePhone,
+  phoneWithDefaultCountry,
   MessageAuthor,
   type MetaLeadDto,
   type MetaLeadField,
@@ -71,9 +73,11 @@ export class MetaLeadService {
     }
 
     const mapped = mapMetaLeadFields(detail.fields);
-    const formName = detail.formId
-      ? await this.graph.getFormName(detail.formId, page.accessToken)
-      : null;
+    const [formName, adInfo] = await Promise.all([
+      detail.formId ? this.graph.getFormName(detail.formId, page.accessToken) : null,
+      this.graph.getLeadAdInfo(note.leadgenId, page.accessToken),
+    ]);
+    const ad = { adName: adInfo?.adName ?? null, campaignName: adInfo?.campaignName ?? null, platform: adInfo?.platform ?? null };
 
     // Sin teléfono no se puede crear el contacto (es su identificador), así
     // que el lead queda en la bandeja de pendientes para revisarlo a mano.
@@ -82,19 +86,19 @@ export class MetaLeadService {
         { ...note, formId: detail.formId ?? undefined },
         page.pageId,
         detail.fields,
-        { status: "NO_PHONE", formName, ...mapped },
+        { status: "NO_PHONE", formName, ...ad, ...mapped },
       );
       this.logger.log(`Lead ${note.leadgenId} sin teléfono: queda pendiente`);
       return;
     }
 
-    const contactId = await this.createContact(page, mapped, formName);
+    const contactId = await this.createContact(page, mapped, formName, ad);
 
     await this.record(
       { ...note, formId: detail.formId ?? undefined },
       page.pageId,
       detail.fields,
-      { status: "PROCESSED", formName, ...mapped, contactId },
+      { status: "PROCESSED", formName, ...ad, ...mapped, contactId },
     );
     this.logger.log(
       `Lead ${note.leadgenId} → contacto ${contactId} (${page.name})`,
@@ -116,6 +120,7 @@ export class MetaLeadService {
     },
     mapped: ReturnType<typeof mapMetaLeadFields>,
     formName: string | null,
+    ad: { adName: string | null; campaignName: string | null } = { adName: null, campaignName: null },
   ): Promise<string> {
     const source = page.sourceId
       ? await this.prisma.source.findUnique({ where: { id: page.sourceId } })
@@ -128,10 +133,14 @@ export class MetaLeadService {
     const fields = { ...mapped.extra };
     if (mapped.email) fields.email = mapped.email;
     if (formName) fields.formulario = formName;
+    if (ad.adName) fields.anuncio = ad.adName;
+    if (ad.campaignName) fields.campana = ad.campaignName;
 
     const { id: contactId } = await this.leads.ingestLead(
       {
-        phone: normalizePhone(mapped.phone!),
+        // Sin prefijo de país, el del número de WhatsApp de la empresa: así el
+        // lead y su chat de WhatsApp son el mismo contacto.
+        phone: phoneWithDefaultCountry(mapped.phone!, await this.defaultDialCode()),
         name: mapped.name ?? undefined,
         source: source?.name,
         tags: tags.map((t) => t.name),
@@ -150,6 +159,17 @@ export class MetaLeadService {
     }
 
     return contactId;
+  }
+
+  /** Prefijo del país del número de WhatsApp principal de la empresa («51»), o null. */
+  private async defaultDialCode(): Promise<string | null> {
+    const conn = await this.prisma.whatsappConnection.findFirst({
+      where: { isActive: true, displayPhoneNumber: { not: null } },
+      orderBy: { connectedAt: "asc" },
+      select: { displayPhoneNumber: true },
+    });
+    const country = countryFromPhone(conn?.displayPhoneNumber);
+    return country ? dialCodeOf(country.code) : null;
   }
 
   /** Oportunidad en la primera etapa del pipeline. */
@@ -237,6 +257,9 @@ export class MetaLeadService {
       status: MetaLeadStatusValue;
       error?: string;
       formName?: string | null;
+      adName?: string | null;
+      campaignName?: string | null;
+      platform?: string | null;
       name?: string | null;
       phone?: string | null;
       email?: string | null;
@@ -250,6 +273,9 @@ export class MetaLeadService {
         formId: note.formId ?? null,
         formName: extra.formName ?? null,
         adId: note.adId ?? null,
+        adName: extra.adName ?? null,
+        campaignName: extra.campaignName ?? null,
+        platform: extra.platform ?? null,
         fieldData: fields as unknown as Prisma.InputJsonValue,
         name: extra.name ?? null,
         phone: extra.phone ?? null,
@@ -275,6 +301,8 @@ export class MetaLeadService {
       pageId: r.pageId,
       pageName: r.page.name,
       formName: r.formName,
+      adName: r.adName,
+      campaignName: r.campaignName,
       name: r.name,
       phone: r.phone,
       email: r.email,
@@ -297,7 +325,10 @@ export class MetaLeadService {
     const fields = (lead.fieldData as MetaLeadField[] | null) ?? [];
     const mapped = { ...mapMetaLeadFields(fields), phone };
 
-    const contactId = await this.createContact(lead.page, mapped, lead.formName);
+    const contactId = await this.createContact(lead.page, mapped, lead.formName, {
+      adName: lead.adName,
+      campaignName: lead.campaignName,
+    });
 
     await this.prisma.metaLead.update({
       where: { id },

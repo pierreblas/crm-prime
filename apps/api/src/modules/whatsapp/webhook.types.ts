@@ -119,8 +119,9 @@ interface MetaContact {
   profile?: { name?: string };
   wa_id: string;
 }
-// Anuncio Click-to-WhatsApp que originó el mensaje. Meta lo adjunta al
-// PRIMER mensaje de una conversación abierta desde el anuncio.
+// Anuncio Click-to-WhatsApp que originó el mensaje. Meta lo adjunta al mensaje
+// que el cliente envía tras tocar el anuncio (texto, medios, ubicación…; no a
+// las respuestas de botones), también si el chat ya estaba abierto.
 // https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/reference/messages/text
 export interface MetaReferral {
   source_url?: string; // enlace corto del anuncio
@@ -132,8 +133,9 @@ export interface MetaReferral {
   image_url?: string;
   video_url?: string;
   thumbnail_url?: string;
-  ctwa_clid?: string; // click id: necesario para devolver conversiones a Meta
+  ctwa_clid?: string; // click id para devolver conversiones (no llega en anuncios de Estados)
   welcome_message?: { text?: string };
+  ref?: string; // campo nuevo de Meta, sin documentar
 }
 
 interface MetaMessage {

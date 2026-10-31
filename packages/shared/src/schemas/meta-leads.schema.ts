@@ -80,6 +80,9 @@ export const metaLeadDtoSchema = z.object({
   pageId: z.string(),
   pageName: z.string(),
   formName: z.string().nullable(),
+  /** Anuncio y campaña del lead, si Meta los da con el token de la página. */
+  adName: z.string().nullable().default(null),
+  campaignName: z.string().nullable().default(null),
   name: z.string().nullable(),
   phone: z.string().nullable(),
   email: z.string().nullable(),

@@ -36,6 +36,8 @@ type Vars = Record<string, string>;
 interface Inbound {
   text: string;
   payload: string | null;
+  /** El mensaje llegó tras un clic en un anuncio Click-to-WhatsApp. */
+  fromAd?: boolean;
 }
 
 /** Todo lo que puede mirar una condición, cargado una vez por bloque. */
@@ -303,7 +305,18 @@ export class FlowEngineService {
       return true;
     }
 
-    // Sin sesión activa → ¿algún flujo por palabra clave coincide?
+    // Sin sesión activa y de vuelta por un anuncio con el chat ya abierto: su
+    // flujo «desde un anuncio». En una conversación nueva ya lo arrancó onCreated.
+    if (inbound.fromAd) {
+      const inbounds = await this.prisma.message.count({ where: { conversationId, direction: "INBOUND" } });
+      const ad = inbounds > 1 ? await this.findFlow(convo.channelId, "ad_click") : null;
+      if (ad) {
+        await this.startFlow(ad, conversationId, text);
+        return true;
+      }
+    }
+
+    // ¿Algún flujo por palabra clave coincide?
     const flow = await this.findFlow(convo.channelId, "keyword", text);
     if (flow) {
       await this.startFlow(flow, conversationId, text);
@@ -1189,9 +1202,11 @@ export class FlowEngineService {
     const m = await this.prisma.message.findFirst({
       where: { conversationId, direction: "INBOUND" },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      select: { type: true, content: true, transcript: true, buttonPayload: true },
+      select: { type: true, content: true, transcript: true, buttonPayload: true, referral: true },
     });
-    return m ? { text: MediaUnderstandingService.textOf(m), payload: m.buttonPayload ?? null } : { text: "", payload: null };
+    return m
+      ? { text: MediaUnderstandingService.textOf(m), payload: m.buttonPayload ?? null, fromAd: m.referral !== null }
+      : { text: "", payload: null };
   }
 
   // ── Selección de flujo ──────────────────────────────────────

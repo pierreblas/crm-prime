@@ -134,6 +134,43 @@ export function planFor(key: string | null | undefined): PlanDef {
   return (PLAN_KEYS as readonly string[]).includes(key ?? "") ? PLANS[key as PlanKey] : PLANS.free;
 }
 
+/**
+ * Prueba al crear la cuenta en la nube: TRIAL_DAYS días con el plan
+ * TRIAL_PLAN completo. Al terminar, la empresa sigue en Gratis sin cortar
+ * nada (como cualquier bajada de plan: los límites se miran al añadir).
+ *
+ * Solo cuenta mientras el plan guardado es Gratis: si el operador la pasa a
+ * un plan de pago durante la prueba, manda el de pago.
+ */
+export const TRIAL_DAYS = 15;
+export const TRIAL_PLAN: PlanKey = "pro";
+
+type When = Date | string | null | undefined;
+const toMs = (d: When): number | null => (d ? new Date(d).getTime() : null);
+
+/** ¿La prueba está corriendo ahora? */
+export function inTrial(key: string | null | undefined, trialEndsAt: When, now: Date = new Date()): boolean {
+  const ends = toMs(trialEndsAt);
+  return planFor(key).key === "free" && ends !== null && ends > now.getTime();
+}
+
+/** El plan que manda: el de prueba mientras dure, si no el guardado. */
+export function effectivePlan(key: string | null | undefined, trialEndsAt: When, now: Date = new Date()): PlanDef {
+  return inTrial(key, trialEndsAt, now) ? PLANS[TRIAL_PLAN] : planFor(key);
+}
+
+/** Días que le quedan a la prueba, redondeando hacia arriba (el último día cuenta como 1). */
+export function trialDaysLeft(trialEndsAt: When, now: Date = new Date()): number {
+  const ends = toMs(trialEndsAt);
+  if (ends === null) return 0;
+  return Math.max(0, Math.ceil((ends - now.getTime()) / 86_400_000));
+}
+
+/** Cuándo termina una prueba que empieza ahora. */
+export function trialEndsFrom(start: Date = new Date()): Date {
+  return new Date(start.getTime() + TRIAL_DAYS * 86_400_000);
+}
+
 /** El plan más barato que incluye una característica, o null si ninguno. */
 export function planWithFeature(feature: PlanFeature): PlanDef | null {
   return PLAN_KEYS.map((k) => PLANS[k]).find((p) => p.features[feature]) ?? null;

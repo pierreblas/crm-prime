@@ -132,6 +132,21 @@ export function OrgDrawer({ id, myOrgSlug, onClose }: { id: string; myOrgSlug?: 
                     />
                     <ExpiryTag org={org} />
                   </label>
+                  <label title="La prueba de Pro del alta. Mientras corre, la empresa en Gratis tiene todo Pro; al terminar vuelve a Gratis sin cortar nada.">
+                    Prueba de Pro hasta
+                    <input
+                      type="date"
+                      className="pc-select"
+                      defaultValue={toDateInput(org.trialEndsAt)}
+                      key={org.trialEndsAt ?? "none"}
+                      aria-label="Prueba de Pro hasta"
+                      onBlur={(e) => {
+                        // Se compara el día: la del alta lleva hora exacta y solo pasar por el campo no debe moverla.
+                        if (e.target.value !== toDateInput(org.trialEndsAt)) update.mutate({ trialEndsAt: fromDateInput(e.target.value) });
+                      }}
+                    />
+                    {org.inTrial ? <span className="pc-muted">en curso</span> : org.trialEndsAt ? <span className="pc-muted">terminada</span> : null}
+                  </label>
                   <span style={{ flex: 1 }} />
                   <button
                     type="button"

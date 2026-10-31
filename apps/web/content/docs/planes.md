@@ -19,6 +19,12 @@ En la nube de Driony (`tu-empresa.driony.com`) cada empresa tiene un plan. El pl
 | API pública y webhooks | No | Sí | Sí |
 | Soporte prioritario | No | No | Sí |
 
+## Prueba de 15 días
+
+Al crear tu empresa en la nube tienes **15 días del plan Pro completo**, sin tarjeta: más números y usuarios, difusiones, API, coexistencia y el cupo de IA de Pro. En **Ajustes › Plan** y en el menú lateral ves los días que quedan.
+
+Al terminar la prueba tu empresa sigue en el plan **Gratis**, sin cortar ni borrar nada: como en cualquier bajada de plan, lo que ya tienes se queda (números, usuarios, contactos, un número en coexistencia) y lo que se frena es añadir más. Para quedarte en Pro, escríbenos desde **Ajustes › Plan** antes o después de que termine.
+
 ## Cómo se aplican los límites
 
 Los límites cuentan **al añadir**: al conectar otro número, crear otro usuario, o crear a mano un contacto o una oportunidad. Lo que ya tienes no se toca nunca, tampoco si bajas de plan. Si intentas pasarte, la pantalla te dice qué plan lo permite.

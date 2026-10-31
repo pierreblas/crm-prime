@@ -15,7 +15,9 @@ import {
   MessageStatus,
   MessageType,
   adReferralLabel,
+  adSummaryOf,
   parseUtms,
+  phoneVariants,
   utmsFromUrl,
   type AdReferral,
   type Utms,
@@ -69,6 +71,7 @@ function toAdReferral(r: MetaReferral): AdReferral {
     thumbnailUrl: r.thumbnail_url ?? null,
     ctwaClid: r.ctwa_clid ?? null,
     welcomeMessage: r.welcome_message?.text ?? null,
+    ref: r.ref ?? null,
   };
 }
 
@@ -205,6 +208,11 @@ export class MessagingService {
       referral ? "ad" : "whatsapp",
     );
 
+    // El mismo móvil puede estar guardado en otra forma (un lead del
+    // formulario con «+52…» y su WhatsApp con «+521…»): es la misma persona.
+    // Se queda la forma de WhatsApp, que es a la que se le puede escribir.
+    await this.adoptPhoneVariant(orgId, msg.from);
+
     const contact = await this.prisma.contact.upsert({
       where: { orgId_phone: { orgId, phone: msg.from } },
       create: {
@@ -276,6 +284,9 @@ export class MessagingService {
             unreadCount: { increment: 1 },
             // Fija el canal si aún no lo tenía (conversaciones previas).
             ...(channelId && !open.channelId ? { channelId } : {}),
+            // Volvió por un anuncio con el chat abierto: Meta manda el referral
+            // en este mensaje y es el clic que cuenta para las conversiones.
+            ...(referral ? { referral: referral as unknown as Prisma.InputJsonObject } : {}),
           },
         })
       : await this.prisma.conversation.create({
@@ -323,6 +334,7 @@ export class MessagingService {
         content: text,
         mediaUrl: msg.mediaUrl,
         buttonPayload: msg.buttonPayload ?? null,
+        ...(referral ? { referral: referral as unknown as Prisma.InputJsonObject } : {}),
         status: MessageStatus.DELIVERED,
       },
     });
@@ -356,6 +368,30 @@ export class MessagingService {
     // Disparar la automatización de IA (palabras clave, horario, autopilot).
     // Lo maneja AutomationService de forma asíncrona con sus guardrails.
     this.events.emit("conversation.inbound", { conversationId: conversation.id });
+  }
+
+  /**
+   * Si no hay contacto con este número exacto pero sí con una forma
+   * equivalente (México «52»/«521», Argentina «54»/«549»), ese contacto pasa a
+   * tener el número de WhatsApp. Con el exacto, o sin ninguno, no hace nada.
+   */
+  private async adoptPhoneVariant(orgId: string, waPhone: string): Promise<void> {
+    const others = phoneVariants(waPhone).filter((p) => p !== waPhone);
+    if (others.length === 0) return;
+    const exact = await this.prisma.contact.findUnique({
+      where: { orgId_phone: { orgId, phone: waPhone } },
+      select: { id: true },
+    });
+    if (exact) return;
+    const twin = await this.prisma.contact.findFirst({
+      where: { orgId, phone: { in: others } },
+      select: { id: true, phone: true },
+    });
+    if (!twin) return;
+    await this.prisma.contact
+      .update({ where: { id: twin.id }, data: { phone: waPhone } })
+      .then(() => this.logger.log(`Contacto ${twin.phone} unido a su WhatsApp ${waPhone}`))
+      .catch((e: Error) => this.logger.warn(`No se pudo unir ${twin.phone} con ${waPhone}: ${e.message}`));
   }
 
   // ── Coexistencia: mensaje enviado desde la app del celular ─────
@@ -1164,6 +1200,7 @@ export class MessagingService {
       author: string;
       createdAt: Date;
     }[];
+    referral?: unknown;
   }): ConversationDto {
     const now = new Date();
     const last = c.messages?.[0];
@@ -1173,6 +1210,7 @@ export class MessagingService {
       unreadCount: c.unreadCount ?? 0,
       handoffAt: c.handoffAt?.toISOString() ?? null,
       handoffReason: c.handoffReason ?? null,
+      ad: adSummaryOf(c.referral),
       followUpStep: c.followUpStep ?? 0,
       followUpDueAt: c.followUpDueAt?.toISOString() ?? null,
       lastMessage: last
@@ -1257,6 +1295,7 @@ export class MessagingService {
     status: string;
     createdAt: Date;
     interactive?: unknown;
+    referral?: unknown;
   }): MessageDto {
     const interactive = m.interactive as {
       buttons?: { id: string; title: string }[];
@@ -1271,6 +1310,7 @@ export class MessagingService {
       mediaPurgedAt: m.mediaPurgedAt?.toISOString() ?? null,
       transcript: m.transcript ?? null,
       buttons: interactive?.buttons?.length ? interactive.buttons : null,
+      ad: adSummaryOf(m.referral),
       replyTo: m.replyTo
         ? {
             id: m.replyTo.id,

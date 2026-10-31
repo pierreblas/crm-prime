@@ -195,6 +195,14 @@ test("el alta de una empresa funciona con el rol restringido", async () => {
   assert.equal(Number(cuenta.etapas), 6);
   assert.equal(Number(cuenta.agentes), 1);
 
+  // En la nube el alta empieza con la prueba de Pro de 15 días.
+  const [org]: any[] = await ctx.runUnscoped("prueba: leer la empresa nueva", () =>
+    prisma.$queryRawUnsafe(`SELECT plan, "trialEndsAt" FROM organizations WHERE id = '${r.orgId}'`),
+  );
+  assert.equal(org.plan, "free");
+  const dias = (new Date(org.trialEndsAt).getTime() - Date.now()) / 86_400_000;
+  assert.ok(dias > 14.9 && dias <= 15, `la prueba dura 15 días (quedan ${dias.toFixed(2)})`);
+
   // …y desde otra empresa no se ve nada de ello.
   const ajenos: any[] = await ctx.runInOrg("o_a", () =>
     prisma.$queryRawUnsafe(`SELECT id FROM users WHERE "orgId" = '${r.orgId}'`),
@@ -212,6 +220,7 @@ test("la consola de plataforma agrega todas las empresas con el rol restringido"
 
   const overview = await svc.overview();
   assert.ok(overview.orgs >= 2, "hay al menos las dos empresas sembradas");
+  assert.equal(typeof overview.trialing, "number");
   assert.ok(Array.isArray(overview.signupsByDay));
   assert.ok(overview.byPlan.some((p) => p.plan === "free"));
 
@@ -394,4 +403,80 @@ test("el asistente de bienvenida construye la IA con el rol restringido, solo en
     prisma.$queryRawUnsafe(`SELECT id FROM quick_replies WHERE "orgId" = '${alta.orgId}' UNION ALL SELECT id FROM knowledge_docs WHERE "orgId" = '${alta.orgId}'`),
   );
   assert.equal(ajenos.length, 0, "desde otra empresa no se ve nada");
+});
+
+test("lo que llega de un anuncio queda en el mensaje y en el chat abierto, y el lead de México se une a su WhatsApp", async () => {
+  const { MessagingService } = await import("../src/modules/messaging/messaging.service");
+  // Empresa propia: el resto de pruebas cuentan las filas de las sembradas.
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_ads_${suf}`;
+  await ctx.runUnscoped("prueba: empresa de anuncios", () =>
+    prisma.organization.create({ data: { id: orgId, slug: `ads-${suf}`, name: "Anuncios" } }),
+  );
+  const emitted: string[] = [];
+  const svc = new MessagingService(
+    prisma,
+    { orgId: () => orgId } as any,
+    {} as any, // cola de salida: no se envía nada
+    {} as any, // proveedor de WhatsApp
+    { resolveChannel: async () => null } as any,
+    {} as any, // almacenamiento
+    { emit: (name: string) => emitted.push(name) } as any,
+    { emit: async () => undefined } as any,
+    {} as any,
+    { intakeFromWhatsapp: async () => undefined } as any,
+    {} as any,
+  );
+  const anuncio = (id: string, headline: string) => ({
+    source_url: `https://fb.me/${id}`,
+    source_id: id,
+    source_type: "ad",
+    headline,
+    body: "Envío gratis esta semana",
+    ctwa_clid: `clid-${id}`,
+  });
+
+  await ctx.runInOrg(orgId, async () => {
+    // 1 · Primer mensaje tras el clic: el anuncio en el mensaje, el chat y el contacto.
+    const phone = `+51990${suf}`;
+    await svc.handleInbound({ from: phone, waMessageId: `wamid.ad1.${suf}`, type: "TEXT" as any, text: "Hola, ¿precio?", referral: anuncio("111", "Zapatillas") });
+    const c1 = await prisma.contact.findUnique({ where: { orgId_phone: { orgId, phone } } });
+    assert.equal(c1.origin, "ad");
+    const conv = await prisma.conversation.findFirst({ where: { contactId: c1.id } });
+    assert.equal(conv.referral.sourceId, "111");
+    assert.equal(conv.referral.ctwaClid, "clid-111", "se guarda en camelCase");
+    const m1 = await prisma.message.findFirst({ where: { waMessageId: `wamid.ad1.${suf}` } });
+    assert.equal(m1.referral.headline, "Zapatillas");
+
+    // 2 · Con el chat abierto vuelve por OTRO anuncio: cuenta el último clic.
+    await svc.handleInbound({ from: phone, waMessageId: `wamid.ad2.${suf}`, type: "TEXT" as any, text: "Y estas?", referral: anuncio("222", "Mochilas") });
+    const convs = await prisma.conversation.findMany({ where: { contactId: c1.id } });
+    assert.equal(convs.length, 1, "sigue siendo el mismo chat");
+    assert.equal(convs[0].referral.sourceId, "222");
+    const m2 = await prisma.message.findFirst({ where: { waMessageId: `wamid.ad2.${suf}` } });
+    assert.equal(m2.referral.ctwaClid, "clid-222");
+    // Un mensaje normal después no borra el anuncio del chat.
+    await svc.handleInbound({ from: phone, waMessageId: `wamid.ad3.${suf}`, type: "TEXT" as any, text: "gracias" });
+    const after = await prisma.conversation.findUnique({ where: { id: convs[0].id } });
+    assert.equal(after.referral.sourceId, "222");
+
+    // 3 · El lead del formulario llegó como +52 55…; WhatsApp escribe como +521 55…
+    const mx = `+5255${suf}000`.slice(0, 13);
+    const lead = await prisma.contact.create({ data: { orgId, phone: mx, name: "Lead MX", origin: "webhook" } });
+    const wa = `+521${mx.slice(3)}`;
+    await svc.handleInbound({ from: wa, waMessageId: `wamid.mx.${suf}`, type: "TEXT" as any, text: "Hola, llené el formulario" });
+    const merged = await prisma.contact.findUnique({ where: { id: lead.id } });
+    assert.equal(merged.phone, wa, "el contacto del lead pasa a tener el número de WhatsApp");
+    assert.equal(await prisma.contact.count({ where: { phone: { in: [mx, wa] } } }), 1, "no se duplica");
+  }).finally(() =>
+    // Lo creado aquí se borra: las pruebas de arriba cuentan todas las filas.
+    ctx.runUnscoped("prueba: limpiar la empresa de anuncios", async () => {
+      await prisma.message.deleteMany({ where: { orgId } });
+      await prisma.conversation.deleteMany({ where: { orgId } });
+      await prisma.contact.deleteMany({ where: { orgId } });
+      await prisma.source.deleteMany({ where: { orgId } });
+      await prisma.organization.delete({ where: { id: orgId } });
+    }),
+  );
+  assert.ok(emitted.includes("conversation.created"));
 });

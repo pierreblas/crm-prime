@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/AppShell";
 import { Inbox } from "@/features/inbox/Inbox";
 import { Landing } from "@/features/marketing/Landing";
+import { currentOrgSlug } from "@/lib/org";
 
-// La raíz sirve la landing pública (en español) al visitante sin sesión; la
-// bandeja, ya dentro, pone su propio título en el cliente.
+// La raíz sirve la landing pública (en español) al visitante sin sesión del
+// dominio principal; la bandeja, ya dentro, pone su propio título en el cliente.
 export const metadata: Metadata = {
   title: "Driony — Convierte WhatsApp en tu mejor vendedor",
   description:
@@ -23,8 +25,12 @@ export const metadata: Metadata = {
 export default async function Home() {
   const session = await auth();
 
-  // Visitante no logueado → landing pública de ventas.
   if (!session) {
+    // En el subdominio de una empresa (acme.driony.com) quien llega es de esa
+    // empresa: va directo a su acceso, no a la portada de ventas. Si el
+    // subdominio no existe, el login ya lo dice.
+    if (await currentOrgSlug()) redirect("/login");
+    // Dominio principal → landing pública de ventas.
     return <Landing />;
   }
 

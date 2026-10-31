@@ -12,6 +12,19 @@ export const myPlanSchema = z.object({
   plans: z.array(planDefSchema),
   /** A quién escribir para cambiar de plan (no hay cobro automático). */
   contactEmail: z.string().nullable(),
+  /**
+   * La prueba de Pro del alta. null = no tuvo prueba o ya está en un plan de
+   * pago. `active: false` = ya terminó y sigue en Gratis.
+   */
+  trial: z
+    .object({
+      active: z.boolean(),
+      endsAt: z.string(),
+      daysLeft: z.number(),
+      /** Nombre del plan que se prueba ("Pro"). */
+      planName: z.string(),
+    })
+    .nullable(),
 });
 export type MyPlanDto = z.infer<typeof myPlanSchema>;
 
@@ -55,6 +68,8 @@ export const platformOverviewSchema = z.object({
   mrrUsd: z.number(),
   /** Planes que vencen en 7 días o ya vencieron (empresas activas). */
   expiring7d: z.number(),
+  /** Empresas activas con la prueba de Pro corriendo. */
+  trialing: z.number(),
   numbersWithError: z.number(),
   signupsByDay: z.array(dayCount),
   messagesByDay: z.array(dayTraffic),
@@ -93,6 +108,10 @@ export const platformOrgSchema = z.object({
   onboardingCompletedAt: z.string().nullable(),
   /** Hasta cuándo está pagado el plan (lo lleva el operador a mano). */
   planExpiresAt: z.string().nullable(),
+  /** Fin de la prueba de Pro del alta (null = sin prueba). */
+  trialEndsAt: z.string().nullable(),
+  /** La prueba está corriendo ahora (plan Gratis y sin vencer). */
+  inTrial: z.boolean(),
   /** Notas internas del operador: quién es, qué pagó, qué pidió. */
   platformNotes: z.string().nullable(),
 });
@@ -102,6 +121,8 @@ export const updatePlatformOrgSchema = z.object({
   plan: planKeySchema.optional(),
   isActive: z.boolean().optional(),
   planExpiresAt: z.string().datetime().nullable().optional(),
+  /** Alargar, acortar o quitar la prueba. */
+  trialEndsAt: z.string().datetime().nullable().optional(),
   platformNotes: z.string().max(4000).nullable().optional(),
 });
 export type UpdatePlatformOrgInput = z.infer<typeof updatePlatformOrgSchema>;
@@ -110,7 +131,7 @@ export type UpdatePlatformOrgInput = z.infer<typeof updatePlatformOrgSchema>;
 export const platformAuditEntrySchema = z.object({
   id: z.string(),
   actorEmail: z.string(),
-  /** plan_changed | suspended | reactivated | expiry_changed | notes_changed | login_as */
+  /** plan_changed | suspended | reactivated | expiry_changed | trial_changed | notes_changed | login_as */
   action: z.string(),
   orgId: z.string().nullable(),
   orgName: z.string().nullable(),

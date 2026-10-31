@@ -13,11 +13,12 @@ import * as bcrypt from "bcryptjs";
 import {
   RESERVED_SUBDOMAINS,
   extraReserved,
+  trialEndsFrom,
   type RegisterOrgInput,
   type RegisterOrgResult,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
-import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
+import { runInOrg, runUnscoped, tenancyMode } from "../../infra/tenant/tenant.context";
 import { env } from "../../common/utils/env";
 
 import { DEFAULT_STAGES } from "../pipeline/pipeline.service";
@@ -103,8 +104,15 @@ export class OrganizationService {
     try {
       const { org, adminId } = await runInOrg(orgId, () =>
         this.prisma.$transaction(async (tx) => {
+          // En la nube cada alta empieza con la prueba de Pro; en una
+          // instalación propia no hay planes y no tendría sentido.
           const creada = await tx.organization.create({
-            data: { id: orgId, slug, name: input.companyName },
+            data: {
+              id: orgId,
+              slug,
+              name: input.companyName,
+              ...(tenancyMode === "multi" ? { trialEndsAt: trialEndsFrom() } : {}),
+            },
           });
 
           const admin = await tx.user.create({
