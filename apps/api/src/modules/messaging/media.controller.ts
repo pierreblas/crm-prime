@@ -21,9 +21,12 @@ import {
 } from "../../infra/storage/storage.provider";
 import { i18n } from "../../i18n/i18n";
 
-// Lo que WhatsApp acepta como imagen o documento, acotado a lo razonable.
-const MAX_BYTES = 16 * 1024 * 1024; // límite de Meta para medios
+// Lo que WhatsApp acepta como imagen, video, audio o documento, acotado a lo
+// razonable. Límites de Meta: imagen 5 MB; video y audio 16 MB.
+const MAX_BYTES = 16 * 1024 * 1024;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const VIDEO_TYPES = ["video/mp4", "video/3gpp"];
+const AUDIO_TYPES = ["audio/aac", "audio/mp4", "audio/mpeg", "audio/amr", "audio/ogg", "audio/opus"];
 const DOC_TYPES = [
   "application/pdf",
   "application/msword",
@@ -39,7 +42,7 @@ interface UploadedMedia {
   mediaUrl: string;
   /** URL para previsualizarlo en el CRM. */
   previewUrl: string;
-  kind: "IMAGE" | "DOCUMENT";
+  kind: "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT";
   mimeType: string;
   size: number;
   fileName: string;
@@ -67,11 +70,22 @@ export class MediaController {
     if (!file) throw new BadRequestException("No se recibió ningún archivo");
 
     const mimeType = file.mimetype;
-    const isImage = IMAGE_TYPES.includes(mimeType);
-    if (!isImage && !DOC_TYPES.includes(mimeType)) {
+    const kind = IMAGE_TYPES.includes(mimeType)
+      ? "IMAGE"
+      : VIDEO_TYPES.includes(mimeType)
+        ? "VIDEO"
+        : AUDIO_TYPES.includes(mimeType)
+          ? "AUDIO"
+          : DOC_TYPES.includes(mimeType)
+            ? "DOCUMENT"
+            : null;
+    if (!kind) {
       throw new BadRequestException(
         i18n("media.unsupportedType", { mimeType }),
       );
+    }
+    if (kind === "IMAGE" && file.size > 5 * 1024 * 1024) {
+      throw new BadRequestException("La imagen pasa de 5 MB, el máximo de WhatsApp");
     }
 
     const stored = await this.storage.save(
@@ -82,7 +96,7 @@ export class MediaController {
     return {
       mediaUrl: toStorageRef(stored.id),
       previewUrl: `/api/v1/media/${stored.id}`,
-      kind: isImage ? "IMAGE" : "DOCUMENT",
+      kind,
       mimeType,
       size: stored.size,
       fileName: file.originalname,

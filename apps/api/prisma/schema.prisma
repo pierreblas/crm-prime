@@ -1231,6 +1231,8 @@ model FlowSession {
   currentNodeId  String? // nodo donde espera respuesta (askQuestion), o null
   variables      Json     @default("{}") // respuestas capturadas
   status         String   @default("running") // running | completed | stopped
+  // Cuándo arrancó el flujo actual (pausa mínima del disparador «llega un mensaje»).
+  startedAt      DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

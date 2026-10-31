@@ -13,7 +13,6 @@ import {
   importEnvWhatsapp,
   removeWhatsappChannel,
   fetchWhatsappChannels,
-  fetchWhatsappConnectStatus,
   fetchIntegrationSettings,
   requestWhatsappConnectTicket,
   testWhatsappChannel,
@@ -66,15 +65,6 @@ export function WhatsAppConnect({ hub = false, embedded = false }: { hub?: boole
     queryKey: ["wa-channels"],
     queryFn: fetchWhatsappChannels,
   });
-  // SaaS: ¿Meta ya aprobó a la plataforma? Hasta entonces, a la empresa se le
-  // explica en vez de abrirle una ventana de Meta que acaba en error.
-  const { data: hubStatus } = useQuery({
-    queryKey: ["wa-connect-status"],
-    queryFn: fetchWhatsappConnectStatus,
-    enabled: hub,
-    staleTime: 60_000,
-  });
-  const pendingApproval = hub && hubStatus?.approval === "pending";
 
   const connect = useMutation({
     mutationFn: connectWhatsapp,
@@ -299,7 +289,7 @@ export function WhatsAppConnect({ hub = false, embedded = false }: { hub?: boole
           <h4>Números de WhatsApp</h4>
           <p>Conecta uno o varios. Cada conversación se responde por el número por el que entró.</p>
         </div>
-        {!missingConfig && list.length > 0 && !pendingApproval && (
+        {!missingConfig && list.length > 0 && (
           <button onClick={launch} disabled={!ready || connecting} className="btn btn-primary btn-sm ch-add" data-tour="wa-connect">
             <WaIcon />
             {connecting ? "Conectando…" : "Añadir número"}
@@ -331,10 +321,6 @@ export function WhatsAppConnect({ hub = false, embedded = false }: { hub?: boole
         Driony. Con la coexistencia sigues usando el número también en el celular.
       </PlanGate>
 
-      {pendingApproval && (
-        <PendingApproval compact={list.length > 0} connecting={connecting} onManual={abrirManual} onTryAnyway={launch} />
-      )}
-
       {connectError && (
         <p style={{ color: "#ff6b6b", fontSize: 13 }}>{connectError}</p>
       )}
@@ -351,8 +337,6 @@ export function WhatsAppConnect({ hub = false, embedded = false }: { hub?: boole
         <div style={card}>
           {missingConfig ? (
             <PendingConfig hasAppId={!!APP_ID} />
-          ) : pendingApproval ? (
-            <EmptyPending onManual={abrirManual} />
           ) : (
             <Empty ready={ready} connecting={connecting} onConnect={launch} />
           )}
@@ -694,9 +678,7 @@ function ManualConnect({
             usando el número en la app de WhatsApp Business del celular) no se
             puede activar por cuenta propia: Meta solo la habilita a través del
             registro integrado de un <strong>proveedor tecnológico aprobado</strong>,
-            con acceso avanzado. En Driony la da el botón «Conectar WhatsApp»
-            cuando Meta apruebe la plataforma. Si al pulsarlo Meta mostró el error
-            #2655111, es eso: aún no está aprobado.
+            con acceso avanzado. En Driony la da el botón «Conectar WhatsApp».
           </span>
         </p>
       )}
@@ -1113,116 +1095,6 @@ function Empty({
     </div>
   );
 }
-
-/**
- * SaaS, mientras Meta no apruebe a la plataforma como proveedor tecnológico:
- * el registro integrado solo funciona para cuentas con rol en la app de Meta,
- * así que a la empresa se le cuenta la situación y la alternativa, en vez de
- * abrirle una ventana de Meta que acaba en el error #2655111.
- */
-function PendingApproval({
-  compact,
-  connecting,
-  onManual,
-  onTryAnyway,
-}: {
-  compact: boolean;
-  connecting: boolean;
-  onManual: () => void;
-  onTryAnyway: () => void;
-}) {
-  return (
-    <div style={pendingBox} role="status">
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={dot("#e0a458")} />
-        <strong style={{ color: "var(--text)", fontSize: 15 }}>
-          Conexión con un clic: en revisión por Meta
-        </strong>
-      </div>
-      <p style={{ margin: "8px 0 0" }}>
-        Driony está en proceso de aprobación de Meta como <strong>proveedor tecnológico</strong>.
-        Hasta que Meta lo apruebe, el botón «Conectar WhatsApp» y la Coexistencia con el celular
-        no están disponibles.{" "}
-        {!compact && (
-          <>
-            Mientras tanto puedes conectar tu número con <strong>tu propia app de Meta</strong>:
-            funciona igual en modo API, atendido desde Driony.{" "}
-          </>
-        )}
-        Te avisaremos en cuanto esté listo.
-      </p>
-      {!compact && (
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}>
-          <button onClick={onManual} style={waBtn}>
-            <WaIcon />
-            Conectar con mi propia app de Meta
-          </button>
-          <a
-            href="/docs/whatsapp#con-tu-propia-app-de-meta"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: "var(--accent)", fontSize: 13 }}
-          >
-            Cómo se hace, paso a paso
-          </a>
-        </div>
-      )}
-      <button
-        type="button"
-        onClick={onTryAnyway}
-        disabled={connecting}
-        style={tryAnywayBtn}
-        title="Solo funciona con una cuenta de Facebook que tenga rol en la app de Meta de la plataforma"
-      >
-        {connecting ? "Conectando…" : "Soy del equipo de la plataforma: abrir el registro de Meta igualmente"}
-      </button>
-    </div>
-  );
-}
-
-function EmptyPending({ onManual }: { onManual: () => void }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={dot("#7a8aa0")} />
-        <strong style={{ fontSize: 16 }}>Sin números conectados</strong>
-      </div>
-      <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
-        Añade tu número con tu propia app de Meta. Cuando Meta apruebe la plataforma, el botón
-        «Conectar WhatsApp» aparecerá aquí.
-      </p>
-      <div>
-        <button onClick={onManual} style={linkBtn}>
-          <NavIcon name="arrow-down" size={14} />
-          Ir al formulario de alta
-        </button>
-      </div>
-    </div>
-  );
-}
-
-const pendingBox: React.CSSProperties = {
-  marginTop: 14,
-  padding: 14,
-  borderRadius: 10,
-  border: "1px solid #7a6f4a",
-  background: "rgba(224,183,102,0.08)",
-  color: "var(--muted)",
-  fontSize: 13.5,
-  lineHeight: 1.55,
-};
-
-const tryAnywayBtn: React.CSSProperties = {
-  marginTop: 12,
-  padding: 0,
-  border: "none",
-  background: "transparent",
-  color: "var(--muted)",
-  fontSize: 12,
-  cursor: "pointer",
-  textDecoration: "underline",
-  textUnderlineOffset: 3,
-};
 
 function PendingConfig({ hasAppId }: { hasAppId: boolean }) {
   return (

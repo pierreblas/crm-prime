@@ -6,6 +6,7 @@ import type {
   SendResult,
   TemplateSendSpec,
   WhatsAppProvider,
+  OutboundMediaKind,
 } from "../whatsapp-provider.interface";
 
 /**
@@ -30,7 +31,7 @@ export class FakeWhatsAppProvider implements WhatsAppProvider {
 
   async sendMedia(
     to: string,
-    kind: "IMAGE" | "DOCUMENT",
+    kind: OutboundMediaKind,
     mediaUrl: string,
     caption?: string,
   ): Promise<SendResult> {
@@ -66,6 +67,12 @@ export class FakeWhatsAppProvider implements WhatsAppProvider {
     return { waMessageId };
   }
 
+  async sendInteractive(to: string, interactive: Record<string, unknown>): Promise<SendResult> {
+    const waMessageId = `wamid.fake.${randomUUID()}`;
+    this.logger.log(`→ [interactive:${String(interactive.type)}] a ${to}  (${waMessageId})`);
+    return { waMessageId };
+  }
+
   async sendReaction(
     to: string,
     targetWaMessageId: string,
@@ -92,7 +99,7 @@ export class FakeWhatsAppProvider implements WhatsAppProvider {
 
   async sendMediaById(
     to: string,
-    kind: "IMAGE" | "DOCUMENT",
+    kind: OutboundMediaKind,
     mediaId: string,
     caption?: string,
   ): Promise<SendResult> {

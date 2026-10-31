@@ -168,6 +168,19 @@ export function computeIssues(nodes: Node[], edges: Edge[]): Map<string, string[
       case "sendMessage":
         if (!d.text?.trim()) add(n.id, "Falta el texto del mensaje");
         break;
+      case "list": {
+        const rows = (d.buttons ?? []).filter((b) => b.title.trim());
+        if (rows.length === 0) add(n.id, "La lista necesita al menos una opción con título");
+        if ((d.buttons ?? []).some((b) => !b.title.trim())) add(n.id, "Hay opciones sin título");
+        break;
+      }
+      case "carousel": {
+        const cards = d.cards ?? [];
+        if (cards.length < 2) add(n.id, "El carrusel necesita al menos 2 tarjetas");
+        if (cards.some((c) => !c.mediaUrl)) add(n.id, "Cada tarjeta necesita una imagen o un video");
+        if (d.cardMode === "url" && cards.some((c) => !/^https?:\/\/\S+\.\S+/.test(c.url ?? ""))) add(n.id, "Cada tarjeta necesita un enlace (https://…)");
+        break;
+      }
       case "sendTemplate":
         if (!d.templateId) add(n.id, "Elige una plantilla aprobada");
         break;

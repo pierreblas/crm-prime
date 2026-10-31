@@ -195,6 +195,11 @@ function QuickReplyForm({
             if (!file) return;
             void uploadMedia(file)
               .then((m) => {
+                // Las respuestas rápidas solo llevan imagen o documento.
+                if (m.kind !== "IMAGE" && m.kind !== "DOCUMENT") {
+                  toast.error("Una respuesta rápida admite imagen o documento");
+                  return;
+                }
                 setMediaUrl(m.mediaUrl);
                 setMediaType(m.kind);
                 setFileName(m.fileName);

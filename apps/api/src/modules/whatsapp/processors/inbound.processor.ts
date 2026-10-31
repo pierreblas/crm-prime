@@ -146,6 +146,7 @@ export class InboundProcessor extends WorkerHost {
       referral: data.referral,
       replyToWaMessageId: data.replyToWaMessageId,
       buttonPayload: data.buttonPayload,
+      timestampMs: data.timestampMs,
     });
   }
 }

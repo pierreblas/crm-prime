@@ -116,8 +116,6 @@ export interface ConnectTicketResult {
 export interface ConnectHubStatus {
   /** Instalación SaaS: el SDK de Meta corre en el conector del dominio raíz. */
   saas: boolean;
-  /** Si Meta ya aprobó a la plataforma como proveedor tecnológico (acceso avanzado). */
-  approval: "approved" | "pending";
   coexistence: boolean;
 }
 

@@ -408,6 +408,11 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
     const add = (id: string, msg: string) => found.set(id, [...(found.get(id) ?? []), msg]);
     for (const t of triggers) {
       if (t.type === "keyword" && t.keywords.length === 0) add("start", "Un disparador «Por palabra clave» no tiene palabras");
+      // Una condición sin valor (salvo «vacío / no vacío») no deja pasar a nadie.
+      if (t.conditions.rules.some((r) => !["empty", "not_empty"].includes(r.op) && !(r.value ?? "").trim())) {
+        add("start", "Una condición de un disparador no tiene valor");
+      }
+      if (t.conditions.rules.some((r) => r.field === "utm" && !r.key)) add("start", "Una condición UTM no dice cuál (source, campaign…)");
     }
     // «Enviar plantilla»: cada variable, con valor (la primera, si no se toca, es el nombre).
     for (const n of nodes) {

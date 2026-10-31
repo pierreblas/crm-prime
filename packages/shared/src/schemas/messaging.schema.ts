@@ -16,7 +16,7 @@ export const sendMessageSchema = z
   .object({
     conversationId: z.string(),
     type: z
-      .enum([MessageType.TEXT, MessageType.IMAGE, MessageType.DOCUMENT])
+      .enum([MessageType.TEXT, MessageType.IMAGE, MessageType.DOCUMENT, MessageType.VIDEO, MessageType.AUDIO])
       .default(MessageType.TEXT),
     text: z.string().max(4096).optional(),
     mediaUrl: z.string().url().optional(),
@@ -26,7 +26,7 @@ export const sendMessageSchema = z
   })
   .refine(
     (v) => (v.type === MessageType.TEXT ? !!v.text : !!v.mediaUrl),
-    "Texto requerido para TEXT; mediaUrl requerido para IMAGE/DOCUMENT",
+    "Texto requerido para TEXT; mediaUrl requerido para un adjunto",
   );
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 
@@ -39,13 +39,48 @@ export const interactiveButtonSchema = z.object({
 });
 export type InteractiveButtonInput = z.infer<typeof interactiveButtonSchema>;
 
-export const sendInteractiveSchema = z.object({
-  conversationId: z.string(),
-  body: z.string().min(1).max(1024),
-  header: z.string().max(60).optional(),
-  footer: z.string().max(60).optional(),
-  buttons: z.array(interactiveButtonSchema).min(1).max(3),
-});
+/**
+ * Mensaje interactivo (solo dentro de la ventana de 24 h): botones (con
+ * encabezado de texto o multimedia), lista de opciones o carrusel.
+ */
+export const sendInteractiveSchema = z
+  .object({
+    conversationId: z.string(),
+    body: z.string().min(1).max(4096),
+    header: z.string().max(60).optional(),
+    /** Encabezado de los botones: imagen, video o documento ("storage://…" o URL). */
+    headerMedia: z
+      .object({ kind: z.enum(["IMAGE", "VIDEO", "DOCUMENT"]), mediaUrl: z.string().min(1), fileName: z.string().optional() })
+      .optional(),
+    footer: z.string().max(60).optional(),
+    buttons: z.array(interactiveButtonSchema).max(3).default([]),
+    list: z
+      .object({
+        button: z.string().min(1).max(20),
+        rows: z
+          .array(z.object({ id: z.string().min(1).max(200), title: z.string().min(1).max(24), description: z.string().max(72).optional() }))
+          .min(1)
+          .max(10),
+      })
+      .optional(),
+    carousel: z
+      .object({
+        cards: z
+          .array(
+            z.object({
+              id: z.string().min(1).max(256),
+              kind: z.enum(["IMAGE", "VIDEO"]),
+              mediaUrl: z.string().min(1),
+              body: z.string().max(160).optional(),
+              button: z.object({ title: z.string().min(1).max(20), url: z.string().url().optional() }),
+            }),
+          )
+          .min(2)
+          .max(10),
+      })
+      .optional(),
+  })
+  .refine((v) => v.buttons.length > 0 || !!v.list || !!v.carousel, "Faltan los botones, la lista o el carrusel");
 export type SendInteractiveInput = z.infer<typeof sendInteractiveSchema>;
 
 // ── Enviar una plantilla a una conversación ─────────────────

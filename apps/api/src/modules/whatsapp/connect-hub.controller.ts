@@ -30,21 +30,6 @@ import { PlansService } from "../plans/plans.service";
 const PROPOSITO = "whatsapp-connect";
 
 /**
- * ¿Meta ya aprobó a la plataforma como proveedor tecnológico (acceso avanzado
- * a la API de WhatsApp)? Hasta entonces, el registro integrado solo funciona
- * para cuentas con rol en la app, y a los clientes se les avisa en vez de
- * dejar que choquen con el error #2655111 de Meta.
- *
- * Solo aplica al SaaS: en una instalación de una empresa, la app de Meta es
- * la suya y sus propias cuentas tienen rol.
- */
-export function techProviderApproval(saas: boolean): ConnectHubStatus["approval"] {
-  if (!saas) return "approved";
-  const v = (env("WHATSAPP_TECH_PROVIDER_APPROVED") ?? "").trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes" || v === "si" || v === "sí" ? "approved" : "pending";
-}
-
-/**
  * El conector de WhatsApp en dominio fijo.
  *
  * Meta solo deja que su SDK de JavaScript arranque en dominios listados a
@@ -74,7 +59,7 @@ export class ConnectHubController {
   async status(): Promise<ConnectHubStatus> {
     const saas = !!env("SAAS_BASE_DOMAIN");
     const coexistence = (await this.plans.current()).features.coexistence;
-    return { saas, approval: techProviderApproval(saas), coexistence };
+    return { saas, coexistence };
   }
 
   /** Emite el pase y la URL del conector. Solo administradores. */

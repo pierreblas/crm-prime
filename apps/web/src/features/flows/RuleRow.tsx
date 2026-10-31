@@ -2,6 +2,7 @@
 
 import {
   COUNTRIES,
+  utmKeys,
   flowStatuses,
   type CustomFieldDto,
   type FlowAgentRef,
@@ -79,6 +80,7 @@ export function RuleRow({
           </select>
         );
       case "assigned":
+      case "deal_owner":
         return (
           <select style={small} value={rule.value ?? ""} onChange={(e) => onChange({ value: e.target.value })} aria-label="Valor">
             <option value="">Elige…</option>
@@ -194,6 +196,16 @@ export function RuleRow({
             ))}
           </datalist>
         </>
+      )}
+      {meta.needsKey === "utm" && (
+        <select style={small} value={rule.key ?? ""} onChange={(e) => onChange({ key: e.target.value })} aria-label="Qué UTM">
+          <option value="">Elige cuál…</option>
+          {utmKeys.map((k) => (
+            <option key={k} value={k}>
+              {k}
+            </option>
+          ))}
+        </select>
       )}
       {meta.needsKey === "field" && (
         <select style={small} value={rule.key ?? ""} onChange={(e) => onChange({ key: e.target.value })}>

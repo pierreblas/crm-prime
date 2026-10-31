@@ -52,7 +52,7 @@ interface Sesion {
   errorCode?: string;
 }
 
-/** Error de Meta cuando la app de la plataforma aún no tiene acceso avanzado. */
+/** Error de Meta por falta de acceso avanzado (no debería pasar: la plataforma está aprobada). */
 const SIN_ACCESO_AVANZADO = /2655111|advanced (permission|access)|permisos avanzados|acceso avanzado/i;
 
 /**

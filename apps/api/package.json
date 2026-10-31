@@ -37,7 +37,9 @@
     "test:conversions": "tsx --test test/conversions.test.ts",
     "test:attribution": "tsx --test test/attribution.test.ts",
     "test:booking": "tsx --test test/booking.test.ts",
-    "test:templatesend": "tsx --test test/template-send.test.ts"
+    "test:templatesend": "tsx --test test/template-send.test.ts",
+    "test:interactive": "tsx --test test/interactive.test.ts",
+    "test:history": "tsx --test test/history-webhook.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

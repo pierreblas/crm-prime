@@ -44,16 +44,38 @@ export class AutomationService {
     private readonly media: MediaUnderstandingService,
   ) {}
 
+  /**
+   * Conversación nueva: «creada» y «entrante» se emiten seguidas por el mismo
+   * primer mensaje y sus manejadores corrían a la vez. Si «creada» arrancaba un
+   * flujo con botones, «entrante» tomaba ese primer «Hola» como la respuesta a
+   * los botones y el flujo se iba por «otra respuesta»; cuando el cliente
+   * pulsaba un botón ya no quedaba nada esperando. Ahora «entrante» espera a
+   * «creada» (true = arrancó un flujo y el mensaje ya está atendido).
+   */
+  private readonly creating = new Map<string, Promise<boolean>>();
+
   // ── Conversación nueva: bienvenida + autopilot por defecto ──
   @OnEvent("conversation.created")
   async onCreated(payload: { conversationId: string }): Promise<void> {
     const { conversationId } = payload;
+    // Se registra antes del primer await: el «entrante» se emite justo después.
+    const run = this.handleCreated(conversationId);
+    this.creating.set(conversationId, run);
+    try {
+      await run;
+    } finally {
+      // Por si el «entrante» no llega a recogerlo.
+      setTimeout(() => this.creating.delete(conversationId), 60_000).unref?.();
+    }
+  }
+
+  private async handleCreated(conversationId: string): Promise<boolean> {
     try {
       const convo = await this.prisma.conversation.findUnique({
         where: { id: conversationId },
         include: { contact: true },
       });
-      if (!convo || !convo.contact.optIn) return;
+      if (!convo || !convo.contact.optIn) return false;
 
       // El modo de la IA se decide antes de cualquier bienvenida: un flujo «al
       // iniciar» no debe dejar la conversación sin Autopilot. Si el contacto ya
@@ -68,8 +90,8 @@ export class AutomationService {
       }
 
       // Un flujo "al iniciar conversación" tiene prioridad sobre la bienvenida del bot.
-      if (await this.flows.onCreated(conversationId)) return;
-      if (!bot) return;
+      if (await this.flows.onCreated(conversationId)) return true;
+      if (!bot) return false;
 
       if (bot.welcomeEnabled && bot.welcomeMessage?.trim()) {
         await this.messaging.queueOutbound(
@@ -82,10 +104,12 @@ export class AutomationService {
         );
         this.logger.log(`Bienvenida enviada en ${conversationId}`);
       }
+      return false;
     } catch (e) {
       this.logger.error(
         `onCreated falló en ${conversationId}: ${(e as Error).message}`,
       );
+      return false;
     }
   }
 
@@ -94,6 +118,12 @@ export class AutomationService {
   async onInbound(payload: { conversationId: string }): Promise<void> {
     const { conversationId } = payload;
     try {
+      // Primer mensaje de una conversación nueva: primero lo de «creada».
+      const created = this.creating.get(conversationId);
+      if (created) {
+        this.creating.delete(conversationId);
+        if (await created) return; // arrancó un flujo con este mensaje
+      }
       const convo = await this.prisma.conversation.findUnique({
         where: { id: conversationId },
         include: { contact: true },

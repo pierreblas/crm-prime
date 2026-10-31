@@ -4,16 +4,26 @@ Un flujo es una automatización paso a paso: «cuando pase esto, envía esto, pr
 
 ## Disparadores
 
-Un flujo puede tener **varios disparadores** (hasta 10) y arranca con el primero que ocurra: por ejemplo, «Por palabra clave: promo», «Se le pone la etiqueta VIP» y «Llega desde un anuncio» en el mismo flujo. Se configuran en el bloque **Inicio**: púlsalo y, en el panel, **Añadir disparador**; cada uno lleva su filtro. El bloque Inicio los muestra en el lienzo, y la barra superior dice cuántos tiene.
+Un flujo puede tener **varios disparadores** (hasta 10) y arranca con el primero que se cumpla entero: por ejemplo, «Por palabra clave: promo», «Se le pone la etiqueta VIP» y «Llega desde un anuncio» en el mismo flujo. Se configuran en el bloque **Inicio**: púlsalo y, en el panel, **Añadir disparador**. El bloque Inicio los muestra en el lienzo con su resumen («a los 10 min · 2 condiciones · en horario»), y la barra superior dice cuántos tiene.
+
+Cada disparador tiene cuatro partes:
+
+1. **El evento** y su filtro propio (las palabras, las etiquetas, las etapas, los formularios o las horas).
+2. **Cuándo** (en los de embudo, etiquetas, cierre, leads y llamadas): *al momento*, *a los 5 o 10 min*, *a la 1 h*, *al día siguiente* u otro tiempo. Al vencer se comprueba otra vez que sigue valiendo: que la oportunidad siga en la etapa, que siga teniendo (o no) la etiqueta, el mismo responsable, y las condiciones.
+3. **Condiciones** que también tienen que cumplirse, *todas* o *alguna*: tiene o no tiene una etiqueta, está en una etapa, el responsable de su oportunidad, el valor de su oportunidad, la fuente, los UTM con que llegó, el país, un campo del contacto, el número de WhatsApp… Por ejemplo: «Cambia de etapa a Propuesta», solo si tiene la etiqueta *VIP* y su oportunidad vale más de 500.
+4. **Horario activo**: si lo marcas, fuera de esos días y horas el disparador no arranca nada.
 
 | Disparador | Cuándo | Filtro |
 |---|---|---|
 | **Al iniciar un chat** | Empieza una conversación nueva: el primer mensaje de un contacto, o el primero después de cerrar su chat anterior. No se dispara con cada mensaje de un chat abierto: para eso, «Por palabra clave». | — |
 | **Por palabra clave** | Un mensaje del contacto contiene alguna de las palabras. | Palabras separadas por comas. |
+| **Llega un mensaje del cliente** | Con cada mensaje que escribe (sin palabras concretas), como mucho una vez cada cierto tiempo por conversación. Pensado para usar con condiciones. | Pausa entre disparos (por defecto, 1 día). |
 | **Llega desde un anuncio** | La conversación nace de un anuncio Click to WhatsApp de Meta. Tiene prioridad sobre «Al iniciar un chat». | — |
 | **Nuevo lead de Meta Ads (formulario)** | Entra un lead de un formulario de Meta Lead Ads ([Meta Ads](/docs/meta-ads)). | Nombres de formulario; vacío = todos. |
 | **Nuevo lead por API o formulario web** | Entra un lead por el [webhook de leads](/docs/webhooks) o la API (tu web, n8n, Zapier). | — |
 | **Se le pone una etiqueta** | Alguien, la IA u otro flujo etiqueta al contacto. | Etiquetas; vacío = cualquiera. |
+| **Se le quita una etiqueta** | Alguien, la IA u otro flujo le quita una etiqueta. | Etiquetas; vacío = cualquiera. |
+| **Cambia el responsable** | Cambia el vendedor responsable de su oportunidad (a mano, en bloque o por la IA). Con la condición «Responsable de su oportunidad» eliges de quién. | — |
 | **Cambia de etapa en el embudo** | Su oportunidad se mueve a una etapa, a mano, por la IA o por otro flujo. | Etapas; vacío = cualquiera. |
 | **Se cierra la conversación** | Tu equipo cierra la conversación. Útil para una encuesta o una despedida. | — |
 | **El cliente no responde** | Pasan X horas sin que el cliente conteste a tu último mensaje (de una persona, de la IA o de un flujo). Se dispara una vez por silencio: no se repite hasta que el cliente vuelva a escribir. | Horas (1 a 720). |
@@ -33,8 +43,10 @@ Cada flujo puede aplicar a **un número** o a todos, y hay que marcarlo **Activo
 
 | Bloque | Para qué |
 |---|---|
-| **Enviar mensaje** | Un texto al contacto, con una imagen o archivo opcional (el texto va de pie). Admite variables: `{{nombre_variable}}`. |
-| **Botones** | Un mensaje con hasta 3 botones de respuesta (20 caracteres cada uno). Cada botón es una salida; *otra respuesta* recoge lo que no sea un botón (si el contacto escribe el texto del botón o su número, cuenta como pulsado). Fuera de la ventana de 24 h va como texto con opciones numeradas. |
+| **Enviar mensaje** | Un texto al contacto, con un adjunto opcional: **imagen** (hasta 5 MB), **video** MP4, **audio** (hasta 16 MB) o **documento** (PDF, Word, Excel). El texto va de pie; con un audio, que no admite pie, va después en otro mensaje. Se adjunta desde la propia cajita del lienzo (con el bloque elegido) o desde el panel. Admite variables: `{{nombre_variable}}`. |
+| **Botones** | Un mensaje con hasta 3 botones de respuesta (20 caracteres cada uno) y, si quieres, una **imagen, un video o un documento arriba**. Cada botón es una salida; *otra respuesta* recoge lo que no sea un botón (si el contacto escribe el texto del botón o su número, cuenta como pulsado). Fuera de la ventana de 24 h va como texto con opciones numeradas. |
+| **Lista de opciones** | Un mensaje con un botón («Ver opciones») que abre hasta **10 opciones**, cada una con título (24 caracteres) y descripción (72). Cada opción es una salida, como en Botones. Fuera de la ventana de 24 h va como texto numerado. |
+| **Carrusel** | De **2 a 10 tarjetas** deslizables, cada una con una **imagen o un video**, un texto corto (160 caracteres) y un botón. Con botón de *respuesta*, cada tarjeta es una salida del bloque (vale también escribir su número); con botón de *enlace*, abre tu web y el flujo sigue. Solo dentro de la ventana de 24 h; fuera de ella va como texto. |
 | **Enviar plantilla** | Una plantilla aprobada por Meta. Es la única forma de escribirle a quien no te ha escrito o lleva más de 24 h sin hacerlo. En el panel eliges el valor de cada variable (`{{1}}` o `{{nombre}}`): el nombre o el teléfono del contacto, o un texto, que puede llevar variables del flujo. Sin tocarla, la primera es el nombre del contacto. |
 | **Preguntar y guardar** | Envía una pregunta, espera la respuesta y la guarda en una variable. Puede exigir que sea un teléfono, un correo, un número o un patrón; si no lo es, repite la pregunta hasta N intentos y luego sigue por la salida *si no es válida*. |
 | **Condición** | Ramifica por reglas. Cada rama es una salida con una o varias condiciones (todas o alguna) sobre: el **mensaje** del cliente (contiene, es igual, empieza por, regex, vacío…), una **variable**, el **contacto** (nombre, teléfono, campos personalizados, etiqueta, fuente), la **conversación** (estado, asignada a, modo de IA, número de WhatsApp, si es su primer mensaje, cuántos mensajes lleva) o la **etapa** de su oportunidad. *En otro caso* es la salida por defecto. Gana la primera rama que se cumple, en orden. |

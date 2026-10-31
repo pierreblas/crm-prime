@@ -14,6 +14,7 @@ import {
   type FlowBotRef,
   type FlowBranch,
   type FlowButton,
+  type FlowCard,
   type FlowChannelRef,
   type FlowNodeData,
   type FlowRule,
@@ -32,14 +33,15 @@ import { toast } from "@/lib/toast";
 import { RuleRow, type RuleLookups } from "./RuleRow";
 import {
   ACTION_LABEL,
+  MEDIA_META,
   NODE_META,
   STATUS_LABEL,
   VALIDATION_LABEL,
   defaultHours,
+  DAY_LABEL,
   rulesOf,
 } from "./flowShared";
 
-const DAY_LABEL: Record<string, string> = { mon: "Lun", tue: "Mar", wed: "Mié", thu: "Jue", fri: "Vie", sat: "Sáb", sun: "Dom" };
 
 // Límite de un mensaje de texto en WhatsApp.
 const WA_TEXT_MAX = 4096;
@@ -157,10 +159,50 @@ export function NodeInspector({
 
       {node.type === "start" && (
         <>
-          <TriggersEditor triggers={triggers} onChange={onTriggersChange} tags={tags} stages={stages} />
+          <TriggersEditor
+            triggers={triggers}
+            onChange={onTriggersChange}
+            lookups={{ variables: [], fields, tags, sources, channels, agents, stages }}
+          />
           <p style={hint}>Después, pulsa el «+» de Inicio o arrastra desde su salida al primer bloque.</p>
         </>
       )}
+
+      {node.type === "list" && (
+        <>
+          <Field label="Texto del mensaje">
+            <textarea
+              style={{ ...input, minHeight: 80, resize: "vertical", fontFamily: "inherit" }}
+              value={data.text ?? ""}
+              maxLength={4096}
+              placeholder="Elige el servicio que te interesa"
+              onChange={(e) => patch({ text: e.target.value })}
+            />
+            <VarChips variables={variables} onPick={(v) => patch({ text: `${data.text ?? ""}{{${v}}}` })} />
+          </Field>
+          <Field label="Botón que abre la lista">
+            <input style={input} value={data.listButton ?? ""} maxLength={20} placeholder="Ver opciones" onChange={(e) => patch({ listButton: e.target.value })} />
+          </Field>
+          <ListRowsFields rows={data.buttons ?? []} onChange={(buttons) => patch({ buttons })} />
+          <Field label="Pie (opcional)">
+            <input style={input} value={data.footer ?? ""} maxLength={60} onChange={(e) => patch({ footer: e.target.value })} />
+          </Field>
+          <Field label="Guardar lo que eligió en la variable (opcional)">
+            <input
+              style={{ ...input, fontFamily: "ui-monospace, monospace" }}
+              value={data.variable ?? ""}
+              placeholder="opcion"
+              onChange={(e) => patch({ variable: e.target.value.replace(/[^\w]/g, "") })}
+            />
+          </Field>
+          <p style={hint}>
+            WhatsApp muestra un botón que abre hasta 10 opciones (título de 24 caracteres y descripción de 72). Cada opción es
+            una salida. Fuera de la ventana de 24 h va como texto con las opciones numeradas.
+          </p>
+        </>
+      )}
+
+      {node.type === "carousel" && <CarouselFields data={data} variables={variables} onChange={patch} />}
 
       {node.type === "sendMessage" && (
         <Field label="Mensaje a enviar">
@@ -189,6 +231,7 @@ export function NodeInspector({
             />
             <VarChips variables={variables} onPick={(v) => patch({ text: `${data.text ?? ""}{{${v}}}` })} />
           </Field>
+          <Attachment data={data} onChange={patch} kind="header" />
           <ButtonsFields buttons={data.buttons ?? []} onChange={(buttons) => patch({ buttons })} />
           <Field label="Guardar lo que pulsó en la variable (opcional)">
             <input
@@ -611,13 +654,26 @@ export function NodeInspector({
 
 /** Variables del flujo como chips: un clic las inserta al final del texto. */
 /** Imagen o archivo que acompaña al mensaje. */
-function Attachment({ data, onChange }: { data: FlowNodeData; onChange: (p: Partial<FlowNodeData>) => void }) {
+function Attachment({
+  data,
+  onChange,
+  kind = "message",
+}: {
+  data: FlowNodeData;
+  onChange: (p: Partial<FlowNodeData>) => void;
+  /** «header»: el de unos botones (imagen, video o documento, sin audio). */
+  kind?: "message" | "header";
+}) {
   const [busy, setBusy] = useState(false);
   async function pick(file: File | undefined) {
     if (!file) return;
     setBusy(true);
     try {
       const up = await uploadMedia(file);
+      if (kind === "header" && up.kind === "AUDIO") {
+        toast.error("Arriba de los botones va una imagen, un video o un documento; el audio, en un «Enviar mensaje» aparte");
+        return;
+      }
       onChange({ mediaUrl: up.mediaUrl, mediaKind: up.kind, mediaName: up.fileName });
     } catch (e) {
       toast.error((e as Error).message);
@@ -627,10 +683,10 @@ function Attachment({ data, onChange }: { data: FlowNodeData; onChange: (p: Part
   }
   return (
     <div style={{ marginTop: 10 }}>
-      <div style={lbl}>Adjunto (opcional)</div>
+      <div style={lbl}>{kind === "header" ? "Arriba de los botones (opcional)" : "Adjunto (opcional)"}</div>
       {data.mediaUrl ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-          <NavIcon name={data.mediaKind === "DOCUMENT" ? "file" : "image"} size={14} />
+          <NavIcon name={MEDIA_META[data.mediaKind ?? "IMAGE"]?.icon ?? "file"} size={14} />
           <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {data.mediaName || "Adjunto"}
           </span>
@@ -641,12 +697,156 @@ function Attachment({ data, onChange }: { data: FlowNodeData; onChange: (p: Part
       ) : (
         <label style={{ ...ghost, display: "inline-flex", alignItems: "center", gap: 6, cursor: busy ? "wait" : "pointer" }}>
           <NavIcon name="paperclip" size={13} />
-          {busy ? "Subiendo…" : "Adjuntar imagen o archivo"}
-          <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style={{ display: "none" }} disabled={busy} onChange={(e) => void pick(e.target.files?.[0])} />
+          {busy ? "Subiendo…" : kind === "header" ? "Imagen, video o documento" : "Imagen, video, audio o archivo"}
+          <input
+            type="file"
+            accept={
+              kind === "header"
+                ? "image/jpeg,image/png,image/webp,video/mp4,video/3gpp,.pdf,.doc,.docx,.xls,.xlsx"
+                : "image/jpeg,image/png,image/webp,video/mp4,video/3gpp,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+            }
+            style={{ display: "none" }}
+            disabled={busy}
+            onChange={(e) => void pick(e.target.files?.[0])}
+          />
         </label>
       )}
-      {data.mediaUrl && <p style={hint}>El texto de arriba va como pie del adjunto.</p>}
+      {data.mediaUrl && kind === "message" && (
+        <p style={hint}>
+          {data.mediaKind === "AUDIO" ? "El audio no lleva pie: el texto, si hay, va después en otro mensaje." : "El texto de arriba va como pie del adjunto."}
+        </p>
+      )}
+      {!data.mediaUrl && (
+        <p style={hint}>Imagen hasta 5 MB (JPG, PNG, WebP); video MP4 y audio hasta 16 MB; documentos PDF, Word, Excel.</p>
+      )}
     </div>
+  );
+}
+
+function ListRowsFields({ rows, onChange }: { rows: FlowButton[]; onChange: (r: FlowButton[]) => void }) {
+  const set = (i: number, p: Partial<FlowButton>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...p } : r)));
+  return (
+    <Field label="Opciones (cada una es una salida)">
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {rows.map((r, i) => (
+          <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 4, padding: 8, borderRadius: 8, background: "var(--surface-2)" }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input style={{ ...input, flex: 1 }} value={r.title} maxLength={24} placeholder={`Opción ${i + 1}`} onChange={(e) => set(i, { title: e.target.value })} />
+              <button style={miniBtn} title="Quitar opción" onClick={() => onChange(rows.filter((_, j) => j !== i))}>
+                <NavIcon name="x" size={12} />
+              </button>
+            </div>
+            <input style={input} value={r.description ?? ""} maxLength={72} placeholder="Descripción (opcional)" onChange={(e) => set(i, { description: e.target.value })} />
+          </div>
+        ))}
+        {rows.length < 10 && (
+          <button style={{ ...ghost, alignSelf: "flex-start" }} onClick={() => onChange([...rows, { id: `o${Date.now().toString(36)}`, title: "" }])}>
+            + Añadir opción
+          </button>
+        )}
+      </div>
+    </Field>
+  );
+}
+
+/** Carrusel: texto general, tipo de botón y de 2 a 10 tarjetas. */
+function CarouselFields({ data, variables, onChange }: { data: FlowNodeData; variables: string[]; onChange: (p: Partial<FlowNodeData>) => void }) {
+  const cards = data.cards ?? [];
+  const mode = data.cardMode ?? "reply";
+  const setCard = (i: number, p: Partial<FlowCard>) => onChange({ cards: cards.map((c, j) => (j === i ? { ...c, ...p } : c)) });
+  return (
+    <>
+      <Field label="Texto sobre el carrusel">
+        <textarea
+          style={{ ...input, minHeight: 64, resize: "vertical", fontFamily: "inherit" }}
+          value={data.text ?? ""}
+          maxLength={1024}
+          placeholder="Mira nuestros modelos"
+          onChange={(e) => onChange({ text: e.target.value })}
+        />
+        <VarChips variables={variables} onPick={(v) => onChange({ text: `${data.text ?? ""}{{${v}}}` })} />
+      </Field>
+      <Field label="El botón de cada tarjeta">
+        <div className="seg" role="radiogroup">
+          <button type="button" role="radio" aria-selected={mode === "reply"} onClick={() => onChange({ cardMode: "reply" })}>
+            Respuesta (una salida por tarjeta)
+          </button>
+          <button type="button" role="radio" aria-selected={mode === "url"} onClick={() => onChange({ cardMode: "url" })}>
+            Enlace
+          </button>
+        </div>
+      </Field>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {cards.map((c, i) => (
+          <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: 10, borderRadius: 8, background: "var(--surface-2)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <strong style={{ fontSize: 12.5, flex: 1 }}>Tarjeta {i + 1}</strong>
+              {cards.length > 2 && (
+                <button style={miniBtn} title="Quitar tarjeta" onClick={() => onChange({ cards: cards.filter((_, j) => j !== i) })}>
+                  <NavIcon name="x" size={12} />
+                </button>
+              )}
+            </div>
+            <CardMedia card={c} onChange={(p) => setCard(i, p)} />
+            <input style={input} value={c.text ?? ""} maxLength={160} placeholder="Texto de la tarjeta (hasta 160)" onChange={(e) => setCard(i, { text: e.target.value })} />
+            <input style={input} value={c.buttonTitle ?? ""} maxLength={20} placeholder={mode === "url" ? "Texto del enlace (Ver más)" : "Texto del botón (Elegir)"} onChange={(e) => setCard(i, { buttonTitle: e.target.value })} />
+            {mode === "url" && (
+              <input style={input} value={c.url ?? ""} placeholder="https://tu-web.com/producto" onChange={(e) => setCard(i, { url: e.target.value.trim() })} />
+            )}
+          </div>
+        ))}
+        {cards.length < 10 && (
+          <button
+            style={{ ...ghost, alignSelf: "flex-start" }}
+            onClick={() => onChange({ cards: [...cards, { id: `c${Date.now().toString(36)}`, text: "", buttonTitle: mode === "url" ? "Ver más" : "Elegir" }] })}
+          >
+            + Añadir tarjeta
+          </button>
+        )}
+      </div>
+      <p style={hint}>
+        De 2 a 10 tarjetas, cada una con imagen o video. Con «Respuesta», cada tarjeta es una salida del bloque; con «Enlace»,
+        el botón abre la web y el flujo sigue. Solo dentro de la ventana de 24 h: fuera de ella va como texto con las opciones.
+      </p>
+    </>
+  );
+}
+
+function CardMedia({ card, onChange }: { card: FlowCard; onChange: (p: Partial<FlowCard>) => void }) {
+  const [busy, setBusy] = useState(false);
+  async function pick(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const up = await uploadMedia(file);
+      if (up.kind !== "IMAGE" && up.kind !== "VIDEO") {
+        toast.error("Cada tarjeta lleva una imagen o un video");
+        return;
+      }
+      onChange({ mediaUrl: up.mediaUrl, mediaKind: up.kind, mediaName: up.fileName });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (card.mediaUrl) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
+        <NavIcon name={card.mediaKind === "VIDEO" ? "video" : "image"} size={14} />
+        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{card.mediaName || (card.mediaKind === "VIDEO" ? "Video" : "Imagen")}</span>
+        <button style={miniBtn} title="Quitar" onClick={() => onChange({ mediaUrl: undefined, mediaKind: undefined, mediaName: undefined })}>
+          <NavIcon name="x" size={12} />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <label style={{ ...ghost, display: "inline-flex", alignItems: "center", gap: 6, cursor: busy ? "wait" : "pointer", alignSelf: "flex-start" }}>
+      <NavIcon name="image" size={13} />
+      {busy ? "Subiendo…" : "Imagen o video"}
+      <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/3gpp" style={{ display: "none" }} disabled={busy} onChange={(e) => void pick(e.target.files?.[0])} />
+    </label>
   );
 }
 

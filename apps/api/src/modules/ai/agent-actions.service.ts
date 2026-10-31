@@ -190,9 +190,10 @@ export class AgentActionsService {
   private async removeTag(contactId: string, tagName: string): Promise<string> {
     const tag = await this.prisma.tag.findFirst({ where: { name: tagName } });
     if (!tag) throw new Error(`La etiqueta "${tagName}" no existe`);
-    await this.prisma.contactTag.deleteMany({
+    const r = await this.prisma.contactTag.deleteMany({
       where: { contactId, tagId: tag.id },
     });
+    if (r.count) this.events.emit("contact.untagged", { orgId: this.tenant.orgId(), contactId, tag: tag.name });
     return `Etiqueta "${tagName}" quitada del contacto.`;
   }
 
@@ -315,6 +316,9 @@ export class AgentActionsService {
       where: { id: deal.id },
       data: { ownerId: seller.id },
     });
+    if (deal.ownerId !== seller.id) {
+      this.events.emit("deal.owner_changed", { orgId: this.tenant.orgId(), dealId: deal.id, contactId, ownerId: seller.id });
+    }
     return `Oportunidad asignada a "${sellerName}".`;
   }
 

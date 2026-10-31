@@ -12,10 +12,10 @@ Driony).
 |---|---|
 | Embedded Signup **v4** en el código (conector y pantalla de WhatsApp) | ✅ Hecho 2026-09-30 |
 | Conexión por coexistencia sin `phone_number_id` (Meta solo manda la WABA) | ✅ Hecho 2026-09-30 |
-| Aviso a las empresas mientras Meta no apruebe a la plataforma | ✅ Hecho 2026-09-30 (`WHATSAPP_TECH_PROVIDER_APPROVED`) |
+| Aviso a las empresas mientras Meta no apruebe a la plataforma | 🗑️ Retirado 2026-10-31: Meta aprobó la plataforma; ya no hay aviso ni `WHATSAPP_TECH_PROVIDER_APPROVED` |
 | Configuración **v4** de Facebook Login for Business en la app de Meta | ⬜ Pendiente (manual, en el panel de Meta) |
-| Aprobación de Meta: verificación del negocio + acceso avanzado (Tech Provider) | ⬜ En revisión |
-| Prueba real de coexistencia contra Meta | ⬜ Solo posible tras la aprobación |
+| Aprobación de Meta: verificación del negocio + acceso avanzado (Tech Provider) | ✅ Aprobada (avisado 2026-10-31) |
+| Prueba real de coexistencia contra Meta | ⬜ Pendiente: ya se puede hacer |
 
 > Lo del código está probado con typecheck, pruebas sin Meta (elección del
 > número en la WABA, aviso de aprobación) y el conector en el navegador con un
@@ -41,11 +41,11 @@ acceso avanzado. Si no, Meta muestra la pantalla normal de la API.
 - [ ] Asistente de **Tech Provider** en la sección WhatsApp de la app.
 - [ ] Número en **WhatsApp Business app 2.24.17 o superior**.
 
-Hasta entonces, en producción `WHATSAPP_TECH_PROVIDER_APPROVED` queda en
-`false`: las empresas ven «Conexión con un clic: en revisión por Meta» y la
-alternativa de su propia app. El equipo de la plataforma (cuentas con rol en
-la app de Meta) sigue pudiendo abrir el registro desde ese mismo aviso.
-Cuando Meta apruebe: poner `true`, `docker compose … up -d api`.
+Meta aprobó la plataforma (avisado el 2026-10-31). El aviso «Conexión con un
+clic: en revisión por Meta», su botón «Soy del equipo de la plataforma» y la
+variable `WHATSAPP_TECH_PROVIDER_APPROVED` se retiraron: todas las empresas
+ven directamente «Conectar WhatsApp». Si la variable sigue en el `.env` del
+servidor, ya no hace nada y se puede borrar.
 
 ---
 
@@ -96,7 +96,7 @@ Eventos que llegan por `postMessage` (`WA_EMBEDDED_SIGNUP`): `FINISH` (con
 
 El conector (`apps/web/src/app/connect/whatsapp/ConnectWhatsappHub.tsx`)
 entiende `CANCEL`: muestra el motivo de Meta y, si es el #2655111 o habla de
-permisos avanzados, el aviso de «plataforma en revisión».
+permisos avanzados (no debería pasar ya), pide reintentar y avisar.
 
 ---
 
@@ -125,7 +125,6 @@ WHATSAPP_APP_ID=
 WHATSAPP_APP_SECRET=
 WHATSAPP_VERIFY_TOKEN=
 WHATSAPP_GRAPH_VERSION=v24.0
-WHATSAPP_TECH_PROVIDER_APPROVED=false   # true cuando Meta apruebe
 NEXT_PUBLIC_WHATSAPP_APP_ID=            # mismo valor que WHATSAPP_APP_ID
 NEXT_PUBLIC_WHATSAPP_CONFIG_ID=         # el de la configuración v4
 ```

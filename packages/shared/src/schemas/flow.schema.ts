@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { businessHoursSchema } from "./agent-config.schema.js";
-import { flowRuleSchema } from "./condition.schema.js";
+import { flowRuleSchema, ruleMatchModes } from "./condition.schema.js";
 import { variableValueSchema } from "./template.schema.js";
 
 // Tipos de nodo del constructor visual.
@@ -21,6 +21,8 @@ export const flowNodeTypes = [
   "setStatus", // abrir / pendiente / cerrar la conversación
   "split", // dividir al azar (A/B) entre varias salidas
   "schedule", // en horario / fuera de horario
+  "list", // lista de opciones de WhatsApp (hasta 10); cada opción es una salida
+  "carousel", // carrusel de 2 a 10 tarjetas con imagen o video
 ] as const;
 export type FlowNodeType = (typeof flowNodeTypes)[number];
 
@@ -38,10 +40,12 @@ export type FlowActionType = (typeof flowActionTypes)[number];
 export const answerValidations = ["any", "phone", "email", "number", "regex"] as const;
 export type AnswerValidation = (typeof answerValidations)[number];
 
-// Botón de respuesta rápida (WhatsApp admite hasta 3, de 20 caracteres).
+// Botón de respuesta rápida (WhatsApp admite hasta 3, de 20 caracteres) u
+// opción de una lista (hasta 10, de 24 caracteres y con descripción).
 export const flowButtonSchema = z.object({
   id: z.string(),
-  title: z.string().max(20),
+  title: z.string().max(24),
+  description: z.string().max(72).optional(),
 });
 export type FlowButton = z.infer<typeof flowButtonSchema>;
 
@@ -52,6 +56,20 @@ export const flowSplitSchema = z.object({
   weight: z.number().min(0).max(100),
 });
 export type FlowSplit = z.infer<typeof flowSplitSchema>;
+
+// Tarjeta del carrusel: imagen o video, texto corto y un botón (respuesta o enlace).
+export const flowCardSchema = z.object({
+  id: z.string(),
+  mediaUrl: z.string().optional(),
+  mediaKind: z.enum(["IMAGE", "VIDEO"]).optional(),
+  mediaName: z.string().optional(),
+  text: z.string().max(160).optional(),
+  buttonTitle: z.string().max(20).optional(),
+  /** Solo en carrusel de enlaces. */
+  url: z.string().max(2000).optional(),
+});
+export type FlowCard = z.infer<typeof flowCardSchema>;
+export const MEDIA_KINDS = ["IMAGE", "VIDEO", "AUDIO", "DOCUMENT"] as const;
 
 export const flowStatuses = ["OPEN", "PENDING", "CLOSED"] as const;
 
@@ -103,9 +121,10 @@ export const flowNodeDataSchema = z.object({
   // jumpToFlow: continuar en otro flujo
   flowId: z.string().optional(),
   flowName: z.string().optional(), // solo para mostrar en el lienzo
-  // sendMessage: adjunto opcional (imagen o documento ya subido)
+  // sendMessage: adjunto opcional (imagen, video, audio o documento ya
+  // subido). buttons: encabezado opcional (imagen, video o documento).
   mediaUrl: z.string().optional(),
-  mediaKind: z.enum(["IMAGE", "DOCUMENT"]).optional(),
+  mediaKind: z.enum(MEDIA_KINDS).optional(),
   mediaName: z.string().optional(), // solo para mostrar
   // askQuestion: validación de la respuesta; tras agotar los intentos sale
   // por la salida "invalid" (o por la normal si no está conectada)
@@ -114,8 +133,13 @@ export const flowNodeDataSchema = z.object({
   retryText: z.string().optional(), // qué decir si la respuesta no vale
   maxRetries: z.number().int().min(0).max(5).optional(),
   // buttons: texto en `text`; cada botón es un sourceHandle; "else" = otra respuesta
-  buttons: z.array(flowButtonSchema).max(3).optional(),
+  // list: las opciones van en `buttons` (hasta 10) y `listButton` es el botón que las abre
+  buttons: z.array(flowButtonSchema).max(10).optional(),
   footer: z.string().max(60).optional(),
+  listButton: z.string().max(20).optional(),
+  // carousel: tarjetas y si su botón es una respuesta (cada tarjeta, una salida) o un enlace
+  cards: z.array(flowCardSchema).max(10).optional(),
+  cardMode: z.enum(["reply", "url"]).optional(),
   // setField: clave del campo ("name" = nombre del contacto) y valor (admite {{variables}})
   fieldKey: z.string().optional(),
   value: z.string().optional(),
@@ -173,6 +197,9 @@ export const flowTriggerTypes = [
   "conversation_closed",
   "no_reply",
   "missed_call", // llamada telefónica entrante que nadie contestó
+  "inbound_message", // cada mensaje del cliente, con una pausa mínima entre disparos
+  "tag_removed", // se le quita una etiqueta
+  "owner_changed", // cambia el responsable de su oportunidad
   "manual", // no arranca solo: lo ejecutan las automatizaciones de etapa (o alguien a mano)
 ] as const;
 export type FlowTriggerType = (typeof flowTriggerTypes)[number];
@@ -187,9 +214,34 @@ export const flowTriggerConfigSchema = z.object({
   forms: z.array(z.string().trim().min(1)).max(50).default([]),
   /** no_reply: horas sin respuesta del cliente. */
   hours: z.number().int().min(1).max(720).default(24),
+  /** inbound_message: como mucho una vez cada tantos minutos por conversación. */
+  cooldownMin: z.number().int().min(1).max(43200).default(1440),
 });
 export type FlowTriggerConfig = z.infer<typeof flowTriggerConfigSchema>;
-export const EMPTY_TRIGGER_CONFIG: FlowTriggerConfig = { tags: [], stageIds: [], forms: [], hours: 24 };
+export const EMPTY_TRIGGER_CONFIG: FlowTriggerConfig = { tags: [], stageIds: [], forms: [], hours: 24, cooldownMin: 1440 };
+
+/** Condiciones de un disparador: las mismas reglas que el bloque «Condición». */
+export const triggerConditionsSchema = z.object({
+  match: z.enum(ruleMatchModes).default("all"),
+  rules: z.array(flowRuleSchema).max(10).default([]),
+});
+export type TriggerConditions = z.infer<typeof triggerConditionsSchema>;
+
+/**
+ * Disparadores que pueden esperar antes de arrancar («a los 10 min», «al día
+ * siguiente»). Al vencer se comprueba otra vez que sigue valiendo: que siga en
+ * la etapa, que siga teniendo (o no) la etiqueta, y las condiciones.
+ */
+export const DELAYABLE_TRIGGERS = [
+  "deal_stage",
+  "tag_added",
+  "tag_removed",
+  "owner_changed",
+  "conversation_closed",
+  "meta_lead",
+  "lead_webhook",
+  "missed_call",
+] as const;
 
 /**
  * Un disparador del flujo. Un flujo puede tener varios (por palabra clave,
@@ -204,6 +256,15 @@ export const flowTriggerSchema = z.object({
   /** keyword: palabras que lo disparan. */
   keywords: z.array(z.string().trim().min(1).max(60)).max(30).default([]),
   config: flowTriggerConfigSchema.default(EMPTY_TRIGGER_CONFIG),
+  /**
+   * Condiciones que también tienen que cumplirse (etiquetas, etapa,
+   * responsable, valor, fuente, UTM…). Sin reglas, siempre.
+   */
+  conditions: triggerConditionsSchema.default({ match: "all", rules: [] }),
+  /** Minutos de espera antes de arrancar (0 = al momento). Solo en DELAYABLE_TRIGGERS. */
+  delayMin: z.number().int().min(0).max(43200).default(0),
+  /** Solo arranca dentro de este horario (null = siempre). */
+  activeHours: businessHoursSchema.nullable().default(null),
 });
 export type FlowTrigger = z.infer<typeof flowTriggerSchema>;
 export const MAX_FLOW_TRIGGERS = 10;

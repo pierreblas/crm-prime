@@ -17,7 +17,7 @@ export interface NodeMeta {
 }
 
 /** Qué dato extra pide cada disparador en el panel de «Inicio». */
-export type TriggerNeeds = "keywords" | "tags" | "stages" | "forms" | "hours" | null;
+export type TriggerNeeds = "keywords" | "tags" | "stages" | "forms" | "hours" | "cooldown" | null;
 
 export interface TriggerMeta {
   type: FlowTrigger["type"];
@@ -37,11 +37,14 @@ export type TriggerGroup = (typeof TRIGGER_GROUPS)[number];
 // Cuándo puede arrancar un flujo. El orden es el del selector.
 export const TRIGGER_META: TriggerMeta[] = [
   { type: "conversation_start", label: "Al iniciar un chat", short: "al iniciar chat", hint: "Cuando empieza una conversación nueva: el primer mensaje de un contacto, o el primero después de cerrar su chat anterior. No se dispara con cada mensaje de un chat abierto (para eso, «Por palabra clave»).", icon: "message", needs: null, group: "Conversación" },
+  { type: "inbound_message", label: "Llega un mensaje del cliente", short: "cada mensaje", hint: "Con cada mensaje que escribe el cliente (sin palabras concretas), como mucho una vez cada cierto tiempo por conversación. Úsalo con condiciones: por ejemplo, solo si está en una etapa o tiene una etiqueta.", icon: "reply", needs: "cooldown", group: "Conversación" },
   { type: "keyword", label: "Por palabra clave", short: "palabra clave", hint: "Cuando un mensaje del contacto contiene alguna de estas palabras.", icon: "search", needs: "keywords", group: "Conversación" },
   { type: "ad_click", label: "Llega desde un anuncio", short: "desde anuncio", hint: "Cuando el cliente escribe tras tocar un anuncio Click to WhatsApp de Meta: al abrir el chat, o si vuelve por otro anuncio con el chat abierto.", icon: "megaphone", needs: null, group: "Conversación" },
   { type: "meta_lead", label: "Nuevo lead de Meta Ads (formulario)", short: "lead de Meta", hint: "Cuando entra un lead de un formulario de Meta Lead Ads. El lead aún no te escribió: para hablarle usa el bloque «Enviar plantilla».", icon: "target", needs: "forms", group: "Leads" },
   { type: "lead_webhook", label: "Nuevo lead por API o formulario web", short: "lead por API", hint: "Cuando entra un lead por el webhook de leads o la API (tu web, n8n, Zapier…). Para escribirle usa «Enviar plantilla».", icon: "plug", needs: null, group: "Leads" },
   { type: "tag_added", label: "Se le pone una etiqueta", short: "etiqueta", hint: "Cuando alguien, la IA u otro flujo etiqueta al contacto.", icon: "tag", needs: "tags", group: "Contacto y embudo" },
+  { type: "tag_removed", label: "Se le quita una etiqueta", short: "etiqueta quitada", hint: "Cuando alguien, la IA u otro flujo le quita una etiqueta al contacto.", icon: "x", needs: "tags", group: "Contacto y embudo" },
+  { type: "owner_changed", label: "Cambia el responsable", short: "cambio de responsable", hint: "Cuando cambia el responsable (vendedor) de su oportunidad: a mano, en bloque o por la IA. Con la condición «Responsable de su oportunidad» eliges de quién.", icon: "user", needs: null, group: "Contacto y embudo" },
   { type: "deal_stage", label: "Cambia de etapa en el embudo", short: "cambio de etapa", hint: "Cuando su oportunidad se mueve a una etapa (a mano, por la IA o por otro flujo).", icon: "pipeline", needs: "stages", group: "Contacto y embudo" },
   { type: "conversation_closed", label: "Se cierra la conversación", short: "al cerrar", hint: "Cuando tu equipo cierra la conversación. Ideal para una encuesta o una despedida.", icon: "check", needs: null, group: "Conversación" },
   { type: "no_reply", label: "El cliente no responde", short: "sin respuesta", hint: "Cuando pasan estas horas sin que el cliente conteste a tu último mensaje. Se dispara una vez por silencio.", icon: "hourglass", needs: "hours", group: "Conversación" },
@@ -57,6 +60,9 @@ export function newTrigger(type: FlowTrigger["type"]): FlowTrigger {
     type,
     keywords: [],
     config: { ...EMPTY_TRIGGER_CONFIG },
+    conditions: { match: "all", rules: [] },
+    delayMin: 0,
+    activeHours: null,
   };
 }
 
@@ -66,7 +72,10 @@ export function triggerDetail(t: FlowTrigger, stageName: (id: string) => string)
     case "keyword":
       return t.keywords.length ? t.keywords.map((k) => `«${k}»`).join(", ") : "sin palabras";
     case "tag_added":
+    case "tag_removed":
       return t.config.tags.length ? t.config.tags.join(", ") : "cualquier etiqueta";
+    case "inbound_message":
+      return `pausa ${minutesLabel(t.config.cooldownMin)}`;
     case "deal_stage":
       return t.config.stageIds.length ? t.config.stageIds.map(stageName).join(", ") : "cualquier etapa";
     case "meta_lead":
@@ -76,6 +85,25 @@ export function triggerDetail(t: FlowTrigger, stageName: (id: string) => string)
     default:
       return "";
   }
+}
+
+export const DAY_LABEL: Record<string, string> = { mon: "Lun", tue: "Mar", wed: "Mié", thu: "Jue", fri: "Vie", sat: "Sáb", sun: "Dom" };
+
+/** «5 min», «2 h», «1 día». */
+export function minutesLabel(m: number): string {
+  if (m % 1440 === 0) return m === 1440 ? "1 día" : `${m / 1440} días`;
+  if (m % 60 === 0) return `${m / 60} h`;
+  return `${m} min`;
+}
+
+/** Lo que añade un disparador además de su evento: espera, condiciones, horario. */
+export function triggerExtras(t: FlowTrigger): string[] {
+  const out: string[] = [];
+  if (t.delayMin > 0) out.push(`a los ${minutesLabel(t.delayMin)}`);
+  const n = t.conditions.rules.length;
+  if (n) out.push(n === 1 ? "1 condición" : `${n} condiciones`);
+  if (t.activeHours) out.push("en horario");
+  return out;
 }
 
 /** Para la lista de flujos: «palabra clave + 2 más» o «solo desde el embudo». */
@@ -89,6 +117,8 @@ export function triggersShort(types: FlowTriggerType[]): string {
 export const NODE_PALETTE: NodeMeta[] = [
   { type: "sendMessage", label: "Enviar mensaje", icon: "message", hint: "Texto, con imagen o archivo opcional", color: "#2c4b7a", accent: "var(--accent-text)", group: "Mensajes" },
   { type: "buttons", label: "Botones", icon: "buttons", hint: "Mensaje con hasta 3 botones; cada uno es una salida", color: "#2c5f7a", accent: "#8fc8e8", group: "Mensajes" },
+  { type: "list", label: "Lista de opciones", icon: "filter", hint: "Un botón que abre hasta 10 opciones; cada una es una salida", color: "#2c5f7a", accent: "#8fc8e8", group: "Mensajes" },
+  { type: "carousel", label: "Carrusel", icon: "image", hint: "De 2 a 10 tarjetas con imagen o video, texto y un botón", color: "#2c5f7a", accent: "#8fc8e8", group: "Mensajes" },
   { type: "askQuestion", label: "Preguntar y guardar", icon: "question", hint: "Espera la respuesta, la valida y la guarda en una variable", color: "#7a5fb0", accent: "#cbb6ff", group: "Mensajes" },
   { type: "sendTemplate", label: "Enviar plantilla", icon: "template", hint: "Una plantilla aprobada por Meta: sirve aunque el contacto no haya escrito", color: "#2c6b7a", accent: "#8fd9e8", group: "Mensajes" },
   { type: "condition", label: "Condición", icon: "branch", hint: "Ramifica según palabras clave", color: "#b08a3f", accent: "#ffd98a", group: "Lógica" },
@@ -142,8 +172,8 @@ export interface ConditionFieldMeta {
   label: string;
   group: "Mensaje del cliente" | "Contacto" | "Conversación" | "Embudo";
   kind: RuleKind;
-  /** Pide una clave extra: nombre de variable o clave de campo. */
-  needsKey?: "variable" | "field";
+  /** Pide una clave extra: nombre de variable, clave de campo o qué UTM. */
+  needsKey?: "variable" | "field" | "utm";
 }
 export const CONDITION_FIELDS: ConditionFieldMeta[] = [
   { field: "message", label: "El mensaje del cliente", group: "Mensaje del cliente", kind: "text" },
@@ -152,6 +182,7 @@ export const CONDITION_FIELDS: ConditionFieldMeta[] = [
   { field: "contact_phone", label: "Teléfono del contacto", group: "Contacto", kind: "text" },
   { field: "country", label: "País del contacto", group: "Contacto", kind: "enum" },
   { field: "contact_field", label: "Un campo del contacto", group: "Contacto", kind: "text", needsKey: "field" },
+  { field: "utm", label: "UTM con que llegó", group: "Contacto", kind: "text", needsKey: "utm" },
   { field: "tag", label: "Etiqueta del contacto", group: "Contacto", kind: "enum" },
   { field: "source", label: "Fuente del contacto", group: "Contacto", kind: "enum" },
   { field: "status", label: "Estado de la conversación", group: "Conversación", kind: "enum" },
@@ -162,6 +193,7 @@ export const CONDITION_FIELDS: ConditionFieldMeta[] = [
   { field: "messages_count", label: "Mensajes que ha enviado", group: "Conversación", kind: "number" },
   { field: "stage", label: "Etapa de su oportunidad", group: "Embudo", kind: "enum" },
   { field: "deal_value", label: "Valor de su oportunidad", group: "Embudo", kind: "number" },
+  { field: "deal_owner", label: "Responsable de su oportunidad", group: "Embudo", kind: "enum" },
 ];
 export const CONDITION_FIELD_BY: Record<string, ConditionFieldMeta> = Object.fromEntries(CONDITION_FIELDS.map((f) => [f.field, f]));
 export const CONDITION_GROUPS: ConditionFieldMeta["group"][] = ["Mensaje del cliente", "Contacto", "Conversación", "Embudo"];
@@ -231,6 +263,17 @@ export function defaultNodeData(type: FlowNodeType): FlowNodeData {
       return { text: "", variable: "", validate: "any", maxRetries: 2 };
     case "buttons":
       return { text: "", buttons: [{ id: "b1", title: "" }, { id: "b2", title: "" }] };
+    case "list":
+      return { text: "", listButton: "Ver opciones", buttons: [{ id: "o1", title: "" }, { id: "o2", title: "" }, { id: "o3", title: "" }] };
+    case "carousel":
+      return {
+        text: "",
+        cardMode: "reply",
+        cards: [
+          { id: "c1", text: "", buttonTitle: "Elegir" },
+          { id: "c2", text: "", buttonTitle: "Elegir" },
+        ],
+      };
     case "condition":
       return { branches: [] };
     case "action":
@@ -283,6 +326,18 @@ export function outputsOf(type: string | undefined, data: FlowNodeData | undefin
         ...(d.buttons ?? []).map((b, i) => ({ id: b.id, label: b.title || `botón ${i + 1}` })),
         { id: "else", label: "otra respuesta" },
       ];
+    case "list":
+      return [
+        ...(d.buttons ?? []).map((b, i) => ({ id: b.id, label: b.title || `opción ${i + 1}` })),
+        { id: "else", label: "otra respuesta" },
+      ];
+    case "carousel":
+      return (d.cardMode ?? "reply") === "url"
+        ? [{ id: null, label: "" }]
+        : [
+            ...(d.cards ?? []).map((c, i) => ({ id: c.id, label: c.text?.trim() || c.buttonTitle || `tarjeta ${i + 1}` })),
+            { id: "else", label: "otra respuesta" },
+          ];
     case "split":
       return (d.splits ?? []).map((s) => ({ id: s.id, label: `${s.label || s.id} · ${s.weight}%` }));
     case "schedule":
@@ -305,9 +360,18 @@ export function outputsOf(type: string | undefined, data: FlowNodeData | undefin
 }
 
 /** Bloques con una salida "por defecto" (sin handle). */
-export function hasDefaultOutput(type: string | undefined): boolean {
-  return !["condition", "jumpToFlow", "buttons", "split", "schedule"].includes(type ?? "");
+export function hasDefaultOutput(type: string | undefined, data?: FlowNodeData): boolean {
+  if (type === "carousel") return (data?.cardMode ?? "reply") === "url";
+  return !["condition", "jumpToFlow", "buttons", "list", "split", "schedule"].includes(type ?? "");
 }
+
+/** Icono y nombre de cada tipo de adjunto. */
+export const MEDIA_META: Record<string, { icon: "image" | "video" | "mic" | "file"; label: string }> = {
+  IMAGE: { icon: "image", label: "Imagen" },
+  VIDEO: { icon: "video", label: "Video" },
+  AUDIO: { icon: "mic", label: "Audio" },
+  DOCUMENT: { icon: "file", label: "Documento" },
+};
 
 /** Petición de añadir un bloque: tras una salida, o en medio de una conexión. */
 export interface AddRequest {

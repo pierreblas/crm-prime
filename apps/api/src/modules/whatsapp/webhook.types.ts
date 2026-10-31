@@ -19,6 +19,8 @@ export interface InboundMessageJob {
   replyToWaMessageId?: string;
   // phone_number_id del número que recibió el mensaje (multi-número).
   channelPhoneNumberId?: string;
+  /** Cuándo lo envió el cliente (el `timestamp` de Meta), en ms. */
+  timestampMs?: number;
 }
 
 export interface InboundStatusJob {
@@ -144,6 +146,12 @@ interface MetaMessage {
   from: string;
   id: string;
   type: string;
+  /** Segundos desde 1970, como texto. */
+  timestamp?: string;
+  /** Solo en mensajes que mandó el negocio (historial, ecos). */
+  to?: string;
+  /** Solo en mensajes del historial importado al conectar (coexistencia). */
+  history_context?: { status?: string };
   text?: { body: string };
   image?: { id: string; caption?: string };
   document?: { id: string; caption?: string; filename?: string };
@@ -158,6 +166,8 @@ interface MetaMessage {
     type?: string;
     button_reply?: { id?: string; title?: string };
     list_reply?: { id?: string; title?: string; description?: string };
+    /** Botón de respuesta de una tarjeta de carrusel (si Meta no lo manda como button_reply). */
+    quick_reply?: { id?: string; title?: string; payload?: string };
   };
   referral?: MetaReferral;
   // El cliente respondió citando un mensaje nuestro.
@@ -277,7 +287,31 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
         nameByWaId.set(c.wa_id, c.profile?.name);
       }
 
+      // Solo los del field «messages» son mensajes nuevos. Al conectar un número
+      // con coexistencia, Meta manda el historial de 180 días, y los medios de
+      // los últimos 14 llegan en un aviso «history» que TAMBIÉN trae una lista
+      // `messages`. Tomarlos por nuevos abría un chat por cliente antiguo y el
+      // agente les escribía a todos: son pasado y se guardan como historial.
+      const live = !change.field || change.field === "messages";
+      const businessNumber = (value.metadata?.display_phone_number ?? "").replace(/\D/g, "");
       for (const m of value.messages ?? []) {
+        if (!live || m.history_context) {
+          const fromCustomer = m.from !== businessNumber;
+          const customer = fromCustomer ? m.from : m.to;
+          if (customer && m.type !== "reaction") {
+            jobs.push({
+              kind: "history",
+              customerWaId: normalizePhone(customer),
+              fromCustomer,
+              waMessageId: m.id,
+              type: TYPE_MAP[m.type] ?? MessageType.TEXT,
+              text: m.text?.body ?? m.image?.caption ?? m.video?.caption ?? m.document?.caption,
+              timestampMs: m.timestamp ? Number(m.timestamp) * 1000 : Date.now(),
+              channelPhoneNumberId,
+            });
+          }
+          continue;
+        }
         // Reacción: no es un mensaje nuevo, sino un emoji sobre otro mensaje.
         if (m.type === "reaction" && m.reaction) {
           jobs.push({
@@ -290,7 +324,8 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
         }
         // El contacto pulsó un botón: de plantilla (button) o de un mensaje
         // interactivo (interactive). Se guarda como texto + identificador.
-        const reply = m.interactive?.button_reply ?? m.interactive?.list_reply;
+        const quick = m.interactive?.quick_reply;
+        const reply = m.interactive?.button_reply ?? m.interactive?.list_reply ?? (quick ? { id: quick.id ?? quick.payload, title: quick.title } : undefined);
         const buttonText = m.button?.text ?? reply?.title;
         const buttonPayload = m.button?.payload ?? reply?.id;
 
@@ -307,6 +342,7 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
           channelPhoneNumberId,
           ...(m.referral ? { referral: m.referral } : {}),
           ...(m.context?.id ? { replyToWaMessageId: m.context.id } : {}),
+          ...(m.timestamp ? { timestampMs: Number(m.timestamp) * 1000 } : {}),
         });
       }
 

@@ -4,7 +4,7 @@ import { QUEUE_FLOW } from "../../infra/queue/queue.constants";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { runUnscoped } from "../../infra/tenant/tenant.context";
 import { runJobInOrg } from "../../infra/tenant/job-org";
-import { FlowEngineService } from "./flow-engine.service";
+import { FlowEngineService, type DelayedTriggerJob } from "./flow-engine.service";
 import { StageAutomationsService, type StageDelayedJob, type StageNoReplyJob } from "./stage-automations.service";
 
 interface FlowResumeJob {
@@ -13,8 +13,9 @@ interface FlowResumeJob {
   orgId?: string;
   /** Solo en "no_reply": el mensaje nuestro que el cliente tendría que haber contestado. */
   messageId?: string;
-  /** Solo en "no_reply": el flujo que lo programó (los trabajos anteriores no lo traen). */
+  /** Solo en "no_reply": el flujo y el disparador que lo programaron (los trabajos anteriores no lo traen). */
   flowId?: string;
+  triggerId?: string;
 }
 
 @Processor(QUEUE_FLOW)
@@ -32,6 +33,12 @@ export class FlowProcessor extends WorkerHost {
     if (job.name === "stage_no_reply") {
       const data = job.data as StageNoReplyJob;
       await runJobInOrg("automatización de etapa", data.orgId, () => this.stageAutomations.checkNoReply(data));
+      return;
+    }
+    // Un disparador con espera («a los 10 min»): al vencer se comprueba todo otra vez.
+    if (job.name === "trigger_delay") {
+      const data = job.data as unknown as DelayedTriggerJob;
+      await runJobInOrg("disparador con espera", data.orgId, () => this.engine.runDelayedTrigger(data).then(() => undefined));
       return;
     }
     if (job.name === "bulk_flow") {
@@ -61,7 +68,7 @@ export class FlowProcessor extends WorkerHost {
 
     await runJobInOrg("flujo", orgId, () =>
       job.name === "no_reply" && resume.messageId
-        ? this.engine.checkNoReply(resume.conversationId, resume.messageId, resume.flowId)
+        ? this.engine.checkNoReply(resume.conversationId, resume.messageId, resume.flowId, resume.triggerId)
         : this.engine.resumeTimer(resume.conversationId),
     );
   }

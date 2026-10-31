@@ -92,7 +92,16 @@ export interface InboundMessage {
   replyToWaMessageId?: string;
   /** Identificador del botón pulsado (plantilla o mensaje interactivo). */
   buttonPayload?: string;
+  /** Cuándo lo envió el cliente, según Meta (ms). */
+  timestampMs?: number;
 }
+
+/**
+ * Un mensaje así de viejo se guarda pero no despierta a la IA, los flujos ni
+ * la bienvenida: contestar horas tarde (o a algo de antes de conectar el
+ * número) es escribir de la nada a un cliente.
+ */
+const STALE_MS = 2 * 60 * 60 * 1000;
 
 /** Cómo se anuncia un mensaje sin texto en un aviso. */
 const PREVIEW_LABEL: Record<string, string> = {
@@ -104,6 +113,78 @@ const PREVIEW_LABEL: Record<string, string> = {
   LOCATION: "📍 Ubicación",
 };
 
+
+/** Lo que guarda Message.interactive (los antiguos solo traen buttons/header/footer). */
+export interface StoredInteractive {
+  kind?: "buttons" | "list" | "carousel";
+  buttons?: { id: string; title: string }[];
+  header?: string;
+  headerMedia?: { kind: "IMAGE" | "VIDEO" | "DOCUMENT"; mediaUrl: string; fileName?: string };
+  footer?: string;
+  list?: { button: string; rows: { id: string; title: string; description?: string }[] };
+  carousel?: { cards: { id: string; kind: "IMAGE" | "VIDEO"; mediaUrl: string; body?: string; button: { title: string; url?: string } }[] };
+}
+
+/**
+ * El objeto `interactive` de la Cloud API a partir de lo guardado: botones
+ * (con encabezado de texto o multimedia), lista de opciones o carrusel.
+ */
+export async function buildInteractivePayload(
+  i: StoredInteractive,
+  body: string,
+  mediaRef: (mediaUrl: string) => Promise<{ id: string } | { link: string }>,
+): Promise<Record<string, unknown>> {
+  const footer = i.footer ? { footer: { text: i.footer } } : {};
+  if (i.carousel) {
+    const cards = await Promise.all(
+      i.carousel.cards.map(async (c, index) => {
+        const key = c.kind === "VIDEO" ? "video" : "image";
+        return {
+          card_index: index,
+          type: "cta_url",
+          header: { type: key, [key]: await mediaRef(c.mediaUrl) },
+          ...(c.body ? { body: { text: c.body } } : {}),
+          action: c.button.url
+            ? { name: "cta_url", parameters: { display_text: c.button.title, url: c.button.url } }
+            : { buttons: [{ type: "quick_reply", quick_reply: { id: c.id, title: c.button.title } }] },
+        };
+      }),
+    );
+    return { type: "carousel", body: { text: body }, action: { cards } };
+  }
+  if (i.list) {
+    return {
+      type: "list",
+      ...(i.header ? { header: { type: "text", text: i.header } } : {}),
+      body: { text: body },
+      ...footer,
+      action: {
+        button: i.list.button,
+        sections: [
+          {
+            title: "Opciones",
+            rows: i.list.rows.map((r) => ({ id: r.id, title: r.title, ...(r.description ? { description: r.description } : {}) })),
+          },
+        ],
+      },
+    };
+  }
+  let header: Record<string, unknown> | undefined;
+  if (i.headerMedia) {
+    const key = i.headerMedia.kind.toLowerCase();
+    const ref = await mediaRef(i.headerMedia.mediaUrl);
+    header = { type: key, [key]: { ...ref, ...(key === "document" && i.headerMedia.fileName ? { filename: i.headerMedia.fileName } : {}) } };
+  } else if (i.header) {
+    header = { type: "text", text: i.header };
+  }
+  return {
+    type: "button",
+    ...(header ? { header } : {}),
+    body: { text: body },
+    ...footer,
+    action: { buttons: (i.buttons ?? []).map((b) => ({ type: "reply", reply: { id: b.id, title: b.title } })) },
+  };
+}
 @Injectable()
 export class MessagingService {
   private readonly logger = new Logger("Messaging");
@@ -183,6 +264,12 @@ export class MessagingService {
     const orgId = channel?.orgId ?? this.tenant.orgId();
 
     const now = new Date();
+    // Cuándo lo escribió el cliente. Un mensaje anterior a la conexión del
+    // número o de hace más de 2 horas es pasado: se guarda, pero nada le
+    // contesta solo (ver STALE_MS).
+    const sentAt = msg.timestampMs && msg.timestampMs < now.getTime() ? new Date(msg.timestampMs) : now;
+    const stale =
+      now.getTime() - sentAt.getTime() > STALE_MS || (!!channel?.connectedAt && sentAt < channel.connectedAt);
 
     // ── Atribución de marketing ────────────────────────────────
     // Los utm_* pueden venir por dos vías: los "parámetros de URL" del
@@ -259,7 +346,8 @@ export class MessagingService {
       where: { contactId: contact.id, status: { not: "CLOSED" } },
       orderBy: { createdAt: "desc" },
     });
-    const windowExpiresAt = new Date(now.getTime() + WINDOW_MS);
+    // La ventana de 24 h cuenta desde que escribió el cliente, no desde que llegó.
+    const windowExpiresAt = new Date(sentAt.getTime() + WINDOW_MS);
     const isNewConversation = !open;
     // Tras cerrar, el siguiente mensaje abre otra conversación: hereda el modo
     // de la IA de la anterior (si estaba en Autopilot, sigue en Autopilot).
@@ -310,9 +398,11 @@ export class MessagingService {
     // Entrada al embudo: si la empresa activó la regla y el contacto no tiene
     // una oportunidad en curso, aparece en "Entrantes" sin que nadie la cree,
     // y la conversación queda asignada al mismo vendedor.
-    await this.pipeline
-      .intakeFromWhatsapp(contact.id, channelId, conversation.id)
-      .catch((e: Error) => this.logger.warn(`Entrada al embudo falló: ${e.message}`));
+    if (!stale) {
+      await this.pipeline
+        .intakeFromWhatsapp(contact.id, channelId, conversation.id)
+        .catch((e: Error) => this.logger.warn(`Entrada al embudo falló: ${e.message}`));
+    }
 
     // La cita llega como waMessageId de Meta: se traduce al id nuestro.
     const quoted = msg.replyToWaMessageId
@@ -336,6 +426,7 @@ export class MessagingService {
         buttonPayload: msg.buttonPayload ?? null,
         ...(referral ? { referral: referral as unknown as Prisma.InputJsonObject } : {}),
         status: MessageStatus.DELIVERED,
+        ...(stale ? { createdAt: sentAt } : {}),
       },
     });
 
@@ -358,6 +449,12 @@ export class MessagingService {
         preview: (text ?? PREVIEW_LABEL[msg.type] ?? msg.type.toLowerCase()).slice(0, 120),
       },
     });
+    if (stale) {
+      this.logger.warn(
+        `Mensaje antiguo de ${msg.from} (${sentAt.toISOString()}): se guarda sin IA ni automatizaciones`,
+      );
+      return;
+    }
     // Conversación nueva: dispara la automatización de bienvenida / autopilot
     // por defecto (AutomationService) antes del flujo normal de entrante.
     if (isNewConversation) {
@@ -702,6 +799,15 @@ export class MessagingService {
       id: b.id?.trim() || `btn_${i + 1}`,
       title: b.title,
     }));
+    const kind = input.carousel ? "carousel" : input.list ? "list" : "buttons";
+    // En la bandeja se pintan como botones: los botones, las opciones de la
+    // lista o el botón de cada tarjeta.
+    const shown =
+      kind === "list"
+        ? input.list!.rows.map((r) => ({ id: r.id, title: r.title }))
+        : kind === "carousel"
+          ? input.carousel!.cards.map((c) => ({ id: c.id, title: c.button.title }))
+          : buttons;
 
     const message = await this.prisma.message.create({
       data: {
@@ -712,9 +818,13 @@ export class MessagingService {
         author,
         content: input.body,
         interactive: {
-          buttons,
+          kind,
+          buttons: shown,
           ...(input.header ? { header: input.header } : {}),
+          ...(input.headerMedia ? { headerMedia: input.headerMedia } : {}),
           ...(input.footer ? { footer: input.footer } : {}),
+          ...(input.list ? { list: input.list } : {}),
+          ...(input.carousel ? { carousel: input.carousel } : {}),
         } as Prisma.InputJsonValue,
         status: MessageStatus.QUEUED,
       },
@@ -888,12 +998,28 @@ export class MessagingService {
    * que el archivo sea accesible desde internet. Una URL externa se pasa tal
    * cual como `link`, que es lo que Meta espera en ese caso.
    */
+  private buildInteractive(i: StoredInteractive, body: string, from?: string): Promise<Record<string, unknown>> {
+    return buildInteractivePayload(i, body, (url) => this.mediaRef(url, from));
+  }
+
+  /** Un archivo del CRM se sube a Meta y va por id; una URL externa, tal cual. */
+  private async mediaRef(mediaUrl: string, from?: string): Promise<{ id: string } | { link: string }> {
+    const storageId = parseStorageRef(mediaUrl);
+    if (!storageId) return { link: mediaUrl };
+    const file = await this.storage.read(storageId);
+    if (!file) throw new Error("El archivo del mensaje ya no está disponible en el almacenamiento");
+    return { id: await this.wa.uploadMedia(file.buffer, file.mimeType, file.fileName ?? storageId, from) };
+  }
+
   private async sendMediaMessage(
     message: { id: string; type: MessageType; mediaUrl: string | null; content: string | null },
     to: string,
     from?: string,
   ): Promise<{ waMessageId: string }> {
-    const kind = message.type === MessageType.IMAGE ? "IMAGE" : "DOCUMENT";
+    const kind =
+      message.type === MessageType.IMAGE || message.type === MessageType.VIDEO || message.type === MessageType.AUDIO
+        ? message.type
+        : "DOCUMENT";
     const caption = message.content ?? undefined;
     const storageId = parseStorageRef(message.mediaUrl);
 
@@ -947,20 +1073,10 @@ export class MessagingService {
     const to = message.conversation.contact.phone;
     // Responder por el mismo número (canal) por el que entró la conversación.
     const from = message.conversation.channel?.phoneNumberId;
-    const interactive = message.interactive as {
-      buttons?: { id: string; title: string }[];
-      header?: string;
-      footer?: string;
-    } | null;
+    const interactive = message.interactive as StoredInteractive | null;
 
-    const result = interactive?.buttons?.length
-      ? await this.wa.sendInteractiveButtons(
-          to,
-          message.content ?? "",
-          interactive.buttons,
-          { header: interactive.header, footer: interactive.footer },
-          from,
-        )
+    const result = interactive?.buttons?.length || interactive?.list || interactive?.carousel
+      ? await this.wa.sendInteractive(to, await this.buildInteractive(interactive, message.content ?? "", from), from)
       : message.type === MessageType.TEXT
         ? await this.wa.sendText(
             to,

@@ -61,6 +61,16 @@ export class FlowTriggersService {
     await this.safe("contact.tagged", e.orgId, () => this.engine.onTagAdded(e.contactId, e.tag));
   }
 
+  @OnEvent("contact.untagged", { async: true })
+  async onUntagged(e: { orgId: string; contactId: string; tag: string }): Promise<void> {
+    await this.safe("contact.untagged", e.orgId, () => this.engine.onTagRemoved(e.contactId, e.tag));
+  }
+
+  @OnEvent("deal.owner_changed", { async: true })
+  async onOwner(e: { orgId: string; contactId: string; ownerId: string | null }): Promise<void> {
+    await this.safe("deal.owner_changed", e.orgId, () => this.engine.onOwnerChanged(e.contactId, e.ownerId));
+  }
+
   @OnEvent("deal.stage_changed", { async: true })
   async onStage(e: DealStageChangedEvent): Promise<void> {
     await this.safe("deal.stage_changed", e.orgId, () => this.engine.onDealStage(e.contactId, e.stageId));

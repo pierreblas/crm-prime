@@ -423,6 +423,9 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
   }
 
   async updateDeal(id: string, input: UpdateDealInput): Promise<DealDto> {
+    // Para avisar si cambia el responsable (los flujos pueden arrancar con eso).
+    const before =
+      input.ownerId !== undefined ? await this.prisma.deal.findUnique({ where: { id }, select: { ownerId: true } }) : null;
     const deal = await this.prisma.deal
       .update({
         where: { id },
@@ -438,6 +441,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         throw new NotFoundException("Deal no encontrado");
       });
     this.changed(deal.id);
+    if (before && before.ownerId !== deal.ownerId) this.ownerChanged(deal.id, deal.contactId, deal.ownerId);
     return this.toDealDto(deal);
   }
 
@@ -658,7 +662,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
   async bulk(input: BulkDealsInput): Promise<BulkDealsResult> {
     const deals = await this.prisma.deal.findMany({
       where: { id: { in: input.ids } },
-      select: { id: true, contactId: true, stageId: true, discardedAt: true },
+      select: { id: true, contactId: true, stageId: true, discardedAt: true, ownerId: true },
     });
     let updated = 0;
     if (input.action === "move") {
@@ -692,6 +696,9 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         data: { ownerId: input.ownerId ?? null },
       });
       updated = r.count;
+      for (const d of deals) {
+        if (d.ownerId !== (input.ownerId ?? null)) this.ownerChanged(d.id, d.contactId, input.ownerId ?? null);
+      }
     } else if (input.action === "tag") {
       const name = input.tag!.trim();
       const orgId = this.tenant.orgId();
@@ -715,6 +722,10 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     }
     this.changed();
     return { updated, skipped: input.ids.length - updated };
+  }
+
+  private ownerChanged(dealId: string, contactId: string, ownerId: string | null): void {
+    this.events.emit("deal.owner_changed", { orgId: this.tenant.orgId(), dealId, contactId, ownerId });
   }
 
   private enteredStage(dealId: string, contactId: string, stageId: string): void {

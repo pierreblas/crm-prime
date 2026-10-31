@@ -182,12 +182,12 @@ export class WhatsappConnectionService {
 
   async resolveChannel(
     phoneNumberId: string,
-  ): Promise<{ id: string; orgId: string } | null> {
+  ): Promise<{ id: string; orgId: string; connectedAt: Date } | null> {
     // Agujero 2/4: esta consulta produce el orgId, así que no puede usarlo.
     return runUnscoped("webhook: resolver empresa por phone_number_id", () =>
       this.prisma.whatsappConnection.findUnique({
         where: { phoneNumberId },
-        select: { id: true, orgId: true },
+        select: { id: true, orgId: true, connectedAt: true },
       }),
     );
   }

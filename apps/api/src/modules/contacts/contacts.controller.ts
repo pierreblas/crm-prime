@@ -161,12 +161,15 @@ export class ContactsController {
       });
       added.push({ id: tag.id, name: tag.name });
     }
-    const removed = [...current.entries()].filter(([key]) => !wanted.has(key)).map(([, tag]) => tag.id);
+    const removed = [...current.entries()].filter(([key]) => !wanted.has(key)).map(([, tag]) => tag);
     if (removed.length) {
-      await this.prisma.contactTag.deleteMany({ where: { contactId: id, tagId: { in: removed } } });
+      await this.prisma.contactTag.deleteMany({ where: { contactId: id, tagId: { in: removed.map((t) => t.id) } } });
     }
     for (const tag of added) {
       this.events.emit("contact.tagged", { orgId, contactId: id, tag: tag.name });
+    }
+    for (const tag of removed) {
+      this.events.emit("contact.untagged", { orgId, contactId: id, tag: tag.name });
     }
 
     const rows = await this.prisma.contactTag.findMany({

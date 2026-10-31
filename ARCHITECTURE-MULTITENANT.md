@@ -329,8 +329,8 @@ tuya. En SaaS deja de ser un lujo y pasa a ser el camino principal.
 solo incorpora clientes cuando Meta ha dado a la plataforma *acceso avanzado*
 a `whatsapp_business_management` y `whatsapp_business_messaging` (revisión de
 app + verificación de negocio); hasta entonces, a cualquiera sin rol en la app
-le sale el error `#2655111`. Para no depender de ese plazo —y para quien
-prefiera su propia app— el campo por organización sigue vivo con otro
+le sale el error `#2655111` (Meta aprobó la plataforma: avisado el 2026-10-31).
+Para quien prefiera su propia app, el campo por organización sigue vivo con otro
 significado: es la app **propia** de esa empresa. Guarda su App ID, App secret
 y verify token en Ajustes › Integraciones, apunta el webhook de su app a
 `acme.driony.com/api/v1/webhooks/whatsapp` (`OrgWebhookController`) y añade el

@@ -235,11 +235,8 @@ export function IntegrationsSettings() {
                 <strong>modo API</strong> (se atiende solo desde el CRM). La{" "}
                 <strong>Coexistencia</strong> con la app del celular no se puede
                 activar por cuenta propia: Meta solo la habilita a través de un
-                proveedor tecnológico aprobado (con acceso avanzado), y en Driony
-                la da el botón «Conectar WhatsApp» de la pestaña WhatsApp cuando
-                Meta apruebe la plataforma. Si al pulsarlo Meta muestra el error
-                #2655111, es que esa aprobación aún no ha llegado: mientras tanto,
-                este es el camino.
+                proveedor tecnológico aprobado. En Driony la da el botón
+                «Conectar WhatsApp» de la pestaña WhatsApp.
               </span>
             </p>
             <label style={{ ...label, marginTop: 10 }}>URL del webhook de tu app</label>

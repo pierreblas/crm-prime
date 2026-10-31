@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import {
   Handle,
   NodeToolbar,
@@ -11,15 +11,19 @@ import {
 } from "@xyflow/react";
 import type { FlowBranch, FlowButton, FlowNodeData } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
+import { mediaSrc, uploadMedia } from "@/lib/bff";
+import { toast } from "@/lib/toast";
 import {
   ACTION_LABEL,
   FlowActionsContext,
+  MEDIA_META,
   NODE_META,
   STATUS_LABEL,
   TRIGGER_BY_TYPE,
   VALIDATION_LABEL,
   branchTitle,
   triggerDetail,
+  triggerExtras,
 } from "./flowShared";
 
 const ROW_H = 28;
@@ -233,7 +237,7 @@ export function StartNode({ id, selected }: NodeProps) {
         ) : (
           triggers.map((t) => {
             const meta = TRIGGER_BY_TYPE[t.type];
-            const detail = triggerDetail(t, actions?.stageName ?? ((x) => x));
+            const detail = [triggerDetail(t, actions?.stageName ?? ((x) => x)), ...triggerExtras(t)].filter(Boolean).join(" · ");
             return (
               <div key={t.id} className="flow-start__trigger" title={meta?.hint}>
                 <NavIcon name={meta?.icon ?? "bolt"} size={12} />
@@ -259,13 +263,13 @@ export function SendMessageNode({ id, data, selected }: NodeProps) {
       <InputHandle />
       <Head type="sendMessage" />
       <div style={body}>
-        {d.mediaUrl && (
-          <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#9ad8e8", marginBottom: 4, fontSize: 11.5 }}>
-            <NavIcon name={d.mediaKind === "DOCUMENT" ? "file" : "image"} size={12} />
-            {d.mediaName || (d.mediaKind === "DOCUMENT" ? "Archivo" : "Imagen")}
-          </div>
-        )}
-        <InlineText nodeId={id} value={d.text ?? ""} placeholder={d.mediaUrl ? "Pie del adjunto (opcional)…" : "Escribe el mensaje…"} selected={selected} />
+        <MediaSlot nodeId={id} data={d} selected={selected} accept="image/jpeg,image/png,image/webp,video/mp4,video/3gpp,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" label="Adjuntar imagen, video, audio o archivo" />
+        <InlineText
+          nodeId={id}
+          value={d.text ?? ""}
+          placeholder={d.mediaUrl ? (d.mediaKind === "AUDIO" ? "Texto que va después del audio (opcional)…" : "Pie del adjunto (opcional)…") : "Escribe el mensaje…"}
+          selected={selected}
+        />
       </div>
       <OutputHandle nodeId={id} />
     </Shell>
@@ -436,7 +440,21 @@ function OutputRows({ id, rows, muted }: { id: string; rows: { id: string; label
 }
 
 /** Botones de respuesta: se escriben, añaden y quitan en el propio bloque. */
-function ButtonRows({ id, buttons, selected }: { id: string; buttons: FlowButton[]; selected?: boolean }) {
+function ButtonRows({
+  id,
+  buttons,
+  selected,
+  max = 3,
+  maxLength = 20,
+  noun = "Botón",
+}: {
+  id: string;
+  buttons: FlowButton[];
+  selected?: boolean;
+  max?: number;
+  maxLength?: number;
+  noun?: string;
+}) {
   const actions = useContext(FlowActionsContext);
   const updateInternals = useUpdateNodeInternals();
   useEffect(() => {
@@ -453,8 +471,8 @@ function ButtonRows({ id, buttons, selected }: { id: string; buttons: FlowButton
               <input
                 className="nodrag nopan flow-inline-input"
                 value={b.title}
-                maxLength={20}
-                placeholder={`Botón ${i + 1}`}
+                maxLength={maxLength}
+                placeholder={`${noun} ${i + 1}`}
                 autoFocus={!b.title && i === 0}
                 onChange={(e) => set(buttons.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))}
                 onKeyDown={(e) => {
@@ -465,7 +483,7 @@ function ButtonRows({ id, buttons, selected }: { id: string; buttons: FlowButton
               <button
                 type="button"
                 className="nodrag nopan flow-row-x"
-                title="Quitar botón"
+                title={`Quitar ${noun.toLowerCase()}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   set(buttons.filter((_, j) => j !== i));
@@ -475,12 +493,12 @@ function ButtonRows({ id, buttons, selected }: { id: string; buttons: FlowButton
               </button>
             </>
           ) : (
-            <span style={branchText}>▢ {b.title || `Botón ${i + 1}`}</span>
+            <span style={branchText}>▢ {b.title || `${noun} ${i + 1}`}</span>
           )}
           <OutputHandle nodeId={id} handleId={b.id} position={Position.Right} top={ROW_H / 2} />
         </Row>
       ))}
-      {editing && buttons.length < 3 && (
+      {editing && buttons.length < max && (
         <button
           type="button"
           className="nodrag nopan flow-row-add"
@@ -489,7 +507,7 @@ function ButtonRows({ id, buttons, selected }: { id: string; buttons: FlowButton
             set([...buttons, { id: `b${Date.now().toString(36)}`, title: "" }]);
           }}
         >
-          + Añadir botón
+          + Añadir {noun.toLowerCase()}
         </button>
       )}
       <Row>
@@ -507,10 +525,139 @@ export function ButtonsNode({ id, data, selected }: NodeProps) {
       <InputHandle />
       <Head type="buttons" />
       <div style={{ ...body, paddingBottom: 2 }}>
+        <MediaSlot nodeId={id} data={d} selected={selected} accept="image/jpeg,image/png,image/webp,video/mp4,video/3gpp,.pdf,.doc,.docx,.xls,.xlsx" label="Imagen, video o archivo arriba" />
         <InlineText nodeId={id} value={d.text ?? ""} placeholder="Escribe el mensaje…" selected={selected} maxLength={1024} />
       </div>
       <ButtonRows id={id} buttons={d.buttons ?? []} selected={selected} />
     </Shell>
+  );
+}
+
+export function ListNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
+  return (
+    <Shell id={id} type="list" selected={selected}>
+      <InputHandle />
+      <Head type="list" />
+      <div style={{ ...body, paddingBottom: 2 }}>
+        <InlineText nodeId={id} value={d.text ?? ""} placeholder="Escribe el mensaje…" selected={selected} maxLength={4096} />
+        <div className="flow-list-btn">
+          <NavIcon name="filter" size={11} />
+          {d.listButton?.trim() || "Ver opciones"}
+        </div>
+      </div>
+      <ButtonRows id={id} buttons={d.buttons ?? []} selected={selected} max={10} maxLength={24} noun="Opción" />
+    </Shell>
+  );
+}
+
+/** Carrusel: cada tarjeta con su miniatura; con respuestas, cada una es una salida. */
+export function CarouselNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
+  const cards = d.cards ?? [];
+  const reply = (d.cardMode ?? "reply") === "reply";
+  const updateInternals = useUpdateNodeInternals();
+  useEffect(() => {
+    updateInternals(id);
+  }, [cards.length, reply, id, updateInternals]);
+  return (
+    <Shell id={id} type="carousel" selected={selected}>
+      <InputHandle />
+      <Head type="carousel" />
+      <div style={{ ...body, paddingBottom: 2 }}>
+        <InlineText nodeId={id} value={d.text ?? ""} placeholder="Texto sobre el carrusel…" selected={selected} maxLength={1024} />
+      </div>
+      <div style={{ padding: "4px 10px 8px" }}>
+        {cards.map((c, i) => {
+          const src = c.mediaUrl && c.mediaKind !== "VIDEO" ? mediaSrc(c.mediaUrl) : null;
+          return (
+            <Row key={c.id}>
+              <span className="flow-card-row">
+                {src ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={src} alt="" className="flow-card-thumb" />
+                ) : (
+                  <span className="flow-card-thumb flow-card-thumb--empty">
+                    <NavIcon name={c.mediaKind === "VIDEO" ? "video" : "image"} size={11} />
+                  </span>
+                )}
+                <span style={branchText}>{c.text?.trim() || c.buttonTitle || `Tarjeta ${i + 1}`}</span>
+              </span>
+              {reply && <OutputHandle nodeId={id} handleId={c.id} position={Position.Right} top={ROW_H / 2} />}
+            </Row>
+          );
+        })}
+        {reply ? (
+          <Row>
+            <span style={{ ...branchText, color: "#8aa0bd" }}>otra respuesta</span>
+            <OutputHandle nodeId={id} handleId="else" position={Position.Right} color="#8aa0bd" top={ROW_H / 2} />
+          </Row>
+        ) : (
+          <div style={{ ...placeholder, fontSize: 11 }}>Botones con enlace: sigue sin esperar.</div>
+        )}
+      </div>
+      {!reply && <OutputHandle nodeId={id} />}
+    </Shell>
+  );
+}
+
+/**
+ * El adjunto de un mensaje (o el encabezado de unos botones), en la propia
+ * cajita: se ve lo que lleva y, con el bloque elegido, se adjunta o se quita
+ * sin ir al panel.
+ */
+function MediaSlot({ nodeId, data, selected, accept, label }: { nodeId: string; data: FlowNodeData; selected?: boolean; accept: string; label: string }) {
+  const actions = useContext(FlowActionsContext);
+  const [busy, setBusy] = useState(false);
+  const meta = data.mediaKind ? MEDIA_META[data.mediaKind] : null;
+  const src = data.mediaUrl && data.mediaKind === "IMAGE" ? mediaSrc(data.mediaUrl) : null;
+  async function pick(file: File | undefined) {
+    if (!file || !actions) return;
+    setBusy(true);
+    try {
+      const up = await uploadMedia(file);
+      actions.patchNode(nodeId, { mediaUrl: up.mediaUrl, mediaKind: up.kind, mediaName: up.fileName });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (data.mediaUrl && meta) {
+    return (
+      <div className="flow-media">
+        {src ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={src} alt="" className="flow-media__img" />
+        ) : (
+          <span className="flow-media__icon">
+            <NavIcon name={meta.icon} size={13} />
+          </span>
+        )}
+        <span className="flow-media__name">{data.mediaName || meta.label}</span>
+        {selected && actions && (
+          <button
+            type="button"
+            className="nodrag nopan flow-row-x"
+            title="Quitar adjunto"
+            onClick={(e) => {
+              e.stopPropagation();
+              actions.patchNode(nodeId, { mediaUrl: undefined, mediaKind: undefined, mediaName: undefined });
+            }}
+          >
+            ×
+          </button>
+        )}
+      </div>
+    );
+  }
+  if (!selected || !actions) return null;
+  return (
+    <label className="nodrag nopan flow-media-add" onClick={(e) => e.stopPropagation()}>
+      <NavIcon name="paperclip" size={12} />
+      {busy ? "Subiendo…" : label}
+      <input type="file" accept={accept} disabled={busy} onChange={(e) => void pick(e.target.files?.[0])} />
+    </label>
   );
 }
 
@@ -597,6 +744,8 @@ export function ScheduleNode({ id, data, selected }: NodeProps) {
 export const nodeTypes = {
   start: StartNode,
   buttons: ButtonsNode,
+  list: ListNode,
+  carousel: CarouselNode,
   setField: SetFieldNode,
   addNote: AddNoteNode,
   setStatus: SetStatusNode,

@@ -4,6 +4,7 @@ import { explainWhatsappError, parseGraphError } from "@crm/shared";
 import type {
   DownloadedMedia,
   InteractiveButton,
+  OutboundMediaKind,
   SendResult,
   TemplateSendSpec,
   WhatsAppProvider,
@@ -57,19 +58,20 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
 
   async sendMedia(
     to: string,
-    kind: "IMAGE" | "DOCUMENT",
+    kind: OutboundMediaKind,
     mediaUrl: string,
     caption?: string,
     fromPhoneNumberId?: string,
   ): Promise<SendResult> {
     const creds = await this.connection.resolveCreds(fromPhoneNumberId);
     if (!creds) return this.simulate(kind, to, mediaUrl);
-    const key = kind === "IMAGE" ? "image" : "document";
+    const key = kind.toLowerCase();
     return this.post(creds, {
       messaging_product: "whatsapp",
       to,
       type: key,
-      [key]: { link: mediaUrl, ...(caption ? { caption } : {}) },
+      // El audio no admite pie de foto.
+      [key]: { link: mediaUrl, ...(caption && kind !== "AUDIO" ? { caption } : {}) },
     });
   }
 
@@ -249,20 +251,30 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
 
   async sendMediaById(
     to: string,
-    kind: "IMAGE" | "DOCUMENT",
+    kind: OutboundMediaKind,
     mediaId: string,
     caption?: string,
     fromPhoneNumberId?: string,
   ): Promise<SendResult> {
     const creds = await this.connection.resolveCreds(fromPhoneNumberId);
     if (!creds) return this.simulate(kind, to, mediaId);
-    const key = kind === "IMAGE" ? "image" : "document";
+    const key = kind.toLowerCase();
     return this.post(creds, {
       messaging_product: "whatsapp",
       to,
       type: key,
-      [key]: { id: mediaId, ...(caption ? { caption } : {}) },
+      [key]: { id: mediaId, ...(caption && kind !== "AUDIO" ? { caption } : {}) },
     });
+  }
+
+  async sendInteractive(
+    to: string,
+    interactive: Record<string, unknown>,
+    fromPhoneNumberId?: string,
+  ): Promise<SendResult> {
+    const creds = await this.connection.resolveCreds(fromPhoneNumberId);
+    if (!creds) return this.simulate(`interactive:${String(interactive.type)}`, to, JSON.stringify(interactive).slice(0, 200));
+    return this.post(creds, { messaging_product: "whatsapp", recipient_type: "individual", to, type: "interactive", interactive });
   }
 
   private async post(

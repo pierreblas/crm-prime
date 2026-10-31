@@ -348,7 +348,7 @@ export function AutomationsEditor({
       ))}
       {flows.length === 0 ? (
         <div style={hint}>
-          Aún no hay flujos. Crea uno en <a href="/flows" style={{ color: "var(--accent-text)" }}>Flujos</a> con el disparador «Solo desde una etapa del embudo» y vuelve aquí para engancharlo.
+          Aún no hay flujos. Crea uno en <a href="/flows" style={{ color: "var(--accent-text)" }}>Flujos</a> (si solo debe correr desde aquí, déjalo sin disparadores) y vuelve para engancharlo.
         </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>

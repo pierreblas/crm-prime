@@ -47,6 +47,9 @@ export interface SendResult {
   waMessageId: string;
 }
 
+/** Tipos de adjunto que se pueden enviar sueltos. El audio no lleva pie. */
+export type OutboundMediaKind = "IMAGE" | "DOCUMENT" | "VIDEO" | "AUDIO";
+
 export interface DownloadedMedia {
   url: string; // ubicación donde quedó almacenado el medio
   mimeType: string;
@@ -70,7 +73,7 @@ export interface WhatsAppProvider {
 
   sendMedia(
     to: string,
-    kind: "IMAGE" | "DOCUMENT",
+    kind: OutboundMediaKind,
     mediaUrl: string,
     caption?: string,
     fromPhoneNumberId?: string,
@@ -100,6 +103,17 @@ export interface WhatsAppProvider {
   ): Promise<SendResult>;
 
   /**
+   * Cualquier mensaje interactivo ya armado (el objeto `interactive` de la
+   * Cloud API): botones con encabezado multimedia, lista o carrusel. Solo
+   * dentro de la ventana de 24 h.
+   */
+  sendInteractive(
+    to: string,
+    interactive: Record<string, unknown>,
+    fromPhoneNumberId?: string,
+  ): Promise<SendResult>;
+
+  /**
    * Reacciona a un mensaje con un emoji (cadena vacía = quita la reacción).
    */
   sendReaction(
@@ -124,7 +138,7 @@ export interface WhatsAppProvider {
   /** Envía un medio ya subido a Meta, por su media id. */
   sendMediaById(
     to: string,
-    kind: "IMAGE" | "DOCUMENT",
+    kind: OutboundMediaKind,
     mediaId: string,
     caption?: string,
     fromPhoneNumberId?: string,

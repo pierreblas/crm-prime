@@ -685,3 +685,384 @@ test("un flujo con varios disparadores arranca por cualquiera, respeta sus filtr
     }),
   );
 });
+
+test("condiciones dentro de cada disparador, horario activo, espera que se recomprueba y pausa entre mensajes", async () => {
+  const { FlowEngineService } = await import("../src/modules/ai/flow-engine.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_kt_${suf}`;
+  await ctx.runUnscoped("prueba: empresa de condiciones", () =>
+    prisma.organization.create({ data: { id: orgId, slug: `kt-${suf}`, name: "Condiciones" } }),
+  );
+  const sent: string[] = [];
+  const queued: { name: string; data: any; opts: any }[] = [];
+  const engine = new FlowEngineService(
+    prisma,
+    { orgId: () => orgId } as any,
+    { queueOutbound: async (i: { text?: string }) => void sent.push(i.text ?? ""), addNote: async () => undefined } as any,
+    {} as any,
+    { add: async (name: string, data: any, opts: any) => void queued.push({ name, data, opts }) } as any,
+    { emit: () => true } as any,
+  );
+  const graph = (text: string) => ({
+    nodes: [
+      { id: "start", type: "start", position: { x: 0, y: 0 }, data: {} },
+      { id: "n1", type: "sendMessage", position: { x: 0, y: 100 }, data: { text } },
+    ],
+    edges: [{ id: "e1", source: "start", target: "n1" }],
+  });
+  const always = { timezone: "America/Lima", days: Object.fromEntries(["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => [d, { from: "00:00", to: "23:59" }])) };
+  const never = { timezone: "America/Lima", days: Object.fromEntries(["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => [d, null])) };
+
+  await ctx.runInOrg(orgId, async () => {
+    const owner = await prisma.user.create({ data: { orgId, email: `v-${suf}@prueba.test`, passwordHash: "x", name: "Vendedora" } });
+    const pipeline = await prisma.pipeline.create({ data: { orgId, name: "Ventas", isDefault: true } });
+    const nuevo = await prisma.pipelineStage.create({ data: { orgId, pipelineId: pipeline.id, name: "Nuevo", order: 0 } });
+    const propuesta = await prisma.pipelineStage.create({ data: { orgId, pipelineId: pipeline.id, name: "Propuesta", order: 1 } });
+    const contact = await prisma.contact.create({ data: { orgId, phone: `+51993${suf}`, name: "Cliente Kommo", metadata: { utm_campaign: "verano" } } });
+    const conv = await prisma.conversation.create({ data: { orgId, contactId: contact.id, status: "OPEN" } });
+    await prisma.deal.create({ data: { orgId, contactId: contact.id, stageId: propuesta.id, title: "Op", currency: "USD", value: 500 } });
+    const vip = await prisma.tag.create({ data: { orgId, name: "VIP" } });
+    const inbound = (content: string) =>
+      prisma.message.create({ data: { orgId, conversationId: conv.id, direction: "INBOUND", type: "TEXT", author: "CONTACT", content } });
+    const rule = (field: string, op: string, value: string, key?: string) => ({ id: `r${Math.random()}`, field, op, value, ...(key ? { key } : {}) });
+
+    // Palabra clave «precio», pero solo para quien tiene VIP y vino de la campaña «verano».
+    await prisma.flow.create({
+      data: {
+        orgId, name: "Precio VIP", isActive: true, triggerKeywords: [], ...graph("precio vip"),
+        triggers: [{ id: "k", type: "keyword", keywords: ["precio"], config: {}, conditions: { match: "all", rules: [rule("tag", "is", "VIP"), rule("utm", "equals", "verano", "utm_campaign")] } }],
+      },
+    });
+    // Otra palabra clave, fuera de horario: nunca arranca.
+    await prisma.flow.create({
+      data: { orgId, name: "Nocturno", isActive: true, triggerKeywords: [], ...graph("nocturno"), triggers: [{ id: "n", type: "keyword", keywords: ["hola"], config: {}, activeHours: never }] },
+    });
+    // Cualquier mensaje, en horario, con pausa de 60 min.
+    await prisma.flow.create({
+      data: {
+        orgId, name: "Cualquiera", isActive: true, triggerKeywords: [], ...graph("cualquiera"),
+        triggers: [{ id: "a", type: "inbound_message", keywords: [], config: { cooldownMin: 60 }, activeHours: always, conditions: { match: "all", rules: [rule("stage", "is", propuesta.id)] } }],
+      },
+    });
+    // Cambio de etapa con espera de 10 min; etiqueta quitada; cambio de responsable si es ella.
+    const delayed = await prisma.flow.create({
+      data: { orgId, name: "Seguimiento", isActive: true, triggerKeywords: [], ...graph("seguimiento"), triggers: [{ id: "d", type: "deal_stage", keywords: [], config: { stageIds: [nuevo.id] }, delayMin: 10 }] },
+    });
+    await prisma.flow.create({
+      data: {
+        orgId, name: "Sin VIP", isActive: true, triggerKeywords: [], ...graph("ya no es vip"),
+        triggers: [
+          { id: "u", type: "tag_removed", keywords: [], config: { tags: ["VIP"] } },
+          { id: "o", type: "owner_changed", keywords: [], config: {}, conditions: { match: "all", rules: [rule("deal_owner", "is", owner.id)] } },
+        ],
+      },
+    });
+
+    // 1 · Sin VIP la palabra clave no arranca; cae en «cualquier mensaje» (está en Propuesta).
+    await inbound("¿qué precio tiene?");
+    assert.equal(await engine.onInbound(conv.id), true);
+    assert.deepEqual(sent, ["cualquiera"]);
+    // 2 · Con VIP sí: la palabra clave con sus condiciones gana.
+    await prisma.contactTag.create({ data: { contactId: contact.id, tagId: vip.id } });
+    await inbound("y el precio?");
+    assert.equal(await engine.onInbound(conv.id), true);
+    assert.equal(sent.at(-1), "precio vip");
+    // 3 · Fuera de horario no arranca; y «cualquier mensaje» respeta su pausa… salvo que antes corrió otro flujo.
+    await inbound("hola");
+    await engine.onInbound(conv.id);
+    assert.ok(!sent.includes("nocturno"), "fuera de su horario");
+    assert.equal(sent.at(-1), "cualquiera", "el último flujo fue otro: la pausa no aplica");
+    const n = sent.length;
+    await inbound("otra cosa");
+    assert.equal(await engine.onInbound(conv.id), false, "dentro de la pausa de 60 min no vuelve a arrancar");
+    assert.equal(sent.length, n);
+
+    // 4 · Cambio de etapa con espera: se programa y al vencer se comprueba que sigue en la etapa.
+    await engine.onDealStage(contact.id, nuevo.id);
+    const job = queued.find((q) => q.name === "trigger_delay");
+    assert.ok(job, "programado");
+    assert.equal(job!.opts.delay, 10 * 60_000);
+    assert.equal(job!.data.flowId, delayed.id);
+    assert.equal(await engine.runDelayedTrigger(job!.data), false, "la oportunidad sigue en Propuesta: no arranca");
+    await prisma.deal.updateMany({ where: { contactId: contact.id }, data: { stageId: nuevo.id } });
+    assert.equal(await engine.runDelayedTrigger(job!.data), true, "ya está en Nuevo: arranca");
+    assert.equal(sent.at(-1), "seguimiento");
+
+    // 5 · Etiqueta quitada y cambio de responsable (con condición sobre el responsable).
+    await engine.onTagRemoved(contact.id, "vip");
+    assert.equal(sent.at(-1), "ya no es vip");
+    const before = sent.length;
+    await engine.onOwnerChanged(contact.id, null);
+    assert.equal(sent.length, before, "sin responsable no cumple la condición");
+    await prisma.deal.updateMany({ where: { contactId: contact.id }, data: { ownerId: owner.id } });
+    await engine.onOwnerChanged(contact.id, owner.id);
+    assert.equal(sent.length, before + 1);
+  }).finally(() =>
+    ctx.runUnscoped("prueba: limpiar la empresa de condiciones", async () => {
+      await prisma.flowSession.deleteMany({ where: { flow: { orgId } } });
+      await prisma.flow.deleteMany({ where: { orgId } });
+      await prisma.message.deleteMany({ where: { orgId } });
+      await prisma.dealEvent.deleteMany({ where: { orgId } });
+      await prisma.deal.deleteMany({ where: { orgId } });
+      await prisma.conversation.deleteMany({ where: { orgId } });
+      await prisma.contactTag.deleteMany({ where: { contact: { orgId } } });
+      await prisma.tag.deleteMany({ where: { orgId } });
+      await prisma.contact.deleteMany({ where: { orgId } });
+      await prisma.pipelineStage.deleteMany({ where: { orgId } });
+      await prisma.pipeline.deleteMany({ where: { orgId } });
+      await prisma.user.deleteMany({ where: { orgId } });
+      await prisma.organization.delete({ where: { id: orgId } });
+    }),
+  );
+});
+
+test("el clic en un botón sigue el flujo: el primer «Hola» no se toma como respuesta (conversación nueva)", async () => {
+  const { FlowEngineService } = await import("../src/modules/ai/flow-engine.service");
+  const { AutomationService } = await import("../src/modules/ai/automation.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_bt_${suf}`;
+  await ctx.runUnscoped("prueba: empresa de botones", () =>
+    prisma.organization.create({ data: { id: orgId, slug: `bt-${suf}`, name: "Botones" } }),
+  );
+  const sent: string[] = [];
+  let ai = 0;
+  const messaging = {
+    queueOutbound: async (i: { text?: string }) => void sent.push(i.text ?? ""),
+    queueInteractive: async (i: { body: string; buttons: { title: string }[] }) => void sent.push(`[botones] ${i.body}`),
+    setAiMode: async () => undefined,
+    addNote: async () => undefined,
+  };
+  const engine = new FlowEngineService(prisma, { orgId: () => orgId } as any, messaging as any, {} as any, { add: async () => undefined } as any, { emit: () => true } as any);
+  const automation = new AutomationService(
+    prisma,
+    { resolveForConversation: async () => null } as any,
+    messaging as any,
+    { schedule: async () => void ai++ } as any,
+    engine,
+    { onInbound: async () => false } as any,
+    { enrichLatest: async () => undefined } as any,
+  );
+  const node = (id: string, type: string, data: object) => ({ id, type, position: { x: 0, y: 0 }, data });
+  const edge = (source: string, target: string, sourceHandle?: string) => ({ id: `${source}-${target}`, source, target, ...(sourceHandle ? { sourceHandle } : {}) });
+
+  await ctx.runInOrg(orgId, async () => {
+    const contact = await prisma.contact.create({ data: { orgId, phone: `+51994${suf}`, name: "Cliente Botones" } });
+    await prisma.flow.create({
+      data: {
+        orgId, name: "Menú", isActive: true, triggerKeywords: [],
+        triggers: [{ id: "s", type: "conversation_start", keywords: [], config: {} }],
+        nodes: [
+          node("start", "start", {}),
+          node("b", "buttons", { text: "¿Qué necesitas?", buttons: [{ id: "b1", title: "Precios" }, { id: "b2", title: "Hablar" }] }),
+          node("n1", "sendMessage", { text: "Estos son los precios" }),
+          node("n2", "sendMessage", { text: "Te paso con alguien" }),
+          node("n3", "sendMessage", { text: "No entendí" }),
+        ],
+        edges: [edge("start", "b"), edge("b", "n1", "b1"), edge("b", "n2", "b2"), edge("b", "n3", "else")],
+      },
+    });
+    const conv = await prisma.conversation.create({ data: { orgId, contactId: contact.id, status: "OPEN" } });
+    await prisma.message.create({ data: { orgId, conversationId: conv.id, direction: "INBOUND", type: "TEXT", author: "CONTACT", content: "Hola" } });
+
+    // Como la mensajería: «creada» y «entrante» seguidas, sin esperar una a otra.
+    const created = automation.onCreated({ conversationId: conv.id });
+    const inbound = automation.onInbound({ conversationId: conv.id });
+    await Promise.all([created, inbound]);
+    assert.deepEqual(sent, ["[botones] ¿Qué necesitas?"], "solo los botones: el «Hola» no fue la respuesta");
+    assert.equal(ai, 0, "la IA no contesta encima del flujo");
+    const waiting = await prisma.flowSession.findUnique({ where: { conversationId: conv.id } });
+    assert.equal(waiting.currentNodeId, "b", "sigue esperando el clic");
+
+    // 2 · El cliente pulsa «Precios»: el flujo sigue por ese botón.
+    await new Promise((r) => setTimeout(r, 20));
+    await prisma.message.create({
+      data: { orgId, conversationId: conv.id, direction: "INBOUND", type: "TEXT", author: "CONTACT", content: "Precios", buttonPayload: "b1" },
+    });
+    await automation.onInbound({ conversationId: conv.id });
+    assert.deepEqual(sent, ["[botones] ¿Qué necesitas?", "Estos son los precios"]);
+  }).finally(() =>
+    ctx.runUnscoped("prueba: limpiar la empresa de botones", async () => {
+      await prisma.flowSession.deleteMany({ where: { flow: { orgId } } });
+      await prisma.flow.deleteMany({ where: { orgId } });
+      await prisma.message.deleteMany({ where: { orgId } });
+      await prisma.conversation.deleteMany({ where: { orgId } });
+      await prisma.contact.deleteMany({ where: { orgId } });
+      await prisma.organization.delete({ where: { id: orgId } });
+    }),
+  );
+});
+
+test("flujo con lista, carrusel y adjuntos: envía lo que toca y sigue por la opción elegida", async () => {
+  const { FlowEngineService } = await import("../src/modules/ai/flow-engine.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_md_${suf}`;
+  await ctx.runUnscoped("prueba: empresa de multimedia", () =>
+    prisma.organization.create({ data: { id: orgId, slug: `md-${suf}`, name: "Multimedia" } }),
+  );
+  const out: any[] = [];
+  const interactive: any[] = [];
+  const messaging = {
+    queueOutbound: async (i: any) => void out.push(i),
+    queueInteractive: async (i: any) => void interactive.push(i),
+    addNote: async () => undefined,
+  };
+  const engine = new FlowEngineService(prisma, { orgId: () => orgId } as any, messaging as any, {} as any, { add: async () => undefined } as any, { emit: () => true } as any);
+  const node = (id: string, type: string, data: object) => ({ id, type, position: { x: 0, y: 0 }, data });
+  const edge = (source: string, target: string, sourceHandle?: string) => ({ id: `${source}-${target}-${sourceHandle ?? ""}`, source, target, ...(sourceHandle ? { sourceHandle } : {}) });
+  const kw = (w: string) => [{ id: w, type: "keyword", keywords: [w], config: {} }];
+
+  await ctx.runInOrg(orgId, async () => {
+    const contact = await prisma.contact.create({ data: { orgId, phone: `+51995${suf}`, name: "Cliente Media" } });
+    const conv = await prisma.conversation.create({ data: { orgId, contactId: contact.id, status: "OPEN" } });
+    const inbound = (content: string, buttonPayload?: string) =>
+      prisma.message.create({ data: { orgId, conversationId: conv.id, direction: "INBOUND", type: "TEXT", author: "CONTACT", content, ...(buttonPayload ? { buttonPayload } : {}) } });
+    const tick = () => new Promise((r) => setTimeout(r, 15));
+
+    await prisma.flow.create({
+      data: {
+        orgId, name: "Lista", isActive: true, triggerKeywords: [], triggers: kw("servicios"),
+        nodes: [
+          node("start", "start", {}),
+          node("l", "list", { text: "¿Qué servicio?", listButton: "Ver servicios", buttons: [{ id: "o1", title: "Corte", description: "30 min" }, { id: "o2", title: "Tinte" }] }),
+          node("m1", "sendMessage", { text: "Corte elegido" }),
+          node("m2", "sendMessage", { text: "Tinte elegido" }),
+        ],
+        edges: [edge("start", "l"), edge("l", "m1", "o1"), edge("l", "m2", "o2")],
+      },
+    });
+    await prisma.flow.create({
+      data: {
+        orgId, name: "Carrusel", isActive: true, triggerKeywords: [], triggers: kw("modelos"),
+        nodes: [
+          node("start", "start", {}),
+          node("c", "carousel", {
+            text: "Nuestros modelos",
+            cardMode: "reply",
+            cards: [
+              { id: "ca", mediaUrl: "storage://a", mediaKind: "IMAGE", text: "Modelo A", buttonTitle: "Quiero A" },
+              { id: "cb", mediaUrl: "storage://b", mediaKind: "VIDEO", text: "Modelo B", buttonTitle: "Quiero B" },
+            ],
+          }),
+          node("ma", "sendMessage", { text: "Elegiste A" }),
+          node("mb", "sendMessage", { text: "Elegiste B" }),
+        ],
+        edges: [edge("start", "c"), edge("c", "ma", "ca"), edge("c", "mb", "cb")],
+      },
+    });
+    await prisma.flow.create({
+      data: {
+        orgId, name: "Adjuntos", isActive: true, triggerKeywords: [], triggers: kw("adjuntos"),
+        nodes: [
+          node("start", "start", {}),
+          node("v", "sendMessage", { text: "Mira el video", mediaUrl: "storage://v", mediaKind: "VIDEO", mediaName: "demo.mp4" }),
+          node("a", "sendMessage", { text: "Y este audio", mediaUrl: "storage://au", mediaKind: "AUDIO" }),
+          node("b", "buttons", { text: "¿Te gustó?", mediaUrl: "storage://img", mediaKind: "IMAGE", buttons: [{ id: "si", title: "Sí" }] }),
+        ],
+        edges: [edge("start", "v"), edge("v", "a"), edge("a", "b")],
+      },
+    });
+
+    // 1 · Lista: se envía con sus opciones y sigue por la elegida (id que manda WhatsApp).
+    await inbound("ver servicios");
+    assert.equal(await engine.onInbound(conv.id), true);
+    assert.deepEqual(interactive.at(-1).list, { button: "Ver servicios", rows: [{ id: "o1", title: "Corte", description: "30 min" }, { id: "o2", title: "Tinte" }] });
+    await tick();
+    await inbound("Tinte", "o2");
+    await engine.onInbound(conv.id);
+    assert.equal(out.at(-1).text, "Tinte elegido");
+
+    // 2 · Carrusel con respuestas: cada tarjeta es una salida.
+    await inbound("los modelos");
+    await engine.onInbound(conv.id);
+    const car = interactive.at(-1).carousel.cards;
+    assert.deepEqual(car.map((c: any) => [c.id, c.kind, c.button.title]), [["ca", "IMAGE", "Quiero A"], ["cb", "VIDEO", "Quiero B"]]);
+    await tick();
+    await inbound("Quiero B", "cb");
+    await engine.onInbound(conv.id);
+    assert.equal(out.at(-1).text, "Elegiste B");
+    // Y si escribe el número de la tarjeta, también vale.
+    await inbound("los modelos");
+    await engine.onInbound(conv.id);
+    await tick();
+    await inbound("1");
+    await engine.onInbound(conv.id);
+    assert.equal(out.at(-1).text, "Elegiste A");
+
+    // 3 · Adjuntos: video con pie; audio sin pie y su texto aparte; botones con imagen arriba.
+    const before = out.length;
+    await inbound("adjuntos");
+    await engine.onInbound(conv.id);
+    const sentNow = out.slice(before);
+    assert.deepEqual(sentNow[0], { conversationId: conv.id, type: "VIDEO", mediaUrl: "storage://v", caption: "Mira el video" });
+    assert.deepEqual(sentNow[1], { conversationId: conv.id, type: "AUDIO", mediaUrl: "storage://au" });
+    assert.equal(sentNow[2].text, "Y este audio");
+    assert.deepEqual(interactive.at(-1).headerMedia, { kind: "IMAGE", mediaUrl: "storage://img" });
+  }).finally(() =>
+    ctx.runUnscoped("prueba: limpiar la empresa de multimedia", async () => {
+      await prisma.flowSession.deleteMany({ where: { flow: { orgId } } });
+      await prisma.flow.deleteMany({ where: { orgId } });
+      await prisma.message.deleteMany({ where: { orgId } });
+      await prisma.conversation.deleteMany({ where: { orgId } });
+      await prisma.contact.deleteMany({ where: { orgId } });
+      await prisma.organization.delete({ where: { id: orgId } });
+    }),
+  );
+});
+
+test("un mensaje antiguo se guarda pero no despierta a la IA (anterior a conectar o de hace horas)", async () => {
+  const { MessagingService } = await import("../src/modules/messaging/messaging.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_st_${suf}`;
+  await ctx.runUnscoped("prueba: empresa de mensajes antiguos", () =>
+    prisma.organization.create({ data: { id: orgId, slug: `st-${suf}`, name: "Antiguos" } }),
+  );
+  const emitted: string[] = [];
+  let channel: { id: string; orgId: string; connectedAt: Date } | null = null;
+  const svc = new MessagingService(
+    prisma,
+    { orgId: () => orgId } as any,
+    {} as any,
+    {} as any,
+    { resolveChannel: async () => channel } as any,
+    {} as any,
+    { emit: (name: string) => emitted.push(name) } as any,
+    { emit: async () => undefined } as any,
+    {} as any,
+    { intakeFromWhatsapp: async () => void emitted.push("intake") } as any,
+    {} as any,
+  );
+
+  await ctx.runInOrg(orgId, async () => {
+    const conn = await prisma.whatsappConnection.create({
+      data: { orgId, phoneNumberId: `pn-${suf}`, accessToken: "x", connectedAt: new Date(Date.now() - 5 * 60_000) },
+    });
+    channel = { id: conn.id, orgId, connectedAt: conn.connectedAt };
+    const base = { type: "TEXT" as any, channelPhoneNumberId: `pn-${suf}` };
+
+    // 1 · Escrito antes de conectar el número (aunque sea hace 20 min): pasado.
+    await svc.handleInbound({ ...base, from: `+51996${suf}`, waMessageId: `w1-${suf}`, text: "hola de antes", timestampMs: Date.now() - 20 * 60_000 });
+    assert.ok(!emitted.includes("conversation.inbound") && !emitted.includes("conversation.created"), "nada que lo conteste");
+    assert.ok(!emitted.includes("intake"), "tampoco entra al embudo");
+    const m1 = await prisma.message.findFirst({ where: { waMessageId: `w1-${suf}` } });
+    assert.ok(m1, "pero queda guardado en la bandeja");
+
+    // 2 · De hace 3 horas (después de conectar): también pasado.
+    conn.connectedAt = new Date(Date.now() - 24 * 3600_000);
+    channel = { id: conn.id, orgId, connectedAt: conn.connectedAt };
+    await svc.handleInbound({ ...base, from: `+51997${suf}`, waMessageId: `w2-${suf}`, text: "viejo", timestampMs: Date.now() - 3 * 3600_000 });
+    assert.ok(!emitted.includes("conversation.inbound"));
+
+    // 3 · Uno de ahora sí se atiende.
+    await svc.handleInbound({ ...base, from: `+51998${suf}`, waMessageId: `w3-${suf}`, text: "hola", timestampMs: Date.now() - 2_000 });
+    assert.ok(emitted.includes("conversation.created") && emitted.includes("conversation.inbound"));
+  }).finally(() =>
+    ctx.runUnscoped("prueba: limpiar la empresa de mensajes antiguos", async () => {
+      await prisma.message.deleteMany({ where: { orgId } });
+      await prisma.conversation.deleteMany({ where: { orgId } });
+      await prisma.contact.deleteMany({ where: { orgId } });
+      await prisma.source.deleteMany({ where: { orgId } });
+      await prisma.whatsappConnection.deleteMany({ where: { orgId } });
+      await prisma.organization.delete({ where: { id: orgId } });
+    }),
+  );
+});

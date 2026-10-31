@@ -158,7 +158,6 @@ import type {
   SendInteractiveInput,
   SendTemplateMessageInput,
   ConnectTicketResult,
-  ConnectHubStatus,
   UnreadCount,
   CallDto,
   CallToken,
@@ -378,12 +377,6 @@ export async function requestWhatsappConnectTicket(): Promise<ConnectTicketResul
 export async function fetchUnreadCount(): Promise<UnreadCount> {
   const res = await bffFetch("/api/bff/conversations/unread-count");
   if (!res.ok) throw new Error("No se pudo contar lo pendiente");
-  return res.json();
-}
-
-export async function fetchWhatsappConnectStatus(): Promise<ConnectHubStatus> {
-  const res = await bffFetch("/api/bff/whatsapp/connect/status");
-  if (!res.ok) throw new Error("No se pudo comprobar el estado de la conexión");
   return res.json();
 }
 
@@ -666,7 +659,7 @@ export async function testIntegration(): Promise<IntegrationTestResult> {
 export interface UploadedMedia {
   mediaUrl: string; // referencia interna, es lo que se manda en sendMessage
   previewUrl: string;
-  kind: "IMAGE" | "DOCUMENT";
+  kind: "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT";
   mimeType: string;
   size: number;
   fileName: string;

@@ -14,6 +14,7 @@ export const conditionFields = [
   "contact_phone",
   "country", // país del contacto por el prefijo de su teléfono (value = código ISO: PE, MX…)
   "contact_field", // campo personalizado (key = clave del campo)
+  "utm", // UTM con que llegó (key = utm_source | utm_medium | utm_campaign | utm_term | utm_content)
   "tag", // el contacto tiene la etiqueta (value = nombre)
   "source", // fuente del contacto (value = id; "" = sin fuente)
   "channel", // número de WhatsApp (value = id)
@@ -21,6 +22,7 @@ export const conditionFields = [
   "ai_mode", // OFF | COPILOT | AUTOPILOT
   "assigned", // agente asignado (value = id; "none" = nadie)
   "stage", // etapa de su oportunidad abierta (value = id)
+  "deal_owner", // responsable de su oportunidad abierta (value = id; "none" = nadie)
   "deal_value", // valor de su oportunidad abierta (número)
   "is_new", // es su primer mensaje ("yes" | "no")
   "messages_count", // mensajes que ha enviado el contacto
