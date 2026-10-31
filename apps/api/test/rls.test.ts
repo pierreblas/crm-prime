@@ -348,7 +348,8 @@ test("el asistente de bienvenida construye la IA con el rol restringido, solo en
     "127.0.0.2",
   );
   const tenant = { orgId: () => alta.orgId } as any;
-  const actions = new AgentActionsService(prisma, tenant, {} as any, { emit: () => true } as any);
+  const { BookingsService } = await import("../src/modules/bookings/bookings.service");
+  const actions = new AgentActionsService(prisma, tenant, {} as any, { emit: () => true } as any, new BookingsService(prisma, tenant, { emit: () => true } as any));
   const svc = new BusinessSetupService(
     prisma,
     tenant,
@@ -479,4 +480,111 @@ test("lo que llega de un anuncio queda en el mensaje y en el chat abierto, y el 
     }),
   );
   assert.ok(emitted.includes("conversation.created"));
+});
+
+test("la agenda reserva con el rol restringido, la base impide dos citas a la vez y otra empresa no las ve", async () => {
+  const { BookingsService } = await import("../src/modules/bookings/bookings.service");
+  const { addDays, utcToZoned, zonedToUtc } = await import("@crm/shared");
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_bk_${suf}`;
+  await ctx.runUnscoped("prueba: empresa de la agenda", () =>
+    prisma.organization.create({ data: { id: orgId, slug: `bk-${suf}`, name: "Agenda" } }),
+  );
+  const emitted: string[] = [];
+  const svc = new BookingsService(prisma, { orgId: () => orgId } as any, { emit: (name: string) => emitted.push(name) } as any);
+  const LIMA = "America/Lima";
+  const tomorrow = addDays(utcToZoned(new Date(), LIMA).date, 1);
+  const allDay = { from: "08:00", to: "20:00" };
+  const everyDay = Object.fromEntries(["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => [d, [allDay]]));
+
+  await ctx.runInOrg(orgId, async () => {
+    const ana = await prisma.user.create({ data: { orgId, email: `ana-${suf}@prueba.test`, passwordHash: "x", name: "Ana" } });
+    const pipeline = await prisma.pipeline.create({ data: { orgId, name: "Ventas", isDefault: true } });
+    await prisma.pipelineStage.create({ data: { orgId, pipelineId: pipeline.id, name: "Entrantes", order: 0 } });
+    const booked = await prisma.pipelineStage.create({ data: { orgId, pipelineId: pipeline.id, name: "Cita reservada", order: 1 } });
+    const contact = await prisma.contact.create({ data: { orgId, phone: `+51991${suf}`, name: "Cliente Agenda" } });
+
+    await svc.updateSettings({ timezone: LIMA, minNoticeMin: 0, slotIntervalMin: 30, bookedStageId: booked.id });
+    await svc.saveSchedule(ana.id, { hours: everyDay as any, blackouts: [], acceptsBookings: true });
+    const service = await svc.createService({ name: "Corte", durationMin: 45, bufferAfterMin: 15, staffIds: [ana.id], isActive: true });
+
+    // 1 · Horas libres de mañana: cada 30 minutos desde las 08:00.
+    const slots = await svc.slots({ serviceId: service.id, from: tomorrow, days: 1 });
+    assert.equal(slots[0].time, "08:00");
+    assert.equal(slots[1].time, "08:30");
+    assert.equal(slots[0].staff.name, "Ana");
+
+    // 2 · Reservar: la oportunidad se crea en «Cita reservada» y queda en su historial.
+    const at10 = zonedToUtc(tomorrow, "10:00", LIMA).toISOString();
+    const first = await svc.create({ contactId: contact.id, serviceId: service.id, startAt: at10 }, "manual", ana.id);
+    assert.equal(first.staff?.name, "Ana");
+    const deal = await prisma.deal.findUnique({ where: { id: first.dealId } });
+    assert.equal(deal.stageId, booked.id);
+    const ev = await prisma.dealEvent.findFirst({ where: { dealId: deal.id, kind: "booking" } });
+    assert.equal(ev.meta.action, "created");
+
+    // 3 · La misma hora otra vez: la aplicación la rechaza (10:00–10:45 + 15 de margen).
+    await assert.rejects(svc.create({ contactId: contact.id, serviceId: service.id, startAt: zonedToUtc(tomorrow, "10:30", LIMA).toISOString() }, "manual", ana.id), /libre/);
+    const after = await svc.slots({ serviceId: service.id, from: tomorrow, days: 1 });
+    assert.ok(!after.some((x) => x.time === "10:00" || x.time === "10:30"), "las que pisan la cita y su margen desaparecen");
+    assert.ok(after.some((x) => x.time === "11:00"));
+
+    // 4 · Y si dos peticiones validan a la vez, la base decide: la restricción de exclusión.
+    await assert.rejects(
+      prisma.booking.create({
+        data: {
+          orgId, serviceId: service.id, serviceName: "Corte", userId: ana.id, contactId: contact.id,
+          startAt: new Date(at10), endAt: new Date(Date.parse(at10) + 45 * 60_000), blockEndAt: new Date(Date.parse(at10) + 60 * 60_000),
+        },
+      }),
+      /bookings_no_overlap|23P01|exclusion/,
+    );
+
+    // 5 · El equipo puede apuntar a las 13:15 (no es una franja de 30) pero no fuera del horario.
+    const odd = await svc.create({ contactId: contact.id, serviceId: service.id, startAt: zonedToUtc(tomorrow, "13:15", LIMA).toISOString() }, "manual", ana.id);
+    await assert.rejects(svc.create({ contactId: contact.id, serviceId: service.id, startAt: zonedToUtc(tomorrow, "19:45", LIMA).toISOString() }, "manual", ana.id), /libre/);
+
+    // 6 · Mover y cancelar: la hora vuelve a quedar libre.
+    const moved = await svc.update(odd.id, { startAt: zonedToUtc(tomorrow, "15:00", LIMA).toISOString() });
+    assert.equal(utcToZoned(new Date(moved.startAt), LIMA).time, "15:00");
+    await svc.cancel(first.id, "Se enfermó");
+    const again = await svc.slots({ serviceId: service.id, from: tomorrow, days: 1 });
+    assert.ok(again.some((x) => x.time === "10:00"), "cancelada, las 10:00 vuelven a estar libres");
+
+    // 7 · El agente: consulta horas, reserva con hora del negocio y no duplica.
+    const avail = JSON.parse(await svc.agentAvailability({ service: "corte", date: tomorrow }));
+    assert.equal(avail.days[0].date, tomorrow);
+    assert.ok(avail.days[0].times.includes("10:00"));
+    // Ya tiene «Corte» a las 15:00: no reserva otra, la mueve.
+    await assert.rejects(svc.agentBook(contact.id, null, { service: "Corte", start: `${tomorrow}T10:00` }), /reschedule_appointment/);
+    assert.match(await svc.agentReschedule(contact.id, { start: `${tomorrow}T10:00` }), /Cita movida: Corte, ahora el .*10:00 con Ana/);
+    assert.match(await svc.agentContextText(contact.id), /Corte: .*10:00 con Ana/);
+    assert.match(await svc.agentCancel(contact.id, { reason: "No puede" }), /Cita cancelada: Corte/);
+    const text = await svc.agentBook(contact.id, null, { service: "Corte", start: `${tomorrow}T16:00` });
+    assert.match(text, /Cita reservada: Corte, .*16:00 con Ana/);
+    await assert.rejects(svc.agentBook(contact.id, null, { service: "Corte", start: "mañana a las 5" }), /AAAA-MM-DDTHH:mm/);
+
+    // 8 · Otra empresa no ve ninguna, ni con SQL crudo.
+    await ctx.runInOrg("o_a", async () => {
+      const rows: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM bookings`);
+      assert.equal(rows.length, 0);
+      assert.equal((await svc.listServices()).length, 0);
+    });
+  }).finally(() =>
+    ctx.runUnscoped("prueba: limpiar la empresa de la agenda", async () => {
+      await prisma.booking.deleteMany({ where: { orgId } });
+      await prisma.dealEvent.deleteMany({ where: { orgId } });
+      await prisma.deal.deleteMany({ where: { orgId } });
+      await prisma.bookingServiceStaff.deleteMany({ where: { orgId } });
+      await prisma.bookingService.deleteMany({ where: { orgId } });
+      await prisma.staffSchedule.deleteMany({ where: { orgId } });
+      await prisma.bookingSettings.deleteMany({ where: { orgId } });
+      await prisma.pipelineStage.deleteMany({ where: { orgId } });
+      await prisma.pipeline.deleteMany({ where: { orgId } });
+      await prisma.contact.deleteMany({ where: { orgId } });
+      await prisma.user.deleteMany({ where: { orgId } });
+      await prisma.organization.delete({ where: { id: orgId } });
+    }),
+  );
+  assert.ok(emitted.includes("booking.created") && emitted.includes("booking.cancelled") && emitted.includes("booking.rescheduled"));
 });

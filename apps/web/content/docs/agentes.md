@@ -56,6 +56,7 @@ Usa tu propio modelo (Ajustes › Inteligencia Artificial) y conoce tu contexto 
 | `search_knowledge` | Busca en tu [base de conocimiento](#base-de-conocimiento) |
 | `search_products` | Busca en tu catálogo (Productos), también por sus características como talla o color |
 | `search_contact` | Lee la ficha del contacto |
+| `check_availability` | Consulta las horas libres de la [agenda](/docs/agenda) para un servicio |
 
 | Acción | Qué hace |
 |---|---|
@@ -65,6 +66,7 @@ Usa tu propio modelo (Ajustes › Inteligencia Artificial) y conoce tu contexto 
 | `update_contact` | Actualiza la ficha y los campos personalizados |
 | `assign_to_seller` | Asigna un vendedor |
 | `send_product_image` | Envía la foto de un producto |
+| `book_appointment` / `reschedule_appointment` / `cancel_appointment` | Reserva, mueve o cancela una cita del contacto en la [agenda](/docs/agenda) |
 | `handoff_to_human` | Pasa la conversación a una persona: el chat queda *Pendiente*, el equipo recibe un aviso y una nota con el motivo, y el cliente recibe la despedida que la IA redactó (o el aviso configurado en *Cuándo te pasa el chat*) |
 
 En Copilot las acciones quedan pendientes de aprobación; en Autopilot se aplican solas.

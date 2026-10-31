@@ -35,6 +35,7 @@ import { PlansModule } from "./modules/plans/plans.module";
 import { PlatformModule } from "./modules/platform/platform.module";
 import { FeedbackModule } from "./modules/feedback/feedback.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
+import { BookingsModule } from "./modules/bookings/bookings.module";
 import { HealthController } from "./health.controller";
 
 @Module({
@@ -66,6 +67,7 @@ import { HealthController } from "./health.controller";
     PlatformModule,
     FeedbackModule,
     DashboardModule,
+    BookingsModule,
     MetaLeadsModule,
     SourcesModule,
     TagsModule,

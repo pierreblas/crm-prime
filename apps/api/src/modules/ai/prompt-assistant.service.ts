@@ -84,6 +84,7 @@ export class PromptAssistantService {
       org,
       productsTotal,
       products,
+      [productFields, baseCurrencies, extraCurrencies, withImage],
       knowledgeTotal,
       knowledge,
       pipeline,
@@ -103,6 +104,13 @@ export class PromptAssistantService {
         orderBy: { updatedAt: "desc" },
         take: 12,
       }),
+      // Qué datos trae cada producto, para que las instrucciones pidan consultarlos.
+      Promise.all([
+        this.prisma.productField.findMany({ orderBy: { order: "asc" }, select: { label: true, unit: true, aiVisible: true } }),
+        this.prisma.product.groupBy({ by: ["currency"], where: { isActive: true } }),
+        this.prisma.productPrice.groupBy({ by: ["currency"], where: { product: { isActive: true } } }),
+        this.prisma.product.count({ where: { isActive: true, imageUrl: { not: null } } }),
+      ]),
       this.prisma.knowledgeDoc.count({ where: { isActive: true } }),
       this.prisma.knowledgeDoc.findMany({
         where: { isActive: true },
@@ -128,6 +136,10 @@ export class PromptAssistantService {
           name: p.name,
           price: `${p.currency} ${Number(p.price).toLocaleString("es")}`,
         })),
+        fields: productFields.filter((f) => f.aiVisible).map((f) => (f.unit ? `${f.label} (${f.unit})` : f.label)),
+        hiddenFields: productFields.filter((f) => !f.aiVisible).map((f) => f.label),
+        currencies: [...new Set([...baseCurrencies, ...extraCurrencies].map((c) => c.currency))],
+        withImage,
       },
       knowledge: { total: knowledgeTotal, titles: knowledge.map((k) => k.title) },
       stages: pipeline?.stages.map((s) => s.name) ?? [],

@@ -17,7 +17,14 @@ import {
 const ctx: PromptContext = {
   ...EMPTY_PROMPT_CONTEXT,
   orgName: "Zapatería Lima",
-  products: { total: 2, sample: [{ name: "Runner X", price: "PEN 199" }] },
+  products: {
+    total: 2,
+    sample: [{ name: "Runner X", price: "PEN 199" }],
+    fields: ["Talla", "Garantía (meses)"],
+    hiddenFields: ["Costo interno"],
+    currencies: ["PEN", "USD"],
+    withImage: 2,
+  },
   stages: ["Entrantes", "Contactado", "Ganado"],
   tools: [
     { name: "search_products", description: "Busca en el catálogo", enabled: true, unavailable: null },
@@ -95,4 +102,15 @@ test("la plantilla sin API key cita solo herramientas habilitadas", () => {
   assert.match(fb.proposal ?? "", /search_products/);
   assert.doesNotMatch(fb.proposal ?? "", /search_knowledge/);
   assert.doesNotMatch(fb.proposal ?? "", /handoff_to_human/);
+});
+
+test("el asistente sabe qué trae cada producto y pide consultarlo, no copiarlo", () => {
+  const s = buildSystem(ctx, "systemPrompt");
+  assert.match(s, /nombre, precio, descripción y SKU, y además: Talla, Garantía \(meses\)/);
+  assert.match(s, /NUNCA copies esos valores ni dejes marcadores como \[Precio\]/);
+  assert.match(s, /varias monedas \(PEN, USD\)/);
+  assert.match(s, /2 producto\(s\) tienen foto/);
+  assert.match(s, /NO ve \(apagados para la IA\): Costo interno/);
+  // Sin productos no se habla de campos.
+  assert.doesNotMatch(buildSystem({ ...ctx, products: EMPTY_PROMPT_CONTEXT.products }, "systemPrompt"), /search_products: nombre/);
 });

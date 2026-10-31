@@ -185,6 +185,11 @@ model Organization {
   aiSetting            AiSetting?
   integrationSetting   IntegrationSetting?
   onboarding           OnboardingState?
+  bookingSettings      BookingSettings?
+  bookingServices      BookingService[]
+  bookingServiceStaff  BookingServiceStaff[]
+  staffSchedules       StaffSchedule[]
+  bookings             Booking[]
   knowledgeSuggestions KnowledgeSuggestion[]
   aiUsage              AiUsage[]
   platformAudit        PlatformAuditLog[]
@@ -289,6 +294,10 @@ model User {
   ownedDeals            Deal[]           @relation("DealOwner")
   apiKeys               ApiKey[]         @relation("ApiKeyCreator")
   feedback              Feedback[]
+  bookingServices       BookingServiceStaff[]
+  staffSchedule         StaffSchedule?
+  bookings              Booking[]             @relation("BookingStaff")
+  bookingsCreated       Booking[]             @relation("BookingCreatedBy")
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -422,6 +431,7 @@ model Contact {
   deals         Deal[]
   calls         Call[]
   metaLeads     MetaLead[]
+  bookings      Booking[]
 
   org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   conversionEvents ConversionEvent[]
@@ -628,6 +638,7 @@ model Conversation {
   aiRuns        AiRun[]
   aiMessages    AiMessage[]
   flowSession   FlowSession?
+  bookings      Booking[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -934,6 +945,8 @@ model PipelineStage {
 
   deals       Deal[]
   automations StageAutomation[]
+  // Etapa a la que pasa la oportunidad cuando se reserva una cita.
+  bookingSettings BookingSettings[]
   pipeline    Pipeline          @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   org         Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -969,6 +982,7 @@ model Deal {
   conversionEvents ConversionEvent[]
   automationRuns   StageAutomationRun[]
   events           DealEvent[]
+  bookings         Booking[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -1532,4 +1546,120 @@ model LossReason {
 
   @@unique([orgId, name])
   @@map("loss_reasons")
+}
+
+// ── Reservas (agenda) ───────────────────────────────────────
+// Reglas de la empresa: zona, cada cuánto empieza una franja, antelación y
+// hasta cuándo se puede reservar. Una fila por empresa.
+model BookingSettings {
+  orgId           String   @id
+  timezone        String   @default("America/Lima")
+  slotIntervalMin Int      @default(30)
+  minNoticeMin    Int      @default(120)
+  maxDays         Int      @default(30)
+  // Etapa del embudo a la que pasa la oportunidad al reservar (null = no se mueve).
+  bookedStageId   String?
+  // Días cerrados de toda la empresa: [{ from, to }] en «AAAA-MM-DD».
+  blackouts       Json?
+  updatedAt       DateTime @updatedAt
+
+  org         Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  bookedStage PipelineStage? @relation(fields: [bookedStageId], references: [id], onDelete: SetNull)
+
+  @@map("booking_settings")
+}
+
+// Lo que se reserva: un corte, una consulta, una clase de prueba.
+model BookingService {
+  id             String   @id @default(cuid())
+  orgId          String
+  name           String
+  description    String?
+  durationMin    Int
+  // Margen tras la cita (limpiar, desplazarse): también bloquea la agenda.
+  bufferAfterMin Int      @default(0)
+  isActive       Boolean  @default(true)
+  order          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  staff    BookingServiceStaff[]
+  bookings Booking[]
+  org      Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, isActive])
+  @@map("booking_services")
+}
+
+// Quién atiende cada servicio.
+model BookingServiceStaff {
+  id        String @id @default(cuid())
+  orgId     String
+  serviceId String
+  userId    String
+
+  service BookingService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org     Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, userId])
+  @@index([userId])
+  @@map("booking_service_staff")
+}
+
+// Horario de cada persona: tramos por día y días cerrados (vacaciones).
+model StaffSchedule {
+  id              String   @id @default(cuid())
+  orgId           String
+  userId          String   @unique
+  // { mon: [{ from, to }], … } en hora de pared de la empresa.
+  hours           Json
+  blackouts       Json?
+  acceptsBookings Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("staff_schedules")
+}
+
+// Una cita. Horas en UTC. Dos citas CONFIRMED de la misma persona no se
+// pisan: lo impide una restricción de exclusión en la base (ver la migración
+// 20261031120000_bookings), no solo la aplicación.
+model Booking {
+  id             String    @id @default(cuid())
+  orgId          String
+  serviceId      String?
+  // Copia del nombre: la cita se entiende aunque el servicio se borre.
+  serviceName    String
+  userId         String?
+  contactId      String
+  dealId         String?
+  conversationId String?
+  startAt        DateTime
+  endAt          DateTime
+  // Fin de la cita + margen del servicio: hasta aquí bloquea la agenda.
+  blockEndAt     DateTime
+  status         String    @default("CONFIRMED") // CONFIRMED | CANCELLED | COMPLETED | NO_SHOW
+  source         String    @default("manual") // ai | manual | api | link
+  note           String?
+  createdById    String?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  service      BookingService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  user         User?           @relation("BookingStaff", fields: [userId], references: [id], onDelete: SetNull)
+  createdBy    User?           @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  contact      Contact         @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  deal         Deal?           @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  conversation Conversation?   @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  org          Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, startAt])
+  @@index([userId, startAt])
+  @@index([contactId, startAt])
+  @@map("bookings")
 }

@@ -13,6 +13,7 @@ import { PlanSettings } from "@/features/plans/PlanSettings";
 import { AiUsageSettings } from "./AiUsageSettings";
 import { PipelinesSettings } from "./PipelinesSettings";
 import { CustomFieldsSettings, SourcesSettings } from "./SettingsPanels";
+import { AgendaSettings } from "@/features/agenda/AgendaSettings";
 
 type TabKey =
   | "plan"
@@ -22,6 +23,7 @@ type TabKey =
   | "sources"
   | "fields"
   | "stages"
+  | "agenda"
   | "ai"
   | "aiUsage"
   | "apiKeys"
@@ -36,6 +38,7 @@ const TABS: { key: TabKey; label: string; icon: IconName }[] = [
   { key: "sources", label: "Fuentes", icon: "target" },
   { key: "fields", label: "Campos personalizados", icon: "puzzle" },
   { key: "stages", label: "Embudos y etapas", icon: "pipeline" },
+  { key: "agenda", label: "Agenda", icon: "calendar" },
   { key: "ai", label: "Inteligencia Artificial", icon: "bot" },
   { key: "aiUsage", label: "Consumo de IA", icon: "bolt" },
   { key: "apiKeys", label: "Claves de API", icon: "key" },
@@ -79,6 +82,7 @@ export function SettingsManager({ hub = false }: { hub?: boolean }) {
         {tab === "sources" && <SourcesSettings />}
         {tab === "fields" && <CustomFieldsSettings />}
         {tab === "stages" && <PipelinesSettings />}
+        {tab === "agenda" && <AgendaSettings />}
         {tab === "ai" && <AiSettings />}
         {tab === "aiUsage" && <AiUsageSettings />}
         {tab === "apiKeys" && <ApiKeysSettings />}

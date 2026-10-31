@@ -88,7 +88,11 @@ export type IconName =
   | "graduation"
   | "briefcase"
   | "car"
-  | "plane";
+  | "plane"
+  // Agenda
+  | "calendar"
+  | "chevron-left"
+  | "chevron-right";
 
 export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = {
@@ -693,6 +697,26 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
       return (
         <svg {...p}>
           <path d="m6 9 6 6 6-6" />
+        </svg>
+      );
+    case "chevron-left":
+      return (
+        <svg {...p}>
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+      );
+    case "chevron-right":
+      return (
+        <svg {...p}>
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      );
+    case "calendar":
+      return (
+        <svg {...p}>
+          <rect x="3" y="4.5" width="18" height="16.5" rx="2" />
+          <path d="M8 2.5v4M16 2.5v4M3 10h18" />
+          <path d="M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01" />
         </svg>
       );
   }

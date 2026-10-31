@@ -67,6 +67,26 @@ export const TOOL_COPY: Record<string, { title: string; desc: string; icon: Icon
     desc: "Deja un recordatorio para volver a escribir al cliente más adelante.",
     icon: "clock",
   },
+  check_availability: {
+    title: "Ver horas libres de la agenda",
+    desc: "Consulta tu agenda y ofrece horas que de verdad están libres, según el horario de cada persona.",
+    icon: "calendar",
+  },
+  book_appointment: {
+    title: "Reservar citas",
+    desc: "Cuando el cliente elige una hora, la reserva en tu agenda y lo confirma en el chat.",
+    icon: "calendar",
+  },
+  reschedule_appointment: {
+    title: "Cambiar la hora de una cita",
+    desc: "Si el cliente no puede, mueve su cita a otra hora libre.",
+    icon: "clock",
+  },
+  cancel_appointment: {
+    title: "Cancelar citas",
+    desc: "Anula la cita cuando el cliente lo pide (antes le ofrece otra hora).",
+    icon: "x",
+  },
 };
 
 /** Modelos con nombre para personas. El valor es el que usa la API. */

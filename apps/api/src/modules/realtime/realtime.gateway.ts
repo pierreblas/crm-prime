@@ -95,6 +95,12 @@ export class RealtimeGateway implements OnGatewayConnection {
     this.emitir("pipeline.changed", payload.orgId, payload);
   }
 
+  // La agenda cambió (cita reservada, movida, cancelada; servicio u horario editado).
+  @OnEvent("bookings.changed")
+  onBookingsChanged(payload: { bookingId: string; orgId?: string }): void {
+    this.emitir("bookings.changed", payload.orgId, payload);
+  }
+
   /**
    * Un evento sin empresa no se emite a todos "por si acaso": en modo SaaS se
    * descarta con aviso. Falla cerrado, igual que las consultas.

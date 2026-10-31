@@ -27,6 +27,7 @@ const TITLE_KEYS: Record<NavKey, string> = {
   contacts: "contacts",
   pipeline: "pipeline",
   products: "products",
+  agenda: "agenda",
   bots: "agents",
   flows: "flows",
   campaigns: "broadcasts",

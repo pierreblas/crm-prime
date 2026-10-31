@@ -610,6 +610,9 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         detail = String(m.reason ?? "");
       } else if (r.kind === "value") {
         detail = `${money(m.from, m.currency)} → ${money(m.to, m.currency)}`;
+      } else if (r.kind === "booking") {
+        // «Cita reservada: Corte · martes, 3 de noviembre, 10:30»
+        detail = `${String(m.label ?? "Cita")}: ${String(m.service ?? "")} · ${String(m.when ?? "")}${m.reason ? ` (${String(m.reason)})` : ""}`;
       }
       return {
         id: r.id,

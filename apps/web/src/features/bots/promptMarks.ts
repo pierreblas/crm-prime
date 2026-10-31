@@ -6,7 +6,9 @@
  *  - acciones del agente nombradas en el texto (search_products…), y si están
  *    activadas o no;
  *  - secciones: líneas en MAYÚSCULAS o que empiezan por «#», para moverse por
- *    un texto largo.
+ *    un texto largo;
+ *  - variables del contacto ({{nombre}}…), y si existen: una que no existe no
+ *    se reemplaza y el cliente vería las llaves.
  *
  * Sin React ni DOM: solo posiciones en el texto, para poder probarlo solo.
  */
@@ -17,7 +19,33 @@ export interface PromptTool {
   enabled: boolean;
 }
 
-export type MarkKind = "pending" | "tool" | "tool-off" | "head" | "flash";
+export type MarkKind = "pending" | "tool" | "tool-off" | "var" | "var-off" | "head" | "flash";
+
+/** Una variable del contacto que se reemplaza en las instrucciones. */
+export interface PromptVar {
+  key: string;
+  label: string;
+}
+
+/** Las que existen siempre (las rellena el servidor al responder). */
+export const BUILTIN_VARS: PromptVar[] = [
+  { key: "nombre", label: "Nombre" },
+  { key: "telefono", label: "Teléfono" },
+  { key: "pais", label: "País" },
+  { key: "moneda", label: "Moneda" },
+];
+
+/**
+ * Lo que trae cada producto al consultarlo con search_products, además de
+ * sus campos propios. El precio llega en la moneda del cliente si el
+ * producto la tiene.
+ */
+export const PRODUCT_BASE_FIELDS: { label: string; hint: string }[] = [
+  { label: "Nombre", hint: "El nombre del producto." },
+  { label: "Precio", hint: "En la moneda del cliente si el producto la tiene; si no, en la suya." },
+  { label: "Descripción", hint: "La descripción del producto." },
+  { label: "SKU", hint: "El código del producto, si tiene." },
+];
 
 export interface Mark {
   start: number;
@@ -60,6 +88,22 @@ export function findHeadings(text: string): Mark[] {
   return out;
 }
 
+const VAR_RE = /\{\{\s*([^{}\n]{1,40}?)\s*\}\}/g;
+
+/**
+ * Variables {{…}} del texto. Existen si coinciden (sin mayúsculas) con la clave
+ * o el nombre de una variable, igual que al reemplazarlas en el servidor.
+ */
+export function findVars(text: string, vars: PromptVar[]): Mark[] {
+  const known = new Set(vars.flatMap((v) => [v.key.toLowerCase(), v.label.toLowerCase()]));
+  const out: Mark[] = [];
+  for (const m of text.matchAll(VAR_RE)) {
+    const name = m[1]!.trim();
+    out.push({ start: m.index!, end: m.index! + m[0].length, kind: known.has(name.toLowerCase()) ? "var" : "var-off", text: name });
+  }
+  return out;
+}
+
 /** Acciones del agente nombradas en el texto, activadas o no. */
 export function findTools(text: string, tools: PromptTool[]): Mark[] {
   const out: Mark[] = [];
@@ -76,9 +120,9 @@ export function findTools(text: string, tools: PromptTool[]): Mark[] {
  * Todas las marcas, ordenadas y sin solaparse. Si dos chocan gana la más
  * concreta: marcador > acción > título.
  */
-export function collectMarks(text: string, tools: PromptTool[]): Mark[] {
-  const rank: Record<MarkKind, number> = { flash: -1, pending: 0, tool: 1, "tool-off": 1, head: 2 };
-  const all = [...findPending(text), ...findTools(text, tools), ...findHeadings(text)].sort(
+export function collectMarks(text: string, tools: PromptTool[], vars: PromptVar[] = BUILTIN_VARS): Mark[] {
+  const rank: Record<MarkKind, number> = { flash: -1, pending: 0, tool: 1, "tool-off": 1, var: 1, "var-off": 1, head: 2 };
+  const all = [...findPending(text), ...findTools(text, tools), ...findVars(text, vars), ...findHeadings(text)].sort(
     (a, b) => a.start - b.start || rank[a.kind] - rank[b.kind] || a.end - b.end,
   );
   const out: Mark[] = [];

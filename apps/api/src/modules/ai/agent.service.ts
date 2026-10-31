@@ -23,6 +23,7 @@ import { searchProducts } from "./product-search";
 import { MediaUnderstandingService } from "./media-understanding.service";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { AgentActionsService } from "./agent-actions.service";
+import { BookingsService } from "../bookings/bookings.service";
 import { BotService } from "./bot.service";
 import { AiSettingsService } from "./ai-settings.service";
 import { LLM_PROVIDER, type LLMProvider } from "./llm.provider";
@@ -42,6 +43,9 @@ export function estimateCostUsd(model: string, input: number, output: number): n
 // Conversaciones anteriores del contacto que entran como contexto.
 const HISTORY_DAYS = 30;
 
+// Con cualquiera de estas, el agente recibe la fecha de hoy y las citas del contacto.
+const BOOKING_TOOLS = new Set(["check_availability", "book_appointment", "reschedule_appointment", "cancel_appointment"]);
+
 @Injectable()
 export class AgentService {
   private readonly logger = new Logger("Agent");
@@ -53,6 +57,7 @@ export class AgentService {
     private readonly actions: AgentActionsService,
     @Inject(LLM_PROVIDER) private readonly llm: LLMProvider,
     private readonly aiSettings: AiSettingsService,
+    private readonly bookings: BookingsService,
   ) {}
 
   async suggest(conversationId: string): Promise<AiSuggestion> {
@@ -79,6 +84,7 @@ export class AgentService {
       catalogFields: catalogFields.map((f) => f.label),
       contactFields: contactFieldDefs,
       referral: conversation.referral,
+      bookings: await this.bookingContext(config?.enabledTools ?? [], conversation.contact.id),
     });
     const messages = await this.buildHistory(conversationId);
     // Las acciones necesitan los valores reales (etiquetas, etapas, vendedores)
@@ -347,7 +353,9 @@ export class AgentService {
       : await this.bots.resolveForChannel(null);
 
     const contact = { name: "Cliente de prueba", phone: "+000000000" };
-    const system = this.buildSystemParts(config?.systemPrompt, contact);
+    const system = this.buildSystemParts(config?.systemPrompt, contact, config?.enabledTools ?? [], false, {
+      bookings: await this.bookingContext(config?.enabledTools ?? [], null),
+    });
     const toolContext = await this.actions.loadContext();
     const tools = resolveTools(config?.enabledTools ?? [], toolContext);
     // En el playground las acciones no se aplican: solo se listan.
@@ -705,6 +713,9 @@ export class AgentService {
         // Nombres del resto del catálogo: si lo que busca el cliente está aquí, vuelve a buscar con ese nombre.
         ...(otherNames.length ? { otherNames } : {}),
       });
+    } else if (tu.name === "check_availability") {
+      // Un servicio desconocido o sin personal no es un fallo del turno: se le dice al modelo.
+      output = await this.bookings.agentAvailability(tu.input).catch((e: unknown) => `No se pudo consultar: ${(e as Error).message}`);
     } else if (tu.name === "handoff_to_human") {
       reason = String(tu.input.reason ?? "Escalado solicitado por la IA.");
       escalated = true;
@@ -795,7 +806,7 @@ export class AgentService {
     contact: { name: string | null; phone: string; currency?: string | null; aiMemory?: unknown; metadata?: unknown },
     enabledTools: string[] = [],
     splitReplies = false,
-    extra: { catalogFields?: string[]; contactFields?: { key: string; label: string }[]; referral?: unknown } = {},
+    extra: { catalogFields?: string[]; contactFields?: { key: string; label: string }[]; referral?: unknown; bookings?: string } = {},
   ): { system: string; systemDynamic: string } {
     const country = countryFromPhone(contact.phone);
     const memory = memoryText(contact.aiMemory);
@@ -840,6 +851,9 @@ export class AgentService {
       enabledTools.includes("handoff_to_human")
         ? "\n\nPara pasar el chat a una persona no basta con decirlo: llama a la herramienta handoff_to_human en ese mismo turno (puedes escribir tu despedida y llamarla a la vez). Sin esa llamada, el chat sigue contigo."
         : "",
+      enabledTools.some((t) => BOOKING_TOOLS.has(t))
+        ? "\n\nCitas: antes de ofrecer horarios consulta check_availability y propón dos o tres horas de las que devuelve; nunca inventes ni prometas una hora sin consultarla. Cuando el cliente elija una, resérvala con book_appointment pasando la fecha y hora tal cual (AAAA-MM-DDTHH:mm, hora del negocio) y confirma solo lo que diga la herramienta. Para cambiar una cita usa reschedule_appointment; para anularla, cancel_appointment. Interpreta «mañana», «el lunes» o «a las 5» con la fecha de hoy que tienes más abajo."
+        : "",
       "\n\nDevuelve únicamente el texto de la respuesta sugerida, sin prefijos como 'Respuesta:'.",
     ].join("");
     const systemDynamic = [
@@ -849,8 +863,15 @@ export class AgentService {
         : "",
       memory ? `\n\nLo que sabemos de este cliente (de conversaciones anteriores):\n${memory}` : "",
       originText(extra.referral, meta),
+      extra.bookings ?? "",
     ].join("");
     return { system, systemDynamic };
+  }
+
+  /** La fecha de hoy y las citas del contacto, solo si el agente maneja la agenda. */
+  private async bookingContext(enabledTools: string[], contactId: string | null): Promise<string> {
+    if (!enabledTools.some((t) => BOOKING_TOOLS.has(t))) return "";
+    return this.bookings.agentContextText(contactId).catch(() => "");
   }
 
   /**

@@ -31,6 +31,7 @@ export type NavKey =
   | "contacts"
   | "pipeline"
   | "products"
+  | "agenda"
   | "bots"
   | "flows"
   | "campaigns"
@@ -61,6 +62,7 @@ const NAV: Group[] = [
       { key: "contacts", href: "/contacts", labelKey: "nav.contacts", icon: "user" },
       { key: "pipeline", href: "/pipeline", labelKey: "nav.pipeline", icon: "pipeline" },
       { key: "products", href: "/products", labelKey: "nav.products", icon: "tag" },
+      { key: "agenda", href: "/agenda", labelKey: "nav.agenda", icon: "calendar" },
     ],
   },
   {

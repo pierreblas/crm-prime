@@ -40,6 +40,11 @@ const TENANT_MODELS = new Set<string>([
   "Feedback",
   "DealEvent",
   "LossReason",
+  "BookingSettings",
+  "BookingService",
+  "BookingServiceStaff",
+  "StaffSchedule",
+  "Booking",
 ]);
 
 /**

@@ -23,7 +23,8 @@ export const SETUP_HANDOFF_KEYWORDS = ["asesor", "humano", "persona", "reclamo"]
 /** Qué capacidades tienen sentido para cada misión. */
 const TOOLS_BY_GOAL: Record<AgentGoal, string[]> = {
   vender: ["search_products", "send_product_image", "mark_lead", "move_deal_stage", "add_tag"],
-  agendar: ["mark_lead", "move_deal_stage", "assign_to_seller", "add_tag"],
+  // Con servicios en la agenda, el agente consulta horas y reserva él mismo.
+  agendar: ["check_availability", "book_appointment", "reschedule_appointment", "cancel_appointment", "mark_lead", "move_deal_stage", "assign_to_seller", "add_tag"],
   soporte: ["search_products", "add_tag"],
   datos: ["mark_lead", "move_deal_stage", "assign_to_seller", "add_tag"],
 };

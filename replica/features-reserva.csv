@@ -1,0 +1,78 @@
+feature,area,priority,original,clone,notes
+Crear servicio (tipo de reserva) con nombre y duración,servicios,must,yes,yes,Kommo: 15/30/60/120 min. Driony: Product tiene precio pero no duración
+Margen antes y después de cada cita,servicios,should,yes,partial,
+Responsables por servicio (uno o varios),servicios,must,yes,yes,
+Precio del servicio visible al reservar,servicios,could,unknown,partial,Kommo solo lo pone como conocimiento de la IA; Driony puede enlazar el servicio a Product
+Clases con capacidad mayor que 1,servicios,could,unknown,no,No documentado en Kommo; clave para academias y gimnasios
+Recursos físicos (salas o sillones),servicios,could,unknown,no,No documentado en Kommo
+Horario semanal por persona,disponibilidad,must,yes,yes,Driony: businessHoursSchema por agente y no por persona (agent-config.schema.ts)
+Varios tramos el mismo día,disponibilidad,should,yes,yes,Driony: un rango por día
+Descanso dentro del horario,disponibilidad,should,yes,yes,
+Días bloqueados por persona,disponibilidad,should,yes,yes,
+Días bloqueados de la empresa (feriados),disponibilidad,should,yes,yes,
+Antelación mínima,disponibilidad,must,yes,yes,
+Antelación máxima,disponibilidad,should,yes,yes,
+Intervalo de inicio de las franjas,disponibilidad,should,yes,yes,Kommo: 5/15/30/45/60 min
+Sin dobles reservas,disponibilidad,must,yes,yes,Restricción de exclusión en Postgres por persona
+Zona horaria de la empresa,disponibilidad,must,unknown,yes,Kommo no la documenta; Driony solo la tiene en el horario de cada agente
+Ocultar a una persona de la reserva online,disponibilidad,could,yes,partial,
+Vista calendario día / semana / mes,agenda,must,yes,partial,
+Tablero vencidas / hoy / mañana / semana,agenda,could,yes,no,
+Lista de reservas con acciones masivas,agenda,could,yes,no,
+Crear reserva a mano (lead existente o nuevo),agenda,must,yes,partial,
+Reprogramar arrastrando o editando la hora,agenda,must,yes,yes,
+Cancelar reserva,agenda,must,yes,yes,Kommo la borra; Driony debería guardar el estado cancelada
+Marcar como completada,agenda,should,yes,yes,
+Marcar como no asistió,agenda,should,no,yes,No documentado en Kommo: Driony puede ir por delante (etapas Atendido / Perdido)
+Filtros: mis citas / todas / completadas / borradas,agenda,should,yes,partial,
+Abrir la reserva desde el chat y la ficha,agenda,must,yes,yes,
+La reserva crea o reutiliza el lead,crm,must,yes,yes,LeadService.ingestLead + decideIntake (intake.ts) ya existen
+Control de duplicados al reservar (3 modos),crm,should,yes,partial,Driony une por variantes de teléfono; sin modos elegibles
+La cita pone el lead en una etapa del embudo,crm,must,yes,yes,Kommo: Incoming leads. Driony: mover a Cita agendada con moveDeal
+Historial de la cita en la oportunidad,crm,should,unknown,yes,DealEvent con nuevos kind
+Resumen de la conversación en la cita,crm,could,yes,partial,Contact.aiMemory
+Página pública de reservas sin cuenta,pagina,must,yes,no,En el subdominio de la empresa (middleware.ts)
+Elegir especialista y servicio,pagina,must,yes,no,
+Elegir fecha y franja,pagina,must,yes,no,
+Teléfono obligatorio con prefijo de país,pagina,must,yes,no,Reutilizar packages/shared/src/phone.ts
+CAPTCHA y límite de intentos,pagina,must,yes,no,Patrón de límite de intentos en auth.service.ts
+Confirmación con reprogramar / cancelar / añadir al calendario,pagina,must,yes,no,
+Errores: franja tomada / especialista o servicio no disponible,pagina,must,yes,no,
+Día sin franjas sugiere la próxima fecha libre,pagina,should,yes,no,
+Apariencia: logo / banner / color / datos / redes,pagina,should,yes,no,infra/storage para las imágenes
+Vista previa móvil y escritorio,pagina,could,yes,no,
+Enlace de reservas del equipo,enlaces,must,yes,no,
+Enlace de reservas por lead,enlaces,should,yes,no,Token firmado con contactId / dealId
+Insertar el enlace desde el composer del chat,enlaces,should,yes,no,
+Enlace como variable en plantillas y flujos,enlaces,should,yes,no,
+Desactivar la página de reservas,enlaces,could,yes,no,
+Confirmación al cliente por plantilla de WhatsApp,avisos,must,yes,partial,Plantillas y aprobación de Meta ya existen; faltan variables de cita en variableSources
+Recordatorio 24 h antes,avisos,must,yes,partial,Barrido por minuto de follow-up.service.ts; falta el disparador relativo a la cita
+Recordatorio con hora configurable,avisos,should,no,no,Kommo solo 24 h: Driony puede ir por delante
+Botones Confirmar / Reprogramar / Cancelar que actúan sobre la cita,avisos,must,yes,partial,El button_reply entrante ya se lee (webhook.types.ts)
+Plantilla prellenada y enviada a aprobación desde ajustes de reservas,avisos,should,yes,partial,template.service.ts + meta-template.client.ts
+Aviso interno al responsable (nueva cita / antes de empezar),avisos,should,yes,partial,Tiempo real sí; push y email no
+Avisos con flujo propio (disparadores de cita),avisos,should,yes,no,Nuevos flowTriggerTypes booking_created / booking_cancelled
+El agente consulta horarios libres,ia,must,yes,yes,Nueva herramienta de lectura check_availability (tools.registry.ts)
+El agente reserva tras confirmar con el cliente,ia,must,yes,yes,Acción book_appointment con aprobación en copiloto (agent-actions.service.ts)
+El agente reprograma y cancela,ia,must,yes,yes,
+El agente lista las próximas citas del cliente,ia,should,yes,yes,
+Elegir especialista por nombre o cualquiera,ia,should,yes,yes,
+Servicios permitidos por agente,ia,should,yes,partial,enabledTools por agente; falta la lista de servicios
+Probar la reserva en modo prueba,ia,should,yes,yes,El playground del agente ya existe
+Lista interactiva de WhatsApp para elegir horario,ia,should,unknown,no,Driony solo envía botones (máx. 3); la lista entrante ya se lee
+Perfil de especialista con acceso limitado,equipo,should,yes,partial,permissions.ts: nueva sección agenda y alcance mis citas
+El especialista ve solo sus citas,equipo,should,yes,no,
+Google Calendar en dos sentidos,integraciones,should,yes,no,Parte difícil: OAuth + canales que caducan + borrados
+Ocupado en Google bloquea franjas,integraciones,should,unknown,no,No documentado en Kommo
+Calendly / Cal.com,integraciones,could,yes,partial,Vía webhook de leads: crea el lead pero no la cita
+Webhooks salientes de reservas,integraciones,could,unknown,partial,Añadir eventos a webhook-out.schema.ts
+API pública de reservas,integraciones,could,unknown,partial,modules/public-api
+Adelanto o pago al reservar,pagos,could,unknown,partial,Hoy manual: comprobante por chat + pase a humano (escalationRules.onMedia)
+Reservas incluidas en el plan de entrada,planes,should,no,yes,Kommo pone página / enlaces / IA de reservas en Pro (45 USD por usuario)
+Lista de espera y citas recurrentes por IA,ia,could,unknown,skip,Solo promesa de la landing; la doc dice una reserva a la vez
+Appointment schedules de Google como producto,integraciones,could,yes,skip,Es de Google: se integra por su API oficial
+Cupo de 10 perfiles gratis y pedir más a soporte,equipo,could,yes,skip,Decisión comercial de Kommo
+Créditos y paquetes de IA de Kommo,ia,could,yes,skip,Modelo comercial de Kommo; Driony tiene su consumo por plan
+Chat interno del equipo,equipo,could,yes,skip,Fuera del alcance de reservas
+Textos / temas / plantillas de aviso de Kommo,pagina,could,yes,skip,Son de Kommo; Driony escribe los suyos

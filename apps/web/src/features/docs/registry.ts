@@ -21,6 +21,7 @@ export const DOCS: DocEntry[] = [
   { group: "Primeros pasos", slug: "planes", file: "planes.md", title: "Planes y límites", summary: "Qué incluye cada plan en la nube y cómo cambiarlo." },
   { group: "Uso diario", slug: "bandeja", file: "bandeja.md", title: "Bandeja", summary: "Conversaciones, asignación, etiquetas y los dos modos de la IA." },
   { group: "Uso diario", slug: "embudos", file: "embudos.md", title: "Embudos", summary: "Varios embudos, entrada automática desde WhatsApp y descarte." },
+  { group: "Uso diario", slug: "agenda", file: "agenda.md", title: "Agenda", summary: "Servicios, horarios y citas, también reservadas por la IA." },
   { group: "Uso diario", slug: "llamadas", file: "llamadas.md", title: "Llamadas", summary: "Llamar y recibir desde el CRM con Twilio, registro y grabaciones." },
   { group: "Uso diario", slug: "difusiones", file: "difusiones.md", title: "Difusiones y plantillas", summary: "Envíos masivos con plantillas aprobadas por Meta." },
   { group: "Automatización", slug: "agentes", file: "agentes.md", title: "Agentes de IA", summary: "Modelos, claves, herramientas, escalado y límite de gasto." },

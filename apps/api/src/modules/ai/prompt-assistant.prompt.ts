@@ -6,7 +6,18 @@ import type { PromptAssistantRequest, PromptAssistantTarget } from "@crm/shared"
 
 export interface PromptContext {
   orgName: string | null;
-  products: { total: number; sample: { name: string; price: string }[] };
+  products: {
+    total: number;
+    sample: { name: string; price: string }[];
+    /** Campos propios que el agente ve de cada producto (con su unidad). */
+    fields: string[];
+    /** Campos propios apagados para la IA: no los puede citar. */
+    hiddenFields: string[];
+    /** Monedas en que hay precios (la base y las adicionales). */
+    currencies: string[];
+    /** Productos con foto (el agente la puede enviar con send_product_image). */
+    withImage: number;
+  };
   knowledge: { total: number; titles: string[] };
   stages: string[];
   tags: string[];
@@ -21,7 +32,7 @@ export interface PromptContext {
 
 export const EMPTY_PROMPT_CONTEXT: PromptContext = {
   orgName: null,
-  products: { total: 0, sample: [] },
+  products: { total: 0, sample: [], fields: [], hiddenFields: [], currencies: [], withImage: 0 },
   knowledge: { total: 0, titles: [] },
   stages: [],
   tags: [],
@@ -130,8 +141,24 @@ function buildContextBlock(ctx: PromptContext): string {
   const lines: string[] = ["## Datos reales del negocio (úsalos; no inventes otros)"];
 
   if (ctx.products.total > 0) {
-    const sample = ctx.products.sample.map((p) => `${p.name} (${p.price})`).join(", ");
-    lines.push(`Catálogo: ${ctx.products.total} producto(s) activo(s). Ejemplos: ${sample}.`);
+    const p = ctx.products;
+    const sample = p.sample.map((x) => `${x.name} (${x.price})`).join(", ");
+    lines.push(`Catálogo: ${p.total} producto(s) activo(s). Ejemplos: ${sample}.`);
+    lines.push(
+      `Datos de cada producto que el agente obtiene con search_products: nombre, precio, descripción y SKU` +
+        (p.fields.length ? `, y además: ${p.fields.join(", ")}` : "") +
+        ". En las instrucciones pide consultarlos y citarlos (p. ej. «dale la fecha de inicio y el horario que trae el producto»);" +
+        " NUNCA copies esos valores ni dejes marcadores como [Precio] o [Horario] para esos datos: cambian y el agente los lee al momento.",
+    );
+    if (p.currencies.length > 1) {
+      lines.push(`Hay precios en varias monedas (${p.currencies.join(", ")}): search_products da el de la moneda del cliente si existe.`);
+    }
+    if (p.withImage > 0) {
+      lines.push(`${p.withImage} producto(s) tienen foto: el agente puede enviarla con send_product_image (solo si está habilitada).`);
+    }
+    if (p.hiddenFields.length) {
+      lines.push(`Campos del catálogo que el agente NO ve (apagados para la IA): ${p.hiddenFields.join(", ")}. No le pidas usarlos.`);
+    }
   } else {
     lines.push("Catálogo: sin productos cargados todavía.");
   }

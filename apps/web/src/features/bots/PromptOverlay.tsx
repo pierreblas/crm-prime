@@ -5,7 +5,8 @@ import { createPortal } from "react-dom";
 import { NavIcon } from "@/components/NavIcons";
 import { smBtn } from "@/components/ui";
 import { ghostBtn } from "./styles";
-import { collectMarks, findHeadings, pendingSummary, segments, type Mark, type PromptTool } from "./promptMarks";
+import { collectMarks, findHeadings, pendingSummary, segments, PRODUCT_BASE_FIELDS, type Mark, type PromptTool, type PromptVar } from "./promptMarks";
+import type { TextHistory } from "./useTextHistory";
 
 /**
  * «Cómo debe atender» a pantalla grande. El mismo texto, con sitio para
@@ -14,25 +15,29 @@ import { collectMarks, findHeadings, pendingSummary, segments, type Mark, type P
  * de la derecha lista esos elementos: un clic lleva al sitio o lo inserta.
  *
  * El resaltado es una capa con el mismo texto debajo de un textarea con la
- * tinta transparente: la escritura sigue siendo la de siempre.
+ * tinta transparente: la escritura sigue siendo la de siempre. El deshacer es
+ * el del editor (history), compartido con el cuadro pequeño.
  */
 export function PromptOverlay({
   value,
-  onChange,
+  history,
   onClose,
   onAssist,
   tools,
-  catalogFields,
-  contactFields,
+  productFields,
+  contactVars,
 }: {
   value: string;
-  onChange: (v: string) => void;
+  history: TextHistory;
   onClose: () => void;
   onAssist: () => void;
   tools: PromptTool[];
-  catalogFields: string[];
-  contactFields: { key: string; label: string }[];
+  /** Campos propios del catálogo; los apagados para la IA se enseñan aparte. */
+  productFields: { label: string; aiVisible: boolean }[];
+  /** Variables del contacto que se reemplazan en el texto ({{nombre}}…). */
+  contactVars: PromptVar[];
 }) {
+  const onChange = history.change;
   const ta = useRef<HTMLTextAreaElement | null>(null);
   const backdrop = useRef<HTMLDivElement | null>(null);
   const [railOpen, setRailOpen] = useState(false);
@@ -58,7 +63,7 @@ export function PromptOverlay({
     };
   }, [onClose]);
 
-  const marks = useMemo(() => collectMarks(value, tools), [value, tools]);
+  const marks = useMemo(() => collectMarks(value, tools, contactVars), [value, tools, contactVars]);
   const parts = useMemo(() => {
     if (!flash || flash.end > value.length) return segments(value, marks);
     // El tramo insertado manda sobre cualquier otra marca que lo pise.
@@ -78,6 +83,10 @@ export function PromptOverlay({
   const headings = useMemo(() => findHeadings(value), [value]);
   const mentioned = useMemo(() => new Set(marks.filter((m) => m.kind === "tool" || m.kind === "tool-off").map((m) => m.text)), [marks]);
   const offMentioned = tools.filter((t) => !t.enabled && mentioned.has(t.name));
+  const unknownVars = [...new Set(marks.filter((m) => m.kind === "var-off").map((m) => m.text))];
+  const sendsImages = tools.some((t) => t.name === "send_product_image" && t.enabled);
+  const visibleFields = productFields.filter((f) => f.aiVisible);
+  const hiddenFields = productFields.filter((f) => !f.aiVisible);
   const words = value.trim() ? value.trim().split(/\s+/).length : 0;
 
   const syncScroll = useCallback(() => {
@@ -138,7 +147,7 @@ export function PromptOverlay({
       const after = value.slice(at.end);
       const padL = before && !/\s$/.test(before) ? " " : "";
       const padR = after && !/^[\s.,;:)»]/.test(after) ? " " : "";
-      onChange(`${before}${padL}${token}${padR}${after}`);
+      onChange(`${before}${padL}${token}${padR}${after}`, "edit");
       const start = at.start + padL.length;
       const end = start + token.length;
       const next = end + padR.length;
@@ -167,7 +176,7 @@ export function PromptOverlay({
   }, [pendingAll, goTo]);
 
   const enabledTools = tools.filter((t) => t.enabled);
-  const railCount = pending.length + offMentioned.length;
+  const railCount = pending.length + offMentioned.length + unknownVars.length;
 
   // En <body>: el panel del agente crea su propio contexto de apilamiento y,
   // dentro de él, el fondo fijo quedaba por debajo de la cabecera de la app.
@@ -182,6 +191,14 @@ export function PromptOverlay({
             </span>
           </div>
           <span style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button type="button" onClick={history.undo} disabled={!history.canUndo} style={{ ...ghostBtn, ...smBtn }} title="Deshacer (Ctrl+Z)" aria-label="Deshacer">
+              <NavIcon name="reply" size={13} />
+            </button>
+            <button type="button" onClick={history.redo} disabled={!history.canRedo} style={{ ...ghostBtn, ...smBtn }} title="Rehacer (Ctrl+Y)" aria-label="Rehacer">
+              <span style={{ display: "inline-flex", transform: "scaleX(-1)" }}>
+                <NavIcon name="reply" size={13} />
+              </span>
+            </button>
             <button
               type="button"
               className="prompt-overlay__railtoggle"
@@ -218,7 +235,8 @@ export function PromptOverlay({
               ref={ta}
               className="prompt-editor__text"
               value={value}
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => onChange(e.target.value, "type")}
+              onKeyDown={history.onKeyDown}
               onScroll={syncScroll}
               onKeyUp={rememberCaret}
               onMouseUp={rememberCaret}
@@ -280,25 +298,54 @@ export function PromptOverlay({
             </section>
 
             <section>
-              <h4>Datos que ya conoce</h4>
-              {catalogFields.length || contactFields.length ? (
-                <>
-                  <div className="prompt-rail__list">
-                    {catalogFields.map((f) => (
-                      <button key={`c-${f}`} type="button" className="prompt-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(f)} title="Dato de cada producto del catálogo. Clic para insertarlo.">
-                        <NavIcon name="tag" size={11} /> {f}
-                      </button>
-                    ))}
-                    {contactFields.map((f) => (
-                      <button key={`k-${f.key}`} type="button" className="prompt-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(f.label)} title="Dato guardado del contacto. Clic para insertarlo.">
-                        <NavIcon name="user" size={11} /> {f.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="prompt-rail__hint">Los lee solo: pídele que los consulte y los cite («consulta el temario y cítalo»).</p>
-                </>
-              ) : (
-                <p className="prompt-rail__hint">Nombre, precio y descripción de cada producto, y la ficha del contacto. Los campos propios aparecerán aquí.</p>
+              <h4>Datos de cada producto</h4>
+              <div className="prompt-rail__list">
+                {PRODUCT_BASE_FIELDS.map((f) => (
+                  <button key={`b-${f.label}`} type="button" className="prompt-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(f.label.toLowerCase())} title={`${f.hint} Clic para insertarlo.`}>
+                    <NavIcon name="package" size={11} /> {f.label}
+                  </button>
+                ))}
+                {sendsImages && (
+                  <button type="button" className="prompt-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => insert("send_product_image")} title="Puede enviar la foto del producto. Clic para nombrar la acción.">
+                    <NavIcon name="image" size={11} /> Foto
+                  </button>
+                )}
+                {visibleFields.map((f) => (
+                  <button key={`c-${f.label}`} type="button" className="prompt-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(f.label.toLowerCase())} title="Campo propio del catálogo. Clic para insertarlo.">
+                    <NavIcon name="tag" size={11} /> {f.label}
+                  </button>
+                ))}
+              </div>
+              <p className="prompt-rail__hint">
+                Los consulta con <code>search_products</code>: pídele que los busque y los cite («dale la fecha de inicio y el horario del curso que pregunte»). No copies el dato en el texto: cambia y el agente lo leería viejo.
+              </p>
+              {hiddenFields.length > 0 && (
+                <p className="prompt-rail__warn">
+                  <NavIcon name="alert" size={13} />
+                  <span>
+                    No ve {hiddenFields.map((f) => f.label).join(", ")}: {hiddenFields.length === 1 ? "tiene" : "tienen"} apagado «Lo usa el agente» en Productos › Campos.
+                  </span>
+                </p>
+              )}
+            </section>
+
+            <section>
+              <h4>Variables del contacto</h4>
+              <div className="prompt-rail__list">
+                {contactVars.map((v) => (
+                  <button key={`v-${v.key}`} type="button" className="prompt-chip prompt-chip--var" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(`{{${v.key}}}`)} title={`Se reemplaza por el dato «${v.label}» de cada cliente. Clic para insertarla.`}>
+                    <NavIcon name="user" size={11} /> {v.label}
+                  </button>
+                ))}
+              </div>
+              <p className="prompt-rail__hint">Se reemplazan por el dato de cada cliente al responder: «Hola {"{{nombre}}"}».</p>
+              {unknownVars.length > 0 && (
+                <p className="prompt-rail__warn">
+                  <NavIcon name="alert" size={13} />
+                  <span>
+                    {unknownVars.map((v) => `{{${v}}}`).join(", ")} no {unknownVars.length === 1 ? "es una variable: no se reemplazará" : "son variables: no se reemplazarán"}. Créala como campo del contacto o quítala.
+                  </span>
+                </p>
               )}
             </section>
 
@@ -339,8 +386,9 @@ export function PromptOverlay({
 }
 
 /** Una línea bajo el cuadro pequeño: qué hay dentro y un acceso a la ventana grande. */
-export function PromptStatusLine({ value, tools, onOpen }: { value: string; tools: PromptTool[]; onOpen: () => void }) {
-  const marks = useMemo(() => collectMarks(value, tools), [value, tools]);
+export function PromptStatusLine({ value, tools, vars, onOpen }: { value: string; tools: PromptTool[]; vars: PromptVar[]; onOpen: () => void }) {
+  const marks = useMemo(() => collectMarks(value, tools, vars), [value, tools, vars]);
+  const badVars = new Set(marks.filter((m) => m.kind === "var-off").map((m) => m.text)).size;
   const pending = marks.filter((m) => m.kind === "pending").length;
   const off = new Set(marks.filter((m) => m.kind === "tool-off").map((m) => m.text)).size;
   const used = new Set(marks.filter((m) => m.kind === "tool").map((m) => m.text)).size;
@@ -348,6 +396,7 @@ export function PromptStatusLine({ value, tools, onOpen }: { value: string; tool
   const bits: React.ReactNode[] = [];
   if (pending) bits.push(<span key="p" className="prompt-status__warn">{pending} por rellenar</span>);
   if (off) bits.push(<span key="o" className="prompt-status__warn">{off} {off === 1 ? "acción desactivada nombrada" : "acciones desactivadas nombradas"}</span>);
+  if (badVars) bits.push(<span key="v" className="prompt-status__warn">{badVars} {badVars === 1 ? "variable que no existe" : "variables que no existen"}</span>);
   if (used) bits.push(<span key="u">{used === 1 ? "1 acción nombrada" : `${used} acciones nombradas`}</span>);
   if (heads) bits.push(<span key="h">{heads === 1 ? "1 sección" : `${heads} secciones`}</span>);
   if (!value.trim()) return null;

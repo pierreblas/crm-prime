@@ -176,7 +176,7 @@ export const dealDtoSchema = z.object({
 export type DealDto = z.infer<typeof dealDtoSchema>;
 
 // ── Historial de una oportunidad ────────────────────────────
-export const dealEventKinds = ["created", "stage", "owner", "discarded", "restored", "lost_reason", "value"] as const;
+export const dealEventKinds = ["created", "stage", "owner", "discarded", "restored", "lost_reason", "value", "booking"] as const;
 export type DealEventKind = (typeof dealEventKinds)[number];
 export const dealActorKinds = ["user", "ai", "flow", "system", "api", "unknown"] as const;
 export type DealActorKind = (typeof dealActorKinds)[number];

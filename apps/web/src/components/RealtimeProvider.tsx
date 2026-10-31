@@ -125,6 +125,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       setAiTyping(conversationId, on);
     },
     "pipeline.changed": () => queryClient.invalidateQueries({ queryKey: ["pipeline"] }),
+    "bookings.changed": () => queryClient.invalidateQueries({ queryKey: ["bookings"] }),
     "call.changed": (payload) => {
       const p = payload as { conversationId: string | null; missed?: boolean };
       queryClient.invalidateQueries({ queryKey: ["calls"] });

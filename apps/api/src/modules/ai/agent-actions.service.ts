@@ -11,6 +11,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { runAsActor } from "../../infra/tenant/actor";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { MessagingService } from "../messaging/messaging.service";
+import { BookingsService } from "../bookings/bookings.service";
 import { isActionTool, type ToolContext } from "./tools.registry";
 
 // Lo que se guarda en AiToolCall.input para poder re-ejecutar tras aprobar.
@@ -37,11 +38,12 @@ export class AgentActionsService {
     private readonly tenant: TenantService,
     private readonly messaging: MessagingService,
     private readonly events: EventEmitter2,
+    private readonly bookings: BookingsService,
   ) {}
 
   // Valores reales del workspace para construir los esquemas de las tools.
   async loadContext(): Promise<ToolContext> {
-    const [tags, stages, sellers, customFields, products, leadStages] = await Promise.all([
+    const [tags, stages, sellers, customFields, products, leadStages, booking] = await Promise.all([
       this.prisma.tag.findMany({
         select: { name: true },
         orderBy: { name: "asc" },
@@ -73,6 +75,8 @@ export class AgentActionsService {
         where: { OR: [{ isQualified: true }, { isWon: true }, { isLost: true }] },
         select: { isQualified: true, isWon: true, isLost: true },
       }),
+      // Servicios de la agenda que se pueden reservar ya.
+      this.bookings.agentCatalog(),
     ]);
     const leadStatuses = [
       ...(leadStages.some((s) => s.isQualified) ? ["potential"] : []),
@@ -87,6 +91,8 @@ export class AgentActionsService {
       customFields,
       productsWithImage: products.map((p) => p.name),
       leadStatuses,
+      bookingServices: booking.services,
+      bookingStaff: booking.staff,
     };
   }
 
@@ -109,6 +115,12 @@ export class AgentActionsService {
         }`;
       case "send_product_image":
         return `Enviar la foto de «${String(input.product)}»`;
+      case "book_appointment":
+        return `Reservar «${String(input.service)}» el ${String(input.start).replace("T", " a las ")}${input.staff ? ` con ${String(input.staff)}` : ""}`;
+      case "reschedule_appointment":
+        return `Mover la cita${input.service ? ` de «${String(input.service)}»` : ""} al ${String(input.start).replace("T", " a las ")}`;
+      case "cancel_appointment":
+        return `Cancelar la cita${input.service ? ` de «${String(input.service)}»` : ""}${input.reason ? ` (${String(input.reason)})` : ""}`;
       case "update_contact": {
         const fields = Object.entries(input)
           .filter(([, v]) => v !== undefined && v !== null && v !== "")
@@ -151,6 +163,12 @@ export class AgentActionsService {
         return this.updateContact(contactId, input);
       case "send_product_image":
         return this.sendProductImage(conversationId, input);
+      case "book_appointment":
+        return this.bookings.agentBook(contactId, conversationId, input);
+      case "reschedule_appointment":
+        return this.bookings.agentReschedule(contactId, input);
+      case "cancel_appointment":
+        return this.bookings.agentCancel(contactId, input);
       default:
         throw new Error(`Acción desconocida: ${tool}`);
     }

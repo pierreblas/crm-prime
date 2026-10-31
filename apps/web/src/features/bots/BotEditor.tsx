@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/lib/toast";
 import { confirmDialog } from "@/lib/confirm";
 import { NavIcon, type IconName } from "@/components/NavIcons";
@@ -33,6 +33,8 @@ import { field, input, label as lbl, primaryBtn, ghostBtn } from "./styles";
 import { smBtn } from "@/components/ui";
 import { PromptAssistant } from "./PromptAssistant";
 import { PromptOverlay, PromptStatusLine } from "./PromptOverlay";
+import { useTextHistory } from "./useTextHistory";
+import { BUILTIN_VARS } from "./promptMarks";
 import { FollowUpsEditor, defaultFollowUpStep } from "./FollowUpsEditor";
 import { useAiStatus } from "@/features/copilot/useAiStatus";
 import {
@@ -312,6 +314,17 @@ export function BotEditor({
   const [tab, setTab] = useState<Tab>("dice");
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
+  // «Cómo debe atender» lleva su propio deshacer: lo comparten el cuadro y la
+  // ventana grande, e incluye lo insertado desde el panel y lo del asistente.
+  const promptHistory = useTextHistory(form.systemPrompt, (v) => set("systemPrompt", v));
+  // Variables que se reemplazan en el texto: las de siempre y los campos del contacto.
+  // Un campo con la clave de una de siempre ({{pais}}) es la misma variable: va una vez.
+  const contactVars = useMemo(() => {
+    const builtin = new Set(BUILTIN_VARS.map((v) => v.key));
+    return [...BUILTIN_VARS, ...contactFieldDefs.filter((f) => !builtin.has(f.key.toLowerCase())).map((f) => ({ key: f.key, label: f.label }))];
+  }, [contactFieldDefs]);
+  // Tras aplicar lo que redactó el asistente, un aviso con «Deshacer» a mano.
+  const [assistApplied, setAssistApplied] = useState(false);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -401,7 +414,14 @@ export function BotEditor({
   }
 
   const ASSIST: Record<AssistTarget, { title: string; current: string; apply: (text: string) => void }> = {
-    systemPrompt: { title: "Instrucciones del agente", current: form.systemPrompt, apply: (text) => set("systemPrompt", text) },
+    systemPrompt: {
+      title: "Instrucciones del agente",
+      current: form.systemPrompt,
+      apply: (text) => {
+        promptHistory.change(text);
+        setAssistApplied(true);
+      },
+    },
     welcomeMessage: { title: "Mensaje de bienvenida", current: form.welcomeMessage, apply: (text) => set("welcomeMessage", text) },
     outOfHoursMessage: {
       title: "Mensaje fuera de horario",
@@ -523,22 +543,42 @@ export function BotEditor({
                 className="field"
                 style={{ minHeight: 220, resize: "vertical", fontFamily: "inherit", lineHeight: 1.55 }}
                 value={form.systemPrompt}
-                onChange={(e) => set("systemPrompt", e.target.value)}
+                onChange={(e) => {
+                  promptHistory.change(e.target.value, "type");
+                  setAssistApplied(false);
+                }}
+                onKeyDown={promptHistory.onKeyDown}
                 aria-label="Cómo debe atender"
               />
-              <PromptStatusLine value={form.systemPrompt} tools={promptTools} onOpen={() => setPromptBig(true)} />
+              {assistApplied && promptHistory.canUndo && (
+                <div className="prompt-applied" role="status">
+                  <NavIcon name="sparkles" size={13} />
+                  <span>Se aplicó el texto del asistente.</span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      promptHistory.undo();
+                      setAssistApplied(false);
+                    }}
+                  >
+                    Deshacer
+                  </button>
+                </div>
+              )}
+              <PromptStatusLine value={form.systemPrompt} tools={promptTools} vars={contactVars} onOpen={() => setPromptBig(true)} />
               {promptBig && (
                 <PromptOverlay
                   value={form.systemPrompt}
-                  onChange={(v) => set("systemPrompt", v)}
+                  history={promptHistory}
                   onClose={() => setPromptBig(false)}
                   onAssist={() => {
                     setPromptBig(false);
                     setAssist("systemPrompt");
                   }}
                   tools={promptTools}
-                  catalogFields={productFieldDefs.filter((f) => f.aiVisible).map((f) => f.label)}
-                  contactFields={contactFieldDefs.map((f) => ({ key: f.key, label: f.label }))}
+                  productFields={productFieldDefs.map((f) => ({ label: f.label, aiVisible: f.aiVisible }))}
+                  contactVars={contactVars}
                 />
               )}
               <ul className="agent-checklist" aria-label="Qué incluir">
@@ -1007,7 +1047,7 @@ function ToolNamesHelp({
             </>
           )}
           <p style={{ marginTop: 10 }} data-catalog-fields>
-            <strong>Datos del catálogo</strong>: cada producto trae nombre, precio y descripción
+            <strong>Datos del catálogo</strong>: cada producto trae nombre, precio (en la moneda del cliente si la tiene), descripción y SKU
             {catalogFields.length ? <> y además <em>{catalogFields.join(", ")}</em></> : null}. El agente los lee con{" "}
             <code>search_products</code>: pídele que consulte el producto y cite el dato («consulta el temario del curso y cítalo»).
             Las instrucciones no sustituyen «[Temario]» ni similares.

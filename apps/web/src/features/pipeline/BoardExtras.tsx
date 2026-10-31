@@ -203,6 +203,7 @@ const EVENT_ICON: Record<DealEventDto["kind"], IconName> = {
   restored: "jump",
   lost_reason: "x",
   value: "chart",
+  booking: "calendar",
 };
 
 function describe(e: DealEventDto): string {
@@ -221,6 +222,8 @@ function describe(e: DealEventDto): string {
       return `Motivo de pérdida: ${e.detail ?? ""}`;
     case "value":
       return `Valor: ${e.detail ?? ""}`;
+    case "booking":
+      return e.detail ?? "Cita";
   }
 }
 

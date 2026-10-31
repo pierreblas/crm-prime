@@ -1,6 +1,17 @@
 "use client";
 
 import type {
+  BookingDto,
+  BookingServiceDto,
+  BookingServiceInput,
+  BookingSettingsDto,
+  CreateBookingInput,
+  SlotDto,
+  StaffScheduleDto,
+  StaffScheduleInput,
+  UpdateBookingInput,
+  UpdateBookingServiceInput,
+  UpdateBookingSettingsInput,
   BusinessSetupInput,
   BusinessSetupState,
   SetupAgentResult,
@@ -2129,4 +2140,64 @@ export async function retryConversion(eventId: string): Promise<import("@crm/sha
   const res = await bffFetch(`/api/bff/conversions/events/${eventId}/retry`, { method: "POST" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo reintentar"));
   return res.json();
+}
+
+// ── Agenda ──────────────────────────────────────────────────
+async function bookingsJson<T>(path: string, init: RequestInit | undefined, fallback: string): Promise<T> {
+  const res = await bffFetch(`/api/bff/bookings${path}`, {
+    ...init,
+    headers: init?.body ? { "Content-Type": "application/json" } : undefined,
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, fallback));
+  return res.json();
+}
+
+export function fetchBookingSettings(): Promise<BookingSettingsDto> {
+  return bookingsJson("/settings", undefined, "No se pudieron cargar las reglas de la agenda");
+}
+export function saveBookingSettings(input: UpdateBookingSettingsInput): Promise<BookingSettingsDto> {
+  return bookingsJson("/settings", { method: "PUT", body: JSON.stringify(input) }, "No se pudieron guardar las reglas");
+}
+
+export function fetchBookingServices(): Promise<BookingServiceDto[]> {
+  return bookingsJson("/services", undefined, "No se pudieron cargar los servicios");
+}
+export function createBookingService(input: BookingServiceInput): Promise<BookingServiceDto> {
+  return bookingsJson("/services", { method: "POST", body: JSON.stringify(input) }, "No se pudo crear el servicio");
+}
+export function updateBookingService(id: string, input: UpdateBookingServiceInput): Promise<BookingServiceDto> {
+  return bookingsJson(`/services/${id}`, { method: "PATCH", body: JSON.stringify(input) }, "No se pudo guardar el servicio");
+}
+export function deleteBookingService(id: string): Promise<{ deleted: boolean; archived: boolean }> {
+  return bookingsJson(`/services/${id}`, { method: "DELETE" }, "No se pudo eliminar el servicio");
+}
+
+export function fetchStaffSchedules(): Promise<StaffScheduleDto[]> {
+  return bookingsJson("/schedules", undefined, "No se pudieron cargar los horarios");
+}
+export function saveStaffSchedule(userId: string, input: StaffScheduleInput): Promise<StaffScheduleDto> {
+  return bookingsJson(`/schedules/${userId}`, { method: "PUT", body: JSON.stringify(input) }, "No se pudo guardar el horario");
+}
+
+export function fetchBookingSlots(q: { serviceId: string; userId?: string; from?: string; days?: number; excludeBookingId?: string }): Promise<SlotDto[]> {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") qs.set(k, String(v));
+  return bookingsJson(`/slots?${qs}`, undefined, "No se pudieron cargar las horas libres");
+}
+
+export function fetchBookings(q: { from: string; to: string; userId?: string }): Promise<BookingDto[]> {
+  const qs = new URLSearchParams({ from: q.from, to: q.to, ...(q.userId ? { userId: q.userId } : {}) });
+  return bookingsJson(`?${qs}`, undefined, "No se pudieron cargar las citas");
+}
+export function fetchContactBookings(contactId: string): Promise<BookingDto[]> {
+  return bookingsJson(`/contact/${contactId}`, undefined, "No se pudieron cargar las citas del contacto");
+}
+export function createBooking(input: CreateBookingInput): Promise<BookingDto> {
+  return bookingsJson("", { method: "POST", body: JSON.stringify(input) }, "No se pudo reservar la cita");
+}
+export function updateBooking(id: string, input: UpdateBookingInput): Promise<BookingDto> {
+  return bookingsJson(`/${id}`, { method: "PATCH", body: JSON.stringify(input) }, "No se pudo cambiar la cita");
+}
+export function cancelBooking(id: string, reason: string | null): Promise<BookingDto> {
+  return bookingsJson(`/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }, "No se pudo cancelar la cita");
 }

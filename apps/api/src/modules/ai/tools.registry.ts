@@ -50,6 +50,39 @@ export const TOOL_REGISTRY: Record<string, LlmTool> = {
   },
 };
 
+// Lectura con esquema dinámico: como las acciones, lleva los valores reales
+// (los servicios que se pueden reservar) como enum.
+export const DYNAMIC_READ_TOOL_NAMES = ["check_availability"] as const;
+type DynamicReadToolName = (typeof DYNAMIC_READ_TOOL_NAMES)[number];
+function isDynamicReadTool(name: string): name is DynamicReadToolName {
+  return (DYNAMIC_READ_TOOL_NAMES as readonly string[]).includes(name);
+}
+
+const NO_BOOKING_SERVICES = "No hay servicios con alguien que los atienda en Ajustes › Agenda.";
+
+function readTool(name: DynamicReadToolName, c: ToolContext): LlmTool | null {
+  switch (name) {
+    case "check_availability":
+      if (!c.bookingServices.length) return null;
+      return {
+        name,
+        description:
+          "Consulta las horas libres para reservar una cita. Devuelve los próximos días con hueco y sus horas, en la zona horaria del negocio. Úsala SIEMPRE antes de ofrecer horarios o de reservar: nunca inventes ni supongas que una hora está libre. Si el cliente pide un día concreto, pásalo en «date».",
+        input_schema: {
+          type: "object",
+          properties: {
+            service: { type: "string", enum: c.bookingServices, description: "Servicio que quiere reservar" },
+            date: { type: "string", description: "Día desde el que buscar, AAAA-MM-DD (opcional; por defecto, hoy)" },
+            ...(c.bookingStaff.length > 1
+              ? { staff: { type: "string", enum: c.bookingStaff, description: "Solo si el cliente pide a una persona concreta" } }
+              : {}),
+          },
+          required: ["service"],
+        },
+      };
+  }
+}
+
 // ── Acciones: herramientas que ESCRIBEN en el CRM ──────────────
 // Su esquema no es fijo: se construye con los valores reales del workspace
 // (etiquetas, etapas, vendedores…) como enum, para que el modelo no pueda
@@ -62,6 +95,9 @@ export const ACTION_TOOL_NAMES = [
   "assign_to_seller",
   "send_product_image",
   "mark_lead",
+  "book_appointment",
+  "reschedule_appointment",
+  "cancel_appointment",
 ] as const;
 export type ActionToolName = (typeof ACTION_TOOL_NAMES)[number];
 
@@ -79,6 +115,10 @@ export interface ToolContext {
   productsWithImage: string[];
   /** Clasificaciones con etapa configurada: potential (Potencial), purchase (Ganada), lost (Perdida). */
   leadStatuses: string[];
+  /** Servicios de la agenda que se pueden reservar (activos y con alguien que los atienda). */
+  bookingServices: string[];
+  /** Quién atiende esos servicios. */
+  bookingStaff: string[];
 }
 
 export const EMPTY_TOOL_CONTEXT: ToolContext = {
@@ -88,6 +128,8 @@ export const EMPTY_TOOL_CONTEXT: ToolContext = {
   customFields: [],
   productsWithImage: [],
   leadStatuses: [],
+  bookingServices: [],
+  bookingStaff: [],
 };
 
 const ACTION_META: Record<
@@ -125,6 +167,18 @@ const ACTION_META: Record<
       c.leadStatuses.length
         ? null
         : "Marca en Ajustes › Embudos qué etapa es Potencial, Ganada y Perdida.",
+  },
+  book_appointment: {
+    label: "Reservar una cita",
+    needs: (c) => (c.bookingServices.length ? null : NO_BOOKING_SERVICES),
+  },
+  reschedule_appointment: {
+    label: "Cambiar la hora de una cita",
+    needs: (c) => (c.bookingServices.length ? null : NO_BOOKING_SERVICES),
+  },
+  cancel_appointment: {
+    label: "Cancelar una cita",
+    needs: (c) => (c.bookingServices.length ? null : NO_BOOKING_SERVICES),
   },
   send_product_image: {
     label: "Enviar la foto de un producto",
@@ -250,6 +304,58 @@ function actionTool(name: ActionToolName, c: ToolContext): LlmTool | null {
         },
       };
 
+    case "book_appointment":
+      if (!c.bookingServices.length) return null;
+      return {
+        name,
+        description:
+          "Reserva una cita para este contacto. Solo cuando el cliente haya elegido una hora concreta de las que devolvió check_availability: pásala tal cual en «start» (AAAA-MM-DDTHH:mm, hora del negocio). No digas que está reservada hasta que esta herramienta lo confirme. Si ya tiene una cita de ese servicio y quiere cambiarla, usa reschedule_appointment.",
+        input_schema: {
+          type: "object",
+          properties: {
+            service: { type: "string", enum: c.bookingServices, description: "Servicio a reservar" },
+            start: { type: "string", description: "Fecha y hora de inicio, AAAA-MM-DDTHH:mm (p. ej. 2026-11-03T10:30)" },
+            ...(c.bookingStaff.length > 1
+              ? { staff: { type: "string", enum: c.bookingStaff, description: "Persona que atiende (solo si el cliente la pidió)" } }
+              : {}),
+            note: { type: "string", description: "Algo que deba saber quien atiende (opcional)" },
+          },
+          required: ["service", "start"],
+        },
+      };
+
+    case "reschedule_appointment":
+      if (!c.bookingServices.length) return null;
+      return {
+        name,
+        description:
+          "Mueve la próxima cita del contacto a otra hora libre (consúltala antes con check_availability). Si tiene varias, indica el servicio.",
+        input_schema: {
+          type: "object",
+          properties: {
+            start: { type: "string", description: "Nueva fecha y hora, AAAA-MM-DDTHH:mm" },
+            service: { type: "string", enum: c.bookingServices, description: "Servicio de la cita a mover (si tiene varias)" },
+          },
+          required: ["start"],
+        },
+      };
+
+    case "cancel_appointment":
+      if (!c.bookingServices.length) return null;
+      return {
+        name,
+        description:
+          "Cancela la próxima cita del contacto cuando él lo pida claramente. Si tiene varias, indica el servicio. Antes de cancelar, ofrece moverla a otra hora.",
+        input_schema: {
+          type: "object",
+          properties: {
+            reason: { type: "string", description: "Motivo que dio el cliente" },
+            service: { type: "string", enum: c.bookingServices, description: "Servicio de la cita a cancelar (si tiene varias)" },
+          },
+          required: ["reason"],
+        },
+      };
+
     case "assign_to_seller":
       if (!c.sellers.length) return null;
       return {
@@ -281,6 +387,16 @@ export function availableTools(c: ToolContext = EMPTY_TOOL_CONTEXT): AgentToolIn
     isAction: false,
     unavailableReason: null,
   }));
+  const dynamicRead: AgentToolInfo[] = DYNAMIC_READ_TOOL_NAMES.map((name) => {
+    const built = readTool(name, c);
+    return {
+      name,
+      label: READ_LABELS[name] ?? name,
+      description: built?.description ?? READ_LABELS[name] ?? name,
+      isAction: false,
+      unavailableReason: built ? null : NO_BOOKING_SERVICES,
+    };
+  });
 
   const actions: AgentToolInfo[] = ACTION_TOOL_NAMES.map((name) => {
     const meta = ACTION_META[name];
@@ -295,7 +411,7 @@ export function availableTools(c: ToolContext = EMPTY_TOOL_CONTEXT): AgentToolIn
     };
   });
 
-  return [...read, ...actions];
+  return [...read, ...dynamicRead, ...actions];
 }
 
 const READ_LABELS: Record<string, string> = {
@@ -303,6 +419,7 @@ const READ_LABELS: Record<string, string> = {
   search_knowledge: "Buscar en la base de conocimiento",
   search_products: "Consultar el catálogo de productos",
   handoff_to_human: "Pasar la conversación a un humano",
+  check_availability: "Consultar horas libres de la agenda",
 };
 
 // Herramientas que se le pasan al modelo en una llamada concreta.
@@ -316,6 +433,11 @@ export function resolveTools(
   for (const name of enabled) {
     if (isActionTool(name)) {
       const built = actionTool(name, context);
+      if (built) out.push(built);
+      continue;
+    }
+    if (isDynamicReadTool(name)) {
+      const built = readTool(name, context);
       if (built) out.push(built);
       continue;
     }
