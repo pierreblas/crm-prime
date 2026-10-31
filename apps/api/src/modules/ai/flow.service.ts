@@ -1,4 +1,4 @@
-import { flowTriggerConfigSchema, type FlowTriggerConfig } from "@crm/shared";
+import { flowTriggerConfigSchema, flowTriggerSchema, type FlowTrigger, type FlowTriggerConfig } from "@crm/shared";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import type {
@@ -8,7 +8,6 @@ import type {
   FlowEdge,
   FlowNode,
   FlowSummary,
-  FlowTriggerType,
   UpdateFlowInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -52,7 +51,7 @@ export class FlowService {
         id: f.id,
         name: f.name,
         isActive: f.isActive,
-        triggerType: f.triggerType as FlowTriggerType,
+        triggerTypes: parseTriggers(f.triggers).map((t) => t.type),
         channel: f.channel
           ? {
               id: f.channel.id,
@@ -89,9 +88,7 @@ export class FlowService {
         name: input.name,
         isActive: input.isActive,
         channelId: input.channelId,
-        triggerType: input.triggerType,
-        triggerKeywords: input.triggerKeywords,
-        triggerConfig: input.triggerConfig as unknown as Prisma.InputJsonValue,
+        ...triggerColumns(input.triggers),
         nodes: input.nodes as unknown as Prisma.InputJsonValue,
         edges: input.edges as unknown as Prisma.InputJsonValue,
       },
@@ -109,15 +106,7 @@ export class FlowService {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
         ...(input.channelId !== undefined ? { channelId: input.channelId } : {}),
-        ...(input.triggerType !== undefined
-          ? { triggerType: input.triggerType }
-          : {}),
-        ...(input.triggerKeywords !== undefined
-          ? { triggerKeywords: input.triggerKeywords }
-          : {}),
-        ...(input.triggerConfig !== undefined
-          ? { triggerConfig: input.triggerConfig as unknown as Prisma.InputJsonValue }
-          : {}),
+        ...(input.triggers !== undefined ? triggerColumns(input.triggers) : {}),
         ...(input.nodes !== undefined
           ? { nodes: input.nodes as unknown as Prisma.InputJsonValue }
           : {}),
@@ -142,9 +131,7 @@ export class FlowService {
     name: string;
     isActive: boolean;
     channelId: string | null;
-    triggerType: string;
-    triggerKeywords: string[];
-    triggerConfig?: unknown;
+    triggers: unknown;
     nodes: unknown;
     edges: unknown;
     createdAt: Date;
@@ -167,9 +154,7 @@ export class FlowService {
             displayPhoneNumber: f.channel.displayPhoneNumber,
           }
         : null,
-      triggerType: f.triggerType as FlowTriggerType,
-      triggerKeywords: f.triggerKeywords,
-      triggerConfig: parseTriggerConfig(f.triggerConfig),
+      triggers: parseTriggers(f.triggers),
       nodes: (f.nodes as FlowNode[] | null) ?? [],
       edges: (f.edges as FlowEdge[] | null) ?? [],
       createdAt: f.createdAt.toISOString(),
@@ -178,8 +163,32 @@ export class FlowService {
   }
 }
 
+/**
+ * La lista de disparadores y, en las columnas antiguas, el primero (o
+ * «manual» si no hay ninguno): así una versión anterior de la API seguiría
+ * entendiendo el flujo.
+ */
+function triggerColumns(triggers: FlowTrigger[]) {
+  const first = triggers[0];
+  return {
+    triggers: triggers as unknown as Prisma.InputJsonValue,
+    triggerType: first?.type ?? "manual",
+    triggerKeywords: first?.keywords ?? [],
+    triggerConfig: (first?.config ?? {}) as unknown as Prisma.InputJsonValue,
+  };
+}
+
 /** Lo guardado puede venir de antes de que existieran filtros: siempre completo. */
 export function parseTriggerConfig(raw: unknown): FlowTriggerConfig {
   const r = flowTriggerConfigSchema.safeParse(raw ?? {});
   return r.success ? r.data : flowTriggerConfigSchema.parse({});
+}
+
+/** Los disparadores guardados, completos; uno que no se entienda se descarta. */
+export function parseTriggers(raw: unknown): FlowTrigger[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((t) => {
+    const r = flowTriggerSchema.safeParse(t);
+    return r.success ? [r.data] : [];
+  });
 }

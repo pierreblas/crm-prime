@@ -588,3 +588,100 @@ test("la agenda reserva con el rol restringido, la base impide dos citas a la ve
   );
   assert.ok(emitted.includes("booking.created") && emitted.includes("booking.cancelled") && emitted.includes("booking.rescheduled"));
 });
+
+test("un flujo con varios disparadores arranca por cualquiera, respeta sus filtros y avisa en el chat si se detiene", async () => {
+  const { FlowEngineService } = await import("../src/modules/ai/flow-engine.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_fl_${suf}`;
+  await ctx.runUnscoped("prueba: empresa de flujos", () =>
+    prisma.organization.create({ data: { id: orgId, slug: `fl-${suf}`, name: "Flujos" } }),
+  );
+  const sent: string[] = [];
+  const notes: string[] = [];
+  const queued: { name: string; data: any; opts: any }[] = [];
+  const messaging = {
+    queueOutbound: async (input: { text?: string }) => {
+      if (input.text === "boom") throw new Error("La ventana de 24 h está cerrada");
+      sent.push(input.text ?? "");
+    },
+    addNote: async (_c: string, _a: string, body: string) => void notes.push(body),
+  };
+  const engine = new FlowEngineService(
+    prisma,
+    { orgId: () => orgId } as any,
+    messaging as any,
+    {} as any,
+    { add: async (name: string, data: any, opts: any) => void queued.push({ name, data, opts }) } as any,
+    { emit: () => true } as any,
+  );
+  const graph = (text: string) => ({
+    nodes: [
+      { id: "start", type: "start", position: { x: 0, y: 0 }, data: {} },
+      { id: "n1", type: "sendMessage", position: { x: 0, y: 100 }, data: { text } },
+    ],
+    edges: [{ id: "e1", source: "start", target: "n1" }],
+  });
+
+  await ctx.runInOrg(orgId, async () => {
+    await prisma.user.create({ data: { orgId, email: `admin-${suf}@prueba.test`, passwordHash: "x", name: "Admin", role: "ADMIN" } });
+    const contact = await prisma.contact.create({ data: { orgId, phone: `+51992${suf}`, name: "Cliente Flujo" } });
+    const conv = await prisma.conversation.create({ data: { orgId, contactId: contact.id, status: "OPEN" } });
+    const inbound = (content: string) =>
+      prisma.message.create({ data: { orgId, conversationId: conv.id, direction: "INBOUND", type: "TEXT", author: "CONTACT", content } });
+    const triggers = [
+      { id: "t1", type: "keyword", keywords: ["promo"], config: {} },
+      { id: "t2", type: "tag_added", keywords: [], config: { tags: ["VIP"] } },
+      { id: "t3", type: "no_reply", keywords: [], config: { hours: 2 } },
+    ];
+    const flow = await prisma.flow.create({
+      data: { orgId, name: "Promo", isActive: true, triggerKeywords: [], triggers, ...graph("Hola, te cuento la promo") },
+    });
+    // Sin disparadores: solo desde el embudo; nunca arranca solo.
+    await prisma.flow.create({
+      data: { orgId, name: "Manual", isActive: true, triggerKeywords: [], triggers: [], ...graph("no debería salir") },
+    });
+    await prisma.flow.create({
+      data: { orgId, name: "Roto", isActive: true, triggerKeywords: [], triggers: [{ id: "x", type: "keyword", keywords: ["falla"], config: {} }], ...graph("boom") },
+    });
+
+    // 1 · Por palabra clave.
+    await inbound("quiero la PROMO de hoy");
+    assert.equal(await engine.onInbound(conv.id), true);
+    assert.deepEqual(sent, ["Hola, te cuento la promo"]);
+
+    // 2 · Por etiqueta: solo con la del filtro (sin importar mayúsculas).
+    await engine.onTagAdded(contact.id, "otra");
+    assert.equal(sent.length, 1, "otra etiqueta no lo dispara");
+    await engine.onTagAdded(contact.id, "vip");
+    assert.equal(sent.length, 2);
+
+    // 3 · Sin respuesta: se programa con sus horas y recuerda el flujo.
+    await engine.onOutbound(conv.id, "m_out_1", "HUMAN");
+    assert.equal(queued[0]?.name, "no_reply");
+    assert.equal(queued[0]?.opts.delay, 2 * 3600_000);
+    assert.equal(queued[0]?.data.flowId, flow.id);
+
+    // 4 · Un mensaje cualquiera no arranca nada (ni el flujo sin disparadores).
+    await inbound("gracias");
+    assert.equal(await engine.onInbound(conv.id), false);
+
+    // 5 · Un bloque que falla: el flujo se detiene y lo dice en el chat.
+    await inbound("esto falla");
+    assert.equal(await engine.onInbound(conv.id), true);
+    assert.equal(notes.length, 1);
+    assert.match(notes[0]!, /Flujo «Roto»: se detuvo: La ventana de 24 h está cerrada/);
+    const session = await prisma.flowSession.findUnique({ where: { conversationId: conv.id } });
+    assert.equal(session.status, "stopped");
+    assert.ok(!sent.includes("no debería salir"));
+  }).finally(() =>
+    ctx.runUnscoped("prueba: limpiar la empresa de flujos", async () => {
+      await prisma.flowSession.deleteMany({ where: { flow: { orgId } } });
+      await prisma.flow.deleteMany({ where: { orgId } });
+      await prisma.message.deleteMany({ where: { orgId } });
+      await prisma.conversation.deleteMany({ where: { orgId } });
+      await prisma.contact.deleteMany({ where: { orgId } });
+      await prisma.user.deleteMany({ where: { orgId } });
+      await prisma.organization.delete({ where: { id: orgId } });
+    }),
+  );
+});

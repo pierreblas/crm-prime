@@ -33,6 +33,8 @@ Cada difusión muestra su estado (borrador, programada, enviando, enviada, cance
 - **Destinatarios**: cada contacto con su estado, el motivo si falló y un acceso directo a su chat. Puedes filtrar por respondieron, leídos, sin entregar o fallidos, y exportar la lista a CSV.
 - **Etiquetar a quienes respondieron**: les pone una etiqueta para seguir con ellos (un flujo, una etapa o la próxima difusión).
 - **Reintentar los fallidos**: vuelve a enviar solo a quien sigue con consentimiento. Revisa antes el motivo: un número sin WhatsApp volverá a fallar.
+
+**Por qué falla un envío.** El motivo sale debajo de cada destinatario, explicado y con el código de Meta entre paréntesis. Los más comunes: *método de pago* de la cuenta de WhatsApp Business sin configurar (Meta #131042, se arregla en Meta Business Suite › Configuración de pagos de WhatsApp); *la cantidad de variables no coincide* con la plantilla (#132000: sincroniza las plantillas y vuelve a crear la difusión); *la plantilla no existe en ese idioma* (#132001); el número *no usa WhatsApp* (#131026), o Meta no lo entregó para *no saturar al cliente de marketing* (#131049). Las plantillas creadas en Meta con variables con nombre (`{{nombre}}` en vez de `{{1}}`) se rellenan igual que las demás. Si un contacto no tiene nombre y la plantilla lo usa, va «cliente»: una variable vacía haría fallar el envío.
 - **Duplicar**: crea un borrador con la misma plantilla, variables y audiencia.
 
 Las métricas se calculan a partir del último estado de cada mensaje, así que no se inflan si WhatsApp avisa dos veces o fuera de orden.

@@ -4,26 +4,28 @@ Un flujo es una automatización paso a paso: «cuando pase esto, envía esto, pr
 
 ## Disparadores
 
-Un flujo arranca cuando pasa una de estas cosas. Se elige arriba, en el editor, junto a su filtro.
+Un flujo puede tener **varios disparadores** (hasta 10) y arranca con el primero que ocurra: por ejemplo, «Por palabra clave: promo», «Se le pone la etiqueta VIP» y «Llega desde un anuncio» en el mismo flujo. Se configuran en el bloque **Inicio**: púlsalo y, en el panel, **Añadir disparador**; cada uno lleva su filtro. El bloque Inicio los muestra en el lienzo, y la barra superior dice cuántos tiene.
 
 | Disparador | Cuándo | Filtro |
 |---|---|---|
-| **Al iniciar un chat** | Un contacto escribe por primera vez o abre una conversación nueva. | — |
+| **Al iniciar un chat** | Empieza una conversación nueva: el primer mensaje de un contacto, o el primero después de cerrar su chat anterior. No se dispara con cada mensaje de un chat abierto: para eso, «Por palabra clave». | — |
 | **Por palabra clave** | Un mensaje del contacto contiene alguna de las palabras. | Palabras separadas por comas. |
 | **Llega desde un anuncio** | La conversación nace de un anuncio Click to WhatsApp de Meta. Tiene prioridad sobre «Al iniciar un chat». | — |
 | **Nuevo lead de Meta Ads (formulario)** | Entra un lead de un formulario de Meta Lead Ads ([Meta Ads](/docs/meta-ads)). | Nombres de formulario; vacío = todos. |
 | **Nuevo lead por API o formulario web** | Entra un lead por el [webhook de leads](/docs/webhooks) o la API (tu web, n8n, Zapier). | — |
 | **Se le pone una etiqueta** | Alguien, la IA u otro flujo etiqueta al contacto. | Etiquetas; vacío = cualquiera. |
-| **Cambia de etapa en el embudo** | Su oportunidad se mueve a una etapa, a mano, por la IA o por otro flujo. | Una etapa; vacío = cualquiera. |
+| **Cambia de etapa en el embudo** | Su oportunidad se mueve a una etapa, a mano, por la IA o por otro flujo. | Etapas; vacío = cualquiera. |
 | **Se cierra la conversación** | Tu equipo cierra la conversación. Útil para una encuesta o una despedida. | — |
 | **El cliente no responde** | Pasan X horas sin que el cliente conteste a tu último mensaje (de una persona, de la IA o de un flujo). Se dispara una vez por silencio: no se repite hasta que el cliente vuelva a escribir. | Horas (1 a 720). |
 | **Llamada perdida** | Alguien llama al número de la empresa ([Twilio](/docs/llamadas)) y nadie contesta. Como el cliente quizá no te ha escrito, usa «Enviar plantilla». | — |
-| **Solo desde una etapa del embudo** | No arranca solo: lo ejecutan las [automatizaciones de una etapa](/docs/embudos) (al entrar, al escribir el cliente, por webhook o tras un silencio). | — |
 
-Dos cosas a tener en cuenta:
+Un flujo **sin disparadores** no arranca solo: lo ejecutan las [automatizaciones de una etapa](/docs/embudos) (al entrar, al escribir el cliente, por webhook o tras un silencio) o el bloque «Ir a otro flujo».
+
+Tres cosas a tener en cuenta:
 
 - **Los leads de formularios nunca te han escrito.** WhatsApp solo permite escribirles con una plantilla aprobada: en esos flujos usa el bloque **Enviar plantilla** (o etiqueta, mueve el embudo y avisa por HTTP, que no necesitan ventana abierta). Lo mismo si el cliente lleva más de 24 h callado.
 - Si en esa conversación ya hay un flujo a medias (esperando una respuesta o un «Esperar»), el nuevo no lo interrumpe: se registra en el log y no arranca.
+- **Si un flujo se detiene por un error** (un mensaje normal a alguien que lleva más de 24 h sin escribir, una plantilla que Meta rechaza), queda una **nota interna en el chat** con el motivo, para saber por qué no siguió.
 
 Cada flujo puede aplicar a **un número** o a todos, y hay que marcarlo **Activo** para que corra. Un flujo con avisos no se puede activar hasta corregirlos.
 
@@ -33,7 +35,7 @@ Cada flujo puede aplicar a **un número** o a todos, y hay que marcarlo **Activo
 |---|---|
 | **Enviar mensaje** | Un texto al contacto, con una imagen o archivo opcional (el texto va de pie). Admite variables: `{{nombre_variable}}`. |
 | **Botones** | Un mensaje con hasta 3 botones de respuesta (20 caracteres cada uno). Cada botón es una salida; *otra respuesta* recoge lo que no sea un botón (si el contacto escribe el texto del botón o su número, cuenta como pulsado). Fuera de la ventana de 24 h va como texto con opciones numeradas. |
-| **Enviar plantilla** | Una plantilla aprobada por Meta. Es la única forma de escribirle a quien no te ha escrito o lleva más de 24 h sin hacerlo. Si tiene `{{1}}`, va el nombre del contacto. |
+| **Enviar plantilla** | Una plantilla aprobada por Meta. Es la única forma de escribirle a quien no te ha escrito o lleva más de 24 h sin hacerlo. En el panel eliges el valor de cada variable (`{{1}}` o `{{nombre}}`): el nombre o el teléfono del contacto, o un texto, que puede llevar variables del flujo. Sin tocarla, la primera es el nombre del contacto. |
 | **Preguntar y guardar** | Envía una pregunta, espera la respuesta y la guarda en una variable. Puede exigir que sea un teléfono, un correo, un número o un patrón; si no lo es, repite la pregunta hasta N intentos y luego sigue por la salida *si no es válida*. |
 | **Condición** | Ramifica por reglas. Cada rama es una salida con una o varias condiciones (todas o alguna) sobre: el **mensaje** del cliente (contiene, es igual, empieza por, regex, vacío…), una **variable**, el **contacto** (nombre, teléfono, campos personalizados, etiqueta, fuente), la **conversación** (estado, asignada a, modo de IA, número de WhatsApp, si es su primer mensaje, cuántos mensajes lleva) o la **etapa** de su oportunidad. *En otro caso* es la salida por defecto. Gana la primera rama que se cumple, en orden. |
 | **Acción** | Pasar al agente de IA, pasar a humano, poner o quitar una etiqueta, mover en el embudo o crear una oportunidad en una etapa (si ya tiene una abierta en ese embudo, no se duplica). |

@@ -1205,6 +1205,9 @@ model Flow {
   triggerType     String   @default("conversation_start") // ver flowTriggerTypes en @crm/shared
   triggerKeywords String[] // si triggerType = keyword
   triggerConfig   Json     @default("{}") // filtros del disparador (etiquetas, etapas, formularios, horas)
+  // Disparadores del flujo: [{ id, type, keywords, config }] (ver flowTriggerSchema en @crm/shared).
+  // Las tres columnas de arriba guardan el primero, por compatibilidad.
+  triggers        Json     @default("[]")
   nodes           Json     @default("[]") // [{ id, type, position, data }]
   edges           Json     @default("[]") // [{ id, source, target, sourceHandle? }]
   createdAt       DateTime @default(now())

@@ -79,7 +79,7 @@ export class InboundProcessor extends WorkerHost {
     const data = job.data;
 
     if (data.kind === "status") {
-      await this.messaging.handleStatus(data.waMessageId, data.status);
+      await this.messaging.handleStatus(data.waMessageId, data.status, data.errorReason);
       return;
     }
 

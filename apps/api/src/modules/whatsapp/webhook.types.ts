@@ -1,4 +1,4 @@
-import { MessageStatus, MessageType, normalizePhone } from "@crm/shared";
+import { explainWhatsappError, MessageStatus, MessageType, normalizePhone } from "@crm/shared";
 
 // ── Payloads de los jobs de la cola inbound ──────────────────
 export interface InboundMessageJob {
@@ -26,6 +26,8 @@ export interface InboundStatusJob {
   waMessageId: string;
   status: MessageStatus;
   channelPhoneNumberId?: string;
+  /** Motivo del fallo, ya explicado (solo en «failed»). */
+  errorReason?: string;
 }
 
 // Coexistencia: mensaje que el negocio envió DESDE la app de WhatsApp del
@@ -164,6 +166,8 @@ interface MetaMessage {
 interface MetaStatus {
   id: string;
   status: string;
+  /** Solo en «failed»: por qué no se entregó. */
+  errors?: { code?: number; title?: string; message?: string; error_data?: { details?: string } }[];
 }
 // Echo de coexistencia: el negocio envió desde la app del celular.
 interface MetaMessageEcho {
@@ -308,12 +312,16 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
 
       for (const s of value.statuses ?? []) {
         const status = STATUS_MAP[s.status];
+        const err = s.errors?.[0];
         if (status)
           jobs.push({
             kind: "status",
             waMessageId: s.id,
             status,
             channelPhoneNumberId,
+            ...(err
+              ? { errorReason: explainWhatsappError({ code: err.code, message: err.title ?? err.message, details: err.error_data?.details }) }
+              : {}),
           });
       }
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { businessHoursSchema } from "./agent-config.schema.js";
 import { flowRuleSchema } from "./condition.schema.js";
+import { variableValueSchema } from "./template.schema.js";
 
 // Tipos de nodo del constructor visual.
 export const flowNodeTypes = [
@@ -93,6 +94,9 @@ export const flowNodeDataSchema = z.object({
   // sendTemplate: plantilla aprobada por Meta (abre la ventana de 24 h)
   templateId: z.string().optional(),
   templateName: z.string().optional(), // solo para mostrar en el lienzo
+  // Valor de cada variable de la plantilla ({{1}} o {{nombre}}), por orden.
+  // Un texto fijo admite {{variables}} del flujo.
+  templateVars: z.array(variableValueSchema).max(20).optional(),
   // assign: asignar a un agente
   agentId: z.string().nullable().optional(),
   agentName: z.string().optional(), // solo para mostrar en el lienzo
@@ -187,6 +191,27 @@ export const flowTriggerConfigSchema = z.object({
 export type FlowTriggerConfig = z.infer<typeof flowTriggerConfigSchema>;
 export const EMPTY_TRIGGER_CONFIG: FlowTriggerConfig = { tags: [], stageIds: [], forms: [], hours: 24 };
 
+/**
+ * Un disparador del flujo. Un flujo puede tener varios (por palabra clave,
+ * al ponerle una etiqueta, desde un anuncio…): arranca con el primero que
+ * ocurra. Sin ninguno, solo lo ejecutan las automatizaciones de una etapa o
+ * el bloque «Ir a otro flujo».
+ */
+export const flowTriggerSchema = z.object({
+  id: z.string().min(1).max(40),
+  // «manual» no es un disparador: un flujo sin ninguno ya es «solo desde el embudo».
+  type: z.enum(flowTriggerTypes).exclude(["manual"]),
+  /** keyword: palabras que lo disparan. */
+  keywords: z.array(z.string().trim().min(1).max(60)).max(30).default([]),
+  config: flowTriggerConfigSchema.default(EMPTY_TRIGGER_CONFIG),
+});
+export type FlowTrigger = z.infer<typeof flowTriggerSchema>;
+export const MAX_FLOW_TRIGGERS = 10;
+const flowTriggersSchema = z
+  .array(flowTriggerSchema)
+  .max(MAX_FLOW_TRIGGERS, `Como mucho ${MAX_FLOW_TRIGGERS} disparadores por flujo`)
+  .refine((ts) => new Set(ts.map((t) => t.id)).size === ts.length, "Dos disparadores con el mismo id");
+
 // Referencia ligera a un canal (para el selector de disparador).
 export const flowChannelRefSchema = z.object({
   id: z.string(),
@@ -217,9 +242,7 @@ export const flowSchema = z.object({
   isActive: z.boolean(),
   channelId: z.string().nullable(),
   channel: flowChannelRefSchema.nullable(),
-  triggerType: z.enum(flowTriggerTypes),
-  triggerKeywords: z.array(z.string()),
-  triggerConfig: flowTriggerConfigSchema,
+  triggers: z.array(flowTriggerSchema),
   nodes: z.array(flowNodeSchema),
   edges: z.array(flowEdgeSchema),
   createdAt: z.string(),
@@ -232,7 +255,8 @@ export const flowSummarySchema = z.object({
   id: z.string(),
   name: z.string(),
   isActive: z.boolean(),
-  triggerType: z.enum(flowTriggerTypes),
+  /** Tipos de sus disparadores, en orden (vacío = solo desde el embudo). */
+  triggerTypes: z.array(z.enum(flowTriggerTypes)),
   channel: flowChannelRefSchema.nullable(),
   nodeCount: z.number(),
   updatedAt: z.string(),
@@ -252,9 +276,7 @@ const flowFields = {
   name: z.string().min(1).max(120),
   isActive: z.boolean(),
   channelId: z.string().nullable(),
-  triggerType: z.enum(flowTriggerTypes),
-  triggerKeywords: z.array(z.string()),
-  triggerConfig: flowTriggerConfigSchema,
+  triggers: flowTriggersSchema,
   nodes: z.array(flowNodeSchema),
   edges: z.array(flowEdgeSchema),
 };
@@ -263,9 +285,7 @@ export const createFlowSchema = z.object({
   name: flowFields.name,
   isActive: flowFields.isActive.default(false),
   channelId: flowFields.channelId.default(null),
-  triggerType: flowFields.triggerType.default("conversation_start"),
-  triggerKeywords: flowFields.triggerKeywords.default([]),
-  triggerConfig: flowFields.triggerConfig.default(EMPTY_TRIGGER_CONFIG),
+  triggers: flowFields.triggers.default([]),
   nodes: flowFields.nodes.default([]),
   edges: flowFields.edges.default([]),
 });
@@ -275,9 +295,7 @@ export const updateFlowSchema = z.object({
   name: flowFields.name.optional(),
   isActive: flowFields.isActive.optional(),
   channelId: flowFields.channelId.optional(),
-  triggerType: flowFields.triggerType.optional(),
-  triggerKeywords: flowFields.triggerKeywords.optional(),
-  triggerConfig: flowFields.triggerConfig.optional(),
+  triggers: flowFields.triggers.optional(),
   nodes: flowFields.nodes.optional(),
   edges: flowFields.edges.optional(),
 });

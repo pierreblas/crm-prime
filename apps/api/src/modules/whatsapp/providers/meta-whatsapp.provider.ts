@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import { explainWhatsappError, parseGraphError } from "@crm/shared";
 import type {
   DownloadedMedia,
   InteractiveButton,
@@ -291,7 +292,10 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
           "Token caducado o inválido. Vuelve a conectar el número.",
         );
       }
-      throw new Error(`Meta send failed ${res.status}`);
+      // Lo que se guarda en el mensaje y ve quien envía: qué pasó y qué hacer,
+      // con el código de Meta para buscarlo.
+      const info = parseGraphError(err);
+      throw new Error(info ? explainWhatsappError(info) : `Meta rechazó el envío (HTTP ${res.status})`);
     }
     const data = (await res.json()) as { messages?: { id: string }[] };
     return { waMessageId: data.messages?.[0]?.id ?? "" };
@@ -331,7 +335,13 @@ export function buildTemplateComponents(
   if (header?.format === "TEXT" && spec.headerTextParam) {
     components.push({
       type: "header",
-      parameters: [{ type: "text", text: spec.headerTextParam }],
+      parameters: [
+        {
+          type: "text",
+          text: spec.headerTextParam,
+          ...(spec.headerParamName ? { parameter_name: spec.headerParamName } : {}),
+        },
+      ],
     });
   } else if (
     header &&
@@ -361,7 +371,12 @@ export function buildTemplateComponents(
   if (spec.bodyParams.length) {
     components.push({
       type: "body",
-      parameters: spec.bodyParams.map((text) => ({ type: "text", text })),
+      // Plantilla con variables con nombre: cada valor lleva el suyo.
+      parameters: spec.bodyParams.map((text, i) => ({
+        type: "text",
+        text,
+        ...(spec.bodyParamNames?.[i] ? { parameter_name: spec.bodyParamNames[i] } : {}),
+      })),
     });
   }
 

@@ -31,20 +31,16 @@ import {
   type FlowNodeData,
   type FlowNodeType,
   type FlowSummary,
+  type FlowTrigger,
+  templateVarCount,
 } from "@crm/shared";
 import { createFlow, fetchFlow, updateFlow } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
 import { nodeTypes } from "./FlowNodes";
-import {
-  TRIGGER_BY_TYPE,
-  TRIGGER_META,
-  outputsOf,
-  PALETTE_GROUPS,
-} from "./flowShared";
+import { outputsOf, PALETTE_GROUPS } from "./flowShared";
 import { fetchCustomFields, fetchSources, fetchTags, fetchTemplates } from "@/lib/bff";
-import { EMPTY_TRIGGER_CONFIG, type FlowTriggerConfig } from "@crm/shared";
 import { edgeTypes } from "./FlowEdges";
 import { NodeInspector } from "./NodeInspector";
 import { FlowAssistant } from "./FlowAssistant";
@@ -101,9 +97,8 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [name, setName] = useState("Nuevo flujo");
   const [isActive, setIsActive] = useState(false);
-  const [triggerType, setTriggerType] = useState<string>("conversation_start");
-  const [triggerKeywords, setTriggerKeywords] = useState("");
-  const [triggerConfig, setTriggerConfig] = useState<FlowTriggerConfig>(EMPTY_TRIGGER_CONFIG);
+  // Cuándo arranca: la lista vive en el bloque «Inicio».
+  const [triggers, setTriggersState] = useState<FlowTrigger[]>([]);
   const [channelId, setChannelId] = useState<string | null>(null);
   // Para los selectores del disparador y del bloque «Enviar plantilla».
   const { data: tagList = [] } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
@@ -111,11 +106,11 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
   const { data: customFields = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
   const { data: sourceList = [] } = useQuery({ queryKey: ["sources"], queryFn: fetchSources });
   const approvedTemplates = templateList.filter((t) => t.status === "APPROVED");
-  const trigger = TRIGGER_BY_TYPE[triggerType];
-  const setConfig = (p: Partial<FlowTriggerConfig>) => {
-    setTriggerConfig((c) => ({ ...c, ...p }));
+  const setTriggers = (next: FlowTrigger[]) => {
+    setTriggersState(next);
     markDirty();
   };
+  const stageName = useCallback((id: string) => stages.find((x) => x.id === id)?.name ?? "etapa eliminada", [stages]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [addMenu, setAddMenu] = useState<AddRequest | null>(null);
@@ -135,14 +130,14 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
   useEffect(() => {
     if (initialized.current) return;
     if (isNew) {
-      setNodes([{ id: "start", type: "start", position: { x: 0, y: 0 }, data: {} }]);
+      // Un flujo nuevo abre con «Inicio» elegido: lo primero es decir cuándo arranca.
+      setNodes([{ id: "start", type: "start", position: { x: 0, y: 0 }, data: {}, selected: true }]);
+      setSelectedId("start");
       initialized.current = true;
     } else if (loaded) {
       setName(loaded.name);
       setIsActive(loaded.isActive);
-      setTriggerType(loaded.triggerType);
-      setTriggerKeywords(loaded.triggerKeywords.join(", "));
-      setTriggerConfig({ ...EMPTY_TRIGGER_CONFIG, ...(loaded.triggerConfig ?? {}) });
+      setTriggersState(loaded.triggers);
       setChannelId(loaded.channelId);
       setNodes(loaded.nodes as unknown as Node[]);
       setEdges((loaded.edges as unknown as Edge[]).map((e) => ({ ...e, ...EDGE_DEFAULTS })));
@@ -408,7 +403,29 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
 
   // ── Derivados ──────────────────────────────────────────────────
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId]);
-  const issues = useMemo(() => computeIssues(nodes, edges), [nodes, edges]);
+  const issues = useMemo(() => {
+    const found = computeIssues(nodes, edges);
+    const add = (id: string, msg: string) => found.set(id, [...(found.get(id) ?? []), msg]);
+    for (const t of triggers) {
+      if (t.type === "keyword" && t.keywords.length === 0) add("start", "Un disparador «Por palabra clave» no tiene palabras");
+    }
+    // «Enviar plantilla»: cada variable, con valor (la primera, si no se toca, es el nombre).
+    for (const n of nodes) {
+      if (n.type !== "sendTemplate") continue;
+      const d = n.data as FlowNodeData;
+      const t = approvedTemplates.find((x) => x.id === d.templateId);
+      if (!t) continue;
+      const count = Math.max(t.variables.length, templateVarCount(t.body));
+      for (let i = 2; i <= count; i++) {
+        const v = d.templateVars?.find((x) => x.index === i);
+        if (!v || (v.source === "static" && !v.value?.trim())) {
+          const name = t.variables.find((x) => x.index === i)?.name ?? String(i);
+          add(n.id, `Falta el valor de {{${name}}} de la plantilla`);
+        }
+      }
+    }
+    return found;
+  }, [nodes, edges, triggers, approvedTemplates]);
   const issueList = useMemo(
     () => [...issues.entries()].flatMap(([id, msgs]) => msgs.map((m) => ({ id, m }))),
     [issues],
@@ -456,8 +473,10 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
       deleteNode,
       issuesFor: (id) => issues.get(id) ?? [],
       patchNode,
+      triggers,
+      stageName,
     };
-  }, [edges, removeEdge, duplicateNode, deleteNode, issues, patchNode]);
+  }, [edges, removeEdge, duplicateNode, deleteNode, issues, patchNode, triggers, stageName]);
 
   // ── Guardar / volver ───────────────────────────────────────────
   const save = useMutation({
@@ -466,9 +485,7 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
         name,
         isActive,
         channelId,
-        triggerType: triggerType as CreateFlowInput["triggerType"],
-        triggerKeywords: triggerKeywords.split(",").map((k) => k.trim()).filter(Boolean),
-        triggerConfig,
+        triggers,
         nodes: graph.nodes,
         edges: graph.edges,
       };
@@ -528,78 +545,15 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
           title="Nombre del flujo"
           onChange={(e) => { setName(e.target.value); markDirty(); }}
         />
-        <select
-          style={{ ...input, width: 210 }}
-          value={triggerType}
-          title={trigger ? `Cuándo arranca: ${trigger.hint}` : "Disparador: cuándo arranca el flujo"}
-          onChange={(e) => { setTriggerType(e.target.value); markDirty(); }}
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          title="Cuándo arranca el flujo: se configura en el bloque «Inicio»"
+          onClick={() => focusNode("start")}
         >
-          {TRIGGER_META.map((t) => (
-            <option key={t.type} value={t.type}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-        {trigger?.needs === "keywords" && (
-          <input
-            style={{ ...input, width: 160 }}
-            value={triggerKeywords}
-            placeholder="hola, info, precio"
-            title="Palabras clave que disparan el flujo (separadas por comas)"
-            onChange={(e) => { setTriggerKeywords(e.target.value); markDirty(); }}
-          />
-        )}
-        {trigger?.needs === "tags" && (
-          <>
-            <input
-              style={{ ...input, width: 180 }}
-              list="flow-trigger-tags"
-              value={triggerConfig.tags.join(", ")}
-              placeholder="cualquier etiqueta"
-              title="Solo con estas etiquetas (separadas por comas). Vacío = cualquiera"
-              onChange={(e) => setConfig({ tags: e.target.value.split(",").map((t) => t.trim()).filter(Boolean) })}
-            />
-            <datalist id="flow-trigger-tags">
-              {tagList.map((t) => <option key={t.id} value={t.name} />)}
-            </datalist>
-          </>
-        )}
-        {trigger?.needs === "stages" && (
-          <select
-            style={{ ...input, width: 170 }}
-            value={triggerConfig.stageIds[0] ?? ""}
-            title="Solo al entrar en esta etapa. Vacío = cualquier etapa"
-            onChange={(e) => setConfig({ stageIds: e.target.value ? [e.target.value] : [] })}
-          >
-            <option value="">Cualquier etapa</option>
-            {stages.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        )}
-        {trigger?.needs === "forms" && (
-          <input
-            style={{ ...input, width: 180 }}
-            value={triggerConfig.forms.join(", ")}
-            placeholder="cualquier formulario"
-            title="Solo estos formularios de Meta, por nombre (separados por comas). Vacío = cualquiera"
-            onChange={(e) => setConfig({ forms: e.target.value.split(",").map((t) => t.trim()).filter(Boolean) })}
-          />
-        )}
-        {trigger?.needs === "hours" && (
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--muted)" }} title="Horas sin respuesta del cliente desde tu último mensaje">
-            tras
-            <input
-              type="number"
-              min={1}
-              max={720}
-              style={{ ...input, width: 64 }}
-              value={triggerConfig.hours}
-              onChange={(e) => setConfig({ hours: Math.max(1, Math.min(720, Number(e.target.value) || 24)) })}
-            />
-            h sin responder
-          </label>
-        )}
+          <NavIcon name="play" size={13} />
+          {triggers.length === 0 ? "Sin disparadores" : triggers.length === 1 ? "1 disparador" : `${triggers.length} disparadores`}
+        </button>
         <select
           style={{ ...input, width: 150 }}
           value={channelId ?? ""}
@@ -806,6 +760,8 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
               onChange={updateNodeData}
               onDelete={() => deleteNode(selectedNode.id)}
               onDuplicate={() => duplicateNode(selectedNode.id)}
+              triggers={triggers}
+              onTriggersChange={setTriggers}
             />
           </aside>
         )}

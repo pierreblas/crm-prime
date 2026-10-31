@@ -254,7 +254,7 @@ export function CampaignWizard({ onDone, preset }: { onDone: () => void; preset?
                 const val = varValues[v.index];
                 return (
                   <div key={v.index} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <code style={{ width: 44, color: "var(--accent)" }}>{`{{${v.index}}}`}</code>
+                    <code style={{ minWidth: 44, color: "var(--accent)" }}>{`{{${v.name ?? v.index}}}`}</code>
                     <select
                       style={{ ...input, width: 200 }}
                       value={val?.source ?? "static"}

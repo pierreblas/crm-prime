@@ -172,7 +172,7 @@ export function SendTemplateDialog({
                     return (
                       <div key={v.index}>
                         <div style={dialogLabel}>
-                          {`{{${v.index}}}`} · {v.label}
+                          {v.name ? `{{${v.name}}}` : `{{${v.index}}} · ${v.label}`}
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                           <select

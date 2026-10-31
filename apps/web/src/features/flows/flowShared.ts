@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { FlowBranch, FlowNodeData, FlowNodeType, FlowRule, FlowTriggerType } from "@crm/shared";
+import { EMPTY_TRIGGER_CONFIG, type FlowBranch, type FlowNodeData, type FlowNodeType, type FlowRule, type FlowTrigger, type FlowTriggerType } from "@crm/shared";
 import type { IconName } from "@/components/NavIcons";
 
 export interface NodeMeta {
@@ -16,35 +16,74 @@ export interface NodeMeta {
   group: "Mensajes" | "Lógica" | "CRM" | "Integraciones";
 }
 
-/** Qué dato extra pide cada disparador en la cabecera del editor. */
+/** Qué dato extra pide cada disparador en el panel de «Inicio». */
 export type TriggerNeeds = "keywords" | "tags" | "stages" | "forms" | "hours" | null;
 
 export interface TriggerMeta {
-  type: FlowTriggerType;
+  type: FlowTrigger["type"];
   label: string;
   /** Etiqueta corta para la lista de flujos. */
   short: string;
   hint: string;
   icon: IconName;
   needs: TriggerNeeds;
+  /** Grupo del menú «Añadir disparador». */
+  group: TriggerGroup;
 }
+
+export const TRIGGER_GROUPS = ["Conversación", "Contacto y embudo", "Leads", "Llamadas"] as const;
+export type TriggerGroup = (typeof TRIGGER_GROUPS)[number];
 
 // Cuándo puede arrancar un flujo. El orden es el del selector.
 export const TRIGGER_META: TriggerMeta[] = [
-  { type: "conversation_start", label: "Al iniciar un chat", short: "al iniciar chat", hint: "Cuando un contacto escribe por primera vez o abre una conversación nueva.", icon: "message", needs: null },
-  { type: "keyword", label: "Por palabra clave", short: "palabra clave", hint: "Cuando un mensaje del contacto contiene alguna de estas palabras.", icon: "search", needs: "keywords" },
-  { type: "ad_click", label: "Llega desde un anuncio", short: "desde anuncio", hint: "Cuando el cliente escribe tras tocar un anuncio Click to WhatsApp de Meta: al abrir el chat, o si vuelve por otro anuncio con el chat abierto.", icon: "megaphone", needs: null },
-  { type: "meta_lead", label: "Nuevo lead de Meta Ads (formulario)", short: "lead de Meta", hint: "Cuando entra un lead de un formulario de Meta Lead Ads. El lead aún no te escribió: para hablarle usa el bloque «Enviar plantilla».", icon: "target", needs: "forms" },
-  { type: "lead_webhook", label: "Nuevo lead por API o formulario web", short: "lead por API", hint: "Cuando entra un lead por el webhook de leads o la API (tu web, n8n, Zapier…). Para escribirle usa «Enviar plantilla».", icon: "plug", needs: null },
-  { type: "tag_added", label: "Se le pone una etiqueta", short: "etiqueta", hint: "Cuando alguien, la IA u otro flujo etiqueta al contacto.", icon: "tag", needs: "tags" },
-  { type: "deal_stage", label: "Cambia de etapa en el embudo", short: "cambio de etapa", hint: "Cuando su oportunidad se mueve a una etapa (a mano, por la IA o por otro flujo).", icon: "pipeline", needs: "stages" },
-  { type: "conversation_closed", label: "Se cierra la conversación", short: "al cerrar", hint: "Cuando tu equipo cierra la conversación. Ideal para una encuesta o una despedida.", icon: "check", needs: null },
-  { type: "no_reply", label: "El cliente no responde", short: "sin respuesta", hint: "Cuando pasan estas horas sin que el cliente conteste a tu último mensaje. Se dispara una vez por silencio.", icon: "hourglass", needs: "hours" },
-  { type: "missed_call", label: "Llamada perdida", short: "llamada perdida", hint: "Cuando alguien llama al número de la empresa (Twilio) y nadie contesta. Ideal para escribirle por WhatsApp.", icon: "phone", needs: null },
-  { type: "manual", label: "Solo desde una etapa del embudo", short: "desde el embudo", hint: "No arranca solo: lo ejecutan las automatizaciones de una etapa (Ajustes › Embudos y etapas): al entrar en la etapa, al escribir el cliente, por webhook o tras un silencio.", icon: "pipeline", needs: null },
+  { type: "conversation_start", label: "Al iniciar un chat", short: "al iniciar chat", hint: "Cuando empieza una conversación nueva: el primer mensaje de un contacto, o el primero después de cerrar su chat anterior. No se dispara con cada mensaje de un chat abierto (para eso, «Por palabra clave»).", icon: "message", needs: null, group: "Conversación" },
+  { type: "keyword", label: "Por palabra clave", short: "palabra clave", hint: "Cuando un mensaje del contacto contiene alguna de estas palabras.", icon: "search", needs: "keywords", group: "Conversación" },
+  { type: "ad_click", label: "Llega desde un anuncio", short: "desde anuncio", hint: "Cuando el cliente escribe tras tocar un anuncio Click to WhatsApp de Meta: al abrir el chat, o si vuelve por otro anuncio con el chat abierto.", icon: "megaphone", needs: null, group: "Conversación" },
+  { type: "meta_lead", label: "Nuevo lead de Meta Ads (formulario)", short: "lead de Meta", hint: "Cuando entra un lead de un formulario de Meta Lead Ads. El lead aún no te escribió: para hablarle usa el bloque «Enviar plantilla».", icon: "target", needs: "forms", group: "Leads" },
+  { type: "lead_webhook", label: "Nuevo lead por API o formulario web", short: "lead por API", hint: "Cuando entra un lead por el webhook de leads o la API (tu web, n8n, Zapier…). Para escribirle usa «Enviar plantilla».", icon: "plug", needs: null, group: "Leads" },
+  { type: "tag_added", label: "Se le pone una etiqueta", short: "etiqueta", hint: "Cuando alguien, la IA u otro flujo etiqueta al contacto.", icon: "tag", needs: "tags", group: "Contacto y embudo" },
+  { type: "deal_stage", label: "Cambia de etapa en el embudo", short: "cambio de etapa", hint: "Cuando su oportunidad se mueve a una etapa (a mano, por la IA o por otro flujo).", icon: "pipeline", needs: "stages", group: "Contacto y embudo" },
+  { type: "conversation_closed", label: "Se cierra la conversación", short: "al cerrar", hint: "Cuando tu equipo cierra la conversación. Ideal para una encuesta o una despedida.", icon: "check", needs: null, group: "Conversación" },
+  { type: "no_reply", label: "El cliente no responde", short: "sin respuesta", hint: "Cuando pasan estas horas sin que el cliente conteste a tu último mensaje. Se dispara una vez por silencio.", icon: "hourglass", needs: "hours", group: "Conversación" },
+  { type: "missed_call", label: "Llamada perdida", short: "llamada perdida", hint: "Cuando alguien llama al número de la empresa (Twilio) y nadie contesta. Ideal para escribirle por WhatsApp.", icon: "phone", needs: null, group: "Llamadas" },
 ];
 
 export const TRIGGER_BY_TYPE: Record<string, TriggerMeta> = Object.fromEntries(TRIGGER_META.map((t) => [t.type, t]));
+
+/** Un disparador nuevo de ese tipo, sin filtros. */
+export function newTrigger(type: FlowTrigger["type"]): FlowTrigger {
+  return {
+    id: `trg_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    type,
+    keywords: [],
+    config: { ...EMPTY_TRIGGER_CONFIG },
+  };
+}
+
+/** Lo que concreta un disparador, en una línea: «hola, info», «VIP», «tras 24 h». */
+export function triggerDetail(t: FlowTrigger, stageName: (id: string) => string): string {
+  switch (t.type) {
+    case "keyword":
+      return t.keywords.length ? t.keywords.map((k) => `«${k}»`).join(", ") : "sin palabras";
+    case "tag_added":
+      return t.config.tags.length ? t.config.tags.join(", ") : "cualquier etiqueta";
+    case "deal_stage":
+      return t.config.stageIds.length ? t.config.stageIds.map(stageName).join(", ") : "cualquier etapa";
+    case "meta_lead":
+      return t.config.forms.length ? t.config.forms.join(", ") : "cualquier formulario";
+    case "no_reply":
+      return `tras ${t.config.hours} h`;
+    default:
+      return "";
+  }
+}
+
+/** Para la lista de flujos: «palabra clave + 2 más» o «solo desde el embudo». */
+export function triggersShort(types: FlowTriggerType[]): string {
+  if (!types.length) return "solo desde el embudo";
+  const first = TRIGGER_BY_TYPE[types[0]!]?.short ?? types[0]!;
+  return types.length > 1 ? `${first} + ${types.length - 1} más` : first;
+}
 
 // Catálogo de bloques que se pueden añadir (paleta, menú "+" y arrastre).
 export const NODE_PALETTE: NodeMeta[] = [
@@ -294,6 +333,9 @@ export interface FlowActions {
   issuesFor: (nodeId: string) => string[];
   /** Edición en el propio bloque (texto, botones…). */
   patchNode: (nodeId: string, patch: Partial<FlowNodeData>) => void;
+  /** Disparadores del flujo: el bloque «Inicio» los enseña. */
+  triggers: FlowTrigger[];
+  stageName: (id: string) => string;
 }
 
 export const FlowActionsContext = createContext<FlowActions | null>(null);

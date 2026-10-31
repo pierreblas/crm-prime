@@ -3,7 +3,7 @@
 import { NavIcon } from "@/components/NavIcons";
 import { useState } from "react";
 import { toast } from "@/lib/toast";
-import { TRIGGER_BY_TYPE } from "./flowShared";
+import { triggersShort } from "./flowShared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import type { FlowSummary } from "@crm/shared";
@@ -117,7 +117,7 @@ function FlowRow({
         <strong style={{ fontSize: 15 }}>{flow.name}</strong>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
           <span style={badge("var(--surface-3)")}>
-            {TRIGGER_BY_TYPE[flow.triggerType]?.short ?? flow.triggerType}
+            {triggersShort(flow.triggerTypes)}
           </span>
           <span
             style={{

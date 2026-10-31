@@ -181,7 +181,7 @@ export class MetaTemplateClient {
     const templates: MetaTemplate[] = [];
     let url =
       `https://graph.facebook.com/${creds.version}/${creds.wabaId}/message_templates` +
-      `?fields=id,name,language,category,status,components,rejected_reason&limit=100`;
+      `?fields=id,name,language,category,status,components,rejected_reason,parameter_format&limit=100`;
 
     // Paginación por cursor: una cuenta puede tener cientos de plantillas.
     for (let page = 0; page < 20 && url; page++) {

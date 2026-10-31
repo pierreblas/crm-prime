@@ -16,6 +16,7 @@ import { runUnscoped } from "../../infra/tenant/tenant.context";
 import { runJobInOrg } from "../../infra/tenant/job-org";
 import {
   WHATSAPP_PROVIDER,
+  type TemplateSendSpec,
   type WhatsAppProvider,
 } from "../whatsapp/whatsapp-provider.interface";
 import { CampaignService } from "./campaign.service";
@@ -85,20 +86,28 @@ export class CampaignProcessor extends WorkerHost {
     if (!contact.optIn) return; // respeta opt-out
 
     const fill = normalizeFill(campaign.variableValues);
-    const spec = await this.fills.build(
-      {
-        name: campaign.template.name,
-        language: campaign.template.language,
-        header: (campaign.template.header as TemplateHeader | null) ?? null,
-        buttons: (campaign.template.buttons as TemplateButton[] | null) ?? [],
-        body: campaign.template.body,
-      },
-      fill,
-      contact,
-      campaign.channel?.phoneNumberId,
-    );
-    // El renderizado pasó a `fills.preview` en la rama de plantillas.
-    const preview = this.fills.preview(campaign.template.body, spec);
+    // Si la plantilla no se puede rellenar (faltan variables, el archivo del
+    // encabezado ya no está), el destinatario queda como fallido con el
+    // motivo, en vez de reintentar el trabajo sin dejar rastro.
+    let spec: TemplateSendSpec | null = null;
+    let fillError: string | null = null;
+    try {
+      spec = await this.fills.build(
+        {
+          name: campaign.template.name,
+          language: campaign.template.language,
+          header: (campaign.template.header as TemplateHeader | null) ?? null,
+          buttons: (campaign.template.buttons as TemplateButton[] | null) ?? [],
+          body: campaign.template.body,
+        },
+        fill,
+        contact,
+        campaign.channel?.phoneNumberId,
+      );
+    } catch (e) {
+      fillError = (e as Error).message;
+    }
+    const preview = spec ? this.fills.preview(campaign.template.body, spec) : campaign.template.body;
     // Esto corre en un worker, sin petición HTTP detrás: la organización sale
     // del propio contacto, no del contexto.
     const orgId = contact.orgId;
@@ -118,11 +127,13 @@ export class CampaignProcessor extends WorkerHost {
         type: MessageType.TEMPLATE,
         author: MessageAuthor.HUMAN,
         content: preview,
-        status: MessageStatus.QUEUED,
+        status: fillError ? MessageStatus.FAILED : MessageStatus.QUEUED,
+        ...(fillError ? { errorReason: fillError.slice(0, 500) } : {}),
       },
     });
 
     try {
+      if (!spec) throw new Error(fillError ?? "No se pudo preparar la plantilla");
       const res = await this.wa.sendTemplate(
         contact.phone,
         spec,

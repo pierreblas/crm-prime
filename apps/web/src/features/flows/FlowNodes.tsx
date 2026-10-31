@@ -11,7 +11,16 @@ import {
 } from "@xyflow/react";
 import type { FlowBranch, FlowButton, FlowNodeData } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
-import { ACTION_LABEL, FlowActionsContext, NODE_META, STATUS_LABEL, VALIDATION_LABEL, branchTitle } from "./flowShared";
+import {
+  ACTION_LABEL,
+  FlowActionsContext,
+  NODE_META,
+  STATUS_LABEL,
+  TRIGGER_BY_TYPE,
+  VALIDATION_LABEL,
+  branchTitle,
+  triggerDetail,
+} from "./flowShared";
 
 const ROW_H = 28;
 
@@ -208,12 +217,35 @@ function Row({ children }: { children: React.ReactNode }) {
 
 const placeholder: React.CSSProperties = { opacity: 0.5, fontStyle: "italic" };
 
+/** «Inicio» con la lista de disparadores: cuándo arranca el flujo, a la vista. */
 export function StartNode({ id, selected }: NodeProps) {
+  const actions = useContext(FlowActionsContext);
+  const triggers = actions?.triggers ?? [];
   return (
-    <Shell id={id} type="start" selected={selected} minWidth={130}>
-      <div style={{ ...head, color: NODE_META.start.accent, borderBottom: "none", justifyContent: "center" }}>
+    <Shell id={id} type="start" selected={selected} minWidth={200}>
+      <div style={{ ...head, color: NODE_META.start.accent }}>
         <NavIcon name="play" size={14} />
         Inicio
+      </div>
+      <div className="flow-start__list">
+        {triggers.length === 0 ? (
+          <div className="flow-start__empty">Sin disparadores: solo desde el embudo u otro flujo</div>
+        ) : (
+          triggers.map((t) => {
+            const meta = TRIGGER_BY_TYPE[t.type];
+            const detail = triggerDetail(t, actions?.stageName ?? ((x) => x));
+            return (
+              <div key={t.id} className="flow-start__trigger" title={meta?.hint}>
+                <NavIcon name={meta?.icon ?? "bolt"} size={12} />
+                <span>
+                  {meta?.label ?? t.type}
+                  {detail && <span className="flow-start__detail"> · {detail}</span>}
+                </span>
+              </div>
+            );
+          })
+        )}
+        <div className="flow-start__hint">{selected ? "Edita los disparadores en el panel" : "Pulsa para añadir o cambiar disparadores"}</div>
       </div>
       <OutputHandle nodeId={id} />
     </Shell>

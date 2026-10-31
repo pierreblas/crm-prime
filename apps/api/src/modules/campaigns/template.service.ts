@@ -1,3 +1,4 @@
+import { namedTemplateVars } from "@crm/shared";
 import {
   BadRequestException,
   Inject,
@@ -319,13 +320,24 @@ export class TemplateService {
       body: t.body,
       footer: t.footer,
       buttons: (t.buttons as TemplateButton[] | null) ?? [],
-      variables: (t.variables as TemplateVariable[] | null) ?? [],
+      variables: variablesOf(t.body, t.variables),
       rejectedReason: t.rejectedReason,
       readOnly: t.readOnly,
       syncedAt: t.syncedAt?.toISOString() ?? null,
       createdAt: t.createdAt.toISOString(),
     };
   }
+}
+
+/**
+ * Las variables guardadas o, si es una plantilla con variables con nombre
+ * importada antes de que el CRM las entendiera (se guardó sin ninguna), las
+ * que salen de su texto.
+ */
+function variablesOf(body: string, stored: unknown): TemplateVariable[] {
+  const list = (stored as TemplateVariable[] | null) ?? [];
+  if (list.length) return list;
+  return namedTemplateVars(body).map((name, i) => ({ index: i + 1, label: name, name }));
 }
 
 /** Convierte los componentes de Meta al modelo del CRM. */
@@ -368,10 +380,15 @@ export function parseMetaTemplate(t: MetaTemplate): {
     }
   }
 
-  const variables = Array.from({ length: countVariables(body) }, (_, i) => ({
-    index: i + 1,
-    label: `Variable ${i + 1}`,
-  }));
+  // Creada en Meta con variables con nombre ({{nombre}}): se rellenan por
+  // orden de aparición y se envían con su nombre.
+  const named = namedTemplateVars(body);
+  const variables = named.length
+    ? named.map((name, i) => ({ index: i + 1, label: name, name }))
+    : Array.from({ length: countVariables(body) }, (_, i) => ({
+        index: i + 1,
+        label: `Variable ${i + 1}`,
+      }));
 
   return { header, body, footer, buttons, variables, readOnly };
 }

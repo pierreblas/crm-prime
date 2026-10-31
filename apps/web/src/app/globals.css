@@ -4988,3 +4988,103 @@ code {
   .agenda-facts { grid-template-columns: 1fr; gap: 2px 0; }
   .agenda-facts dd { margin-bottom: 8px; }
 }
+
+/* ── Disparadores del flujo (bloque «Inicio» y su panel) ───────
+   Un flujo arranca con cualquiera de sus disparadores; en el lienzo se ven
+   en «Inicio», y en el panel se añaden y configuran uno a uno. */
+.flow-start__list { display: flex; flex-direction: column; gap: 4px; padding: 7px 10px 9px; }
+.flow-start__trigger {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--text);
+}
+.flow-start__trigger > svg { flex: none; margin-top: 1px; color: var(--accent-text); }
+.flow-start__detail { color: var(--muted); }
+.flow-start__empty { font-size: 11.5px; color: var(--warning); line-height: 1.35; }
+.flow-start__hint { margin-top: 3px; font-size: 10.5px; color: var(--muted); opacity: 0.8; }
+
+.ftr { display: flex; flex-direction: column; gap: 10px; }
+.ftr-intro { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.ftr-muted { font-size: 12px; color: var(--muted); }
+.ftr-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.ftr-card__head { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.ftr-card__head strong { flex: 1; min-width: 0; }
+.ftr-card__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.ftr-card__x { width: 26px; height: 26px; }
+.ftr-card__hint { margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.ftr-field { display: flex; flex-direction: column; margin: 0; padding: 0; border: 0; min-width: 0; }
+.ftr-inline { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.ftr-inline .field { width: 72px; }
+.ftr-pills__list { display: flex; flex-wrap: wrap; gap: 5px; }
+.ftr-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.ftr-pill input { position: absolute; opacity: 0; pointer-events: none; }
+.ftr-pill:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ftr-pill.is-on { background: var(--accent); border-color: transparent; color: var(--accent-ink); font-weight: 600; }
+.ftr-add { position: relative; display: flex; align-items: center; gap: 10px; }
+.ftr-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  width: 290px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(15, 20, 19, 0.97);
+  box-shadow: var(--shadow-overlay);
+}
+.ftr-menu__group + .ftr-menu__group { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
+.ftr-menu__title { padding: 5px 8px 3px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.ftr-menu__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.ftr-menu__item > span { flex: 1; }
+.ftr-menu__item > svg:first-child { color: var(--accent-text); }
+.ftr-menu__item:not(:disabled):hover,
+.ftr-menu__item:focus-visible { background: var(--surface-2); }
+.ftr-menu__item:disabled { opacity: 0.5; cursor: default; }

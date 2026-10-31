@@ -20,8 +20,11 @@ export interface TemplateSendSpec {
   buttons: TemplateButton[];
   /** Valores de {{1}}, {{2}}… del cuerpo, en orden. */
   bodyParams: string[];
+  /** Plantilla con variables con nombre: el nombre de cada valor de `bodyParams`. */
+  bodyParamNames?: string[];
   /** Valor de la variable del encabezado de texto. */
   headerTextParam?: string;
+  headerParamName?: string;
   /** Archivo del encabezado IMAGE/VIDEO/DOCUMENT. */
   headerMedia?: MediaRef;
   headerLocation?: {

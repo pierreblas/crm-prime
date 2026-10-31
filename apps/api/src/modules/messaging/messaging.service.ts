@@ -651,7 +651,7 @@ export class MessagingService {
   }
 
   // ── Actualización de estado (sent/delivered/read/failed) ───────
-  async handleStatus(waMessageId: string, status: MessageStatus): Promise<void> {
+  async handleStatus(waMessageId: string, status: MessageStatus, errorReason?: string): Promise<void> {
     const msg = await this.prisma.message.findUnique({
       where: { waMessageId },
       select: { conversationId: true, campaignId: true, status: true },
@@ -663,7 +663,11 @@ export class MessagingService {
     if (status !== MessageStatus.FAILED && (RANK[msg.status] ?? 0) > (RANK[status] ?? 0)) return;
     await this.prisma.message.update({
       where: { waMessageId },
-      data: { status },
+      data: {
+        status,
+        // Meta aceptó el envío y luego no pudo entregarlo: el motivo llega aquí.
+        ...(status === MessageStatus.FAILED && errorReason ? { errorReason: errorReason.slice(0, 500) } : {}),
+      },
     });
     // Métricas de la difusión: se recalculan desde los mensajes (no se suman a ciegas).
     if (msg.campaignId && msg.status !== status) {

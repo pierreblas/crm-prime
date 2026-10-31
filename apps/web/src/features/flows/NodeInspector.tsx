@@ -19,9 +19,13 @@ import {
   type FlowRule,
   type FlowSplit,
   type FlowSummary,
+  type FlowTrigger,
   type SourceDto,
   type TagDto,
+  type TemplateVariable,
+  type VariableValue,
 } from "@crm/shared";
+import { TriggersEditor } from "./TriggersEditor";
 import { NavIcon } from "@/components/NavIcons";
 import { uploadMedia } from "@/lib/bff";
 import { toast } from "@/lib/toast";
@@ -84,12 +88,14 @@ export function NodeInspector({
   onChange,
   onDelete,
   onDuplicate,
+  triggers,
+  onTriggersChange,
 }: {
   node: Node;
   bots: FlowBotRef[];
   stages: { id: string; name: string }[];
   /** Plantillas aprobadas por Meta, para «Enviar plantilla». */
-  templates: { id: string; name: string; language: string }[];
+  templates: { id: string; name: string; language: string; variables: TemplateVariable[] }[];
   agents: FlowAgentRef[];
   /** Campos personalizados del contacto, para «Guardar en el contacto» y las condiciones. */
   fields: CustomFieldDto[];
@@ -105,6 +111,9 @@ export function NodeInspector({
   onChange: (data: FlowNodeData) => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  /** Disparadores del flujo (se editan en el bloque «Inicio»). */
+  triggers: FlowTrigger[];
+  onTriggersChange: (next: FlowTrigger[]) => void;
 }) {
   const data = node.data as FlowNodeData;
   const patch = (p: Partial<FlowNodeData>) => onChange({ ...data, ...p });
@@ -147,10 +156,10 @@ export function NodeInspector({
       )}
 
       {node.type === "start" && (
-        <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>
-          Punto de inicio del flujo. Pulsa su «+» o arrastra desde su salida
-          al primer bloque.
-        </p>
+        <>
+          <TriggersEditor triggers={triggers} onChange={onTriggersChange} tags={tags} stages={stages} />
+          <p style={hint}>Después, pulsa el «+» de Inicio o arrastra desde su salida al primer bloque.</p>
+        </>
       )}
 
       {node.type === "sendMessage" && (
@@ -267,7 +276,8 @@ export function NodeInspector({
               value={data.templateId ?? ""}
               onChange={(e) => {
                 const t = templates.find((x) => x.id === e.target.value);
-                patch({ templateId: e.target.value, templateName: t ? `${t.name} · ${t.language}` : "" });
+                // Otra plantilla: sus variables son otras.
+                patch({ templateId: e.target.value, templateName: t ? `${t.name} · ${t.language}` : "", templateVars: [] });
               }}
             >
               <option value="">Elige una plantilla…</option>
@@ -278,10 +288,15 @@ export function NodeInspector({
               ))}
             </select>
           </Field>
+          <TemplateVarsEditor
+            template={templates.find((t) => t.id === data.templateId) ?? null}
+            value={data.templateVars ?? []}
+            variables={variables}
+            onChange={(templateVars) => patch({ templateVars })}
+          />
           <p style={hint}>
             Es la única forma de escribirle a quien nunca te escribió (un lead de un formulario) o
-            lleva más de 24 h callado. Si la plantilla tiene <code>{"{{1}}"}</code>, va el nombre del
-            contacto. Las plantillas se crean y aprueban en Difusiones.
+            lleva más de 24 h callado. Las plantillas se crean y aprueban en Difusiones.
           </p>
           {templates.length === 0 && <p style={hint}>Todavía no tienes plantillas aprobadas.</p>}
         </>
@@ -873,6 +888,64 @@ function ConditionFields({
         + Añadir rama
       </button>
     </div>
+  );
+}
+
+/**
+ * El valor de cada variable de la plantilla: del contacto o un texto fijo (que
+ * admite {{variables}} del flujo). Sin elegir, la primera es el nombre.
+ */
+function TemplateVarsEditor({
+  template,
+  value,
+  variables,
+  onChange,
+}: {
+  template: { variables: TemplateVariable[] } | null;
+  value: VariableValue[];
+  variables: string[];
+  onChange: (v: VariableValue[]) => void;
+}) {
+  if (!template || template.variables.length === 0) return null;
+  const current = (index: number): VariableValue =>
+    value.find((v) => v.index === index) ?? (index === 1 ? { index, source: "contact_name" } : { index, source: "static", value: "" });
+  const set = (index: number, p: Partial<VariableValue>) =>
+    onChange([...value.filter((v) => v.index !== index), { ...current(index), ...p }].sort((a, b) => a.index - b.index));
+  return (
+    <Field label="Variables de la plantilla">
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {template.variables.map((v) => {
+          const val = current(v.index);
+          return (
+            <div key={v.index} style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <code style={{ color: "var(--accent-text)", flexShrink: 0 }}>{`{{${v.name ?? v.index}}}`}</code>
+                <select
+                  style={{ ...input, flex: 1 }}
+                  value={val.source}
+                  onChange={(e) => set(v.index, { source: e.target.value as VariableValue["source"] })}
+                >
+                  <option value="contact_name">Nombre del contacto</option>
+                  <option value="contact_phone">Teléfono del contacto</option>
+                  <option value="static">Texto</option>
+                </select>
+              </div>
+              {val.source === "static" && (
+                <>
+                  <input
+                    style={input}
+                    value={val.value ?? ""}
+                    placeholder="Texto, o una {{variable}} del flujo"
+                    onChange={(e) => set(v.index, { value: e.target.value })}
+                  />
+                  <VarChips variables={variables} onPick={(name) => set(v.index, { value: `${val.value ?? ""}{{${name}}}` })} />
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </Field>
   );
 }
 

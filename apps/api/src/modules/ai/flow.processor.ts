@@ -13,6 +13,8 @@ interface FlowResumeJob {
   orgId?: string;
   /** Solo en "no_reply": el mensaje nuestro que el cliente tendría que haber contestado. */
   messageId?: string;
+  /** Solo en "no_reply": el flujo que lo programó (los trabajos anteriores no lo traen). */
+  flowId?: string;
 }
 
 @Processor(QUEUE_FLOW)
@@ -59,7 +61,7 @@ export class FlowProcessor extends WorkerHost {
 
     await runJobInOrg("flujo", orgId, () =>
       job.name === "no_reply" && resume.messageId
-        ? this.engine.checkNoReply(resume.conversationId, resume.messageId)
+        ? this.engine.checkNoReply(resume.conversationId, resume.messageId, resume.flowId)
         : this.engine.resumeTimer(resume.conversationId),
     );
   }

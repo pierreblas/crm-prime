@@ -35,10 +35,12 @@ export type HeaderFormat = (typeof headerFormats)[number];
 export const mediaHeaderFormats = ["IMAGE", "VIDEO", "DOCUMENT"] as const;
 export type MediaHeaderFormat = (typeof mediaHeaderFormats)[number];
 
-// Variable posicional de la plantilla ({{1}}, {{2}}…).
+// Variable de la plantilla: posicional ({{1}}, {{2}}…) o, en las creadas en
+// Meta con variables con nombre, `name` ({{nombre}}); `index` es su orden.
 export const templateVariableSchema = z.object({
   index: z.number().int().min(1),
   label: z.string(),
+  name: z.string().optional(),
 });
 export type TemplateVariable = z.infer<typeof templateVariableSchema>;
 
