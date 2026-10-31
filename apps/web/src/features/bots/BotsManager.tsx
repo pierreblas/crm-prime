@@ -59,12 +59,24 @@ export function BotsManager() {
 
   // Desde Primeros pasos (/agentes?asistente=1): abre el asistente sobre el
   // agente principal si aún tiene instrucciones genéricas; si no, crea otro.
+  // Desde el asistente de bienvenida (/agentes?probar=1): abre el simulador
+  // con el agente principal.
   useEffect(() => {
     if (!data || typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("asistente") !== "1") return;
-    const target = data.bots.find((b) => b.isDefault && isGenericPrompt(b.systemPrompt)) ?? null;
-    setWizard({ bot: target });
+    if (params.get("probar") === "1") {
+      const main = data.bots.find((b) => b.isDefault) ?? data.bots[0];
+      if (main) {
+        setSel({ kind: "edit", id: main.id });
+        setTesting({ id: main.id, name: main.name });
+      }
+    } else if (params.get("asistente") === "1") {
+      const target = data.bots.find((b) => b.isDefault && isGenericPrompt(b.systemPrompt)) ?? null;
+      setWizard({ bot: target });
+    } else {
+      return;
+    }
+    params.delete("probar");
     params.delete("asistente");
     const qs = params.toString();
     window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""));
@@ -290,7 +302,7 @@ function BotCard({
             : "Te sugiere respuestas"}
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-        <span style={badge(bot.channel ? "rgba(138,43,226,.28)" : "var(--surface-3)")}>
+        <span style={badge(bot.channel ? "rgba(200,255,0,.16)" : "var(--surface-3)")}>
           <NavIcon name="phone" size={10} />
           {bot.channel ? bot.channel.label ?? bot.channel.displayPhoneNumber : "Todos los números"}
         </span>

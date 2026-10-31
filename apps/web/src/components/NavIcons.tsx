@@ -78,7 +78,17 @@ export type IconName =
   | "minus"
   | "lock"
   | "wand"
-  | "chart";
+  | "chart"
+  // Tipos de negocio (asistente de bienvenida)
+  | "store"
+  | "utensils"
+  | "stethoscope"
+  | "scissors"
+  | "home"
+  | "graduation"
+  | "briefcase"
+  | "car"
+  | "plane";
 
 export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = {
@@ -92,6 +102,79 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
     strokeLinejoin: "round" as const,
   };
   switch (name) {
+    case "store":
+      return (
+        <svg {...p}>
+          <path d="M3 9.5 4.5 4h15L21 9.5" />
+          <path d="M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" />
+          <path d="M5 12.5V20h14v-7.5" />
+          <path d="M10 20v-5h4v5" />
+        </svg>
+      );
+    case "utensils":
+      return (
+        <svg {...p}>
+          <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+          <path d="M7 2v20" />
+          <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+        </svg>
+      );
+    case "stethoscope":
+      return (
+        <svg {...p}>
+          <path d="M11 2v2M5 2v2" />
+          <path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1" />
+          <path d="M8 15a6 6 0 0 0 12 0v-3" />
+          <circle cx="20" cy="10" r="2" />
+        </svg>
+      );
+    case "scissors":
+      return (
+        <svg {...p}>
+          <circle cx="6" cy="6" r="3" />
+          <path d="M8.12 8.12 12 12" />
+          <path d="M20 4 8.12 15.88" />
+          <circle cx="6" cy="18" r="3" />
+          <path d="M14.8 14.8 20 20" />
+        </svg>
+      );
+    case "home":
+      return (
+        <svg {...p}>
+          <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
+          <path d="M3 10a2 2 0 0 1 .71-1.53l7-6a2 2 0 0 1 2.58 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        </svg>
+      );
+    case "graduation":
+      return (
+        <svg {...p}>
+          <path d="M21.42 10.92a1 1 0 0 0-.02-1.84L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.83l8.57 3.91a2 2 0 0 0 1.66 0z" />
+          <path d="M22 10v6" />
+          <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
+        </svg>
+      );
+    case "briefcase":
+      return (
+        <svg {...p}>
+          <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+          <rect x="2" y="6" width="20" height="14" rx="2" />
+        </svg>
+      );
+    case "car":
+      return (
+        <svg {...p}>
+          <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
+          <circle cx="7" cy="17" r="2" />
+          <path d="M9 17h6" />
+          <circle cx="17" cy="17" r="2" />
+        </svg>
+      );
+    case "plane":
+      return (
+        <svg {...p}>
+          <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />
+        </svg>
+      );
     case "rocket":
       return (
         <svg {...p}>

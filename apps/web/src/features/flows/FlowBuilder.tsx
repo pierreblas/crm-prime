@@ -983,7 +983,7 @@ const primary: React.CSSProperties = {
   borderRadius: 7,
   border: "none",
   background: "var(--accent)",
-  color: "#f3f8ff",
+  color: "var(--accent-ink)",
   fontWeight: 600,
   cursor: "pointer",
 };
@@ -996,7 +996,7 @@ function assistantBtn(active: boolean): React.CSSProperties {
     padding: "7px 12px",
     borderRadius: 7,
     border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-    background: active ? "rgba(138,43,226,0.12)" : "transparent",
+    background: active ? "rgba(200,255,0,0.08)" : "transparent",
     color: active ? "var(--accent)" : "var(--text)",
     cursor: "pointer",
     fontSize: 13,

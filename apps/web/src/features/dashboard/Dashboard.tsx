@@ -15,11 +15,11 @@ const PERIODS: { key: DashboardPeriod; label: string }[] = [
 ];
 
 const C = {
-  violet: "#b26bff",
-  deep: "#8a2be2",
+  lime: "#c8ff00",
+  slate: "#9fb0c4", // = --chart-2; los gráficos SVG lo usan como atributo
   green: "#7ee2a8",
   amber: "#e0a458",
-  muted: "rgba(178,160,220,.55)",
+  muted: "rgba(205,225,200,.55)",
 };
 
 /** "45 s", "4 min", "1,5 h", "2 d". */
@@ -112,8 +112,8 @@ export function Dashboard() {
             <TimeChart
               days={data.daily.map((d) => d.day)}
               series={[
-                { key: "inbound", label: "Mensajes de clientes", color: C.violet, values: data.daily.map((d) => d.inbound) },
-                { key: "conv", label: "Conversaciones nuevas", color: C.green, values: data.daily.map((d) => d.conversations), kind: "line" },
+                { key: "inbound", label: "Mensajes de clientes", color: C.lime, values: data.daily.map((d) => d.inbound) },
+                { key: "conv", label: "Conversaciones nuevas", color: C.slate, values: data.daily.map((d) => d.conversations), kind: "line" },
               ]}
             />
           </section>
@@ -128,8 +128,8 @@ export function Dashboard() {
               <StackedBars
                 days={data.daily.map((d) => d.day)}
                 series={[
-                  { key: "ai", label: "IA", color: C.violet, values: data.daily.map((d) => d.outboundAi) },
-                  { key: "human", label: "Equipo", color: C.green, values: data.daily.map((d) => d.outboundHuman) },
+                  { key: "ai", label: "IA", color: C.lime, values: data.daily.map((d) => d.outboundAi) },
+                  { key: "human", label: "Equipo", color: C.slate, values: data.daily.map((d) => d.outboundHuman) },
                 ]}
               />
             </section>

@@ -37,7 +37,7 @@ Debajo, cinco pestañas:
 
 La barra de abajo te dice si hay **cambios sin guardar**, y al guardar lo confirma. Ctrl+S (Cmd+S en Mac) guarda desde cualquier pestaña. Si cambias de agente con cambios pendientes, Driony te avisa antes de perderlos.
 
-**Ampliar** abre «Cómo debe atender» en grande, con lo importante señalado sobre el texto: los marcadores por rellenar como `[HORARIO]` (en ámbar), las acciones del agente que nombras (en violeta; subrayadas si están desactivadas) y los títulos de sección (líneas en MAYÚSCULAS). El panel de la derecha lista esos elementos: un clic lleva al sitio, inserta el nombre de una acción donde está el cursor, y «Siguiente por rellenar» recorre los marcadores uno a uno. Bajo el cuadro pequeño, una línea resume cuántos quedan.
+**Ampliar** abre «Cómo debe atender» en grande, con lo importante señalado sobre el texto: los marcadores por rellenar como `[HORARIO]` (en ámbar), las acciones del agente que nombras (en lima; subrayadas si están desactivadas) y los títulos de sección (líneas en MAYÚSCULAS). El panel de la derecha lista esos elementos: un clic lleva al sitio, inserta el nombre de una acción donde está el cursor, y «Siguiente por rellenar» recorre los marcadores uno a uno. Bajo el cuadro pequeño, una línea resume cuántos quedan.
 
 ## Asistente de redacción
 

@@ -17,7 +17,7 @@ const COMPARE = [
   ["Anuncios que optimizan a clics, no a ventas", "Meta aprende de tus ventas reales y trae mejores leads"],
 ];
 
-// Frases de la banda violeta. Se pintan dos veces para que la marquesina
+// Frases de la banda lima. Se pintan dos veces para que la marquesina
 // haga un bucle sin salto.
 const BAND_ITEMS = [
   "Tiempo real",
@@ -157,7 +157,7 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ── Banda violeta a todo ancho, en marquesina ── */}
+        {/* ── Banda lima a todo ancho, en marquesina ── */}
         <section className="lp-band" data-paused={paused} aria-label="Lo que incluye Driony">
           <div className="lp-band__track">
             {[0, 1].map((copy) => (
@@ -223,8 +223,8 @@ export function Landing() {
                   <img
                     src="/landing/agentes.webp"
                     alt="El editor de un agente de IA: nombre, número que atiende, modelo elegido y sus instrucciones, con el asistente que ayuda a redactarlas"
-                    width={1230}
-                    height={768}
+                    width={1164}
+                    height={728}
                     loading="lazy"
                     decoding="async"
                   />
@@ -251,7 +251,7 @@ export function Landing() {
                     src="/landing/embudo.webp"
                     alt="El embudo de ventas de Driony con las etapas Nuevo, Contactado, Calificado, Propuesta y Ganado"
                     width={2241}
-                    height={630}
+                    height={495}
                     loading="lazy"
                     decoding="async"
                   />
@@ -535,7 +535,7 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ── Cierre: violeta a todo ancho ── */}
+        {/* ── Cierre: lima a todo ancho ── */}
         <section className="lp-cta-band">
           <div className="lp-wrap lp-cta-band__inner lp-reveal">
             <h2>Pon a tu agente a vender hoy.</h2>

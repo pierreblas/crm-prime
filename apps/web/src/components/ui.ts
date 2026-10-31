@@ -57,7 +57,7 @@ export const softBtn: CSSProperties = {
   ...ghostBtn,
   background: "var(--accent-soft)",
   color: "var(--accent-text)",
-  border: "1px solid rgba(138,43,226,0.35)",
+  border: "1px solid rgba(200,255,0,0.24)",
 };
 
 /** Versión compacta de cualquiera de los anteriores: `{ ...ghostBtn, ...smBtn }`. */

@@ -2,14 +2,15 @@
 name: Driony
 description: CRM para WhatsApp con agentes IA — la sala de control del vendedor, edición nocturna
 colors:
-  violet: "#8a2be2"
-  violet-bright: "#b26bff"
-  violet-text: "#d6b8ff"
-  violet-deep: "#7a1fd6"
-  violet-hot: "#9a44f2"
-  violet-shadow: "#6614bd"
-  violet-soft: "#8a2be229"
-  violet-ink: "#ffffff"
+  lime: "#c8ff00"
+  lime-hover: "#d6ff47"
+  lime-press: "#b4e600"
+  lime-deep: "#9fe000"
+  lime-text: "#dcff70"
+  lime-soft: "#c8ff001a"
+  lime-ink: "#0b1000"
+  olive-text: "#435c00"
+  chart-2: "#9fb0c4"
   whatsapp: "#25d366"
   positive: "#7ee2a8"
   positive-soft: "#7ee2a824"
@@ -17,19 +18,19 @@ colors:
   warning-soft: "#e0a45824"
   danger: "#e08a8a"
   danger-soft: "#e08a8a24"
-  bg: "#07060c"
-  panel: "#140e229e"
-  panel-deep: "#0c0816d6"
-  sidebar: "#0805108c"
-  field: "#04020a80"
+  bg: "#090c0d"
+  panel: "#161c1a9e"
+  panel-deep: "#0c100fd6"
+  sidebar: "#080b0b8c"
+  field: "#03050580"
   surface: "#ffffff0b"
   surface-2: "#ffffff13"
-  surface-3: "#b2a0dc24"
-  border: "#b2a0dc29"
-  border-strong: "#b2a0dc4d"
-  ink: "#f1ecfb"
-  muted: "#a49bbd"
-  placeholder: "#6f6690"
+  surface-3: "#cde1c81f"
+  border: "#cde1c824"
+  border-strong: "#cde1c847"
+  ink: "#f1f4ee"
+  muted: "#9aa596"
+  placeholder: "#7f8a7b"
 typography:
   display:
     fontFamily: "Bricolage Grotesque, Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
@@ -87,21 +88,21 @@ spacing:
   xl: "24px"
 components:
   button-primary:
-    backgroundColor: "{colors.violet}"
-    textColor: "{colors.violet-ink}"
+    backgroundColor: "{colors.lime}"
+    textColor: "{colors.lime-ink}"
     rounded: "{rounded.control}"
     padding: "9px 16px"
   button-primary-hover:
-    backgroundColor: "{colors.violet-hot}"
-    textColor: "{colors.violet-ink}"
+    backgroundColor: "{colors.lime-hover}"
+    textColor: "{colors.lime-ink}"
   button-ghost:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
     rounded: "{rounded.control}"
     padding: "9px 14px"
   button-soft:
-    backgroundColor: "{colors.violet-soft}"
-    textColor: "{colors.violet-text}"
+    backgroundColor: "{colors.lime-soft}"
+    textColor: "{colors.lime-text}"
     rounded: "{rounded.control}"
     padding: "9px 14px"
   button-danger:
@@ -135,7 +136,7 @@ components:
     rounded: "{rounded.surface}"
     padding: "9px 12px"
   nav-item-active:
-    backgroundColor: "{colors.violet-soft}"
+    backgroundColor: "{colors.lime-soft}"
     textColor: "{colors.ink}"
     rounded: "{rounded.surface}"
     padding: "9px 12px"
@@ -145,7 +146,7 @@ components:
     rounded: "{rounded.control}"
     padding: "3px"
   bubble-out:
-    backgroundColor: "{colors.violet-soft}"
+    backgroundColor: "{colors.lime-soft}"
     textColor: "{colors.ink}"
     rounded: "{rounded.surface}"
     padding: "9px 12px"
@@ -175,21 +176,24 @@ components:
 Driony sigue siendo el puesto de mando del vendedor: una sala a oscuras donde
 toda la operación —conversaciones en vivo, oportunidades, campañas— está a la
 vista y bajo control. Lo que cambia en esta edición es la materia de la sala. El
-fondo es un negro con tinte violeta (#07060c) sobre el que respiran tres brillos
-de color (violeta arriba a la izquierda, lila a la derecha, magenta al pie) y una
-rejilla técnica fina que asoma en la esquina y se desvanece. Los paneles ya no
+fondo es un carbón casi negro con un tinte verdoso mínimo (#090c0d) sobre el que
+respiran dos brillos muy bajos (lima arriba a la izquierda, verde a la derecha) y
+una rejilla técnica fina que asoma en la esquina y se desvanece. Los paneles ya no
 son placas opacas: son **cristal**. Dejan pasar el brillo del fondo y, cuando
 flotan sobre contenido que se mueve (menú, cabecera, cajones, diálogos), lo
 desenfocan. Las tarjetas son translúcidas pero nunca desenfocan; el cristal es
 estructural, no decorativo.
 
-La luz de esta sala es el **Violeta Eléctrico** (#8a2be2): el único acento de
-marca. Señala acción (botón primario con halo), foco (anillo y resplandor de los
+La luz de esta sala es el **Lima** (#c8ff00): el único acento de marca. Señala
+acción (botón primario lima con texto carbón), foco (anillo y resplandor de los
 campos), selección (ítem activo del menú, fila activa de la bandeja) y la voz del
-negocio en el chat (burbuja saliente). El **Verde WhatsApp** (#25d366) no
-compite: queda reservado a lo que *es* WhatsApp (número conectado, «en vivo») y
-a los estados positivos (entregado, ganado, opt-in). Dos colores, dos oficios,
-nunca intercambiables.
+negocio en el chat (burbuja saliente, lima muy bajo). Es un color que grita: por
+eso aparece poco y siempre con texto **carbón** encima, nunca blanco. El **Verde
+WhatsApp** (#25d366) y el **Verde Vital** (#7ee2a8) no compiten: quedan
+reservados a lo que *es* WhatsApp (número conectado, «en vivo») y a los estados
+positivos (entregado, ganado, opt-in). El lima es amarillo verdoso y el verde
+vital es menta: se distinguen, pero nunca se ponen a competir lado a lado como
+dos series de un gráfico.
 
 El sistema es **denso pero legible**: muchos hilos, tarjetas y métricas a la vez,
 empaquetados con jerarquía y aire suficiente. La energía viene del movimiento
@@ -201,8 +205,8 @@ rígidos, tablas de los 2000). Si una pantalla pudiera ser de cualquier otro
 SaaS, falló.
 
 **Key Characteristics:**
-- Negro violáceo con brillos de fondo; los paneles son cristal que deja pasar la luz.
-- Un solo acento de marca, el Violeta Eléctrico, con halo solo donde hay acción.
+- Carbón con brillos de fondo muy bajos; los paneles son cristal que deja pasar la luz.
+- Un solo acento de marca, el Lima, con texto carbón encima y halo solo donde hay acción.
 - El verde es señal de WhatsApp y de estado positivo, nunca decoración.
 - Densidad con jerarquía; aire que respira, nunca apretado.
 - Dos familias con oficios separados: Space Grotesk titula, Inter trabaja.
@@ -210,27 +214,30 @@ SaaS, falló.
 
 ## 2. Colors
 
-Negro violáceo como escenario, un violeta como única voz de marca y un verde que
-solo habla cuando algo es WhatsApp o salió bien.
+Carbón como escenario, un lima como única voz de marca y un verde que solo habla
+cuando algo es WhatsApp o salió bien.
 
 ### Primary
-- **Violeta Eléctrico** (#8a2be2): el acento de marca. Botón primario (en
-  degradado hacia Violeta Caliente), foco de campos, ítem de navegación activo,
-  fila activa de la bandeja, marca «T», punto de «en tiempo real» del embudo.
-- **Violeta Caliente** (#9a44f2) y **Violeta Profundo** (#7a1fd6): las dos paradas
-  del degradado del botón primario, de la banda de la landing y de la marca. Nunca
-  como colores planos sueltos.
-- **Lila** (#b26bff): la luz del violeta. Segunda parada de los degradados de
-  brillo, barra del ítem activo, líneas luminosas. Texto en el registro de marca
-  (etiqueta de sección de la landing).
-- **Violeta Texto** (#d6b8ff): el violeta legible como texto sobre fondo oscuro
-  (enlaces, chips suaves, botón suave). Es lo que se usa donde el #8a2be2 no daría
-  contraste como texto.
-- **Violeta Tenue** (#8a2be2 al 16%): fondo de selección y de chips suaves. Tinte,
-  no bloque.
-- **Tinta sobre Violeta** (#ffffff): el texto que va encima del violeta (botones
-  primarios, banda). Sobre el botón blanco de la landing, el texto es **Violeta
-  Sombra** (#6614bd).
+- **Lima** (#c8ff00): el acento de marca. Botón primario (plano, con una luz
+  blanca arriba), foco de campos, ítem de navegación activo, fila activa de la
+  bandeja, marca «D», banda y cierre de la landing, primera serie de los gráficos.
+- **Lima Claro** (#d6ff47) y **Lima Hundido** (#b4e600): hover y `:active` del
+  botón primario. Nunca como colores sueltos.
+- **Lima Hondo** (#9fe000): segunda parada de los degradados (barras de progreso,
+  barra del ítem activo, esfera de «Construyendo tu IA»).
+- **Lima Texto** (#dcff70): el lima como texto sobre fondo oscuro (enlaces, chips
+  suaves, botón suave).
+- **Lima Tenue** (#c8ff00 al 10%): fondo de selección, de chips suaves y de la
+  burbuja saliente. Tinte, no bloque. El lima pesa mucho: sus tintes van a la
+  mitad del alfa que tendría otro color.
+- **Tinta Carbón** (#0b1000): el texto que va encima del lima (botones, insignias,
+  banda, perilla de los interruptores encendidos). 16,6:1.
+- **Oliva Texto** (#435c00): el acento de texto sobre blanco (landing en tema
+  claro). El lima sobre blanco no sirve como texto (1,2:1).
+
+### Gráficos
+- **Pizarra** (#9fb0c4, `--chart-2`): la segunda serie de cualquier gráfico, junto
+  al lima. Nunca otro verde al lado del lima.
 
 ### Secondary
 - **Verde WhatsApp** (#25d366): exclusivo de lo que es WhatsApp: botón «Conectar
@@ -245,29 +252,33 @@ solo habla cuando algo es WhatsApp o salió bien.
   destructivas.
 
 ### Neutral
-- **Noche** (#07060c): el lienzo. Casi negro con tinte violeta; encima van tres
-  brillos radiales (violeta, lila, magenta) y la rejilla de 40px.
-- **Cristal** (#140e22 al 62%): tarjetas y paneles. Translúcido: deja pasar el
+- **Carbón** (#090c0d): el lienzo. Casi negro con un tinte verdoso mínimo; encima
+  van dos brillos radiales muy bajos (lima, verde) y la rejilla de 40px.
+- **Cristal** (#161c1a al 62%): tarjetas y paneles. Translúcido: deja pasar el
   brillo del fondo. Lleva una línea de luz de 1px arriba.
-- **Cristal Hondo** (#0c0816 al 84%): cajones, diálogos y barras pegajosas; más
+- **Cristal Hondo** (#0c100f al 84%): cajones, diálogos y barras pegajosas; más
   opaco para que el contenido que pasa por debajo no compita, y **con desenfoque**.
-- **Barra Lateral** (#080510 al 55%): la navegación, cristal con desenfoque.
-- **Campo** (#04020a al 50%): el interior de inputs, selects y textareas; el hueco
+- **Barra Lateral** (#080b0b al 55%): la navegación, cristal con desenfoque.
+- **Campo** (#030505 al 50%): el interior de inputs, selects y textareas; el hueco
   donde se escribe, con sombra interior de 1px.
 - **Capa 1 / Capa 2** (blanco al 4,5% / 7,5%): superficies que flotan sobre el
   cristal (burbuja entrante, segmento activo, notas). Cada capa un poco más clara.
-- **Capa Lila** (#b2a0dc al 14%): chips y avatares neutros.
-- **Borde** (#b2a0dc al 16%) y **Borde Fuerte** (al 30%): hairline para estructura;
+- **Capa Salvia** (#cde1c8 al 12%): chips y avatares neutros.
+- **Borde** (#cde1c8 al 14%) y **Borde Fuerte** (al 28%): hairline para estructura;
   el fuerte solo en hover y foco.
-- **Tinta** (#f1ecfb): texto principal.
-- **Tinta Apagada** (#a49bbd): texto secundario, etiquetas, metadatos. Lila-gris,
-  no gris muerto.
-- **Placeholder** (#6f6690): el mínimo legible dentro de un campo.
+- **Tinta** (#f1f4ee): texto principal.
+- **Tinta Apagada** (#9aa596): texto secundario, etiquetas, metadatos. Gris salvia,
+  no gris muerto. 7,7:1 sobre el carbón.
+- **Placeholder** (#7f8a7b): el mínimo legible dentro de un campo (5,4:1).
 
 ### Named Rules
-**La Regla del Único Acento.** El Violeta Eléctrico es el único color de marca.
-Aparece en ≤15% de cualquier pantalla: acción, foco, selección, voz del negocio.
-Si dos cosas violetas compiten por atención, una de las dos no debería ser violeta.
+**La Regla del Único Acento.** El Lima es el único color de marca. Aparece en ≤15%
+de cualquier pantalla: acción, foco, selección, voz del negocio. Si dos cosas lima
+compiten por atención, una de las dos no debería ser lima.
+
+**La Regla de la Tinta Carbón.** Sobre lima el texto va siempre en Tinta Carbón,
+nunca en blanco (1,1:1). Y sobre blanco el lima nunca es texto: ahí el acento de
+texto es el Oliva.
 
 **La Regla del Verde Reservado.** El verde solo dice dos cosas: «esto es WhatsApp»
 o «esto salió bien». Jamás en un botón primario, un titular o un adorno.
@@ -329,7 +340,7 @@ línea de luz del borde superior y el desenfoque, no sombras oscuras. Cada capa 
 lee por cuánto brillo del fondo deja pasar: fondo (todo el brillo) → tarjeta de
 cristal (parte) → cajón o diálogo (casi nada, y desenfoca lo de detrás). Las
 sombras existen, pero son largas y muy suaves: separan sin dibujar un contorno
-gris. El halo violeta es la excepción luminosa, y solo para acción y foco.
+gris. El halo lima es la excepción luminosa, y solo para acción y foco.
 
 ### Shadow Vocabulary
 - **Línea de luz** (`inset 0 1px 0 rgba(255,255,255,.06)`): el borde superior de
@@ -341,7 +352,7 @@ gris. El halo violeta es la excepción luminosa, y solo para acción y foco.
   popovers, diálogos.
 - **Sombra de cajón** (`-24px 0 70px -24px rgba(0,0,0,.8)`): paneles laterales
   (playground, asistente, detalle de oportunidad).
-- **Halo de acento** (`0 0 0 1px rgba(138,43,226,.22), 0 10px 28px -10px rgba(138,43,226,.7)`):
+- **Halo de acento** (`0 0 0 1px rgba(200,255,0,.3), 0 10px 26px -12px rgba(200,255,0,.45)`):
   botón primario en reposo; crece en hover. También en el foco de campos
   (`0 0 0 3px` tenue + `0 0 22px -6px`).
 - **Desenfoque de cristal** (`backdrop-filter: blur(18px) saturate(160%)`): barra
@@ -355,7 +366,7 @@ translúcidas pero **nunca** llevan `backdrop-filter`: además de ser decoració
 desenfoque convierte a la tarjeta en contenedor de sus modales `position: fixed` y
 los recorta.
 
-**La Regla del Halo con Sentido.** El resplandor violeta solo aparece en la acción
+**La Regla del Halo con Sentido.** El resplandor lima solo aparece en la acción
 principal, en el foco y en la selección activa. Un halo en algo que no se puede
 pulsar miente.
 
@@ -367,30 +378,33 @@ Si una tarjeta lleva borde, su sombra es la larga y negativa de arriba o ninguna
 
 Carácter general: **táctil y con luz propia**. Superficies de cristal que
 responden al instante: el hover aviva, la pulsación hunde 1px, el foco enciende un
-anillo violeta. Sin floritura; una herramienta que responde.
+anillo lima. Sin floritura; una herramienta que responde.
 
 ### Buttons
 - **Shape:** esquinas suaves (8px, `{rounded.control}`); compacto 7px; en la landing,
   pastilla (999px).
-- **Primary:** degradado Violeta Caliente → Violeta Profundo con una luz blanca arriba
-  (16%), texto blanco, peso 600, padding 9px 16px, Halo de acento. Hover: degradado
-  más claro y halo más largo; `:active` degradado más hondo y sin halo largo.
+- **Primary:** Lima plano con una luz blanca arriba (20%), texto Tinta Carbón, peso
+  600, padding 9px 16px, Halo de acento. Hover: Lima Claro y halo más largo;
+  `:active` Lima Hundido, sin luz ni halo largo. En la app muchos botones llevan el
+  fondo inline (`background: var(--accent)`); `globals.css` los reconoce por ese
+  estilo en sus dos formas (con espacio, del navegador, y sin espacio, del HTML del
+  servidor) y les fuerza la Tinta Carbón.
 - **Ghost:** transparente, borde Borde, texto Tinta; hover rellena al 5% y sube el
   borde a Borde Fuerte. Para Cancelar, Editar, acciones secundarias.
-- **Soft:** Violeta Tenue con texto Violeta Texto y borde violeta al 35%; hover añade
-  un halo corto. Para acciones destacadas que no son la principal (Probar, Asistente).
+- **Soft:** Lima Tenue con texto Lima Texto y borde lima al 21%; hover añade un halo
+  corto. Para acciones destacadas que no son la principal (Probar, Asistente).
 - **Danger:** transparente con texto y borde rojo; hover tiñe de Rojo Tenue.
-- **Focus:** anillo `outline` 2px violeta con offset 2px en todo lo pulsable.
+- **Focus:** anillo `outline` 2px lima con offset 2px en todo lo pulsable.
 - **Disabled:** 55% de opacidad y cursor `not-allowed`.
-- **Landing:** primario en pastilla con degradado y halo; sobre la banda violeta el
-  primario se invierte (blanco con texto Violeta Sombra) y el secundario es contorno
-  blanco con cristal.
+- **Landing:** primario en pastilla, lima plano con texto carbón y halo; sobre la
+  banda lima el primario se invierte (carbón con texto lima) y el secundario es
+  contorno carbón.
 
 ### Chips
 - **Style:** pastilla (999px), 11–13px, `inline-flex` con icono de 10px si lo lleva.
-  Neutro = Capa Lila con texto Tinta. Positivo = Verde Tenue + Verde Vital.
+  Neutro = Capa Salvia con texto Tinta. Positivo = Verde Tenue + Verde Vital.
   Advertencia = Ámbar Tenue + Ámbar. Etiquetas y fuentes = su color propio a tono pleno.
-- **State:** filtro seleccionado = Violeta Tenue + borde violeta; no seleccionado =
+- **State:** filtro seleccionado = Lima pleno con Tinta Carbón; no seleccionado =
   transparente + Borde, texto Tinta Apagada.
 
 ### Cards / Containers
@@ -403,9 +417,9 @@ anillo violeta. Sin floritura; una herramienta que responde.
 
 ### Inputs / Fields
 - **Style:** fondo Campo (translúcido y más hondo), borde Borde, radio 8px, texto Tinta,
-  sombra interior de 1px. Placeholder #6f6690. El select lleva su propia flecha
-  (chevron lila) y la lista desplegada es opaca (#0d0916).
-- **Focus:** borde violeta + anillo tenue de 3px + resplandor corto. Caret violeta.
+  sombra interior de 1px. Placeholder #7f8a7b. El select lleva su propia flecha
+  (chevron en Tinta Apagada) y la lista desplegada es opaca (#0f1413).
+- **Focus:** borde lima + anillo tenue de 3px + resplandor corto. Caret lima.
 - **Hover:** borde sube a Borde Fuerte.
 - **Error / Disabled:** error en Rojo Suave; disabled al 60% con `not-allowed`.
 - **Segmentado:** contenedor Campo con sombra interior; el segmento activo es Capa 2
@@ -414,45 +428,47 @@ anillo violeta. Sin floritura; una herramienta que responde.
 ### Navigation
 - **Style:** barra lateral fija de 226px en cristal desenfocado, con línea sutil en su
   borde derecho; grupos con Overline; ítem = icono de línea (18px, trazo 1.75) + etiqueta
-  14px/500, radio 12px. Marca: cuadrado con degradado violeta → lila y halo; nombre en
-  Space Grotesk.
+  14px/500, radio 12px. Marca: cuadrado lima (Lima → Lima Hondo) con la «D» en Tinta
+  Carbón y halo; nombre en la display.
 - **States:** default Tinta Apagada; hover Tinta + fondo blanco al 5%; **activo** =
-  degradado Violeta Tenue → lila al 5%, texto claro, línea de luz, icono con sombra
-  violeta y **barra indicadora de 3px** (violeta → lila, con brillo) pegada al borde
+  degradado Lima Tenue → transparente, texto claro, línea de luz, icono con sombra
+  lima y **barra indicadora de 3px** (Lima → Lima Hondo, con brillo) pegada al borde
   izquierdo. Es un indicador de selección, la única raya lateral permitida.
-- **Cabecera:** cristal desenfocado con una línea de luz violeta → lila que recorre su
-  borde inferior; título en Space Grotesk; avatar con degradado violeta.
+- **Cabecera:** cristal desenfocado con una línea de luz lima que recorre su borde
+  inferior y se apaga; título en la display; avatar con un lima bajo.
 - **Móvil:** el menú se pliega y sale como cajón de cristal con fondo desenfocado
   (montado con portal); el título deja de mostrar subtítulo.
 
 ### Burbuja de mensaje (componente firma)
-El corazón de la bandeja. Saliente = degradado violeta al 34% → lila al 14%, a la
-derecha; entrante = Capa 2, a la izquierda. Estado de entrega en texto pequeño con
+El corazón de la bandeja. Saliente = degradado lima al 17% → 8% (un oliva oscuro,
+con texto Tinta), a la derecha; entrante = Capa 2, a la izquierda. Estado de entrega en texto pequeño con
 icono (check, doble check, reloj) y en Verde Vital cuando está leído. Acciones
 (responder, reaccionar) aparecen al pasar el cursor o al enfocar con teclado.
 Fila de conversación: avatar con iniciales, vista previa con icono del tipo de
-archivo, contador azul-violeta de no leídos y chip de espera que pasa a ámbar a la
-hora; la fila activa lleva el degradado violeta y la barra indicadora.
+archivo, contador lima de no leídos (con Tinta Carbón) y chip de espera que pasa a
+ámbar a la hora; la fila activa lleva el tinte lima y la barra indicadora.
 
-### Banda violeta (landing)
-Franja a todo ancho en degradado Violeta Profundo → Caliente, texto blanco en
-Space Grotesk mayúsculas con puntos luminosos, en marquesina lenta (se pausa al
+### Banda lima (landing)
+Franja a todo ancho en Lima plano, texto Tinta Carbón en mayúsculas con puntos
+carbón, en marquesina lenta (se pausa al
 pasar el cursor y se detiene con `prefers-reduced-motion`). La misma materia
 cierra la página: sección a pantalla completa, limpia (sin rejilla ni marca de
 fondo), con el botón primario invertido.
 
 ### Conversación en vivo (hero de la landing)
 Una venta de principio a fin en vez de una captura reducida: el chat (burbuja
-entrante en Capa 2, saliente en violeta, sello «IA») y al lado el registro de lo
-que hace el CRM, con un hilo vertical y el paso actual con halo violeta. Se
+entrante en Capa 2, saliente en lima bajo, sello «IA») y al lado el registro de lo
+que hace el CRM, con un hilo vertical y el paso actual con halo lima. Se
 reproduce una vez al cargar y se repite con «Ver otra vez». El HTML del servidor
 trae el estado final, así que sin JS o con movimiento reducido se ve completa.
 
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** usar el Violeta Eléctrico (#8a2be2) solo para acción, foco, selección y la voz
-  del negocio; ≤15% de la pantalla (La Regla del Único Acento).
+- **Do** usar el Lima (#c8ff00) solo para acción, foco, selección y la voz del
+  negocio; ≤15% de la pantalla (La Regla del Único Acento), y siempre con Tinta Carbón
+  encima (La Regla de la Tinta Carbón).
+- **Do** usar Pizarra (#9fb0c4) como segunda serie de cualquier gráfico.
 - **Do** reservar el verde (#25d366 / #7ee2a8) a lo que es WhatsApp y a los estados
   positivos (La Regla del Verde Reservado).
 - **Do** comunicar todo estado con color **+** icono o palabra (La Regla del Estado Doble).
@@ -461,10 +477,10 @@ trae el estado final, así que sin JS o con movimiento reducido se ve completa.
 - **Do** montar con portal cualquier cosa `position: fixed` que nazca dentro de un
   elemento con `backdrop-filter`.
 - **Do** dar respuesta táctil: hover que aviva, `:active` que hunde 1px, anillo de foco
-  violeta por `outline`.
+  lima por `outline`.
 - **Do** titular con Space Grotesk y trabajar con Inter; jerarquía por tamaño y peso.
-- **Do** texto de cuerpo a ≥4.5:1 (Tinta #f1ecfb y Tinta Apagada #a49bbd sobre cristal);
-  placeholders a #6f6690, nunca gris fantasma.
+- **Do** texto de cuerpo a ≥4.5:1 (Tinta #f1f4ee y Tinta Apagada #9aa596 sobre cristal);
+  placeholders a #7f8a7b, nunca gris fantasma.
 - **Do** usar iconos SVG de línea (18px, trazo 1.75) para toda señal de interfaz; los
   emojis solo dentro del contenido de los mensajes.
 - **Do** respetar `prefers-reduced-motion`: toda animación tiene alternativa de
@@ -491,8 +507,10 @@ trae el estado final, así que sin JS o con movimiento reducido se ve completa.
   misma tarjeta o botón (ghost-card); la sombra de tarjeta es larga y negativa o no es.
 - **Don't** redondear tarjetas o campos a 24/28/32px+. Techo: 12px en superficies, 14px
   en diálogos; pastilla solo en chips y en los botones de la landing.
-- **Don't** usar el verde en botones primarios, titulares o adornos, ni el violeta en
+- **Don't** usar el verde en botones primarios, titulares o adornos, ni el lima en
   chips de estado positivo.
+- **Don't** poner texto blanco sobre lima, ni lima como texto sobre blanco.
+- **Don't** poner otro verde como segunda serie al lado del lima en un gráfico.
 - **Don't** apilar más de dos capas translúcidas (La Regla de la Transparencia con
   Fondo).
 - **Don't** animar propiedades de layout (`width`, `height`) salvo el pliegue del menú;

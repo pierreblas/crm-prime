@@ -44,6 +44,8 @@ export const onboardingDtoSchema = z.object({
   completedAt: z.string().nullable(),
   dismissedAt: z.string().nullable(),
   orgCreatedAt: z.string(),
+  // Cuándo se construyó la IA con el asistente de bienvenida (null: aún no).
+  setupCompletedAt: z.string().nullable(),
   // Tours de pantalla que este usuario ya vio (claves de TOUR_KEYS).
   toursSeen: z.array(z.string()),
 });

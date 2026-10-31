@@ -13,7 +13,7 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(8, 5, 16, 0.72);
+  background: rgba(8, 11, 11, 0.72);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
@@ -174,7 +174,7 @@
 .docs-article blockquote {
   margin: 16px 0;
   padding: 10px 14px;
-  border: 1px solid rgba(138, 43, 226, 0.35);
+  border: 1px solid rgba(200, 255, 0, 0.21);
   background: var(--accent-soft);
   border-radius: 8px;
   color: var(--text);
@@ -189,7 +189,7 @@
   margin: 0 0 16px;
   padding: 14px 16px;
   border-radius: 10px;
-  background: #0c0916;
+  background: #0d1112;
   border: 1px solid var(--border);
   overflow-x: auto;
   font-size: 13px;
@@ -199,7 +199,7 @@
   background: none;
   border: none;
   padding: 0;
-  color: #e6dcf8;
+  color: #e3e9df;
   font-size: inherit;
 }
 .docs-table {
@@ -259,7 +259,7 @@
   transition: border-color 0.14s ease, transform 0.14s ease;
 }
 .docs-card:hover {
-  border-color: rgba(138, 43, 226, 0.45);
+  border-color: rgba(200, 255, 0, 0.27);
   transform: translateY(-2px);
   text-decoration: none;
 }
@@ -298,7 +298,7 @@
   margin-left: auto;
 }
 .docs-pager__link:hover {
-  border-color: rgba(138, 43, 226, 0.45);
+  border-color: rgba(200, 255, 0, 0.27);
   text-decoration: none;
 }
 

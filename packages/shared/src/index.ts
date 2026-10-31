@@ -22,6 +22,7 @@ export * from "./schemas/campaign.schema.js";
 export * from "./schemas/source.schema.js";
 export * from "./schemas/product.schema.js";
 export * from "./schemas/onboarding.schema.js";
+export * from "./schemas/business-setup.schema.js";
 export * from "./schemas/platform.schema.js";
 export * from "./schemas/feedback.schema.js";
 export * from "./schemas/copilot.schema.js";

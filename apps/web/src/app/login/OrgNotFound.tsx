@@ -44,8 +44,8 @@ const boton: React.CSSProperties = {
   marginTop: 22,
   padding: "11px 14px",
   borderRadius: 8,
-  background: "var(--accent, #4f8cff)",
-  color: "#fff",
+  background: "var(--accent)",
+  color: "var(--accent-ink)",
   fontWeight: 600,
   textDecoration: "none",
 };

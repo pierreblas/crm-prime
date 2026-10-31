@@ -1,25 +1,27 @@
-/* Landing pública — negro con violeta eléctrico. La identidad la cargan el
-   titular, la banda violeta y el cierre a sangre; el resto de la página es
-   producto real (capturas) sobre superficies planas y translúcidas.
+/* Landing pública — lima sobre carbón. La identidad la cargan el titular, la
+   banda lima y el cierre a sangre; el resto de la página es producto real
+   (capturas) sobre superficies planas y translúcidas. El lima es para marca
+   y acción: sobre lima el texto va siempre en carbón, y sobre blanco no sirve
+   como texto (1,2:1), ahí el acento de texto es un oliva oscuro.
    Todo va scopeado bajo .lp para no filtrarse a la app. Las fuentes vienen
    de globals.css (--font-display / --font-sans). */
 
 .lp {
-  --bg: #07060c;
-  --surface: rgba(20, 14, 34, 0.55);
-  --surface-2: rgba(12, 8, 22, 0.62);
-  --border: rgba(178, 160, 220, 0.16);
-  --border-soft: rgba(178, 160, 220, 0.1);
-  --ink: #f1ecfb;
-  --ink-dim: #cfc4e6;
-  --muted: #a49bbd;
-  --accent: #8a2be2;
-  --accent-bright: #b26bff;
-  --accent-text: #d6b8ff;
-  --accent-ink: #ffffff;
-  --accent-soft: rgba(138, 43, 226, 0.16);
-  --accent-line: rgba(138, 43, 226, 0.4);
-  --positive: #7ee2a8;
+  --bg: #090c0d;
+  --surface: rgba(22, 28, 26, 0.6);
+  --surface-2: rgba(12, 16, 15, 0.66);
+  --border: rgba(205, 225, 200, 0.14);
+  --border-soft: rgba(205, 225, 200, 0.09);
+  --ink: #f1f4ee;
+  --ink-dim: #ccd3c8;
+  --muted: #9aa596;
+  --accent: #c8ff00;
+  --accent-bright: #d4ff3d;
+  --accent-text: #dcff70;
+  --accent-ink: #0b1000;
+  --accent-soft: rgba(200, 255, 0, 0.1);
+  --accent-line: rgba(200, 255, 0, 0.32);
+  --positive: #dcff70;
   --glass-line: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 
   --r-sm: 8px;
@@ -38,10 +40,10 @@
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
-  /* Brillos de color detrás de todo: violeta arriba, lila a la derecha. */
+  /* Brillos detrás de todo: lima arriba y un verde muy bajo a la derecha. */
   background:
-    radial-gradient(1000px 560px at 8% -6%, rgba(138, 43, 226, 0.22), transparent 62%),
-    radial-gradient(800px 500px at 102% 18%, rgba(190, 100, 255, 0.1), transparent 60%),
+    radial-gradient(1000px 560px at 8% -6%, rgba(200, 255, 0, 0.08), transparent 62%),
+    radial-gradient(800px 500px at 102% 18%, rgba(160, 220, 120, 0.04), transparent 60%),
     var(--bg);
 }
 
@@ -52,8 +54,8 @@
 }
 
 .lp ::selection {
-  background: rgba(138, 43, 226, 0.32);
-  color: #fff;
+  background: rgba(200, 255, 0, 0.3);
+  color: var(--ink);
 }
 
 /* ── Tipografía ─────────────────────────────────────────────── */
@@ -129,7 +131,7 @@
   padding: 10px 14px;
   border-radius: var(--r-sm);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
   font-weight: 600;
   transform: translateY(-200%);
 }
@@ -164,10 +166,9 @@
   transform: translateY(1px);
 }
 .lp-btn--primary {
-  background: linear-gradient(135deg, #9a44f2, #7a1fd6);
+  background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 0 0 1px rgba(138, 43, 226, 0.3), 0 10px 26px -10px rgba(138, 43, 226, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 0 1px rgba(200, 255, 0, 0.35), 0 10px 26px -12px rgba(200, 255, 0, 0.45);
 }
 .lp-btn--ghost {
   background: rgba(255, 255, 255, 0.03);
@@ -178,25 +179,24 @@
   padding: 15px 28px;
   font-size: 16px;
 }
-/* Sobre la banda violeta el primario se invierte. .lp a pesa más que una
+/* Sobre la banda lima el primario se invierte. .lp a pesa más que una
    clase sola, de ahí el selector compuesto. */
 .lp .lp-btn--white {
-  background: #fff;
-  color: #6614bd;
-  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.55);
+  background: var(--accent-ink);
+  color: var(--accent);
+  box-shadow: 0 12px 30px -14px rgba(11, 16, 0, 0.6);
 }
 .lp .lp-btn--outline {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.7);
+  background: transparent;
+  color: var(--accent-ink);
+  border-color: rgba(11, 16, 0, 0.55);
   font-weight: 700;
 }
 @media (hover: hover) {
   .lp-btn--primary:hover {
-    background: linear-gradient(135deg, #a858ff, #8a2be2);
+    background: #d6ff47;
     transform: translateY(-2px);
-    box-shadow: 0 0 0 1px rgba(138, 43, 226, 0.4), 0 14px 32px -10px rgba(138, 43, 226, 0.85),
-      inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    box-shadow: 0 0 0 1px rgba(200, 255, 0, 0.5), 0 14px 32px -12px rgba(200, 255, 0, 0.6);
   }
   .lp-btn--ghost:hover {
     border-color: var(--accent-line);
@@ -204,13 +204,13 @@
     transform: translateY(-2px);
   }
   .lp .lp-btn--white:hover {
-    background: #f4eeff;
-    color: #5a0fae;
+    background: #1c2507;
+    color: var(--accent);
     transform: translateY(-2px);
   }
   .lp .lp-btn--outline:hover {
-    background: rgba(255, 255, 255, 0.26);
-    border-color: #fff;
+    background: rgba(11, 16, 0, 0.08);
+    border-color: var(--accent-ink);
     transform: translateY(-2px);
   }
 }
@@ -220,7 +220,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(7, 6, 12, 0.6);
+  background: rgba(9, 12, 13, 0.6);
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
   border-bottom: 1px solid transparent;
@@ -251,8 +251,8 @@
   width: 30px;
   height: 30px;
   border-radius: 9px;
-  background: linear-gradient(135deg, #9a44f2, #7a1fd6);
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .lp-nav__links {
   display: flex;
@@ -324,7 +324,7 @@
   display: flex;
   flex-direction: column;
   padding: max(16px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
-  background: rgba(7, 6, 12, 0.94);
+  background: rgba(9, 12, 13, 0.97);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   color: var(--ink);
@@ -503,7 +503,7 @@
   border-radius: 14px;
   border: 1px solid var(--border);
   background:
-    radial-gradient(120% 70% at 100% 100%, rgba(138, 43, 226, 0.14), transparent 60%),
+    radial-gradient(120% 70% at 100% 100%, rgba(200, 255, 0, 0.06), transparent 60%),
     var(--surface-2);
   box-shadow: var(--glass-line), 0 40px 80px -48px rgba(0, 0, 0, 0.9);
   overflow: hidden;
@@ -526,7 +526,7 @@
   height: 32px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: rgba(178, 160, 220, 0.18);
+  background: rgba(205, 225, 200, 0.16);
   color: var(--ink);
   font-size: 12px;
   font-weight: 700;
@@ -564,7 +564,7 @@
   height: 7px;
   border-radius: 50%;
   background: var(--accent-bright);
-  box-shadow: 0 0 0 3px rgba(178, 107, 255, 0.22);
+  box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.2);
 }
 .lp-live__msgs {
   list-style: none;
@@ -595,7 +595,7 @@
   border-bottom-left-radius: 4px;
 }
 .lp-msg--out .lp-msg__bubble {
-  background: rgba(138, 43, 226, 0.3);
+  background: rgba(200, 255, 0, 0.14);
   border-bottom-right-radius: 4px;
 }
 .lp-msg__file {
@@ -622,7 +622,7 @@
 .lp-msg__ai {
   padding: 0 6px;
   border-radius: var(--r-pill);
-  background: rgba(178, 107, 255, 0.24);
+  background: rgba(200, 255, 0, 0.18);
   color: var(--accent-text);
   font-weight: 700;
   font-size: 10px;
@@ -637,7 +637,7 @@
   padding: 12px 14px;
   border-radius: 12px;
   border-bottom-right-radius: 4px;
-  background: rgba(138, 43, 226, 0.3);
+  background: rgba(200, 255, 0, 0.14);
 }
 .lp-msg__typing i {
   width: 6px;
@@ -719,7 +719,7 @@
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--bg);
-  border: 1px solid var(--border-strong, rgba(178, 160, 220, 0.3));
+  border: 1px solid rgba(205, 225, 200, 0.3);
   color: var(--positive);
 }
 .lp-live__tick svg {
@@ -727,8 +727,8 @@
   height: 11px;
 }
 .lp-live__log li[data-last="true"] .lp-live__tick {
-  border-color: var(--accent-bright);
-  box-shadow: 0 0 0 4px rgba(178, 107, 255, 0.18);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(200, 255, 0, 0.16);
 }
 .lp-live__replay {
   margin-top: auto;
@@ -809,15 +809,16 @@
   margin-bottom: 2px;
 }
 
-/* ── Banda violeta a todo ancho (marquesina) ────────────────── */
+/* ── Banda lima a todo ancho (marquesina) ──────────────────── */
 .lp-band {
   position: relative;
   overflow: hidden;
   padding-block: 16px;
-  color: #fff;
-  background: linear-gradient(90deg, #7a1fd6, #9a44f2 50%, #7a1fd6);
+  color: var(--accent-ink);
+  background: var(--accent);
   border-block: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  box-shadow: none;
+  border-block-color: rgba(11, 16, 0, 0.2);
 }
 .lp-band::before {
   content: "";
@@ -825,8 +826,8 @@
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px);
+    linear-gradient(rgba(11, 16, 0, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 16, 0, 0.06) 1px, transparent 1px);
   background-size: 40px 40px;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
@@ -864,7 +865,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(11, 16, 0, 0.75);
 }
 /* Fundido bajo el botón de pausa para que el texto no choque con él. */
 .lp-band::after {
@@ -875,7 +876,7 @@
   right: 0;
   width: 120px;
   pointer-events: none;
-  background: linear-gradient(90deg, rgba(122, 31, 214, 0), #7a1fd6 70%);
+  background: linear-gradient(90deg, rgba(200, 255, 0, 0), var(--accent) 70%);
 }
 .lp-band__pause {
   position: absolute;
@@ -887,11 +888,12 @@
   height: 44px;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.55);
-  background: rgba(60, 10, 120, 0.55);
-  color: #fff;
+  background: rgba(11, 16, 0, 0.1);
+  color: var(--accent-ink);
   cursor: pointer;
   display: grid;
   place-items: center;
+  border-color: rgba(11, 16, 0, 0.45);
 }
 @keyframes lp-marquee {
   from {
@@ -940,7 +942,7 @@
 }
 .lp-card--feature {
   background:
-    radial-gradient(80% 120% at 100% 0%, rgba(138, 43, 226, 0.14), transparent 60%),
+    radial-gradient(80% 120% at 100% 0%, rgba(200, 255, 0, 0.07), transparent 60%),
     var(--surface);
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
@@ -1040,7 +1042,7 @@
   font-size: 11.5px;
   padding: 2px 8px;
   border-radius: var(--r-pill);
-  background: rgba(178, 160, 220, 0.14);
+  background: rgba(205, 225, 200, 0.1);
   color: var(--accent-text);
   white-space: nowrap;
 }
@@ -1138,7 +1140,7 @@
 .lp-step:first-child .lp-step__n {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
 }
 .lp-step h3 {
   margin-bottom: 8px;
@@ -1191,11 +1193,11 @@
   color: var(--muted);
 }
 .lp-vs__bad svg {
-  color: #8d84a6;
+  color: #848f80;
 }
 .lp-vs__good,
 .lp-vs__row--head > span:last-child {
-  background: rgba(138, 43, 226, 0.1);
+  background: rgba(200, 255, 0, 0.06);
 }
 .lp-vs__good {
   color: var(--ink);
@@ -1241,7 +1243,7 @@
 }
 .lp-plan--cloud {
   background:
-    radial-gradient(90% 100% at 100% 0%, rgba(138, 43, 226, 0.16), transparent 60%),
+    radial-gradient(90% 100% at 100% 0%, rgba(200, 255, 0, 0.09), transparent 60%),
     var(--surface);
   border-color: var(--accent-line);
 }
@@ -1450,18 +1452,18 @@
   max-width: 68ch;
 }
 
-/* ── Cierre a todo ancho en violeta ─────────────────────────── */
+/* ── Cierre a todo ancho en lima ─────────────────────────────── */
 .lp-cta-band {
   position: relative;
   overflow: hidden;
   margin-top: clamp(16px, 3vw, 40px);
   padding-block: clamp(72px, 9vw, 128px);
   text-align: center;
-  color: #fff;
+  color: var(--accent-ink);
   background:
-    radial-gradient(70% 120% at 50% 0%, rgba(255, 255, 255, 0.14), transparent 60%),
-    linear-gradient(135deg, #7a1fd6, #8a2be2 60%, #7a1fd6);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+    radial-gradient(70% 120% at 50% 0%, rgba(255, 255, 255, 0.3), transparent 60%),
+    var(--accent);
+  box-shadow: none;
 }
 .lp-cta-band__inner {
   position: relative;
@@ -1470,10 +1472,10 @@
 .lp-cta-band h2 {
   max-width: 18ch;
   margin: 0 auto 16px;
-  color: #fff;
+  color: var(--accent-ink);
 }
 .lp-cta-band p {
-  color: #fff;
+  color: var(--accent-ink);
   max-width: 46ch;
   margin: 0 auto 30px;
   font-size: 17px;
@@ -1638,7 +1640,7 @@
     padding-bottom: 4px;
     font-size: 14.5px;
     text-decoration: line-through;
-    text-decoration-color: rgba(164, 155, 189, 0.5);
+    text-decoration-color: rgba(154, 165, 150, 0.5);
   }
   .lp-vs__row > .lp-vs__good {
     padding-top: 4px;
@@ -1705,37 +1707,36 @@
 }
 
 /* ══ Tema claro ═══════════════════════════════════════════════
-   La misma página en blanco: fondo casi blanco teñido de violeta (no
-   crema), tinta morada muy oscura y el violeta de marca intacto. La banda
-   violeta, el cierre y los botones primarios no cambian: son la identidad.
+   La misma página en blanco: fondo blanco neutro (no crema), tinta casi
+   negra y el acento de texto en oliva. La banda lima, el cierre y los
+   botones primarios no cambian: son la identidad.
    Se activa con data-theme="light" en .lp (selector de la cabecera,
    ?tema=claro o lo que se eligió la última vez). */
 .lp[data-theme="light"] {
-  --bg: #faf8ff;
+  --bg: #f8f9f7;
   --surface: #ffffff;
-  --surface-2: #f4f1fb;
-  --border: rgba(55, 25, 105, 0.14);
-  --border-soft: rgba(55, 25, 105, 0.09);
-  --ink: #170f2a;
-  --ink-dim: #3a3051;
-  --muted: #5c5373;
-  --accent-bright: #7a1fd6;
-  --accent-text: #6a14c6;
-  --accent-soft: rgba(138, 43, 226, 0.09);
-  --accent-line: rgba(138, 43, 226, 0.34);
-  --positive: #157a47;
+  --surface-2: #f1f3ee;
+  --border: rgba(20, 30, 10, 0.14);
+  --border-soft: rgba(20, 30, 10, 0.09);
+  --ink: #10140c;
+  --ink-dim: #30382a;
+  --muted: #565f50;
+  --accent-bright: #4f6b00;
+  --accent-text: #435c00;
+  --accent-soft: rgba(130, 170, 0, 0.12);
+  --accent-line: rgba(90, 120, 0, 0.4);
+  --positive: #3f6a00;
   --glass-line: inset 0 1px 0 rgba(255, 255, 255, 0.9);
   background:
-    radial-gradient(1000px 560px at 8% -6%, rgba(138, 43, 226, 0.11), transparent 62%),
-    radial-gradient(800px 500px at 102% 18%, rgba(190, 100, 255, 0.08), transparent 60%),
+    radial-gradient(1000px 560px at 8% -6%, rgba(200, 255, 0, 0.2), transparent 62%),
     var(--bg);
   color-scheme: light;
 }
 .lp[data-theme="light"] ::selection {
-  background: rgba(138, 43, 226, 0.18);
+  background: rgba(200, 255, 0, 0.55);
   color: var(--ink);
 }
-/* Superficies que en oscuro eran un velo blanco: en claro, un velo violeta. */
+/* Superficies que en oscuro eran un velo blanco: en claro, un velo oliva. */
 .lp[data-theme="light"] .lp-btn--ghost {
   background: #fff;
 }
@@ -1744,19 +1745,19 @@
 .lp[data-theme="light"] .lp-foot__links a:hover,
 .lp[data-theme="light"] .lp-chip,
 .lp[data-theme="light"] .lp-plan__tag {
-  background: rgba(55, 25, 105, 0.05);
+  background: rgba(20, 30, 10, 0.05);
 }
 .lp[data-theme="light"] .lp-partner {
   background: #fff;
 }
 .lp[data-theme="light"] .lp-meter__bar {
-  background: rgba(55, 25, 105, 0.08);
+  background: rgba(20, 30, 10, 0.08);
 }
 .lp[data-theme="light"] .lp-trace__ev {
   background: var(--accent-soft);
 }
 .lp[data-theme="light"] .lp-vs__bad svg {
-  color: #8a819f;
+  color: #7d8677;
 }
 .lp[data-theme="light"] .lp-vs {
   background: var(--surface);
@@ -1764,58 +1765,65 @@
 @media (min-width: 701px) {
   .lp[data-theme="light"] .lp-vs__good,
   .lp[data-theme="light"] .lp-vs__row--head > span:last-child {
-    background: rgba(138, 43, 226, 0.06);
+    background: rgba(200, 255, 0, 0.14);
   }
 }
 /* Conversación del hero en claro: burbujas sobre blanco. */
 .lp[data-theme="light"] .lp-live__chat {
   background:
-    radial-gradient(120% 70% at 100% 100%, rgba(138, 43, 226, 0.07), transparent 60%),
+    radial-gradient(120% 70% at 100% 100%, rgba(200, 255, 0, 0.1), transparent 60%),
     var(--surface);
-  box-shadow: 0 1px 2px rgba(40, 15, 80, 0.05), 0 8px 24px -16px rgba(40, 15, 80, 0.2);
+  box-shadow: 0 1px 2px rgba(20, 30, 10, 0.05), 0 8px 24px -16px rgba(20, 30, 10, 0.2);
 }
 .lp[data-theme="light"] .lp-msg--in .lp-msg__bubble {
-  background: #f1edf9;
+  background: #eff1ec;
 }
 .lp[data-theme="light"] .lp-msg--out .lp-msg__bubble,
 .lp[data-theme="light"] .lp-msg__typing {
-  background: #ead9ff;
+  background: #ecffb8;
 }
 .lp[data-theme="light"] .lp-msg__file {
-  background: rgba(55, 25, 105, 0.07);
+  background: rgba(20, 30, 10, 0.07);
 }
 .lp[data-theme="light"] .lp-msg__ai {
-  background: rgba(138, 43, 226, 0.14);
+  background: rgba(200, 255, 0, 0.6);
+  color: #2f4200;
 }
 .lp[data-theme="light"] .lp-live__avatar {
-  background: rgba(55, 25, 105, 0.1);
+  background: rgba(20, 30, 10, 0.07);
+}
+.lp[data-theme="light"] .lp-live__tick {
+  border-color: rgba(20, 30, 10, 0.2);
+}
+.lp[data-theme="light"] .lp-live__log li[data-last="true"] .lp-live__tick {
+  border-color: #6f9400;
+  box-shadow: 0 0 0 4px rgba(200, 255, 0, 0.35);
 }
 /* Cabecera y menú: vidrio blanco en vez de negro. */
 .lp[data-theme="light"] .lp-nav {
-  background: rgba(250, 248, 255, 0.78);
+  background: rgba(248, 249, 247, 0.78);
 }
 .lp-menu[data-theme="light"] {
-  background: rgba(250, 248, 255, 0.97);
+  background: rgba(248, 249, 247, 0.97);
 }
 /* Tarjetas: en claro las separa una sombra corta, no el contraste del fondo. */
 .lp[data-theme="light"] .lp-card,
 .lp[data-theme="light"] .lp-plan {
-  box-shadow: 0 1px 2px rgba(40, 15, 80, 0.05), 0 8px 24px -16px rgba(40, 15, 80, 0.18);
+  box-shadow: 0 1px 2px rgba(20, 30, 10, 0.05), 0 8px 24px -16px rgba(20, 30, 10, 0.18);
 }
 .lp[data-theme="light"] .lp-card--feature,
 .lp[data-theme="light"] .lp-plan--cloud {
   background:
-    radial-gradient(90% 100% at 100% 0%, rgba(138, 43, 226, 0.08), transparent 60%),
+    radial-gradient(90% 100% at 100% 0%, rgba(200, 255, 0, 0.16), transparent 60%),
     var(--surface);
 }
-/* Las capturas son del panel (oscuro): marco fino y sombra violeta suave. */
+/* Las capturas son del panel (oscuro): marco fino y sombra suave. */
 .lp[data-theme="light"] .lp-shot {
-  background: #0d0a18;
-  box-shadow: 0 0 0 1px rgba(55, 25, 105, 0.14), 0 30px 70px -38px rgba(55, 20, 120, 0.45);
+  background: #0c100e;
+  box-shadow: 0 0 0 1px rgba(20, 30, 10, 0.14), 0 30px 70px -38px rgba(20, 30, 10, 0.45);
 }
 .lp[data-theme="light"] .lp-btn--primary {
-  box-shadow: 0 0 0 1px rgba(138, 43, 226, 0.25), 0 10px 24px -12px rgba(138, 43, 226, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 0 1px rgba(90, 120, 0, 0.35), 0 10px 24px -12px rgba(90, 120, 0, 0.4);
 }
 
 /* Selector de tema (sol / luna) */
@@ -1863,264 +1871,5 @@
   }
   .lp-theme:hover svg {
     transform: none;
-  }
-}
-
-/* ══ Variante de marca en prueba: lima sobre carbón ═══════════
-   Se activa con ?marca=lima (data-brand="lima" en .lp) y se quita con
-   ?marca=violeta. Todo vive en este bloque para poder borrarlo o
-   promoverlo de una vez. Reglas: el lima es para marca y acción (botones,
-   banda, cierre, palabra destacada); sobre lima el texto va siempre en
-   carbón; sobre blanco el lima no sirve como texto (1,2:1), ahí el
-   acento de texto es un oliva oscuro. */
-.lp[data-brand="lima"] {
-  --bg: #090c0d;
-  --surface: rgba(22, 28, 26, 0.6);
-  --surface-2: rgba(12, 16, 15, 0.66);
-  --border: rgba(205, 225, 200, 0.14);
-  --border-soft: rgba(205, 225, 200, 0.09);
-  --ink: #f1f4ee;
-  --ink-dim: #ccd3c8;
-  --muted: #9aa596;
-  --accent: #c8ff00;
-  --accent-bright: #d4ff3d;
-  --accent-text: #dcff70;
-  --accent-ink: #0b1000;
-  --accent-soft: rgba(200, 255, 0, 0.1);
-  --accent-line: rgba(200, 255, 0, 0.32);
-  --positive: #dcff70;
-  background:
-    radial-gradient(1000px 560px at 8% -6%, rgba(200, 255, 0, 0.08), transparent 62%),
-    radial-gradient(800px 500px at 102% 18%, rgba(160, 220, 120, 0.04), transparent 60%),
-    var(--bg);
-}
-.lp[data-brand="lima"] ::selection {
-  background: rgba(200, 255, 0, 0.3);
-  color: var(--ink);
-}
-.lp[data-brand="lima"] .lp-skip {
-  color: var(--accent-ink);
-}
-.lp[data-brand="lima"] .lp-nav {
-  background: rgba(9, 12, 13, 0.6);
-}
-.lp-menu[data-brand="lima"] {
-  background: rgba(9, 12, 13, 0.97);
-}
-.lp[data-brand="lima"] .lp-brand__mark {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
-/* Botón principal: lima plano, texto carbón. */
-.lp[data-brand="lima"] .lp-btn--primary {
-  background: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: 0 0 0 1px rgba(200, 255, 0, 0.35), 0 10px 26px -12px rgba(200, 255, 0, 0.45);
-}
-@media (hover: hover) {
-  .lp[data-brand="lima"] .lp-btn--primary:hover {
-    background: #d6ff47;
-    box-shadow: 0 0 0 1px rgba(200, 255, 0, 0.5), 0 14px 32px -12px rgba(200, 255, 0, 0.6);
-  }
-}
-
-/* Banda y cierre: superficie lima con texto carbón. */
-.lp[data-brand="lima"] .lp-band {
-  color: var(--accent-ink);
-  background: var(--accent);
-  border-block-color: rgba(11, 16, 0, 0.2);
-  box-shadow: none;
-}
-.lp[data-brand="lima"] .lp-band::before {
-  background-image:
-    linear-gradient(rgba(11, 16, 0, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(11, 16, 0, 0.06) 1px, transparent 1px);
-}
-.lp[data-brand="lima"] .lp-band::after {
-  background: linear-gradient(90deg, rgba(200, 255, 0, 0), var(--accent) 70%);
-}
-.lp[data-brand="lima"] .lp-band__dot {
-  background: rgba(11, 16, 0, 0.75);
-}
-.lp[data-brand="lima"] .lp-band__pause {
-  border-color: rgba(11, 16, 0, 0.45);
-  background: rgba(11, 16, 0, 0.1);
-  color: var(--accent-ink);
-}
-.lp[data-brand="lima"] .lp-cta-band {
-  color: var(--accent-ink);
-  background:
-    radial-gradient(70% 120% at 50% 0%, rgba(255, 255, 255, 0.3), transparent 60%),
-    var(--accent);
-  box-shadow: none;
-}
-.lp[data-brand="lima"] .lp-cta-band h2,
-.lp[data-brand="lima"] .lp-cta-band p {
-  color: var(--accent-ink);
-}
-.lp[data-brand="lima"] .lp-btn--white {
-  background: var(--accent-ink);
-  color: var(--accent);
-  box-shadow: 0 12px 30px -14px rgba(11, 16, 0, 0.6);
-}
-.lp[data-brand="lima"] .lp-btn--outline {
-  background: transparent;
-  color: var(--accent-ink);
-  border-color: rgba(11, 16, 0, 0.55);
-}
-@media (hover: hover) {
-  .lp[data-brand="lima"] .lp-btn--white:hover {
-    background: #1c2507;
-    color: var(--accent);
-  }
-  .lp[data-brand="lima"] .lp-btn--outline:hover {
-    background: rgba(11, 16, 0, 0.08);
-    border-color: var(--accent-ink);
-  }
-}
-
-/* Superficies teñidas: el violeta pasa a lima muy bajo. */
-.lp[data-brand="lima"] .lp-live__chat {
-  background:
-    radial-gradient(120% 70% at 100% 100%, rgba(200, 255, 0, 0.06), transparent 60%),
-    var(--surface-2);
-}
-.lp[data-brand="lima"] .lp-live__avatar {
-  background: rgba(205, 225, 200, 0.16);
-}
-.lp[data-brand="lima"] .lp-live__mode i {
-  box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.2);
-}
-.lp[data-brand="lima"] .lp-msg--out .lp-msg__bubble,
-.lp[data-brand="lima"] .lp-msg__typing {
-  background: rgba(200, 255, 0, 0.14);
-}
-.lp[data-brand="lima"] .lp-msg__ai {
-  background: rgba(200, 255, 0, 0.18);
-}
-.lp[data-brand="lima"] .lp-live__tick {
-  border-color: rgba(205, 225, 200, 0.3);
-}
-.lp[data-brand="lima"] .lp-live__log li[data-last="true"] .lp-live__tick {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(200, 255, 0, 0.16);
-}
-.lp[data-brand="lima"] .lp-card--feature {
-  background:
-    radial-gradient(80% 120% at 100% 0%, rgba(200, 255, 0, 0.07), transparent 60%),
-    var(--surface);
-}
-.lp[data-brand="lima"] .lp-plan--cloud {
-  background:
-    radial-gradient(90% 100% at 100% 0%, rgba(200, 255, 0, 0.09), transparent 60%),
-    var(--surface);
-}
-.lp[data-brand="lima"] .lp-trace__ev {
-  background: rgba(205, 225, 200, 0.1);
-}
-.lp[data-brand="lima"] .lp-vs__good,
-.lp[data-brand="lima"] .lp-vs__row--head > span:last-child {
-  background: rgba(200, 255, 0, 0.06);
-}
-.lp[data-brand="lima"] .lp-vs__bad svg {
-  color: #848f80;
-}
-.lp[data-brand="lima"] .lp-step:first-child .lp-step__n {
-  color: var(--accent-ink);
-}
-
-/* Lima en tema claro: blanco neutro, tinta casi negra, acento de texto oliva. */
-.lp[data-brand="lima"][data-theme="light"] {
-  --bg: #f8f9f7;
-  --surface: #ffffff;
-  --surface-2: #f1f3ee;
-  --border: rgba(20, 30, 10, 0.14);
-  --border-soft: rgba(20, 30, 10, 0.09);
-  --ink: #10140c;
-  --ink-dim: #30382a;
-  --muted: #565f50;
-  --accent-bright: #4f6b00;
-  --accent-text: #435c00;
-  --accent-soft: rgba(130, 170, 0, 0.12);
-  --accent-line: rgba(90, 120, 0, 0.4);
-  --positive: #3f6a00;
-  background:
-    radial-gradient(1000px 560px at 8% -6%, rgba(200, 255, 0, 0.2), transparent 62%),
-    var(--bg);
-}
-.lp[data-brand="lima"][data-theme="light"] ::selection {
-  background: rgba(200, 255, 0, 0.55);
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-nav {
-  background: rgba(248, 249, 247, 0.78);
-}
-.lp-menu[data-brand="lima"][data-theme="light"] {
-  background: rgba(248, 249, 247, 0.97);
-}
-/* Sobre blanco el lima no tiene borde propio: lo dibuja un anillo oliva. */
-.lp[data-brand="lima"][data-theme="light"] .lp-btn--primary {
-  box-shadow: 0 0 0 1px rgba(90, 120, 0, 0.35), 0 10px 24px -12px rgba(90, 120, 0, 0.4);
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-live__chat {
-  background:
-    radial-gradient(120% 70% at 100% 100%, rgba(200, 255, 0, 0.1), transparent 60%),
-    var(--surface);
-  box-shadow: 0 1px 2px rgba(20, 30, 10, 0.05), 0 8px 24px -16px rgba(20, 30, 10, 0.2);
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-msg--in .lp-msg__bubble {
-  background: #eff1ec;
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-msg--out .lp-msg__bubble,
-.lp[data-brand="lima"][data-theme="light"] .lp-msg__typing {
-  background: #ecffb8;
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-msg__file,
-.lp[data-brand="lima"][data-theme="light"] .lp-live__avatar {
-  background: rgba(20, 30, 10, 0.07);
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-msg__ai {
-  background: rgba(200, 255, 0, 0.6);
-  color: #2f4200;
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-live__tick {
-  border-color: rgba(20, 30, 10, 0.2);
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-live__log li[data-last="true"] .lp-live__tick {
-  border-color: #6f9400;
-  box-shadow: 0 0 0 4px rgba(200, 255, 0, 0.35);
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-card,
-.lp[data-brand="lima"][data-theme="light"] .lp-plan {
-  box-shadow: 0 1px 2px rgba(20, 30, 10, 0.05), 0 8px 24px -16px rgba(20, 30, 10, 0.18);
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-card--feature,
-.lp[data-brand="lima"][data-theme="light"] .lp-plan--cloud {
-  background:
-    radial-gradient(90% 100% at 100% 0%, rgba(200, 255, 0, 0.16), transparent 60%),
-    var(--surface);
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-shot {
-  background: #0c100e;
-  box-shadow: 0 0 0 1px rgba(20, 30, 10, 0.14), 0 30px 70px -38px rgba(20, 30, 10, 0.45);
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-trace__ev {
-  background: var(--accent-soft);
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-vs {
-  background: var(--surface);
-}
-.lp[data-brand="lima"][data-theme="light"] .lp-vs__bad svg {
-  color: #7d8677;
-}
-@media (min-width: 701px) {
-  .lp[data-brand="lima"][data-theme="light"] .lp-vs__good,
-  .lp[data-brand="lima"][data-theme="light"] .lp-vs__row--head > span:last-child {
-    background: rgba(200, 255, 0, 0.14);
-  }
-}
-@media (max-width: 700px) {
-  .lp[data-brand="lima"] .lp-vs__row > .lp-vs__good {
-    background: none;
   }
 }

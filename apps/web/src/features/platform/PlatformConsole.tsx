@@ -667,7 +667,7 @@ function SignupsChart({ data, loading }: { data: { day: string; count: number }[
   );
 }
 
-/** Treinta días de mensajes: recibidos (violeta) sobre enviados (verde). */
+/** Treinta días de mensajes: recibidos (lima) sobre enviados (pizarra). */
 function TrafficChart({ data, loading }: { data: { day: string; inbound: number; outbound: number }[]; loading: boolean }) {
   const days = useMemo(() => lastDays(data, 30, (day) => ({ day, inbound: 0, outbound: 0 })), [data]);
   const max = Math.max(1, ...days.map((d) => d.inbound + d.outbound));
@@ -687,7 +687,7 @@ function TrafficChart({ data, loading }: { data: { day: string; inbound: number;
       </div>
       <div className="pc-legend">
         <span><i style={{ background: "var(--accent)" }} />Recibidos · {totalIn.toLocaleString("es")}</span>
-        <span><i style={{ background: "var(--positive)" }} />Enviados · {totalOut.toLocaleString("es")}</span>
+        <span><i style={{ background: "var(--chart-2)" }} />Enviados · {totalOut.toLocaleString("es")}</span>
         <span style={{ marginLeft: "auto" }}>{date(days[0]!.day)} → hoy</span>
       </div>
     </div>

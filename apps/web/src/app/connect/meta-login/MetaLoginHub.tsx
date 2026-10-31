@@ -111,7 +111,7 @@ const boton: React.CSSProperties = {
   borderRadius: 9,
   border: "none",
   background: "var(--accent)",
-  color: "#fff",
+  color: "var(--accent-ink)",
   fontWeight: 600,
   fontSize: 14,
   cursor: "pointer",

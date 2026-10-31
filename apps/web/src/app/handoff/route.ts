@@ -16,10 +16,10 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
   if (!token) redirect("/login");
-  // A dónde ir al entrar: Primeros pasos tras el alta; el panel si viene del
-  // operador (`to=/`). Solo rutas de este mismo sitio.
+  // A dónde ir al entrar: el asistente de bienvenida tras el alta; el panel
+  // si viene del operador (`to=/`). Solo rutas de este mismo sitio.
   const rawTo = url.searchParams.get("to") ?? "";
-  const to = /^\/(?!\/)[^\s]*$/.test(rawTo) ? rawTo : "/getting-started";
+  const to = /^\/(?!\/)[^\s]*$/.test(rawTo) ? rawTo : "/bienvenida";
 
   try {
     await signIn("credentials", { handoff: token, redirectTo: to });

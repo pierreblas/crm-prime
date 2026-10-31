@@ -524,7 +524,7 @@ const userBubble: React.CSSProperties = {
   padding: "8px 11px",
   borderRadius: "10px 10px 2px 10px",
   background: "var(--accent)",
-  color: "#f3f8ff",
+  color: "var(--accent-ink)",
   fontSize: 12.5,
   whiteSpace: "pre-wrap",
 };

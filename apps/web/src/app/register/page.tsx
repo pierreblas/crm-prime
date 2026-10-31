@@ -134,7 +134,7 @@ const brandMark: React.CSSProperties = {
   width: 30,
   height: 30,
   borderRadius: 9,
-  color: "#fff",
+  color: "var(--accent-ink)",
   display: "grid",
   placeItems: "center",
   fontWeight: 800,

@@ -53,5 +53,5 @@ const mark: React.CSSProperties = {
   display: "grid",
   placeItems: "center",
   fontWeight: 800,
-  color: "#fff",
+  color: "var(--accent-ink)",
 };

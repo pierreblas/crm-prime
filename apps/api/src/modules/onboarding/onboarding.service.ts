@@ -71,6 +71,7 @@ export class OnboardingService {
       completedAt: completedAt?.toISOString() ?? null,
       dismissedAt: state?.dismissedAt?.toISOString() ?? null,
       orgCreatedAt: org.createdAt.toISOString(),
+      setupCompletedAt: state?.setupCompletedAt?.toISOString() ?? null,
       toursSeen: user?.toursSeen ?? [],
     };
   }

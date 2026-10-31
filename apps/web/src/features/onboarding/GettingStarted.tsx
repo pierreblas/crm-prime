@@ -102,6 +102,21 @@ export function GettingStarted({ role }: { role?: string }) {
         )}
       </header>
 
+      {isAdmin && !data.setupCompletedAt && (
+        <Link href="/bienvenida" className="gs-setup">
+          <span className="gs-setup__icon" aria-hidden="true">
+            <NavIcon name="sparkles" size={19} />
+          </span>
+          <span className="gs-setup__text">
+            <strong>Arma tu IA de WhatsApp en unos minutos</strong>
+            <span>Elige tu rubro y responde unas preguntas: Driony configura tu agente, lo que sabe y tu embudo de ventas.</span>
+          </span>
+          <span className="btn btn-primary btn-sm">
+            Empezar <NavIcon name="arrow-right" size={14} />
+          </span>
+        </Link>
+      )}
+
       {complete && (
         <section className="gs-next" aria-label="Siguientes pasos">
           <NextCard href="/difusiones" icon="megaphone" title="Difusiones" text="Envíos masivos con plantillas aprobadas por Meta." />

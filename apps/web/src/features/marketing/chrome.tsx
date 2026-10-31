@@ -152,14 +152,9 @@ export type LpTheme = "dark" | "light";
 const LP_THEME_KEY = "lp-theme";
 const LP_THEME_SCRIPT = `(function(){try{var q=new URLSearchParams(location.search).get("tema");var t=q==="claro"||q==="light"?"light":q==="oscuro"||q==="dark"?"dark":null;if(t)localStorage.setItem("${LP_THEME_KEY}",t);else t=localStorage.getItem("${LP_THEME_KEY}");if(t==="light"){var r=document.currentScript&&document.currentScript.parentElement;if(r)r.setAttribute("data-theme","light");}}catch(e){}})();`;
 
-/* Variante de marca en prueba (lima sobre carbón): ?marca=lima la activa
-   y ?marca=violeta la quita. Dura la sesión del navegador. */
-const LP_BRAND_KEY = "lp-brand";
-const LP_BRAND_SCRIPT = `(function(){try{var r=document.currentScript&&document.currentScript.parentElement;var q=new URLSearchParams(location.search).get("marca");if(q==="lima")sessionStorage.setItem("${LP_BRAND_KEY}","lima");else if(q)sessionStorage.removeItem("${LP_BRAND_KEY}");if(r&&sessionStorage.getItem("${LP_BRAND_KEY}")==="lima")r.setAttribute("data-brand","lima");}catch(e){}})();`;
-
 /** Primer hijo de la raíz .lp: aplica el tema guardado antes de pintar. */
 export function LpThemeScript() {
-  return <script dangerouslySetInnerHTML={{ __html: LP_THEME_SCRIPT + LP_BRAND_SCRIPT }} />;
+  return <script dangerouslySetInnerHTML={{ __html: LP_THEME_SCRIPT }} />;
 }
 
 function useLpTheme(): [LpTheme, () => void] {
@@ -170,7 +165,6 @@ function useLpTheme(): [LpTheme, () => void] {
     let t: LpTheme = root?.getAttribute("data-theme") === "light" ? "light" : "dark";
     try {
       if (localStorage.getItem(LP_THEME_KEY) === "light") t = "light";
-      if (sessionStorage.getItem(LP_BRAND_KEY) === "lima") root?.setAttribute("data-brand", "lima");
     } catch {}
     root?.setAttribute("data-theme", t);
     setTheme(t);
@@ -211,7 +205,6 @@ function MobileMenu({ home, onClose, theme, onToggleTheme }: { home: boolean; on
       className="lp lp-menu"
       id="lp-menu"
       data-theme={theme}
-      data-brand={typeof document === "undefined" ? undefined : document.getElementById("lp-root")?.getAttribute("data-brand") ?? undefined}
       aria-label="Menú"
       lang="es"
       onCancel={(e) => {

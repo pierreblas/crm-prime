@@ -1,6 +1,11 @@
 "use client";
 
 import type {
+  BusinessSetupInput,
+  BusinessSetupState,
+  SetupAgentResult,
+  SetupKnowledgeResult,
+  SetupProfileResult,
   CreateProductFieldInput,
   ProductFieldDto,
   UpdateProductFieldInput,
@@ -1876,6 +1881,38 @@ export async function dismissOnboarding(dismissed: boolean): Promise<void> {
     method: dismissed ? "POST" : "DELETE",
   });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar la preferencia"));
+}
+
+// ── Asistente de bienvenida ────────────────────────────────
+
+export async function fetchBusinessSetup(): Promise<BusinessSetupState> {
+  const res = await bffFetch("/api/bff/onboarding/setup");
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar el asistente"));
+  return res.json();
+}
+
+/** Fase 1: guarda lo que contó, adapta el embudo y crea respuestas rápidas. */
+export async function saveBusinessProfile(input: BusinessSetupInput): Promise<SetupProfileResult> {
+  const res = await bffFetch("/api/bff/onboarding/setup/profile", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar tu negocio"));
+  return res.json();
+}
+
+/** Fase 2: base de conocimiento con sus respuestas y su web. */
+export async function buildBusinessKnowledge(): Promise<SetupKnowledgeResult> {
+  const res = await bffFetch("/api/bff/onboarding/setup/knowledge", { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo armar tu base de conocimiento"));
+  return res.json();
+}
+
+/** Fase 3: instrucciones y configuración del agente. */
+export async function buildBusinessAgent(): Promise<SetupAgentResult> {
+  const res = await bffFetch("/api/bff/onboarding/setup/agent", { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo configurar tu agente"));
+  return res.json();
 }
 
 /** Un tour visto: si falla, no pasa nada grave (volverá a salir). */

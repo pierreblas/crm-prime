@@ -25,6 +25,8 @@ import { AiSettingsController } from "./ai-settings.controller";
 import { CopilotController } from "./copilot.controller";
 import { AiUsageController } from "./ai-usage.controller";
 import { CopilotService } from "./copilot.service";
+import { BusinessSetupController } from "./business-setup.controller";
+import { BusinessSetupService } from "./business-setup.service";
 import { MessagingModule } from "../messaging/messaging.module";
 import { KnowledgeModule } from "../knowledge/knowledge.module";
 import { OnboardingModule } from "../onboarding/onboarding.module";
@@ -41,6 +43,7 @@ import { OnboardingModule } from "../onboarding/onboarding.module";
     StageWebhookController,
     StageAutomationOpsController,
     BulkFlowController,
+    BusinessSetupController,
   ],
   providers: [
     AgentService,
@@ -59,6 +62,7 @@ import { OnboardingModule } from "../onboarding/onboarding.module";
     AiReplyProcessor,
     MediaUnderstandingService,
     CopilotService,
+    BusinessSetupService,
   ],
   exports: [MediaUnderstandingService],
 })

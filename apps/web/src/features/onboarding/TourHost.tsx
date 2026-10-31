@@ -140,7 +140,13 @@ export function TourHost() {
     if (!def || autoTried.current === pathname) return;
     autoTried.current = pathname;
     if (data.toursSeen.includes(def.key)) return;
-    const t = window.setTimeout(() => start(def), 700);
+    const t = window.setTimeout(() => {
+      // Si la pantalla se abrió para algo concreto (el simulador o el asistente
+      // del agente, desde un enlace), el tour no se le pone encima: queda sin
+      // ver y sale la próxima vez.
+      if (document.querySelector('aside[role="dialog"], [role="dialog"][aria-modal="true"]')) return;
+      start(def);
+    }, 700);
     return () => window.clearTimeout(t);
   }, [data, pathname, start]);
 

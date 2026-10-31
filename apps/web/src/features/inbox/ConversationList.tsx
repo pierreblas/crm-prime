@@ -360,7 +360,7 @@ const autoDot: React.CSSProperties = {
   height: 17,
   borderRadius: "50%",
   background: "var(--accent)",
-  color: "#fff",
+  color: "var(--accent-ink)",
   display: "grid",
   placeItems: "center",
   border: "2px solid var(--bg)",

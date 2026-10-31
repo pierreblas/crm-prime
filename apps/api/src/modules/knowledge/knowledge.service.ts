@@ -172,10 +172,11 @@ export class KnowledgeService implements OnModuleInit {
   /**
    * Descarga la página (y, si se pide, las del mismo sitio que enlaza, hasta
    * 15) y guarda cada una como documento. Volver a importar la misma URL
-   * sustituye el documento anterior en vez de duplicarlo.
+   * sustituye el documento anterior en vez de duplicarlo. `maxPages` acota
+   * el rastreo (el asistente de bienvenida lee menos para no hacer esperar).
    */
-  async importUrl(input: ImportUrlInput): Promise<ImportUrlResult> {
-    const MAX_PAGES = input.crawl ? 15 : 1;
+  async importUrl(input: ImportUrlInput, maxPages = 15): Promise<ImportUrlResult> {
+    const MAX_PAGES = input.crawl ? maxPages : 1;
     const result: ImportUrlResult = { imported: [], skipped: [] };
     const queue = [input.url];
     const seen = new Set<string>();

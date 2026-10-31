@@ -249,6 +249,10 @@ model OnboardingState {
   done        String[]  @default([]) // pasos marcados por el sistema (probar el agente)
   dismissedAt DateTime? // la empresa ocultó la lista
   completedAt DateTime?
+  // Asistente de bienvenida: lo que contó la empresa (tipo de negocio, qué
+  // vende, su agente…) y cuándo se construyó la IA con eso.
+  business         Json?
+  setupCompletedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

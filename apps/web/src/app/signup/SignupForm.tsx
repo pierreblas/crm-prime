@@ -16,7 +16,8 @@ import { checkSlug, registerOrg, type Campo } from "./actions";
  *
  *   1 · Tu empresa   — nombre y subdominio, con comprobación en vivo
  *   2 · Tu cuenta    — quién administra
- *   ✓ · Listo        — y ya estás dentro, sin volver a escribir la contraseña
+ *   3 · Tu IA        — ya dentro, sin volver a escribir la contraseña: el
+ *                      asistente de bienvenida (/bienvenida) arma su IA
  *
  * ¿Por qué en pasos y no todo junto? Porque las dos preguntas son de
  * naturaleza distinta y una de ellas necesita ida y vuelta al servidor (¿está
@@ -363,10 +364,10 @@ export function SignupForm({ baseDomain }: { baseDomain: string }) {
             <NavIcon name="check" size={24} />
           </div>
           <h1 id="t3" style={{ ...titulo, textAlign: "center" }}>
-            Tu empresa está lista
+            Tu empresa está creada
           </h1>
           <p style={{ ...subtitulo, textAlign: "center" }}>
-            Entrando en{" "}
+            Ahora armamos tu IA de WhatsApp en{" "}
             <strong style={{ color: "var(--text)" }}>
               {resultado.url.replace(/^https?:\/\//, "")}
             </strong>
@@ -390,12 +391,10 @@ export function SignupForm({ baseDomain }: { baseDomain: string }) {
 // ── Piezas ───────────────────────────────────────────────────
 
 function Progreso({ paso }: { paso: Paso }) {
-  const etiquetas = ["Tu empresa", "Tu cuenta"];
+  // El tercer paso, la IA, se hace ya dentro de la empresa (/bienvenida).
+  const etiquetas = ["Tu empresa", "Tu cuenta", "Tu IA"];
   return (
-    <div
-      style={{ marginBottom: 22 }}
-      aria-label={paso === 3 ? "Completado" : `Paso ${paso} de 2`}
-    >
+    <div style={{ marginBottom: 22 }} aria-label={`Paso ${paso} de ${etiquetas.length}`}>
       <div style={{ display: "flex", gap: 6 }}>
         {etiquetas.map((_, i) => (
           <div
@@ -411,7 +410,7 @@ function Progreso({ paso }: { paso: Paso }) {
         ))}
       </div>
       <div style={{ ...overline, marginTop: 8 }}>
-        {paso === 3 ? "Completado" : `Paso ${paso} de 2 · ${etiquetas[paso - 1]}`}
+        {`Paso ${paso} de ${etiquetas.length} · ${etiquetas[paso - 1]}`}
       </div>
     </div>
   );
@@ -576,7 +575,7 @@ const botonPrimario: React.CSSProperties = {
   borderRadius: 8,
   border: "none",
   background: "var(--accent)",
-  color: "#f3f8ff",
+  color: "var(--accent-ink)",
   fontWeight: 600,
   font: "inherit",
   cursor: "pointer",

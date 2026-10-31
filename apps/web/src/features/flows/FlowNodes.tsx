@@ -593,7 +593,7 @@ function shell(selected: boolean, color: string, minWidth = 220): React.CSSPrope
     background: "var(--panel-2)",
     color: "#e6edf6",
     fontSize: 12,
-    boxShadow: selected ? "0 0 0 3px rgba(138,43,226,0.28), 0 8px 24px rgba(0,0,0,0.35)" : "0 2px 10px rgba(0,0,0,0.25)",
+    boxShadow: selected ? "0 0 0 3px rgba(200,255,0,0.2), 0 8px 24px rgba(0,0,0,0.35)" : "0 2px 10px rgba(0,0,0,0.25)",
     transition: "box-shadow 0.12s ease, border-color 0.12s ease",
   };
 }

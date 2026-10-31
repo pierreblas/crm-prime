@@ -104,7 +104,7 @@ export function TimeChart({
             />
           ))}
           {hover !== null && (
-            <line x1={x(hover)} x2={x(hover)} y1={0} y2={H} stroke="rgba(178,160,220,.35)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+            <line x1={x(hover)} x2={x(hover)} y1={0} y2={H} stroke="rgba(205,225,200,.35)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
           )}
         </svg>
         {hover !== null && (
@@ -282,7 +282,7 @@ export function Heatmap({ data }: { data: number[][] }) {
               <span
                 key={h}
                 className="heat__cell"
-                style={{ background: v ? `rgba(178, 107, 255, ${0.12 + (v / max) * 0.88})` : undefined }}
+                style={{ background: v ? `rgba(200, 255, 0, ${0.12 + (v / max) * 0.88})` : undefined }}
                 title={`${DOW[d]} ${String(h).padStart(2, "0")}:00 · ${v} mensajes`}
               />
             ))}

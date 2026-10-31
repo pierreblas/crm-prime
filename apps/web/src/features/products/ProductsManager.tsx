@@ -589,7 +589,7 @@ const inactiveBadge: React.CSSProperties = {
   fontWeight: 600,
   padding: "2px 8px",
   borderRadius: 999,
-  background: "rgba(8, 5, 16, 0.8)",
+  background: "rgba(8, 11, 11, 0.8)",
   border: "1px solid var(--border)",
   color: "var(--muted)",
 };
@@ -637,7 +637,7 @@ const empty: React.CSSProperties = {
 const backdrop: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  background: "rgba(4, 2, 10, 0.55)",
+  background: "rgba(3, 5, 5, 0.55)",
   zIndex: 1000,
   animation: "fadeIn 0.15s ease",
 };

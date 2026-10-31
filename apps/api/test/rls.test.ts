@@ -318,3 +318,80 @@ test("las difusiones (sin orgId) solo las ve la empresa de su plantilla", async 
     await prisma.$executeRawUnsafe(`DELETE FROM templates WHERE id IN ('tpl_a','tpl_b')`);
   });
 });
+
+test("el asistente de bienvenida construye la IA con el rol restringido, solo en su empresa", async () => {
+  // Escribe en cinco tablas (estado, etapas, respuestas rápidas, conocimiento
+  // con su vector y el agente) y una de ellas por lotes: con RLS, todo debe
+  // caer en la empresa que construye y nada debe verse desde otra.
+  process.env.JWT_ACCESS_SECRET ??= "secreto-de-prueba";
+  const { JwtService } = await import("@nestjs/jwt");
+  const { OrganizationService } = await import("../src/modules/organizations/organization.service");
+  const { BusinessSetupService } = await import("../src/modules/ai/business-setup.service");
+  const { BotService } = await import("../src/modules/ai/bot.service");
+  const { AgentActionsService } = await import("../src/modules/ai/agent-actions.service");
+  const { KnowledgeService } = await import("../src/modules/knowledge/knowledge.service");
+  const { FakeEmbeddingProvider } = await import("../src/modules/knowledge/embeddings/fake-embedding.provider");
+  const { businessSetupSchema } = await import("@crm/shared");
+
+  const slug = `bienvenida-${Date.now()}`;
+  const alta = await new OrganizationService(prisma, new JwtService({ secret: process.env.JWT_ACCESS_SECRET })).register(
+    { companyName: "Cevichería de prueba", slug, adminName: "Ana", adminEmail: `ana@${slug}.test`, password: "clave-larga-123" },
+    "127.0.0.2",
+  );
+  const tenant = { orgId: () => alta.orgId } as any;
+  const actions = new AgentActionsService(prisma, tenant, {} as any, { emit: () => true } as any);
+  const svc = new BusinessSetupService(
+    prisma,
+    tenant,
+    new BotService(prisma, tenant, actions),
+    {} as any, // sin IA: no se llama al redactor
+    new KnowledgeService(prisma, tenant, new FakeEmbeddingProvider()),
+    actions,
+    { status: async () => ({ ready: false }) } as any,
+  );
+  const perfil = businessSetupSchema.parse({
+    businessType: "restaurante",
+    description: "Cevichería familiar con delivery",
+    agentName: "Carla",
+    goal: "vender",
+    tone: "cercano",
+    answers: { carta: "Ceviche 35", delivery: "Zona sur por 7" },
+    hours: { days: "ls", from: "09:00", to: "19:00" },
+  });
+
+  await ctx.runInOrg(alta.orgId, async () => {
+    const p = await svc.saveProfile(perfil);
+    assert.equal(p.stages?.[1], "Viendo la carta", "el embudo toma las etapas del rubro");
+    assert.equal(p.quickReplies, 3);
+    const k = await svc.buildKnowledge();
+    assert.equal(k.facts, 4);
+    const a = await svc.buildAgent();
+    assert.equal(a.writtenBy, "template");
+    assert.equal(a.botName, "Carla");
+    assert.equal(a.hours, true);
+    // Repetirlo no duplica: el documento se reemplaza y las respuestas rápidas no se pisan.
+    assert.equal((await svc.saveProfile(perfil)).quickReplies, 0);
+    await svc.buildKnowledge();
+    const estado = await svc.state();
+    assert.ok(estado.completedAt);
+    assert.equal(estado.profile?.businessType, "restaurante");
+  });
+
+  const [cuenta] = await ctx.runInOrg(alta.orgId, () =>
+    prisma.$queryRawUnsafe(
+      `SELECT (SELECT count(*) FROM knowledge_docs) AS docs,
+              (SELECT count(*) FROM knowledge_chunks) AS trozos,
+              (SELECT count(*) FROM quick_replies) AS rapidas,
+              (SELECT name FROM agent_configs WHERE "isDefault") AS agente`,
+    ),
+  );
+  assert.equal(Number(cuenta.docs), 1, "un solo documento aunque se repita");
+  assert.ok(Number(cuenta.trozos) >= 1);
+  assert.equal(Number(cuenta.rapidas), 3);
+  assert.equal(cuenta.agente, "Carla");
+
+  const ajenos: any[] = await ctx.runInOrg("o_a", () =>
+    prisma.$queryRawUnsafe(`SELECT id FROM quick_replies WHERE "orgId" = '${alta.orgId}' UNION ALL SELECT id FROM knowledge_docs WHERE "orgId" = '${alta.orgId}'`),
+  );
+  assert.equal(ajenos.length, 0, "desde otra empresa no se ve nada");
+});

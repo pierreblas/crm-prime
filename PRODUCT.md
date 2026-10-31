@@ -43,7 +43,7 @@ lo repetitivo para que el humano cierre las ventas.
 se siente **actual y con ritmo** (no estático ni acartonado) y, sobre todo,
 transmite **control**: el usuario siente que su operación está ordenada y bajo
 mando. La energía se expresa con movimiento intencional y un acento vivo —el
-**violeta eléctrico** es el ancla de identidad; el **verde WhatsApp** queda para
+**lima sobre carbón** es el ancla de identidad; el **verde WhatsApp** queda para
 señalar lo que es WhatsApp y lo que salió bien—, no con saturación.
 
 ## Anti-references
@@ -64,7 +64,7 @@ señalar lo que es WhatsApp y lo que salió bien—, no con saturación.
 3. **Densidad legible.** Mucha información (hilos, tarjetas, métricas) con
    jerarquía clara y aire suficiente: densa pero nunca apretada ni ruidosa.
 4. **Que no parezca plantilla.** Huir del SaaS genérico; identidad propia anclada
-   en el violeta de marca y en patrones pensados, no clonados.
+   en el lima de marca y en patrones pensados, no clonados.
 5. **Confianza operativa.** Estados siempre claros (entregado/leído, ganado/
    perdido, IA pausada) y feedback inmediato a cada acción: el usuario nunca duda
    de qué pasó.

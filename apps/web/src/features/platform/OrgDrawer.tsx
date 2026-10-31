@@ -348,7 +348,7 @@ function NotesEditor({ value, onSave }: { value: string | null; onSave: (v: stri
   );
 }
 
-/** Catorce días de barras apiladas: recibidos (violeta) y enviados (verde). */
+/** Catorce días de barras apiladas: recibidos (lima) y enviados (pizarra). */
 function ActivityBars({ data }: { data: { day: string; inbound: number; outbound: number }[] }) {
   const byDay = new Map(data.map((d) => [d.day, d]));
   const days: { day: string; inbound: number; outbound: number }[] = [];
@@ -374,7 +374,7 @@ function ActivityBars({ data }: { data: { day: string; inbound: number; outbound
       </div>
       <div className="pc-legend">
         <span><i style={{ background: "var(--accent)" }} />Recibidos</span>
-        <span><i style={{ background: "var(--positive)" }} />Enviados</span>
+        <span><i style={{ background: "var(--chart-2)" }} />Enviados</span>
         <span style={{ marginLeft: "auto" }}>{total.toLocaleString("es")} en 14 días</span>
       </div>
     </div>
