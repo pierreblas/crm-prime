@@ -11,6 +11,7 @@ import { AlertsBell } from "./AlertsBell";
 import { RealtimeProvider } from "./RealtimeProvider";
 import { CallProvider } from "@/features/calls/CallProvider";
 import { TourHost } from "@/features/onboarding/TourHost";
+import { AiQuotaNotice, AiUsageMeter } from "@/features/plans/AiUsageMeter";
 import { platformConsoleUrl } from "@/lib/org";
 import { getTranslator } from "@/i18n/server";
 import type { MessageKey } from "@/i18n/translate";
@@ -83,6 +84,7 @@ export async function AppShell({
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <AiUsageMeter isAdmin={role === "ADMIN"} />
             <AlertsBell />
             <HelpMenu />
             <span className="topbar-lang">
@@ -117,6 +119,7 @@ export async function AppShell({
           </div>
         </header>
 
+        <AiQuotaNotice isAdmin={role === "ADMIN"} />
         <div className="app-content" style={content}>{children}</div>
         <TourHost />
       </div>

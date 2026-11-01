@@ -39,7 +39,8 @@
     "test:booking": "tsx --test test/booking.test.ts",
     "test:templatesend": "tsx --test test/template-send.test.ts",
     "test:interactive": "tsx --test test/interactive.test.ts",
-    "test:history": "tsx --test test/history-webhook.test.ts"
+    "test:history": "tsx --test test/history-webhook.test.ts",
+    "test:flowtriggers": "tsx --test test/flow-triggers.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

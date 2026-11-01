@@ -243,7 +243,8 @@ export function NodeInspector({
           </Field>
           <p style={hint}>
             WhatsApp muestra hasta 3 botones de 20 caracteres. Si el contacto escribe en vez de pulsar, también
-            vale el texto exacto del botón o su número; cualquier otra cosa sale por «otra respuesta». Fuera de la
+            vale el texto del botón (con o sin tildes) o su número; cualquier otra cosa sale por «otra respuesta»
+            o, si no la conectas, sigue como un mensaje normal y los botones siguen valiendo. Fuera de la
             ventana de 24 h el mensaje va como texto con las opciones numeradas.
           </p>
         </>

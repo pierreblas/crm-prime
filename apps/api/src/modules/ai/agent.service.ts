@@ -19,6 +19,7 @@ import type {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { currentOrgId } from "../../infra/tenant/tenant.context";
+import { fold } from "../../common/utils/fold";
 import { searchProducts } from "./product-search";
 import { MediaUnderstandingService } from "./media-understanding.service";
 import { KnowledgeService } from "../knowledge/knowledge.service";
@@ -507,13 +508,12 @@ export class AgentService {
     }
 
     // Palabras que piden humano explícitamente ("quiero hablar con un agente").
-    const keywords = (rules.keywords ?? [])
-      .map((k) => k.trim().toLowerCase())
-      .filter(Boolean);
+    // Sin tildes ni mayúsculas: «asesor» y «Asesór» son lo mismo.
+    const keywords = (rules.keywords ?? []).filter((k) => fold(k));
     if (keywords.length && lastUserText) {
-      const text = lastUserText.toLowerCase();
-      const hit = keywords.find((k) => text.includes(k));
-      if (hit) return `El cliente mencionó "${hit}".`;
+      const text = fold(lastUserText);
+      const hit = keywords.find((k) => text.includes(fold(k)));
+      if (hit) return `El cliente mencionó "${hit.trim()}".`;
     }
 
     if (!classification) return null;

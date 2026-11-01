@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@/lib/toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
-import type { BotDto } from "@crm/shared";
+import { aiQuotaLevel, type BotDto } from "@crm/shared";
 import { deleteBot, fetchBots } from "@/lib/bff";
 import { BotEditor } from "./BotEditor";
 import { AgentPlayground } from "./AgentPlayground";
@@ -109,23 +109,26 @@ export function BotsManager() {
     {aiStatus?.ready &&
       aiStatus.source === "included" &&
       aiStatus.included &&
-      aiStatus.included.conversations >= aiStatus.included.limit * 0.8 && (
+      aiQuotaLevel(aiStatus.included) !== "ok" && (
         <div className={`kb-banner${aiStatus.included.full ? " is-warn" : ""}`} role="status" data-ai-included-banner style={{ maxWidth: 1060, margin: "20px auto -8px" }}>
           <NavIcon name={aiStatus.included.full ? "alert" : "sparkles"} size={16} />
           {aiStatus.included.full ? (
             <span className="kb-banner__text">
-              <strong>Llegaste a las {aiStatus.included.limit.toLocaleString("es")} conversaciones con IA incluidas este mes.</strong>{" "}
+              <strong>Llegaste a las {quotaTotal(aiStatus.included).toLocaleString("es")} conversaciones con IA de este mes.</strong>{" "}
               Tus agentes terminan las que ya atendían; los chats nuevos pasan a Pendientes para tu equipo hasta {resetLabel(aiStatus.included)}.
             </span>
           ) : (
             <span className="kb-banner__text">
               <strong>
                 Llevas {aiStatus.included.conversations.toLocaleString("es")} de{" "}
-                {aiStatus.included.limit.toLocaleString("es")} conversaciones con IA incluida este mes.
+                {quotaTotal(aiStatus.included).toLocaleString("es")} conversaciones con IA de este mes.
               </strong>{" "}
-              Al llegar al cupo, tus agentes terminan las que ya atendían y los chats nuevos pasan a tu equipo. Con tu propia clave no hay cupo.
+              Al llegar al tope, tus agentes terminan las que ya atendían y los chats nuevos pasan a tu equipo. Con tu propia clave no hay cupo.
             </span>
           )}
+          <Link href="/settings?tab=plan#extra" className="btn btn-primary btn-sm">
+            Conversaciones extra
+          </Link>
           <Link href="/settings?tab=ai" className="btn btn-sm">
             Conectar mi clave
           </Link>
@@ -397,4 +400,9 @@ function badge(bg: string): React.CSSProperties {
     background: bg,
     color: "#e9f1ff",
   };
+}
+
+/** Lo que hay este mes con la IA de Driony: el cupo del plan más las conversaciones extra. */
+function quotaTotal(i: { limit: number; extraUsed: number; extraRemaining: number }): number {
+  return i.limit + i.extraUsed + i.extraRemaining;
 }

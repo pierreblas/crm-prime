@@ -1390,6 +1390,88 @@
 .lp-plans__link:hover {
   text-decoration: underline;
 }
+/* Cuatro planes: de cuatro a dos columnas y luego a una. */
+.lp-plans--4 {
+  grid-template-columns: repeat(4, 1fr);
+  align-items: stretch;
+  gap: 14px;
+}
+.lp-plans--4 .lp-plan {
+  padding: 26px 22px;
+}
+@media (max-width: 1180px) {
+  .lp-plans--4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .lp-plans--4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* La IA, como prefieras: tres maneras en una sola franja, separadas por líneas. */
+.lp-ai {
+  margin-top: clamp(36px, 5vw, 56px);
+}
+.lp-ai__head h2 {
+  font-size: clamp(1.4rem, 1.15rem + 1vw, 1.9rem);
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+  text-wrap: balance;
+}
+.lp-ai__head p {
+  margin: 0 0 18px;
+  max-width: 62ch;
+  color: var(--muted);
+  font-size: 15.5px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+.lp-ai__ways {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+.lp-ai__way {
+  padding: 24px 24px 26px;
+}
+.lp-ai__way + .lp-ai__way {
+  border-left: 1px solid var(--border);
+}
+.lp-ai__fig {
+  display: block;
+  font-size: clamp(1.7rem, 1.35rem + 1.2vw, 2.3rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
+}
+.lp-ai__way h3 {
+  margin: 10px 0 6px;
+  font-size: 16px;
+}
+.lp-ai__way p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+@media (max-width: 900px) {
+  .lp-ai__ways {
+    grid-template-columns: 1fr;
+  }
+  .lp-ai__way + .lp-ai__way {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
 @media (max-width: 900px) {
   .lp-plans--3 {
     grid-template-columns: 1fr;

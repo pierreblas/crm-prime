@@ -278,7 +278,7 @@ test("la IA incluida se cuenta con el rol restringido, por empresa y en la conso
   assert.equal(await ctx.runInOrg("o_a", () => usage.countedThisMonth("o_a", "cv_a1")), true);
   assert.equal(await ctx.runInOrg("o_a", () => usage.countedThisMonth("o_a", "cv_b1")), false, "la conversación de otra empresa no cuenta");
 
-  const plans = new PlansService(prisma, { orgId: () => "o_a" } as any);
+  const plans = new PlansService(prisma, { orgId: () => "o_a" } as any, { active: async () => [] } as any);
   assert.equal((await ctx.runInOrg("o_a", () => plans.usage())).aiConversations, 1);
 
   const colaRota = { getJobCounts: async () => { throw new Error("sin redis"); } } as any;
@@ -1065,4 +1065,76 @@ test("un mensaje antiguo se guarda pero no despierta a la IA (anterior a conecta
       await prisma.organization.delete({ where: { id: orgId } });
     }),
   );
+});
+
+test("conversaciones extra: se gastan una vez por conversación y mes, la que vence antes primero, y solo las de su empresa", async () => {
+  const { AiPacksService } = await import("../src/modules/ai/ai-packs.service");
+  const { PlatformService } = await import("../src/modules/platform/platform.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgA = `o_pk_a_${suf}`;
+  const orgB = `o_pk_b_${suf}`;
+  await ctx.runUnscoped("prueba: empresas de paquetes", () =>
+    prisma.organization.createMany({
+      data: [
+        { id: orgA, slug: `pk-a-${suf}`, name: "Paquetes A" },
+        { id: orgB, slug: `pk-b-${suf}`, name: "Paquetes B" },
+      ],
+    }),
+  );
+  const packs = new AiPacksService(prisma);
+  const colaRota = { getJobCounts: async () => { throw new Error("sin redis"); } } as any;
+  const platform = new PlatformService(prisma, {} as any, colaRota, colaRota, colaRota, colaRota, colaRota, colaRota, colaRota);
+  const day = 86_400_000;
+  try {
+    // El operador añade dos paquetes a A (el regalo vence antes) y uno vencido.
+    await platform.grantAiPack(orgA, { conversations: 2, priceUsd: null, months: 1, note: "regalo" }, "op@driony.test");
+    const ficha = await platform.grantAiPack(orgA, { conversations: 1000, priceUsd: 12 }, "op@driony.test");
+    assert.equal(ficha.aiPacks.length, 2);
+    assert.ok(ficha.audit.some((e) => e.action === "ai_pack_added"), "queda en el diario");
+    const [regalo] = ficha.aiPacks.filter((p) => p.conversations === 2);
+    await ctx.runUnscoped("prueba: paquete vencido", () =>
+      prisma.aiPack.create({ data: { orgId: orgA, conversations: 500, expiresAt: new Date(Date.now() - day) } }),
+    );
+
+    await ctx.runInOrg(orgA, async () => {
+      const e0 = await packs.extra(orgA);
+      assert.equal(e0.remaining, 1002, "lo vencido no cuenta");
+      assert.equal(e0.nextExpiresAt?.toISOString(), regalo!.expiresAt, "se gasta primero el que vence antes");
+
+      // La misma conversación gasta una sola vez al mes, aunque se pida tres veces.
+      assert.equal(await packs.consume(orgA, "cv_1"), true);
+      assert.equal(await packs.consume(orgA, "cv_1"), true);
+      await Promise.all([packs.consume(orgA, "cv_2"), packs.consume(orgA, "cv_2")]);
+      const e1 = await packs.extra(orgA);
+      assert.equal(e1.usedThisMonth, 2);
+      assert.equal(e1.remaining, 1000, "el regalo se terminó; queda el de 1.000 intacto");
+    });
+
+    // B no ve ni gasta lo de A.
+    await ctx.runInOrg(orgB, async () => {
+      assert.equal((await packs.extra(orgB)).remaining, 0);
+      assert.equal(await packs.consume(orgB, "cv_b"), false, "sin paquetes no se atiende lo nuevo");
+      const ajenos: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM ai_packs`);
+      assert.equal(ajenos.length, 0, "RLS: los paquetes de otra empresa no se ven");
+    });
+
+    // La consola ve el saldo; quitar un paquete lo vence ya.
+    const a = (await platform.orgs("")).find((o) => o.id === orgA)!;
+    assert.equal(a.aiExtraRemaining, 1000);
+    assert.equal(a.aiExtraUsedMonth, 2);
+    const grande = ficha.aiPacks.find((p) => p.conversations === 1000)!;
+    assert.equal(grande.priceUsd, 12);
+    const tras = await platform.removeAiPack(orgA, grande.id, "op@driony.test");
+    assert.equal(tras.aiPacks.find((p) => p.id === grande.id)?.active, false);
+    assert.equal(tras.org.aiExtraRemaining, 0);
+    await ctx.runInOrg(orgA, async () => {
+      assert.equal(await packs.consume(orgA, "cv_3"), false, "quitado ya no se gasta");
+      assert.equal(await packs.consume(orgA, "cv_1"), true, "lo ya pagado este mes sigue valiendo");
+    });
+  } finally {
+    await ctx.runUnscoped("prueba: limpiar empresas de paquetes", async () => {
+      await prisma.platformAuditLog.deleteMany({ where: { orgId: { in: [orgA, orgB] } } });
+      await prisma.organization.deleteMany({ where: { id: { in: [orgA, orgB] } } });
+    });
+  }
 });

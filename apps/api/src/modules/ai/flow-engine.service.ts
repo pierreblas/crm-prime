@@ -18,6 +18,7 @@ import {
   templateVarCount,
 } from "@crm/shared";
 import { isWithinHours } from "../../common/utils/business-hours";
+import { fold } from "../../common/utils/fold";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { runAsActor } from "../../infra/tenant/actor";
@@ -31,7 +32,22 @@ import { MediaUnderstandingService } from "./media-understanding.service";
 
 const MAX_STEPS = 50; // cortafuegos anti-bucle
 
+/**
+ * Una pregunta o unos botones sin contestar en 24 h (la ventana de WhatsApp)
+ * se dan por abandonados: lo que escriba el cliente después ya no se toma
+ * como su respuesta y otros flujos pueden arrancar. Pulsar un botón de ese
+ * mensaje sigue valiendo.
+ */
+const WAIT_TTL_MS = 24 * 60 * 60 * 1000;
+
 type Vars = Record<string, string>;
+
+type SessionState = { status: string; currentNodeId: string | null; updatedAt: Date };
+/** Espera la respuesta del cliente (pregunta, botones, lista o carrusel). */
+const waitsAnswer = (s: SessionState) => s.status === "running" && !!s.currentNodeId;
+const waitIsFresh = (s: SessionState) => Date.now() - s.updatedAt.getTime() < WAIT_TTL_MS;
+/** Bloques que esperan que elija una opción. */
+const CHOICE_NODES = new Set(["buttons", "list", "carousel"]);
 
 /** Lo último que escribió el contacto: texto y, si pulsó un botón, su id. */
 interface Inbound {
@@ -95,20 +111,24 @@ export class FlowEngineService {
       include: { contact: true },
     });
     if (!convo || !convo.contact.optIn) return false;
-    const ctx = () => this.condCtx(conversationId, "", {});
+    const text = await this.lastInboundText(conversationId);
+    const ctx = () => this.condCtx(conversationId, text, {});
 
     // Nace desde un anuncio Click-to-WhatsApp: ese disparador va primero.
     if (convo.referral) {
       const ad = await this.firstPassing(await this.candidates(convo.channelId, "ad_click"), ctx);
       if (ad) {
-        await this.startFlow(ad.flow, conversationId, "");
+        await this.startFlow(ad.flow, conversationId, text);
         return true;
       }
     }
 
-    const hit = await this.firstPassing(await this.candidates(convo.channelId, "conversation_start"), ctx);
+    // El primer mensaje trae una palabra clave («promo», el texto de un enlace
+    // wa.me): manda su flujo, que es más concreto que el «al iniciar».
+    const keyword = await this.keywordHit(convo.channelId, text, ctx);
+    const hit = keyword ?? (await this.firstPassing(await this.candidates(convo.channelId, "conversation_start"), ctx));
     if (!hit) return false;
-    await this.startFlow(hit.flow, conversationId, "");
+    await this.startFlow(hit.flow, conversationId, text);
     return true;
   }
 
@@ -407,9 +427,7 @@ export class FlowEngineService {
   /** Arranca el flujo salvo que otro esté a medias (esperando respuesta o un temporizador). */
   private async startIfIdle(flow: FlowRow, conversationId: string, vars: Vars = {}): Promise<boolean> {
     const session = await this.prisma.flowSession.findUnique({ where: { conversationId } });
-    const busy =
-      !!session &&
-      (session.status === "waiting_timer" || (session.status === "running" && !!session.currentNodeId));
+    const busy = !!session && (session.status === "waiting_timer" || (waitsAnswer(session) && waitIsFresh(session)));
     if (busy) {
       this.logger.log(`Flujo "${flow.name}" no arranca en ${conversationId}: hay otro flujo a medias`);
       return false;
@@ -432,28 +450,54 @@ export class FlowEngineService {
     const session = await this.prisma.flowSession.findUnique({
       where: { conversationId },
     });
-
-    // Flujo pausado en un "Esperar": ignorar el mensaje hasta que venza el timer.
-    if (session && session.status === "waiting_timer") return true;
-
-    // Sesión esperando respuesta (pregunta o botones) → reanudar. Un mensaje
-    // de antes de que se pusiera a esperar (el que arrancó el flujo, si llega
-    // tarde) no es la respuesta: ya está atendido.
-    if (session && session.status === "running" && session.currentNodeId && inbound.at && inbound.at < session.updatedAt) {
-      return true;
-    }
-    if (session && session.status === "running" && session.currentNodeId) {
-      const flow = await this.loadFlow(session.flowId);
-      if (!flow) return false;
-      await this.resume(flow, conversationId, session.currentNodeId, inbound, {
-        ...((session.variables as Vars | null) ?? {}),
-      });
-      return true;
-    }
-
-    // Sin sesión activa y de vuelta por un anuncio con el chat ya abierto: su
-    // flujo «desde un anuncio». En una conversación nueva ya lo arrancó onCreated.
     const ctx = () => this.condCtx(conversationId, text, {});
+    // Las palabras clave se buscan una vez: deciden si un flujo a medias cede y cuál arranca.
+    let keywordSearch: Promise<Hit | null> | null = null;
+    const keyword = () => (keywordSearch ??= this.keywordHit(convo.channelId, text, ctx));
+
+    // Flujo pausado en un «Esperar»: una palabra clave arranca su flujo; los
+    // demás mensajes se ignoran hasta que venza el temporizador.
+    if (session && session.status === "waiting_timer") {
+      const hit = await keyword();
+      if (hit) await this.startFlow(hit.flow, conversationId, text);
+      return true;
+    }
+
+    // Sesión esperando respuesta (pregunta, botones, lista o carrusel).
+    if (session && waitsAnswer(session)) {
+      // Un mensaje de antes de que se pusiera a esperar (el que arrancó el
+      // flujo, si llega tarde) no es la respuesta: ya está atendido.
+      if (inbound.at && inbound.at < session.updatedAt) return true;
+      const flow = await this.loadFlow(session.flowId);
+      const node = flow?.nodes.find((n) => n.id === session.currentNodeId);
+      if (flow && node) {
+        const vars = { ...((session.variables as Vars | null) ?? {}) };
+        const fresh = waitIsFresh(session);
+        const choice = CHOICE_NODES.has(node.type);
+        // Eligió una opción: es la respuesta, aunque el menú sea de hace días.
+        if (choice && this.pickedOption(node, inbound, fresh)) {
+          await this.resume(flow, conversationId, node.id, inbound, vars);
+          return true;
+        }
+        // Una palabra clave arranca su flujo: el cliente cambió de tema. Solo
+        // la del mismo flujo, mientras contesta a su pregunta, es la respuesta.
+        const hit = await keyword();
+        if (hit && (hit.flow.id !== flow.id || choice || !fresh)) {
+          await this.startFlow(hit.flow, conversationId, text);
+          return true;
+        }
+        // Lo que no es una opción va por «otra respuesta», si está conectada.
+        if (fresh && (!choice || this.nextNodeId(flow.edges, node.id, "else"))) {
+          await this.resume(flow, conversationId, node.id, inbound, vars);
+          return true;
+        }
+        // Si no, el mensaje no es para este flujo y sigue como cualquier otro
+        // (la IA puede contestarlo); los botones del menú siguen valiendo.
+      }
+    }
+
+    // De vuelta por un anuncio con el chat ya abierto: su flujo «desde un
+    // anuncio». En una conversación nueva ya lo arrancó onCreated.
     if (inbound.fromAd) {
       const inbounds = await this.prisma.message.count({ where: { conversationId, direction: "INBOUND" } });
       const ad = inbounds > 1 ? await this.firstPassing(await this.candidates(convo.channelId, "ad_click"), ctx) : null;
@@ -464,13 +508,7 @@ export class FlowEngineService {
     }
 
     // ¿Algún flujo por palabra clave coincide?
-    const t = text.toLowerCase();
-    const hit = t
-      ? await this.firstPassing(
-          await this.candidates(convo.channelId, "keyword", (k) => k.keywords.some((w) => t.includes(w.toLowerCase()))),
-          ctx,
-        )
-      : null;
+    const hit = await keyword();
     if (hit) {
       await this.startFlow(hit.flow, conversationId, text);
       return true;
@@ -619,33 +657,45 @@ export class FlowEngineService {
     return { ok: true, value: t };
   }
 
-  /** Qué botón pulsó: por id (webhook), por título o por número de opción. */
-  private matchButton(node: FlowNode, inbound: Inbound): string {
+  /**
+   * Qué botón pulsó: por id (webhook), por título (sin tildes: «si» es «Sí»)
+   * o por número de opción. `byNumber` en falso: «2 polos» no elige la 2.
+   */
+  private matchButton(node: FlowNode, inbound: Inbound, byNumber = true): string {
     const buttons = node.data.buttons ?? [];
     if (inbound.payload) {
       const byId = buttons.find((b) => b.id === inbound.payload);
       if (byId) return byId.id;
     }
-    const t = inbound.text.trim().toLowerCase();
-    const byTitle = buttons.find((b) => b.title.trim().toLowerCase() === t);
+    const t = fold(inbound.text);
+    const byTitle = t ? buttons.find((b) => fold(b.title) === t) : undefined;
     if (byTitle) return byTitle.id;
-    const n = Number.parseInt(t, 10);
+    const n = byNumber ? Number.parseInt(t, 10) : NaN;
     if (n >= 1 && buttons[n - 1]) return buttons[n - 1]!.id;
     return "else";
   }
 
-  private matchCard(node: FlowNode, inbound: Inbound): string {
+  private matchCard(node: FlowNode, inbound: Inbound, byNumber = true): string {
     const cards = node.data.cards ?? [];
     if (inbound.payload) {
       const byId = cards.find((c) => c.id === inbound.payload);
       if (byId) return byId.id;
     }
-    const t = inbound.text.trim().toLowerCase();
-    const byTitle = cards.find((c) => (c.buttonTitle ?? "").trim().toLowerCase() === t || (c.text ?? "").trim().toLowerCase() === t);
+    const t = fold(inbound.text);
+    const byTitle = t ? cards.find((c) => fold(c.buttonTitle ?? "") === t || fold(c.text ?? "") === t) : undefined;
     if (byTitle) return byTitle.id;
-    const n = Number.parseInt(t, 10);
+    const n = byNumber ? Number.parseInt(t, 10) : NaN;
     if (n >= 1 && cards[n - 1]) return cards[n - 1]!.id;
     return "else";
+  }
+
+  /**
+   * ¿El mensaje elige una opción de los botones, la lista o el carrusel? En
+   * un menú de hace más de un día solo cuenta pulsarla o escribir su título.
+   */
+  private pickedOption(node: FlowNode, inbound: Inbound, fresh: boolean): boolean {
+    const handle = node.type === "carousel" ? this.matchCard(node, inbound, fresh) : this.matchButton(node, inbound, fresh);
+    return handle !== "else";
   }
 
   // ── Recorrido del grafo ─────────────────────────────────────
@@ -782,11 +832,14 @@ export class FlowEngineService {
           continue;
         }
         await this.persist(conversationId, nextId, vars, "waiting_timer");
+        // Qué arranque espera: si una palabra clave lanza otro flujo durante la
+        // pausa, este trabajo no debe reanudar al nuevo.
+        const run = await this.prisma.flowSession.findUnique({ where: { conversationId }, select: { startedAt: true } });
         await this.flowQueue.add(
           "resume",
           // La empresa viaja en el trabajo: el worker no tiene otra forma de
           // saberla sin consultar la conversación.
-          { conversationId, orgId: currentOrgId() ?? undefined },
+          { conversationId, orgId: currentOrgId() ?? undefined, run: run?.startedAt?.toISOString() },
           { delay: ms },
         );
         return;
@@ -832,14 +885,16 @@ export class FlowEngineService {
     await this.persist(conversationId, null, vars, "completed");
   }
 
-  // Reanuda un flujo tras vencer un bloque "Esperar".
-  async resumeTimer(conversationId: string): Promise<void> {
+  // Reanuda un flujo tras vencer un bloque "Esperar". `run` es el arranque que
+  // lo programó (los trabajos anteriores no lo traen).
+  async resumeTimer(conversationId: string, run?: string): Promise<void> {
     const session = await this.prisma.flowSession.findUnique({
       where: { conversationId },
     });
     if (!session || session.status !== "waiting_timer" || !session.currentNodeId) {
       return;
     }
+    if (run && session.startedAt?.toISOString() !== run) return;
     const flow = await this.loadFlow(session.flowId);
     if (!flow) return;
     const text = await this.lastInboundText(conversationId);
@@ -1348,14 +1403,15 @@ export class FlowEngineService {
 
   private ruleMatches(r: FlowRule, ctx: CondCtx): boolean {
     const expectedRaw = this.interpolate(r.value ?? "", ctx.vars).trim();
-    const expected = expectedRaw.toLowerCase();
+    // Sin tildes ni mayúsculas: «informacion» cumple «contiene información».
+    const expected = fold(expectedRaw);
     // La etiqueta se pregunta como "¿la tiene?", no como un valor.
     if (r.field === "tag") {
-      const has = ctx.contact.tags.some((t) => t.toLowerCase() === expected);
+      const has = ctx.contact.tags.some((t) => fold(t) === expected);
       return r.op === "is_not" || r.op === "not_contains" || r.op === "not_equals" ? !has : has;
     }
     const actualRaw = this.fieldValue(r, ctx);
-    const actual = actualRaw.trim().toLowerCase();
+    const actual = fold(actualRaw);
     const options = expected.split(",").map((x) => x.trim()).filter(Boolean);
     const num = (s: string) => Number(s.replace(",", "."));
     switch (r.op) {
@@ -1543,6 +1599,21 @@ export class FlowEngineService {
       }
     }
     return out;
+  }
+
+  /**
+   * El flujo por palabra clave que corresponde a este mensaje: alguna de sus
+   * palabras aparece en el texto (sin mirar tildes ni mayúsculas) y cumple sus
+   * condiciones y su horario.
+   */
+  private async keywordHit(channelId: string | null, text: string, ctx: () => Promise<CondCtx>): Promise<Hit | null> {
+    const t = fold(text);
+    if (!t) return null;
+    const said = (k: FlowTrigger) => k.keywords.some((w) => {
+      const f = fold(w);
+      return !!f && t.includes(f);
+    });
+    return this.firstPassing(await this.candidates(channelId, "keyword", said), ctx);
   }
 
   private async loadFlow(flowId: string): Promise<FlowRow | null> {

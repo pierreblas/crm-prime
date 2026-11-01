@@ -36,6 +36,8 @@ const TENANT_MODELS = new Set<string>([
   "OnboardingState",
   "KnowledgeSuggestion",
   "AiUsage",
+  "AiPack",
+  "AiPackUse",
   "ProductField",
   "Feedback",
   "DealEvent",

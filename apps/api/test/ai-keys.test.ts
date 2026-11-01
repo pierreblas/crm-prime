@@ -24,12 +24,12 @@ function corre(
   modo: "single" | "multi",
   compartidas: boolean,
   propia: "db" | "none",
-  incluida?: { conversaciones?: number; gasto?: number; plan?: string; yaContada?: boolean },
+  incluida?: { conversaciones?: number; gasto?: number; plan?: string; yaContada?: boolean; extra?: number },
 ) {
   const args = ["tsx", "test/fixtures/ai-keys-run.ts", propia];
   if (incluida) {
     args.push(String(incluida.conversaciones ?? 0), String(incluida.gasto ?? 0), incluida.plan ?? "free");
-    args.push(incluida.yaContada ? "counted" : "new");
+    args.push(incluida.yaContada ? "counted" : "new", String(incluida.extra ?? 0));
   }
   const out = execFileSync("npx", args, {
     env: {
@@ -54,7 +54,7 @@ function corre(
     activeModel?: string;
     ready?: boolean;
     statusSource?: string;
-    included?: { conversations: number; limit: number; capUsd: number; full: boolean; exhausted: boolean; resetsAt: string } | null;
+    included?: { conversations: number; limit: number; extraRemaining: number; capUsd: number; full: boolean; exhausted: boolean; resetsAt: string } | null;
     resolvedIncluded?: boolean;
     resolvedBaseUrl?: string | null;
     resolvedIsPlatformKey?: boolean;
@@ -125,6 +125,20 @@ test("IA de Driony: con el cupo lleno no empieza conversaciones nuevas", () => {
 test("IA de Driony: con el cupo lleno termina las conversaciones que ya atendía este mes", () => {
   const r = corre("multi", false, "none", { conversaciones: 100, yaContada: true });
   assert.equal(r.allowsConversation, true);
+});
+
+test("IA de Driony: con el cupo lleno y conversaciones extra, una nueva gasta una extra", () => {
+  const sinExtra = corre("multi", false, "none", { conversaciones: 100 });
+  const r = corre("multi", false, "none", { conversaciones: 100, extra: 50 });
+  assert.equal(r.included?.full, false, "con extra no está lleno");
+  assert.equal(r.included?.extraRemaining, 50);
+  assert.equal(r.allowsConversation, true, "la nueva la atiende el agente");
+  assert.ok(r.included!.capUsd > sinExtra.included!.capUsd, "las extra suben el tope en dólares");
+});
+
+test("IA de Driony: el plan Inicial trae 500 y Empresa 6.000", () => {
+  assert.equal(corre("multi", false, "none", { plan: "starter" }).included?.limit, 500);
+  assert.equal(corre("multi", false, "none", { plan: "business" }).included?.limit, 6000);
 });
 
 test("IA de Driony: el cupo vuelve el día 1 del mes siguiente", () => {

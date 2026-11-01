@@ -84,6 +84,27 @@ export const es: Messages = {
     navLastDay: "Prueba {plan}: último día",
     navCta: "Ver plan",
   },
+  // Medidor de la IA incluida, en la cabecera (junto a la foto).
+  aiMeter: {
+    chip: "IA {used}/{total}",
+    label: "Conversaciones con IA este mes: {used} de {total}",
+    title: "IA de Driony este mes",
+    count: "{used} de {total} conversaciones",
+    extra: "Incluye {n} conversaciones extra · la siguiente vence el {date}",
+    extraUsed: "{n} extra usadas este mes",
+    ok: "Cuenta cada conversación que atiende el agente, no cada mensaje. El cupo se renueva el {date}.",
+    warn: "Te queda poco. Al llegar al tope, el agente termina lo que ya atendía y los chats nuevos pasan a tu equipo.",
+    full: "Llegaste al tope: el agente termina lo que ya atendía y los chats nuevos pasan a tu equipo hasta el {date}.",
+    exhausted: "La IA incluida llegó a su límite de uso este mes: hasta el {date}, los chats pasan a tu equipo.",
+    buyExtra: "Conversaciones extra",
+    ownKey: "Usar mi clave",
+    usage: "Ver consumo",
+    askAdmin: "Para ampliarlo, avisa a un administrador.",
+    noticeWarn: "Llevas {pct} % de tus conversaciones con IA de este mes.",
+    noticeFull: "Llegaste al tope de conversaciones con IA de este mes.",
+    noticeBody: "Los chats nuevos pasan a tu equipo cuando se acaban. Puedes sumar conversaciones extra o conectar tu propia clave, sin cupo.",
+    noticeDismiss: "Entendido",
+  },
   // Conector de Meta en el dominio raíz (SaaS): el SDK solo carga ahí.
   connect: {
     title: "Conecta tu WhatsApp",

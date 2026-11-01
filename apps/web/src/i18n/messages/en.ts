@@ -85,6 +85,27 @@ export const en = {
     navLastDay: "{plan} trial: last day",
     navCta: "See plan",
   },
+  // Included-AI meter in the header (next to the avatar).
+  aiMeter: {
+    chip: "AI {used}/{total}",
+    label: "AI conversations this month: {used} of {total}",
+    title: "Driony AI this month",
+    count: "{used} of {total} conversations",
+    extra: "Includes {n} extra conversations · the next pack expires on {date}",
+    extraUsed: "{n} extra used this month",
+    ok: "Each conversation the agent handles counts once, not each message. The quota renews on {date}.",
+    warn: "Running low. At the limit, the agent finishes what it was handling and new chats go to your team.",
+    full: "You reached the limit: the agent finishes what it was handling and new chats go to your team until {date}.",
+    exhausted: "The included AI reached its usage limit this month: until {date}, chats go to your team.",
+    buyExtra: "Extra conversations",
+    ownKey: "Use my key",
+    usage: "See usage",
+    askAdmin: "Ask an admin to extend it.",
+    noticeWarn: "You've used {pct}% of this month's AI conversations.",
+    noticeFull: "You reached this month's AI conversation limit.",
+    noticeBody: "New chats go to your team when they run out. You can add extra conversations or connect your own key, with no quota.",
+    noticeDismiss: "Got it",
+  },
   // Conector de Meta en el dominio raíz (SaaS): el SDK solo carga ahí.
   connect: {
     title: "Connect your WhatsApp",

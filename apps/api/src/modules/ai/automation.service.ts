@@ -14,6 +14,7 @@ import {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { isWithinHours } from "../../common/utils/business-hours";
+import { fold } from "../../common/utils/fold";
 import { MessagingService } from "../messaging/messaging.service";
 import { BotService } from "./bot.service";
 import { AutopilotService } from "./autopilot.service";
@@ -146,13 +147,14 @@ export class AutomationService {
         where: { conversationId, direction: "INBOUND" },
         orderBy: { createdAt: "desc" },
       });
-      const text = (lastInbound ? MediaUnderstandingService.textOf(lastInbound) : "").toLowerCase();
+      const text = lastInbound ? MediaUnderstandingService.textOf(lastInbound) : "";
 
-      // 1) Disparadores por palabra clave (tienen prioridad).
-      if (bot && text) {
+      // 1) Disparadores por palabra clave (tienen prioridad), sin mirar tildes ni mayúsculas.
+      const said = fold(text);
+      if (bot && said) {
         const triggers = (bot.keywordTriggers as KeywordTrigger[] | null) ?? [];
         const hit = triggers.find((t) =>
-          t.keywords.some((k) => text.includes(k.toLowerCase())),
+          t.keywords.some((k) => !!fold(k) && said.includes(fold(k))),
         );
         if (hit) {
           await this.applyTrigger(conversationId, hit, text, !!bot.splitReplies);

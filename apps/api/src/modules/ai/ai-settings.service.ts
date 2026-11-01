@@ -20,6 +20,7 @@ import {
   maskSecret,
 } from "../../common/utils/secret-box";
 import { AiUsageService, nextMonthStart } from "./ai-usage.service";
+import { AiPacksService } from "./ai-packs.service";
 
 // Credenciales ya resueltas (BD con respaldo del entorno) para una llamada.
 export interface ResolvedCredentials {
@@ -55,8 +56,9 @@ interface KeySource {
  * la clave de OpenAI de la plataforma con el modelo fijo AI_INCLUDED_MODEL y
  * un cupo de conversaciones al mes según su plan, más un tope en dólares. Es
  * siempre el último recurso: si la empresa tiene una clave, se usa la suya.
- * Con el cupo lleno, el agente termina las conversaciones que ya atendía y las
- * nuevas pasan al equipo (lo decide allowsConversation). Con el tope en
+ * Con el cupo lleno, cada conversación nueva gasta una de sus conversaciones
+ * extra (paquetes, AiPacksService); sin extra, el agente termina las que ya
+ * atendía y las nuevas pasan al equipo (lo decide allowsConversation). Con el tope en
  * dólares alcanzado, la clave deja de prestarse salvo para indexar el
  * conocimiento: si no, los documentos nuevos quedarían indexados con el
  * simulado y la búsqueda no los encontraría al volver el cupo.
@@ -97,6 +99,7 @@ export class AiSettingsService {
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
     private readonly usage: AiUsageService,
+    private readonly packs: AiPacksService,
   ) {}
 
   // ── Lectura para la UI (nunca devuelve keys en claro) ───────
@@ -242,20 +245,24 @@ export class AiSettingsService {
     const limit = effectivePlan(org?.plan, org?.trialEndsAt).aiConversations;
     let value: AiIncluded | null = null;
     if (limit !== null && limit > 0) {
-      const used = await this.usage.includedUsage(orgId);
-      const capUsd = includedAiCapUsd(limit);
+      const [used, extra] = await Promise.all([this.usage.includedUsage(orgId), this.packs.extra(orgId)]);
+      // Las extra suben el tope: las gastadas este mes y las que aún quedan.
+      const capUsd = includedAiCapUsd(limit + extra.usedThisMonth + extra.remaining);
       value = {
         conversations: used.conversations,
         limit,
+        extraRemaining: extra.remaining,
+        extraUsed: extra.usedThisMonth,
+        extraExpiresAt: extra.nextExpiresAt?.toISOString() ?? null,
         costUsd: used.costUsd,
         capUsd,
-        full: used.conversations >= limit,
+        full: used.conversations >= limit && extra.remaining === 0,
         exhausted: used.costUsd >= capUsd,
         resetsAt: nextMonthStart().toISOString(),
       };
       if ((value.full && !hit?.value?.full) || (value.exhausted && !hit?.value?.exhausted)) {
         this.logger.warn(
-          `IA incluida ${value.exhausted ? "al tope de gasto" : "con el cupo lleno"} en ${orgId}: ${used.conversations}/${limit} conversaciones, US$${used.costUsd.toFixed(2)}/${capUsd.toFixed(2)}`,
+          `IA incluida ${value.exhausted ? "al tope de gasto" : "con el cupo lleno"} en ${orgId}: ${used.conversations}/${limit} conversaciones (+${extra.usedThisMonth} extra), US$${used.costUsd.toFixed(2)}/${capUsd.toFixed(2)}`,
         );
       }
     }
@@ -265,15 +272,21 @@ export class AiSettingsService {
 
   /**
    * ¿Puede el agente atender esta conversación? Siempre con clave propia; con
-   * la IA de Driony y el cupo lleno, solo si ya la atendía este mes (así nadie
-   * se queda a medias y lo nuevo pasa al equipo).
+   * la IA de Driony y el cupo del plan lleno, si ya la atendía este mes (así
+   * nadie se queda a medias) o si gasta una conversación extra. Sin extra, lo
+   * nuevo pasa al equipo.
    */
   async allowsConversation(conversationId: string): Promise<boolean> {
     const creds = await this.resolve();
     if (!creds.included) return true;
     const included = await this.included();
-    if (!included?.full) return true;
-    return this.usage.countedThisMonth(this.tenant.orgId(), conversationId);
+    if (!included || included.conversations < included.limit) return true;
+    const orgId = this.tenant.orgId();
+    if (await this.usage.countedThisMonth(orgId, conversationId)) return true;
+    const ok = await this.packs.consume(orgId, conversationId);
+    // El saldo cambió: que la interfaz y el próximo mensaje lo vean ya.
+    if (ok) this.includedCache.delete(orgId);
+    return ok;
   }
 
   // Credenciales de la IA de Driony si queda dinero del tope (o, para indexar

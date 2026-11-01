@@ -45,6 +45,7 @@ import type {
   PlatformLoginAsResult,
   PlatformOrgDetail,
   UpdatePlatformOrgInput,
+  GrantAiPackInput,
   OnboardingDto,
   OnboardingStepKey,
   TourKey,
@@ -2007,6 +2008,24 @@ export async function updatePlatformOrg(id: string, input: UpdatePlatformOrgInpu
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar"));
+  return res.json();
+}
+
+/** Añadir conversaciones extra a una empresa (al recibir el pago, o de regalo). */
+export async function grantPlatformAiPack(id: string, input: GrantAiPackInput): Promise<PlatformOrgDetail> {
+  const res = await bffFetch(`/api/bff/platform/orgs/${id}/ai-packs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo añadir el paquete"));
+  return res.json();
+}
+
+/** Quitar un paquete: vence ya, lo gastado se queda. */
+export async function removePlatformAiPack(id: string, packId: string): Promise<PlatformOrgDetail> {
+  const res = await bffFetch(`/api/bff/platform/orgs/${id}/ai-packs/${packId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo quitar el paquete"));
   return res.json();
 }
 

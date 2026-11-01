@@ -7,12 +7,14 @@ import type { Queue } from "bullmq";
 import {
   AI_INCLUDED_COUNTED,
   AI_INCLUDED_MODEL,
+  AI_PACK_MONTHS,
   estimateAiCost,
   includedAiCapUsd,
   PLANS,
   effectivePlan,
   inTrial,
   type FeedbackKind,
+  type GrantAiPackInput,
   type FeedbackStatus,
   type PlatformAuditEntry,
   type PlatformFeedback,
@@ -192,6 +194,8 @@ export class PlatformService {
       aiIncludedConversations: ai?.conversations ?? 0,
       // Solo cuenta si el servidor tiene la IA incluida encendida.
       aiIncludedLimit: AiSettingsService.includedEnabled() ? effectivePlan(r.plan, r.trialEndsAt).aiConversations : null,
+      aiExtraRemaining: Number(r.ai_extra),
+      aiExtraUsedMonth: Number(r.ai_extra_month),
       aiOwnKey: r.ai_own_key,
       onboardingCompletedAt: r.onboarding_completed_at?.toISOString() ?? null,
       planExpiresAt: r.planExpiresAt?.toISOString() ?? null,
@@ -257,6 +261,12 @@ export class PlatformService {
         GROUP BY 1 ORDER BY 2 DESC NULLS LAST
       `;
       const audit = await this.auditRows({ orgId: id, limit: 30 });
+      const packs = await this.prisma.aiPack.findMany({
+        where: { orgId: id },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      });
+      const now = Date.now();
       const n = (v: unknown) => Number(v ?? 0);
       return {
         org,
@@ -300,6 +310,17 @@ export class PlatformService {
           openConversations: n(counts?.open_conversations),
         },
         won30d: won.map((w) => ({ currency: w.currency, total: Number(w.total ?? 0), count: n(w.count) })),
+        aiPacks: packs.map((p) => ({
+          id: p.id,
+          conversations: p.conversations,
+          used: p.used,
+          expiresAt: p.expiresAt.toISOString(),
+          createdAt: p.createdAt.toISOString(),
+          priceUsd: p.priceCents === null ? null : p.priceCents / 100,
+          note: p.note,
+          createdBy: p.createdBy,
+          active: p.expiresAt.getTime() > now,
+        })),
         audit,
       };
     });
@@ -345,13 +366,20 @@ export class PlatformService {
 
   /** Resumen de la IA del mes para las cifras globales. */
   private async aiOverview(): Promise<Pick<PlatformOverview, "aiCostMonthUsd" | "aiIncluded">> {
-    const [byOrg, plans] = await Promise.all([
+    const [byOrg, plans, extras] = await Promise.all([
       this.monthAiByOrg(),
       runUnscoped("consola de plataforma: planes", () =>
         this.prisma.organization.findMany({ select: { id: true, plan: true, trialEndsAt: true } }),
       ),
+      runUnscoped("consola de plataforma: conversaciones extra", () =>
+        this.prisma.$queryRaw<Array<{ orgId: string; remaining: bigint; used_month: bigint }>>`
+          SELECT o.id AS "orgId", ${EXTRA_REMAINING} AS remaining, ${EXTRA_USED_MONTH} AS used_month
+          FROM organizations o WHERE EXISTS (SELECT 1 FROM ai_packs p WHERE p."orgId" = o.id)
+        `,
+      ),
     ]);
     const planOf = new Map(plans.map((o) => [o.id, effectivePlan(o.plan, o.trialEndsAt)]));
+    const extraOf = new Map(extras.map((e) => [e.orgId, { remaining: Number(e.remaining), usedMonth: Number(e.used_month) }]));
     let own = 0;
     let platform = 0;
     let conversations = 0;
@@ -365,8 +393,10 @@ export class PlatformService {
       if (a.platformUsd > 0) orgsUsing++;
       const limit = (planOf.get(id) ?? PLANS.free).aiConversations;
       if (limit !== null && limit > 0) {
-        if (a.conversations >= limit) orgsFull++;
-        if (a.platformUsd >= includedAiCapUsd(limit)) orgsCapped++;
+        // Con conversaciones extra no está lleno, y su tope sube.
+        const extra = extraOf.get(id) ?? { remaining: 0, usedMonth: 0 };
+        if (a.conversations >= limit && extra.remaining === 0) orgsFull++;
+        if (a.platformUsd >= includedAiCapUsd(limit + extra.usedMonth + extra.remaining)) orgsCapped++;
       }
     }
     return {
@@ -421,6 +451,46 @@ export class PlatformService {
     }
     if (input.platformNotes !== undefined) await this.audit(actor, "notes_changed", id, null);
     return this.orgById(id);
+  }
+
+  /**
+   * Añadir conversaciones extra a una empresa (al recibir su pago, o como
+   * regalo). Valen AI_PACK_MONTHS meses salvo que se diga otra cosa.
+   */
+  async grantAiPack(id: string, input: GrantAiPackInput, actor: string): Promise<PlatformOrgDetail> {
+    const org = await this.prisma.organization.findUnique({ where: { id }, select: { id: true } });
+    if (!org) throw new NotFoundException("Empresa no encontrada");
+    const months = input.months ?? AI_PACK_MONTHS;
+    const expiresAt = new Date();
+    expiresAt.setUTCMonth(expiresAt.getUTCMonth() + months);
+    const priceCents = input.priceUsd === null || input.priceUsd === undefined ? null : Math.round(input.priceUsd * 100);
+    const pack = await runUnscoped("consola de plataforma: añadir conversaciones extra", () =>
+      this.prisma.aiPack.create({
+        data: { orgId: id, conversations: input.conversations, priceCents, note: input.note?.trim() || null, createdBy: actor, expiresAt },
+      }),
+    );
+    await this.audit(actor, "ai_pack_added", id, {
+      packId: pack.id,
+      conversations: input.conversations,
+      priceUsd: priceCents === null ? null : priceCents / 100,
+      expiresAt: expiresAt.toISOString(),
+    });
+    return this.detail(id);
+  }
+
+  /** Quitar un paquete es vencerlo ya: lo gastado se queda en su historial. */
+  async removeAiPack(id: string, packId: string, actor: string): Promise<PlatformOrgDetail> {
+    const pack = await runUnscoped("consola de plataforma: quitar conversaciones extra", () =>
+      this.prisma.aiPack.findFirst({ where: { id: packId, orgId: id } }),
+    );
+    if (!pack) throw new NotFoundException("Paquete no encontrado");
+    if (pack.expiresAt.getTime() > Date.now()) {
+      await runUnscoped("consola de plataforma: quitar conversaciones extra", () =>
+        this.prisma.aiPack.update({ where: { id: packId }, data: { expiresAt: new Date() } }),
+      );
+      await this.audit(actor, "ai_pack_removed", id, { packId, conversations: pack.conversations, used: pack.used });
+    }
+    return this.detail(id);
   }
 
   /**
@@ -644,7 +714,14 @@ interface OrgRow {
   last_message_at: Date | null;
   onboarding_completed_at: Date | null;
   ai_own_key: boolean;
+  ai_extra: bigint;
+  ai_extra_month: bigint;
 }
+
+// Conversaciones extra de la empresa `o`: lo que queda en paquetes vigentes y
+// lo gastado este mes (el mes de ai_pack_uses es el día 1 en UTC).
+const EXTRA_REMAINING = Prisma.sql`(SELECT coalesce(sum(p.conversations - p.used), 0) FROM ai_packs p WHERE p."orgId" = o.id AND p."expiresAt" > now())`;
+const EXTRA_USED_MONTH = Prisma.sql`(SELECT count(*) FROM ai_pack_uses pu WHERE pu."orgId" = o.id AND pu.month = date_trunc('month', now() AT TIME ZONE 'UTC'))`;
 
 interface OrgAi {
   ownUsd: number;
@@ -667,7 +744,9 @@ const ORG_SELECT = Prisma.sql`
     (SELECT count(*) FROM deals d JOIN pipeline_stages s ON s.id = d."stageId" WHERE d."orgId" = o.id AND s."isWon" AND coalesce(d."closedAt", d."updatedAt") >= now() - interval '30 days') AS won30,
     (SELECT max(m."createdAt") FROM messages m WHERE m."orgId" = o.id)                            AS last_message_at,
     (SELECT s."completedAt" FROM onboarding_states s WHERE s."orgId" = o.id)                     AS onboarding_completed_at,
-    EXISTS (SELECT 1 FROM ai_settings a WHERE a."orgId" = o.id AND (a."openaiKeyEnc" IS NOT NULL OR a."anthropicKeyEnc" IS NOT NULL)) AS ai_own_key
+    EXISTS (SELECT 1 FROM ai_settings a WHERE a."orgId" = o.id AND (a."openaiKeyEnc" IS NOT NULL OR a."anthropicKeyEnc" IS NOT NULL)) AS ai_own_key,
+    ${EXTRA_REMAINING} AS ai_extra,
+    ${EXTRA_USED_MONTH} AS ai_extra_month
   FROM organizations o
 `;
 

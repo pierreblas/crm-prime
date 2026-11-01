@@ -1,7 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { FEATURE_LABELS, formatAiIncluded, formatPlanLimit, formatRetention, PLAN_FEATURES, PLAN_KEYS, PLANS, SELF_HOSTED_PLAN, TRIAL_DAYS, TRIAL_PLAN, type PlanDef, type PlanLimit } from "@crm/shared";
+import {
+  AI_PACKS,
+  AI_PACK_MONTHS,
+  FEATURE_LABELS,
+  formatAiIncluded,
+  formatPlanLimit,
+  formatRetention,
+  PLAN_FEATURES,
+  PLAN_KEYS,
+  PLANS,
+  retentionLabel,
+  SELF_HOSTED_PLAN,
+  TRIAL_AI_CONVERSATIONS,
+  TRIAL_DAYS,
+  TRIAL_PLAN,
+  type PlanDef,
+  type PlanLimit,
+} from "@crm/shared";
 import "./landing.css";
 import { Arrow, Check, CONTACT, GITHUB, IconGit, LpThemeScript, MarketingFooter, MarketingHeader, Minus } from "./chrome";
 
@@ -19,17 +36,33 @@ const INCLUDED = [
   "Soporte por correo",
 ];
 
+const n = (v: number | null) => (v ?? 0).toLocaleString("es");
+/** "100 en Gratis, 500 en Inicial, 2.000 en Pro y 6.000 en Empresa", del catálogo. */
+const AI_BY_PLAN = (() => {
+  const parts = PLAN_KEYS.map((k) => `${n(PLANS[k].aiConversations)} en ${PLANS[k].name}`);
+  return `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}`;
+})();
+const PACKS_TEXT = AI_PACKS.map((p) => `${n(p.conversations)} por USD ${p.priceUsd}`).join(" o ");
+const RETENTION_BY_PLAN = (() => {
+  const parts = PLAN_KEYS.map((k) => `${retentionLabel(PLANS[k].mediaRetentionDays)} en ${PLANS[k].name}`);
+  return `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}`;
+})();
+
 const FAQ = [
   {
     q: "¿Necesito tarjeta para empezar?",
-    a: `No. Al crear tu cuenta tienes ${TRIAL_DAYS} días de Pro gratis, sin tarjeta. Al terminar sigues en el plan Gratis, que no caduca, y pasas a Pro o Empresa cuando lo necesites.`,
+    a: `No. Al crear tu cuenta tienes ${TRIAL_DAYS} días de Pro gratis, sin tarjeta, con ${n(TRIAL_AI_CONVERSATIONS)} conversaciones con IA para probar el agente. Al terminar sigues en el plan Gratis, que no caduca, y pasas a Inicial, Pro o Empresa cuando lo necesites.`,
   },
   {
     q: "¿Qué pasa cuando termina la prueba?",
-    a: "No se corta ni se borra nada: tu cuenta pasa al plan Gratis con tus chats, contactos, embudos y agentes. Si durante la prueba conectaste más números o invitaste a más personas de las que admite Gratis, se quedan; lo que se frena es añadir más. Las difusiones, la API y la coexistencia vuelven con Pro. En el panel ves cada día cuánto te queda de prueba.",
+    a: "No se corta ni se borra nada: tu cuenta pasa al plan Gratis con tus chats, contactos, embudos y agentes. Si durante la prueba conectaste más números o invitaste a más personas de las que admite Gratis, se quedan; lo que se frena es añadir más. La coexistencia vuelve desde Inicial; las difusiones y la API, con Pro. En el panel ves cada día cuánto te queda de prueba.",
   },
   {
-    q: "¿Cómo se paga Pro o Empresa?",
+    q: "¿Se cobra por usuario?",
+    a: `No. El precio es por empresa, no por persona: Pro incluye hasta ${n(PLANS.pro.limits.users)} personas por USD ${PLANS.pro.priceUsd} al mes, y en Empresa no hay tope. Invitar a alguien más no te sube la factura.`,
+  },
+  {
+    q: "¿Cómo se paga un plan?",
     a: "Nos escribes desde Ajustes › Plan (o al correo de contacto), te enviamos la factura y activamos el plan en el día. Se paga por adelantado cada mes o cada año, y puedes bajar o cancelar cuando quieras: aplica al siguiente periodo.",
   },
   {
@@ -38,11 +71,11 @@ const FAQ = [
   },
   {
     q: "¿Hay límite de mensajes o de almacenamiento?",
-    a: "No vendemos gigas ni cobramos por mensaje. Cada plan está pensado para un número de contactos activos al mes (quien envía o recibe un mensaje ese mes, difusiones aparte); es orientativo, los picos son normales y nada se corta. Si lo superas de forma sostenida, te propondremos el plan que te corresponde. Lo único que caduca son los adjuntos (fotos, audios, documentos): se guardan 90 días en Gratis, 1 año en Pro y 3 años en Empresa; el texto de la conversación se conserva siempre.",
+    a: `No vendemos gigas ni cobramos por mensaje. Cada plan está pensado para un número de contactos activos al mes (quien envía o recibe un mensaje ese mes, difusiones aparte); es orientativo, los picos son normales y nada se corta. Si lo superas de forma sostenida, te propondremos el plan que te corresponde. Lo único que caduca son los adjuntos (fotos, audios, documentos): se guardan ${RETENTION_BY_PLAN}; el texto de la conversación se conserva siempre.`,
   },
   {
     q: "¿La inteligencia artificial está incluida en el precio?",
-    a: "Sí. Cada plan trae un cupo de conversaciones atendidas por la IA de Driony al mes (100 en Gratis, 2.000 en Pro y 10.000 en Empresa), sin claves ni configuración. Cuenta cada conversación que el agente atiende en el mes, no cada mensaje. Al llegar al cupo, el agente termina las que ya atendía y los chats nuevos pasan a tu equipo hasta el mes siguiente. Si conectas tu propia clave de OpenAI, Anthropic o cualquier API compatible, no hay cupo, eliges el modelo de cada agente y pagas a tu proveedor a su precio, sin margen nuestro.",
+    a: `Sí. Cada plan trae un cupo de conversaciones atendidas por la IA de Driony al mes (${AI_BY_PLAN}), sin claves ni configuración. Cuenta cada conversación que el agente atiende en el mes, no cada mensaje ni cada respuesta. Si un mes se te queda corto, sumas conversaciones extra (${PACKS_TEXT}, una sola vez) que valen ${AI_PACK_MONTHS} meses. Al llegar al tope, el agente termina las que ya atendía y los chats nuevos pasan a tu equipo hasta el mes siguiente. Y si conectas tu propia clave de OpenAI, Anthropic o cualquier API compatible, no hay cupo, eliges el modelo de cada agente y pagas a tu proveedor a su precio, sin margen nuestro.`,
   },
   {
     q: "¿Y las conversaciones de WhatsApp?",
@@ -70,17 +103,19 @@ export function Pricing() {
             <div className="lp-head">
               <h1>Precios claros, sin sorpresas.</h1>
               <p className="lp-lede">
-                Pruébalo {TRIAL_DAYS} días con todo Pro, sin tarjeta. Después sigues gratis, o pasas a
-                Pro o Empresa cuando crezcan el equipo o los números. La IA y WhatsApp los pagas a su proveedor con tus propias cuentas, sin margen
-                nuestro.
+                Pruébalo {TRIAL_DAYS} días con todo Pro, sin tarjeta. Después sigues gratis o eliges tu plan:
+                se paga por empresa, no por usuario. La IA ya viene incluida, y los mensajes de WhatsApp los cobra Meta a tu
+                cuenta, sin recargo nuestro.
               </p>
             </div>
 
-            <div className="lp-plans lp-plans--3">
+            <div className="lp-plans lp-plans--4">
               {PLAN_KEYS.map((k) => (
                 <PlanCard key={k} plan={PLANS[k]} highlight={k === "pro"} />
               ))}
             </div>
+
+            <AiWays />
 
             <div className="lp-included">
               <h2>Incluido en todos los planes</h2>
@@ -175,8 +210,54 @@ export function Pricing() {
   );
 }
 
+/**
+ * Las tres maneras de pagar la IA, una al lado de otra: incluida, con
+ * conversaciones extra o con tu clave. Es lo que nos diferencia, así que va
+ * justo debajo de los planes y antes de la lista de lo incluido.
+ */
+function AiWays() {
+  const min = Math.min(...PLAN_KEYS.map((k) => PLANS[k].aiConversations ?? 0));
+  const max = Math.max(...PLAN_KEYS.map((k) => PLANS[k].aiConversations ?? 0));
+  return (
+    <section className="lp-ai" aria-labelledby="lp-ai-title">
+      <div className="lp-ai__head">
+        <h2 id="lp-ai-title">La IA, como prefieras</h2>
+        <p>
+          Contamos conversaciones atendidas, no tokens ni créditos: una conversación es un cliente atendido en el mes,
+          responda el agente una vez o veinte.
+        </p>
+      </div>
+      <div className="lp-ai__ways">
+        <div className="lp-ai__way">
+          <span className="lp-ai__fig">
+            {n(min)}–{n(max)}
+          </span>
+          <h3>Incluida en tu plan</h3>
+          <p>Conversaciones al mes según el plan, sin claves ni configuración. El agente funciona desde el primer día.</p>
+        </div>
+        <div className="lp-ai__way">
+          <span className="lp-ai__fig">+{n(AI_PACKS[0].conversations)}</span>
+          <h3>Conversaciones extra</h3>
+          <p>
+            Para el mes que se queda corto: {PACKS_TEXT}, una sola vez. Valen {AI_PACK_MONTHS} meses y se gastan solo
+            después de tu cupo.
+          </p>
+        </div>
+        <div className="lp-ai__way">
+          <span className="lp-ai__fig">Sin cupo</span>
+          <h3>Con tu propia clave</h3>
+          <p>
+            Conecta OpenAI, Anthropic o cualquier API compatible, elige el modelo de cada agente y paga a tu proveedor a
+            su precio. Sin margen nuestro.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** Etiqueta corta de cada plan, encima del nombre. */
-const TAG: Record<string, string> = { free: "Para probar", pro: "Más elegido", business: "Sin límites" };
+const TAG: Record<string, string> = { free: "Para probar", starter: "Para empezar", pro: "Más elegido", business: "Sin límites" };
 
 function PlanCard({ plan, highlight }: { plan: PlanDef; highlight: boolean }) {
   const free = plan.priceUsd === 0;

@@ -20,6 +20,7 @@ import { env } from "../../common/utils/env";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { tenancyMode } from "../../infra/tenant/tenant.context";
+import { AiPacksService } from "../ai/ai-packs.service";
 
 /**
  * El plan de la empresa en curso y lo que permite.
@@ -33,7 +34,8 @@ import { tenancyMode } from "../../infra/tenant/tenant.context";
  * al llegar al tope es crear o importar a mano y la API pública.
  *
  * Durante la prueba del alta (ver TRIAL_DAYS) una empresa en Gratis cuenta
- * como Pro; al terminar vuelve a Gratis sin tocar nada.
+ * como Pro (con la IA de la prueba, TRIAL_AI_CONVERSATIONS); al terminar
+ * vuelve a Gratis sin tocar nada.
  *
  * En instalación propia no hay planes: todo pasa.
  */
@@ -42,6 +44,7 @@ export class PlansService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
+    private readonly packs: AiPacksService,
   ) {}
 
   get saas(): boolean {
@@ -101,7 +104,11 @@ export class PlansService {
   }
 
   async mine(): Promise<MyPlanDto> {
-    const [org, usage] = await Promise.all([this.saas ? this.org() : null, this.usage()]);
+    const [org, usage, aiPacks] = await Promise.all([
+      this.saas ? this.org() : null,
+      this.usage(),
+      this.saas ? this.packs.active(this.tenant.orgId()) : [],
+    ]);
     const plan = this.saas ? effectivePlan(org?.plan, org?.trialEndsAt) : SELF_HOSTED_PLAN;
     // La prueba solo se enseña mientras la empresa siga en Gratis: si ya pasó
     // a un plan de pago, la prueba es historia.
@@ -121,6 +128,7 @@ export class PlansService {
       plans: this.saas ? PLAN_KEYS.map((k) => PLANS[k]) : [],
       contactEmail: env("NEXT_PUBLIC_CONTACT_EMAIL") ?? env("CONTACT_EMAIL") ?? null,
       trial,
+      aiPacks,
     };
   }
 

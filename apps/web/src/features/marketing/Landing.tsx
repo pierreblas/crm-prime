@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { TRIAL_DAYS } from "@crm/shared";
+import { PLAN_KEYS, PLANS, TRIAL_AI_CONVERSATIONS, TRIAL_DAYS } from "@crm/shared";
 import "./landing.css";
 import { Arrow, Check, GITHUB, IconGit, LpThemeScript, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
 import { HeroChat } from "./HeroChat";
@@ -32,18 +32,24 @@ const BAND_ITEMS = [
   "Agentes que venden 24/7",
 ];
 
+/** "100 en Gratis, 500 en Inicial, 2.000 en Pro y 6.000 en Empresa", del catálogo. */
+function aiByPlan(): string {
+  const parts = PLAN_KEYS.map((k) => `${(PLANS[k].aiConversations ?? 0).toLocaleString("es")} en ${PLANS[k].name}`);
+  return `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}`;
+}
+
 const FAQ = [
   {
     q: "¿Necesito un número nuevo de WhatsApp?",
-    a: "No. Conectas tu número de WhatsApp Business desde el panel, con la ventana oficial de Meta (Driony es Meta Business Partner). Si ya lo usas en la app del celular, seguir usándolo a la vez (Coexistencia) depende de que Meta apruebe a la plataforma; mientras tanto el número se atiende desde el CRM.",
+    a: `No. Conectas tu número de WhatsApp Business desde el panel, con la ventana oficial de Meta (Driony es Meta Business Partner). Si ya lo usas en la app del celular, desde el plan ${PLANS.starter.name} sigues usándolo a la vez (Coexistencia): lo que respondes en el celular y lo que responde Driony queda en el mismo chat.`,
   },
   {
     q: "¿Cuánto cuesta la inteligencia artificial?",
-    a: "Cada plan trae conversaciones con IA incluidas al mes (100 en Gratis, 2.000 en Pro y 10.000 en Empresa), sin configurar nada. Si prefieres otro modelo o no tener cupo, conectas tu clave de OpenAI, Anthropic o cualquier API compatible y pagas a tu proveedor a su precio, sin recargo. Cada respuesta registra sus tokens y su coste, y puedes ponerle un tope mensual a cada agente.",
+    a: `Cada plan trae conversaciones con IA incluidas al mes (${aiByPlan()}), sin configurar nada; si un mes se te queda corto, sumas conversaciones extra. Si prefieres otro modelo o no tener cupo, conectas tu clave de OpenAI, Anthropic o cualquier API compatible y pagas a tu proveedor a su precio, sin recargo. Cada respuesta registra sus tokens y su coste, y puedes ponerle un tope mensual a cada agente.`,
   },
   {
     q: "¿Cómo es la prueba gratis?",
-    a: `Al crear tu cuenta tienes ${TRIAL_DAYS} días del plan Pro completo, sin tarjeta: tres números, diez personas, difusiones, API y 2.000 conversaciones con IA incluida. Al terminar no se corta nada: sigues en el plan Gratis (un número, dos personas y 100 conversaciones con IA al mes) con tus chats, contactos y agentes, y pasas a Pro o Empresa cuando quieras.`,
+    a: `Al crear tu cuenta tienes ${TRIAL_DAYS} días del plan Pro completo, sin tarjeta: tres números, diez personas, difusiones, API y ${TRIAL_AI_CONVERSATIONS.toLocaleString("es")} conversaciones con IA para probar el agente. Al terminar no se corta nada: sigues en el plan Gratis (un número, dos personas y ${PLANS.free.aiConversations} conversaciones con IA al mes) con tus chats, contactos y agentes, y pasas a Inicial, Pro o Empresa cuando quieras.`,
   },
   {
     q: "¿Cómo sé cuándo la IA pasó un chat a una persona?",

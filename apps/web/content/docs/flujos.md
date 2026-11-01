@@ -15,8 +15,8 @@ Cada disparador tiene cuatro partes:
 
 | Disparador | Cuándo | Filtro |
 |---|---|---|
-| **Al iniciar un chat** | Empieza una conversación nueva: el primer mensaje de un contacto, o el primero después de cerrar su chat anterior. No se dispara con cada mensaje de un chat abierto: para eso, «Por palabra clave». | — |
-| **Por palabra clave** | Un mensaje del contacto contiene alguna de las palabras. | Palabras separadas por comas. |
+| **Al iniciar un chat** | Empieza una conversación nueva: el primer mensaje de un contacto, o el primero después de cerrar su chat anterior. No se dispara con cada mensaje de un chat abierto: para eso, «Por palabra clave». Si ese primer mensaje trae una palabra clave de otro flujo, arranca ese. | — |
+| **Por palabra clave** | Un mensaje del contacto contiene alguna de las palabras, sin importar tildes ni mayúsculas: «informacion» vale por «Información». Tiene prioridad sobre «Al iniciar un chat». | Palabras separadas por comas. |
 | **Llega un mensaje del cliente** | Con cada mensaje que escribe (sin palabras concretas), como mucho una vez cada cierto tiempo por conversación. Pensado para usar con condiciones. | Pausa entre disparos (por defecto, 1 día). |
 | **Llega desde un anuncio** | La conversación nace de un anuncio Click to WhatsApp de Meta. Tiene prioridad sobre «Al iniciar un chat». | — |
 | **Nuevo lead de Meta Ads (formulario)** | Entra un lead de un formulario de Meta Lead Ads ([Meta Ads](/docs/meta-ads)). | Nombres de formulario; vacío = todos. |
@@ -31,10 +31,11 @@ Cada disparador tiene cuatro partes:
 
 Un flujo **sin disparadores** no arranca solo: lo ejecutan las [automatizaciones de una etapa](/docs/embudos) (al entrar, al escribir el cliente, por webhook o tras un silencio) o el bloque «Ir a otro flujo».
 
-Tres cosas a tener en cuenta:
+Cuatro cosas a tener en cuenta:
 
 - **Los leads de formularios nunca te han escrito.** WhatsApp solo permite escribirles con una plantilla aprobada: en esos flujos usa el bloque **Enviar plantilla** (o etiqueta, mueve el embudo y avisa por HTTP, que no necesitan ventana abierta). Lo mismo si el cliente lleva más de 24 h callado.
-- Si en esa conversación ya hay un flujo a medias (esperando una respuesta o un «Esperar»), el nuevo no lo interrumpe: se registra en el log y no arranca.
+- Si en esa conversación ya hay un flujo a medias (esperando una respuesta o un «Esperar»), un disparador por evento (etiqueta, etapa, lead…) no lo interrumpe: se registra en el log y no arranca. Una **palabra clave** sí: si el cliente escribe la de otro flujo en vez de contestar, arranca ese flujo. La de su mismo flujo, mientras contesta a su pregunta, cuenta como respuesta.
+- Una pregunta o un menú **sin contestar en 24 h** se da por abandonado: lo que escriba después el cliente ya no se toma como su respuesta y otros flujos pueden arrancar. Si pulsa un botón de ese menú, sigue valiendo.
 - **Si un flujo se detiene por un error** (un mensaje normal a alguien que lleva más de 24 h sin escribir, una plantilla que Meta rechaza), queda una **nota interna en el chat** con el motivo, para saber por qué no siguió.
 
 Cada flujo puede aplicar a **un número** o a todos, y hay que marcarlo **Activo** para que corra. Un flujo con avisos no se puede activar hasta corregirlos.
@@ -44,7 +45,7 @@ Cada flujo puede aplicar a **un número** o a todos, y hay que marcarlo **Activo
 | Bloque | Para qué |
 |---|---|
 | **Enviar mensaje** | Un texto al contacto, con un adjunto opcional: **imagen** (hasta 5 MB), **video** MP4, **audio** (hasta 16 MB) o **documento** (PDF, Word, Excel). El texto va de pie; con un audio, que no admite pie, va después en otro mensaje. Se adjunta desde la propia cajita del lienzo (con el bloque elegido) o desde el panel. Admite variables: `{{nombre_variable}}`. |
-| **Botones** | Un mensaje con hasta 3 botones de respuesta (20 caracteres cada uno) y, si quieres, una **imagen, un video o un documento arriba**. Cada botón es una salida; *otra respuesta* recoge lo que no sea un botón (si el contacto escribe el texto del botón o su número, cuenta como pulsado). Fuera de la ventana de 24 h va como texto con opciones numeradas. |
+| **Botones** | Un mensaje con hasta 3 botones de respuesta (20 caracteres cada uno) y, si quieres, una **imagen, un video o un documento arriba**. Cada botón es una salida; *otra respuesta* recoge lo que no sea un botón (si el contacto escribe el texto del botón, con o sin tildes, o su número, cuenta como pulsado). Si no conectas *otra respuesta*, lo que escriba sigue como un mensaje normal (la IA puede contestarlo) y los botones siguen valiendo. Fuera de la ventana de 24 h va como texto con opciones numeradas. |
 | **Lista de opciones** | Un mensaje con un botón («Ver opciones») que abre hasta **10 opciones**, cada una con título (24 caracteres) y descripción (72). Cada opción es una salida, como en Botones. Fuera de la ventana de 24 h va como texto numerado. |
 | **Carrusel** | De **2 a 10 tarjetas** deslizables, cada una con una **imagen o un video**, un texto corto (160 caracteres) y un botón. Con botón de *respuesta*, cada tarjeta es una salida del bloque (vale también escribir su número); con botón de *enlace*, abre tu web y el flujo sigue. Solo dentro de la ventana de 24 h; fuera de ella va como texto. |
 | **Enviar plantilla** | Una plantilla aprobada por Meta. Es la única forma de escribirle a quien no te ha escrito o lleva más de 24 h sin hacerlo. En el panel eliges el valor de cada variable (`{{1}}` o `{{nombre}}`): el nombre o el teléfono del contacto, o un texto, que puede llevar variables del flujo. Sin tocarla, la primera es el nombre del contacto. |
@@ -53,7 +54,7 @@ Cada flujo puede aplicar a **un número** o a todos, y hay que marcarlo **Activo
 | **Acción** | Pasar al agente de IA, pasar a humano, poner o quitar una etiqueta, mover en el embudo o crear una oportunidad en una etapa (si ya tiene una abierta en ese embudo, no se duplica). |
 | **Horario** | Dos salidas: *en horario* y *fuera de horario*, según los días y horas que marques (con su zona horaria). |
 | **Dividir al azar** | Reparte a cada contacto entre varias variantes según su peso (A/B de mensajes, reparto entre vendedores). |
-| **Esperar** | Pausa de minutos u horas. Si el contacto escribe durante la espera, el flujo sigue con su mensaje. |
+| **Esperar** | Pausa de minutos u horas. Lo que escriba el contacto durante la pausa no lo contesta nadie (tampoco la IA) hasta que el flujo siga, y las condiciones de después miran su último mensaje. Si escribe una palabra clave, arranca ese flujo y la pausa se cancela. |
 | **Guardar en el contacto** | Escribe un valor (o una variable) en el nombre del contacto o en uno de sus campos personalizados. |
 | **Nota interna** | Deja una nota en la conversación, visible solo para el equipo. |
 | **Estado del chat** | Deja la conversación abierta, pendiente (esperando a una persona) o cerrada. |

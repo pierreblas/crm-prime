@@ -4,9 +4,10 @@ import { z } from "zod";
  * Planes del SaaS.
  *
  * El plan de cada empresa es una cadena en `Organization.plan`; este catálogo
- * dice qué significa. Vive en código y no en la base a propósito: hay tres
+ * dice qué significa. Vive en código y no en la base a propósito: hay cuatro
  * planes, cambian poco, y así la API, la web y la consola hablan de los mismos
- * límites sin sincronizar nada.
+ * límites sin sincronizar nada. El orden de PLAN_KEYS es el de precio: lo usan
+ * planWithFeature y las tablas de precios.
  *
  * No hay cobro automático todavía: el plan lo cambia el operador desde la
  * consola de plataforma. Los precios son informativos y se cambian aquí.
@@ -14,7 +15,7 @@ import { z } from "zod";
  * En una instalación propia (TENANCY_MODE=single) no hay planes: todo es
  * ilimitado, ver SELF_HOSTED_PLAN.
  */
-export const PLAN_KEYS = ["free", "pro", "business"] as const;
+export const PLAN_KEYS = ["free", "starter", "pro", "business"] as const;
 export type PlanKey = (typeof PLAN_KEYS)[number];
 export const planKeySchema = z.enum(PLAN_KEYS);
 
@@ -95,6 +96,18 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     mediaRetentionDays: 90,
     features: { coexistence: false, broadcasts: false, api: false, prioritySupport: false },
   },
+  // El escalón entre Gratis y Pro: el negocio pequeño que atiende desde el
+  // celular (coexistencia) y quiere el agente, sin equipo ni difusiones.
+  starter: {
+    key: "starter",
+    name: "Inicial",
+    tagline: "Para el negocio que atiende desde su celular y quiere IA.",
+    priceUsd: 19,
+    limits: { numbers: 1, users: 3, contacts: 2000, deals: 1000, activeContacts: 1000 },
+    aiConversations: 500,
+    mediaRetentionDays: 180,
+    features: { coexistence: true, broadcasts: false, api: false, prioritySupport: false },
+  },
   pro: {
     key: "pro",
     name: "Pro",
@@ -111,7 +124,9 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     tagline: "Varios números, equipo grande y soporte prioritario.",
     priceUsd: 149,
     limits: { numbers: null, users: null, contacts: null, deals: null, activeContacts: 15000 },
-    aiConversations: 10000,
+    // 10.000 dejaban la IA en un 20–40 % del precio; quien necesite más
+    // compra conversaciones extra (AI_PACKS) o conecta su clave.
+    aiConversations: 6000,
     mediaRetentionDays: 1095,
     features: { coexistence: true, broadcasts: true, api: true, prioritySupport: true },
   },
@@ -141,9 +156,14 @@ export function planFor(key: string | null | undefined): PlanDef {
  *
  * Solo cuenta mientras el plan guardado es Gratis: si el operador la pasa a
  * un plan de pago durante la prueba, manda el de pago.
+ *
+ * La IA incluida de la prueba es menor que la de Pro (TRIAL_AI_CONVERSATIONS):
+ * sobra para probar el agente en serio (unas 30 conversaciones al día) y cada
+ * alta no puede gastar más de unos pocos dólares de la plataforma.
  */
 export const TRIAL_DAYS = 15;
 export const TRIAL_PLAN: PlanKey = "pro";
+export const TRIAL_AI_CONVERSATIONS = 500;
 
 type When = Date | string | null | undefined;
 const toMs = (d: When): number | null => (d ? new Date(d).getTime() : null);
@@ -154,9 +174,10 @@ export function inTrial(key: string | null | undefined, trialEndsAt: When, now: 
   return planFor(key).key === "free" && ends !== null && ends > now.getTime();
 }
 
-/** El plan que manda: el de prueba mientras dure, si no el guardado. */
+/** El plan que manda: el de prueba mientras dure (con la IA de la prueba), si no el guardado. */
 export function effectivePlan(key: string | null | undefined, trialEndsAt: When, now: Date = new Date()): PlanDef {
-  return inTrial(key, trialEndsAt, now) ? PLANS[TRIAL_PLAN] : planFor(key);
+  if (!inTrial(key, trialEndsAt, now)) return planFor(key);
+  return { ...PLANS[TRIAL_PLAN], aiConversations: TRIAL_AI_CONVERSATIONS };
 }
 
 /** Días que le quedan a la prueba, redondeando hacia arriba (el último día cuenta como 1). */
@@ -183,14 +204,21 @@ export function formatPlanPrice(plan: PlanDef): string {
   return `USD ${plan.priceUsd}/mes`;
 }
 
-/** "Adjuntos guardados 90 días", "… 1 año", "… 3 años" o "… sin plazo". */
-export function formatRetention(days: number | null): string {
-  if (days === null) return "Adjuntos guardados sin plazo";
+/** "90 días", "6 meses", "1 año", "3 años" o "sin plazo". */
+export function retentionLabel(days: number | null): string {
+  if (days === null) return "sin plazo";
   if (days % 365 === 0) {
     const y = days / 365;
-    return `Adjuntos guardados ${y} ${y === 1 ? "año" : "años"}`;
+    return `${y} ${y === 1 ? "año" : "años"}`;
   }
-  return `Adjuntos guardados ${days} días`;
+  // Medio año se lee mejor en meses; plazos cortos, en días.
+  if (days >= 180 && days % 30 === 0) return `${days / 30} meses`;
+  return `${days} días`;
+}
+
+/** "Adjuntos guardados 90 días", "… 6 meses", "… 1 año" o "… sin plazo". */
+export function formatRetention(days: number | null): string {
+  return `Adjuntos guardados ${retentionLabel(days)}`;
 }
 
 /** "100 conversaciones con IA incluida al mes", o "" si el plan no la trae. */

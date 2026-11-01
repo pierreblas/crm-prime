@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PLANS, PLAN_KEYS, includedAiCapUsd, planFor, type PlatformHealth, type PlatformOrg, type UpdatePlatformOrgInput } from "@crm/shared";
+import { PLANS, PLAN_KEYS, planFor, type PlatformHealth, type PlatformOrg, type UpdatePlatformOrgInput } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { toast } from "@/lib/toast";
 import { fetchPlatformAudit, fetchPlatformHealth, fetchPlatformOrgs, fetchPlatformOverview, updatePlatformOrg } from "@/lib/bff";
 import { OrgDrawer } from "./OrgDrawer";
 import { FeedbackPanel } from "./FeedbackPanel";
-import { date, dateTime, describeAudit, expiry, money, relative, toCsv, trialTag } from "./platformFormat";
+import { date, dateTime, describeAudit, expiry, money, orgAiCapUsd, relative, toCsv, trialTag } from "./platformFormat";
 
 type SortKey = "created" | "activity" | "messages" | "name" | "expiry";
 type Tab = "orgs" | "health" | "audit" | "feedback";
@@ -46,11 +46,11 @@ const atContactLimit = (o: PlatformOrg) => {
  * usa la IA de Driony, así que no cuenta. Es la mejor señal para subir de plan.
  */
 const aiFull = (o: PlatformOrg) =>
-  o.aiIncludedLimit !== null && !o.aiOwnKey && o.aiIncludedConversations >= o.aiIncludedLimit;
+  o.aiIncludedLimit !== null && !o.aiOwnKey && o.aiIncludedConversations >= o.aiIncludedLimit && o.aiExtraRemaining === 0;
 
 /** ¿Tocó el tope en dólares de la IA incluida (freno de seguridad: bucle o abuso)? */
 const aiCapped = (o: PlatformOrg) =>
-  o.aiIncludedLimit !== null && !o.aiOwnKey && o.aiPlatformCostMonthUsd >= includedAiCapUsd(o.aiIncludedLimit);
+  o.aiIncludedLimit !== null && !o.aiOwnKey && o.aiPlatformCostMonthUsd >= orgAiCapUsd(o);
 
 /**
  * Consola del operador del SaaS: cuántas empresas hay, cuántas se dan de alta,
@@ -158,6 +158,7 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
         ia_driony_usd: o.aiPlatformCostMonthUsd.toFixed(2),
         ia_conversaciones: o.aiIncludedConversations,
         ia_cupo: o.aiIncludedLimit ?? "",
+        ia_extra_quedan: o.aiExtraRemaining,
         ia_clave_propia: o.aiOwnKey ? "sí" : "no",
         alta: o.createdAt.slice(0, 10),
         notas: o.platformNotes ?? "",

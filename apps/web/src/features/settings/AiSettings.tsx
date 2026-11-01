@@ -97,6 +97,8 @@ export function AiSettings() {
   const included = data.included;
   const conClavePropia = data.openaiKey.source === "db" || data.anthropicKey.source === "db";
   const usaIncluida = !!included && !conClavePropia && !included.exhausted && data.provider !== "fake";
+  // Lo que hay este mes: el cupo del plan más las conversaciones extra.
+  const totalIncluida = included ? included.limit + included.extraUsed + included.extraRemaining : 0;
 
   return (
     <Panel
@@ -128,17 +130,19 @@ export function AiSettings() {
                 : included.exhausted
                   ? `Hasta ${resetLabel(included)}, el agente no responde y los chats en autopilot pasan a tu equipo. Conecta tu clave de OpenAI o Anthropic abajo para seguir ya, o cambia de plan en Ajustes › Plan.`
                   : included.full
-                    ? `El agente termina las conversaciones que ya atendía; los chats nuevos pasan a tu equipo hasta ${resetLabel(included)}. Conecta tu clave abajo para que atienda también los nuevos, o cambia de plan en Ajustes › Plan.`
+                    ? `El agente termina las conversaciones que ya atendía; los chats nuevos pasan a tu equipo hasta ${resetLabel(included)}. Conecta tu clave abajo para que atienda también los nuevos, o suma conversaciones extra o cambia de plan en Ajustes › Plan.`
                     : `Tu agente responde sin que configures nada. Cuenta cada conversación que atiende en el mes, no cada mensaje; el cupo vuelve ${resetLabel(included)}. Si conectas tu clave de OpenAI o Anthropic, eliges el modelo, no hay cupo y pagas a tu proveedor a precio de lista, sin recargo.`}
             </span>
             {!conClavePropia && (
               <div className="byok__meter" aria-label="Conversaciones con IA de Driony este mes">
                 <span className="byok__bar">
-                  <i style={{ width: `${Math.min(100, (included.conversations / included.limit) * 100)}%` }} />
+                  <i style={{ width: `${Math.min(100, (included.conversations / Math.max(1, totalIncluida)) * 100)}%` }} />
                 </span>
                 <span className="byok__count">
-                  {included.conversations.toLocaleString("es")} de {included.limit.toLocaleString("es")} conversaciones
-                  este mes
+                  {Math.min(included.conversations, totalIncluida).toLocaleString("es")} de {totalIncluida.toLocaleString("es")}{" "}
+                  conversaciones este mes
+                  {included.extraUsed + included.extraRemaining > 0 &&
+                    ` (incluye ${(included.extraUsed + included.extraRemaining).toLocaleString("es")} extra)`}
                 </span>
               </div>
             )}

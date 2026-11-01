@@ -16,6 +16,8 @@ interface FlowResumeJob {
   /** Solo en "no_reply": el flujo y el disparador que lo programaron (los trabajos anteriores no lo traen). */
   flowId?: string;
   triggerId?: string;
+  /** Solo en "resume": el arranque del flujo que programó la pausa (los trabajos anteriores no lo traen). */
+  run?: string;
 }
 
 @Processor(QUEUE_FLOW)
@@ -69,7 +71,7 @@ export class FlowProcessor extends WorkerHost {
     await runJobInOrg("flujo", orgId, () =>
       job.name === "no_reply" && resume.messageId
         ? this.engine.checkNoReply(resume.conversationId, resume.messageId, resume.flowId, resume.triggerId)
-        : this.engine.resumeTimer(resume.conversationId),
+        : this.engine.resumeTimer(resume.conversationId, resume.run),
     );
   }
 }

@@ -1,4 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
+// Lo mismo que hace el SQL con cada campo.
+import { fold } from "../../common/utils/fold";
 
 /**
  * Búsqueda del catálogo para el agente de IA.
@@ -32,16 +34,6 @@ export interface ProductSearchResult {
   listedAll: boolean;
   /** Nombres de los productos que NO van con detalle en esta respuesta. */
   otherNames: string[];
-}
-
-/** Sin tildes, en minúsculas, espacios colapsados: lo mismo que hace el SQL con cada campo. */
-export function fold(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 /** Palabras con las que se busca: de dos letras en adelante, sin tildes. */

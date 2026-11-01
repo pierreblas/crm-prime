@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PLANS, PLAN_KEYS, includedAiCapUsd, planFor, type PlatformOrgDetail, type UpdatePlatformOrgInput } from "@crm/shared";
+import { AI_PACKS, AI_PACK_MONTHS, PLANS, PLAN_KEYS, planFor, type GrantAiPackInput, type PlatformOrgDetail, type UpdatePlatformOrgInput } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
-import { fetchPlatformOrgDetail, platformLoginAs, updatePlatformOrg } from "@/lib/bff";
-import { date, dateTime, describeAudit, expiry, fromDateInput, money, relative, toDateInput } from "./platformFormat";
+import { fetchPlatformOrgDetail, grantPlatformAiPack, platformLoginAs, removePlatformAiPack, updatePlatformOrg } from "@/lib/bff";
+import { date, dateTime, describeAudit, expiry, fromDateInput, money, orgAiCapUsd, relative, toDateInput } from "./platformFormat";
 
 const FEATURE_LABEL: Record<string, string> = {
   agent: "Agente",
@@ -270,9 +270,10 @@ export function OrgDrawer({ id, myOrgSlug, onClose }: { id: string; myOrgSlug?: 
                   {org.aiOwnKey
                     ? "Usa su propia clave de IA: no gasta la IA de Driony y el consumo lo paga ella."
                     : org.aiIncludedLimit !== null
-                      ? `IA de Driony: ${org.aiIncludedConversations.toLocaleString("es")} de ${org.aiIncludedLimit.toLocaleString("es")} conversaciones · ${money(org.aiPlatformCostMonthUsd)} de ${money(includedAiCapUsd(org.aiIncludedLimit))} de tope (a precio de lista).`
+                      ? `IA de Driony: ${org.aiIncludedConversations.toLocaleString("es")} de ${org.aiIncludedLimit.toLocaleString("es")} conversaciones del plan${org.aiExtraUsedMonth > 0 ? ` (+${org.aiExtraUsedMonth.toLocaleString("es")} extra)` : ""} · ${money(org.aiPlatformCostMonthUsd)} de ${money(orgAiCapUsd(org))} de tope (a precio de lista).`
                       : "Sin clave propia y sin IA incluida: su agente no responde."}
                 </p>
+                {org.aiIncludedLimit !== null && <AiPacks orgId={id} packs={d.aiPacks} />}
                 {d.ai.length === 0 ? (
                   <p className="pc-empty">Sin uso de IA este mes.</p>
                 ) : (
@@ -392,6 +393,129 @@ function ActivityBars({ data }: { data: { day: string; inbound: number; outbound
         <span><i style={{ background: "var(--chart-2)" }} />Enviados</span>
         <span style={{ marginLeft: "auto" }}>{total.toLocaleString("es")} en 14 días</span>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Conversaciones extra de la empresa: las que tiene (también las vencidas) y
+ * el formulario para añadir un paquete al recibir su pago, o de regalo. Quitar
+ * uno lo vence ya; lo gastado queda en su historial.
+ */
+function AiPacks({ orgId, packs }: { orgId: string; packs: PlatformOrgDetail["aiPacks"] }) {
+  const queryClient = useQueryClient();
+  const [pick, setPick] = useState<string>(AI_PACKS[0].key);
+  const [custom, setCustom] = useState("");
+  const [price, setPrice] = useState<string>(String(AI_PACKS[0].priceUsd));
+  const [note, setNote] = useState("");
+  const done = (detail: PlatformOrgDetail) => {
+    queryClient.setQueryData(["platform", "org", orgId], detail);
+    void queryClient.invalidateQueries({ queryKey: ["platform"] });
+  };
+  const grant = useMutation({
+    mutationFn: (input: GrantAiPackInput) => grantPlatformAiPack(orgId, input),
+    onSuccess: (detail, input) => {
+      done(detail);
+      toast.success(`Añadidas ${input.conversations.toLocaleString("es")} conversaciones extra`);
+      setNote("");
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const remove = useMutation({
+    mutationFn: (packId: string) => removePlatformAiPack(orgId, packId),
+    onSuccess: done,
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const conversations = pick === "custom" ? Math.floor(Number(custom)) : (AI_PACKS.find((p) => p.key === pick)?.conversations ?? 0);
+  const priceUsd = price.trim() === "" ? null : Number(price.replace(",", "."));
+  const valid = conversations > 0 && (priceUsd === null || (Number.isFinite(priceUsd) && priceUsd >= 0));
+
+  return (
+    <div className="pc-packs" data-ai-packs>
+      <h4>Conversaciones extra</h4>
+      {packs.length === 0 ? (
+        <p className="pc-empty">Sin paquetes. Se gastan después del cupo del plan y valen {AI_PACK_MONTHS} meses.</p>
+      ) : (
+        <table className="pc-table is-compact">
+          <thead>
+            <tr><th className="num">Conversaciones</th><th className="num">Gastadas</th><th>Vence</th><th>Pagó</th><th>Nota</th><th /></tr>
+          </thead>
+          <tbody>
+            {packs.map((p) => (
+              <tr key={p.id} className={p.active ? "" : "is-off"}>
+                <td className="num">{p.conversations.toLocaleString("es")}</td>
+                <td className="num">{p.used.toLocaleString("es")}</td>
+                <td>{p.active ? date(p.expiresAt) : <span className="pc-muted">vencido · {date(p.expiresAt)}</span>}</td>
+                <td>{p.priceUsd === null ? <span className="pc-muted">regalo</span> : money(p.priceUsd)}</td>
+                <td className="wrap pc-muted" title={p.createdBy ?? undefined}>{p.note ?? "—"}</td>
+                <td>
+                  {p.active && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      disabled={remove.isPending}
+                      onClick={() =>
+                        void confirmDialog({
+                          message: `¿Quitar este paquete? Le quedan ${(p.conversations - p.used).toLocaleString("es")} conversaciones; vence ya y no se pueden recuperar.`,
+                          danger: true,
+                        }).then((ok) => ok && remove.mutate(p.id))
+                      }
+                    >
+                      Quitar
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <form
+        className="pc-actions"
+        style={{ marginTop: 10 }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (valid) grant.mutate({ conversations, priceUsd, note: note.trim() || null });
+        }}
+      >
+        <label>
+          Paquete
+          <select
+            className="pc-select"
+            value={pick}
+            aria-label="Paquete"
+            onChange={(e) => {
+              setPick(e.target.value);
+              const p = AI_PACKS.find((x) => x.key === e.target.value);
+              setPrice(p ? String(p.priceUsd) : "");
+            }}
+          >
+            {AI_PACKS.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.conversations.toLocaleString("es")} · USD {p.priceUsd}
+              </option>
+            ))}
+            <option value="custom">Otro número</option>
+          </select>
+        </label>
+        {pick === "custom" && (
+          <label>
+            Conversaciones
+            <input className="pc-select" type="number" min={1} max={100000} value={custom} onChange={(e) => setCustom(e.target.value)} aria-label="Conversaciones" style={{ width: 110 }} />
+          </label>
+        )}
+        <label title="Lo que pagó, en USD. Vacío = regalo o compensación.">
+          Pagó (USD)
+          <input className="pc-select" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="regalo" aria-label="Pagó (USD)" style={{ width: 90 }} />
+        </label>
+        <label style={{ flex: 1, minWidth: 160 }}>
+          Nota
+          <input className="pc-select" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="Yape 31/10, factura F001-123…" aria-label="Nota" />
+        </label>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={!valid || grant.isPending} data-ai-pack-add>
+          Añadir
+        </button>
+      </form>
     </div>
   );
 }

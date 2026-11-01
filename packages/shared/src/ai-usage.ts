@@ -57,10 +57,47 @@ export const AI_INCLUDED_SAFETY = 2;
 /**
  * Tope de gasto al mes de la IA incluida para un cupo: protege de bucles,
  * abusos y conversaciones muy largas, que el cupo por conversaciones no ve.
+ * Con conversaciones extra, se calcula con el cupo más las extra del mes y
+ * las que quedan.
  */
 export function includedAiCapUsd(conversations: number): number {
   return conversations * AI_COST_PER_CONVERSATION_USD * AI_INCLUDED_SAFETY;
 }
+
+// ── Conversaciones extra (paquetes) ─────────────────────────
+/**
+ * Paquetes de conversaciones con IA para quien se queda corto un mes: se
+ * pagan una vez, valen AI_PACK_MONTHS meses y se gastan solo después del
+ * cupo del plan, el que vence antes primero. Una conversación gasta una del
+ * paquete una sola vez al mes, como en el cupo. Mientras no haya cobro
+ * automático, el operador los añade desde la consola al recibir el pago.
+ */
+export const AI_PACKS = [
+  { key: "1k", conversations: 1000, priceUsd: 12 },
+  { key: "3k", conversations: 3000, priceUsd: 29 },
+] as const;
+export type AiPackKey = (typeof AI_PACKS)[number]["key"];
+export const AI_PACK_MONTHS = 6;
+
+/** Un paquete comprado, tal como lo ve la empresa. */
+export const aiPackSchema = z.object({
+  id: z.string(),
+  conversations: z.number(),
+  used: z.number(),
+  expiresAt: z.string(),
+  createdAt: z.string(),
+});
+export type AiPackDto = z.infer<typeof aiPackSchema>;
+
+/** El operador añade un paquete: uno del catálogo o un número a mano (regalo, compensación). */
+export const grantAiPackSchema = z.object({
+  conversations: z.number().int().min(1).max(100_000),
+  /** Lo que pagó, en USD; null = regalo. */
+  priceUsd: z.number().min(0).max(100_000).nullable().optional(),
+  months: z.number().int().min(1).max(24).optional(),
+  note: z.string().max(500).nullable().optional(),
+});
+export type GrantAiPackInput = z.infer<typeof grantAiPackSchema>;
 
 /** Funciones que cuentan una conversación del cupo (las que atienden al cliente). */
 export const AI_INCLUDED_COUNTED: readonly AiFeature[] = ["agent", "follow_up"];
@@ -68,16 +105,23 @@ export const AI_INCLUDED_COUNTED: readonly AiFeature[] = ["agent", "follow_up"];
 /**
  * Uso de la IA incluida en el mes en curso (UTC). Dos frenos distintos:
  *
- * - `full`: se llegó al cupo de conversaciones. El agente termina las que ya
- *   atendía este mes; las nuevas pasan al equipo. Nadie se queda a medias.
+ * - `full`: se llegó al cupo de conversaciones y no quedan extra. El agente
+ *   termina las que ya atendía este mes; las nuevas pasan al equipo. Nadie se
+ *   queda a medias.
  * - `exhausted`: se llegó al tope en dólares (freno de seguridad para bucles o
  *   abusos; en un uso normal no se alcanza). Ahí la IA de Driony se apaga del
  *   todo hasta el mes siguiente, salvo la indexación del conocimiento.
  */
 export const aiIncludedSchema = z.object({
-  /** Conversaciones distintas atendidas este mes con la IA de Driony. */
+  /** Conversaciones distintas atendidas este mes con la IA de Driony (las extra incluidas). */
   conversations: z.number(),
+  /** El cupo del mes del plan. */
   limit: z.number(),
+  /** Conversaciones extra (paquetes): las que quedan y las gastadas este mes. */
+  extraRemaining: z.number(),
+  extraUsed: z.number(),
+  /** Cuándo vence el paquete que se está gastando (null = sin paquetes). */
+  extraExpiresAt: z.string().nullable(),
   costUsd: z.number(),
   capUsd: z.number(),
   full: z.boolean(),
@@ -86,6 +130,13 @@ export const aiIncludedSchema = z.object({
   resetsAt: z.string(),
 });
 export type AiIncluded = z.infer<typeof aiIncludedSchema>;
+
+/** Nivel de aviso del cupo: al 80 % del total (cupo + extra) y al llegar. */
+export function aiQuotaLevel(i: Pick<AiIncluded, "conversations" | "limit" | "extraRemaining" | "extraUsed" | "full" | "exhausted">): "ok" | "warn" | "full" {
+  if (i.full || i.exhausted) return "full";
+  const total = i.limit + i.extraUsed + i.extraRemaining;
+  return total > 0 && i.conversations >= total * 0.8 ? "warn" : "ok";
+}
 
 /** Mes de la última revisión de la tabla de precios. */
 export const AI_PRICES_REVIEWED = "2026-09";

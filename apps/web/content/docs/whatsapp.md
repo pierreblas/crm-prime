@@ -32,7 +32,7 @@ La Coexistencia **no la activa cada empresa por su cuenta**. Meta solo la habili
 - Se activa únicamente con el botón **Conectar WhatsApp** de Driony.
 - **No** se consigue con un token pegado a mano ni con tu propia app de desarrollador: por esa vía el número queda en modo API (solo desde el CRM).
 - Si al terminar el registro de Meta el número no quedó también en la app del celular, Driony lo guarda en modo API y te lo muestra así, en vez de prometer una coexistencia que no existe.
-- En la nube de Driony está incluida **a partir del plan Pro** ([Planes y límites](/docs/planes)). Con el plan Gratis, el mismo botón conecta el número en modo API.
+- En la nube de Driony está incluida **a partir del plan Inicial** ([Planes y límites](/docs/planes)). Con el plan Gratis, el mismo botón conecta el número en modo API.
 
 ### Varios números
 

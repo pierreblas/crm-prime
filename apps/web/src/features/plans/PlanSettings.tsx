@@ -1,6 +1,20 @@
 "use client";
 
-import { FEATURE_LABELS, PLAN_FEATURES, formatAiIncluded, formatPlanPrice, type MyPlanDto, type PlanDef, formatRetention } from "@crm/shared";
+import { useEffect } from "react";
+import Link from "next/link";
+import {
+  AI_PACKS,
+  AI_PACK_MONTHS,
+  FEATURE_LABELS,
+  PLAN_FEATURES,
+  TRIAL_AI_CONVERSATIONS,
+  formatAiIncluded,
+  formatPlanPrice,
+  formatRetention,
+  planWithFeature,
+  type MyPlanDto,
+  type PlanDef,
+} from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { useMyPlan } from "./usePlan";
 
@@ -11,9 +25,19 @@ import { useMyPlan } from "./usePlan";
  *
  * Durante la prueba del alta el plan que se ve es el que se prueba (Pro), con
  * los días que quedan; al terminar, un aviso de que sigue en Gratis.
+ *
+ * Con IA incluida, debajo van las conversaciones extra (#extra, adonde lleva
+ * el medidor de la cabecera): las que tiene y los paquetes que puede pedir.
  */
 export function PlanSettings() {
   const { data, isPending, isError, refetch } = useMyPlan();
+
+  // El medidor de la cabecera enlaza a #extra, que no existe hasta que carga el plan.
+  useEffect(() => {
+    if (data && window.location.hash === "#extra") {
+      document.getElementById("extra")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+  }, [data]);
 
   if (isPending) {
     return (
@@ -116,6 +140,8 @@ export function PlanSettings() {
         </ul>
       </section>
 
+      {plan.aiConversations !== null && <AiExtra packs={data.aiPacks} contactEmail={data.contactEmail} />}
+
       <section>
         <h4 className="plan-all__title">Todos los planes</h4>
         <div className="plan-grid">
@@ -149,8 +175,9 @@ function TrialNotice({ trial }: { trial: NonNullable<MyPlanDto["trial"]> }) {
             Estás probando {trial.planName}: {left}
           </strong>
           <span>
-            Tienes todo {trial.planName} hasta el {longDate(trial.endsAt)}. Al terminar sigues en Gratis sin perder
-            nada: tus chats, contactos y agentes se quedan como están.
+            Tienes todo {trial.planName} hasta el {longDate(trial.endsAt)}, con{" "}
+            {TRIAL_AI_CONVERSATIONS.toLocaleString("es")} conversaciones con IA para probar el agente. Al terminar
+            sigues en Gratis sin perder nada: tus chats, contactos y agentes se quedan como están.
           </span>
         </div>
       </section>
@@ -168,9 +195,75 @@ function TrialNotice({ trial }: { trial: NonNullable<MyPlanDto["trial"]> }) {
         </strong>
         <span>
           Sigues en Gratis y no se borró nada. Lo que ya tenías por encima de los límites se queda; lo que se frena es
-          añadir más. Difusiones, API y coexistencia vuelven con {trial.planName}.
+          añadir más. La coexistencia vuelve desde {planWithFeature("coexistence")?.name}; difusiones y API, con{" "}
+          {planWithFeature("broadcasts")?.name}.
         </span>
       </div>
+    </section>
+  );
+}
+
+/**
+ * Conversaciones extra: para el mes que se queda corto, sin cambiar de plan.
+ * Sin cobro en línea todavía: se piden por correo y el operador las añade
+ * desde la consola al recibir el pago.
+ */
+function AiExtra({ packs, contactEmail }: { packs: MyPlanDto["aiPacks"]; contactEmail: string | null }) {
+  const left = packs.reduce((n, p) => n + Math.max(0, p.conversations - p.used), 0);
+  return (
+    <section className="plan-extra" id="extra" data-ai-extra>
+      <h4 className="plan-all__title">Conversaciones extra con IA</h4>
+      <p className="plan-extra__lede">
+        Para el mes que se te queda corto, sin cambiar de plan. Se pagan una vez, valen {AI_PACK_MONTHS} meses y se
+        gastan solo cuando se acaba el cupo de tu plan, igual que él: una por conversación atendida al mes, no por
+        mensaje. Con <Link href="/settings?tab=ai">tu propia clave de IA</Link> no hay cupo.
+      </p>
+
+      {packs.length > 0 && (
+        <ul className="plan-extra__mine" aria-label="Tus conversaciones extra">
+          {packs.map((p) => {
+            const rest = Math.max(0, p.conversations - p.used);
+            return (
+              <li key={p.id} className={rest === 0 ? "is-spent" : ""}>
+                <NavIcon name="sparkles" size={13} />
+                <span>
+                  <strong>{rest.toLocaleString("es")}</strong> de {p.conversations.toLocaleString("es")} conversaciones
+                </span>
+                <span className="plan-extra__when">{rest === 0 ? "Gastado" : `Vence el ${longDate(p.expiresAt)}`}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {packs.length > 0 && left === 0 && (
+        <p className="plan-fairuse">Gastaste todas tus conversaciones extra: los chats nuevos pasan a tu equipo al llegar al cupo.</p>
+      )}
+
+      <div className="plan-extra__offers">
+        {AI_PACKS.map((o) => {
+          const subject = encodeURIComponent(`Conversaciones extra: ${o.conversations.toLocaleString("es")} (USD ${o.priceUsd})`);
+          return (
+            <div className="plan-extra__offer" key={o.key}>
+              <span className="plan-extra__n">+{o.conversations.toLocaleString("es")}</span>
+              <span className="plan-extra__what">
+                conversaciones con IA
+                <small>
+                  USD {o.priceUsd}, una vez · USD {((o.priceUsd / o.conversations) * 1000).toLocaleString("es", { maximumFractionDigits: 2 })} cada mil
+                </small>
+              </span>
+              {contactEmail && (
+                <a className="btn btn-ghost btn-sm" href={`mailto:${contactEmail}?subject=${subject}`}>
+                  Pedir
+                </a>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="plan-fairuse">
+        Todavía no hay pago en línea: pídelas y te enviamos cómo pagar. Las activamos el mismo día y aparecen aquí y
+        en el medidor de la cabecera.
+      </p>
     </section>
   );
 }

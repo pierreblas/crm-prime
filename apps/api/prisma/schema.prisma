@@ -192,6 +192,8 @@ model Organization {
   bookings             Booking[]
   knowledgeSuggestions KnowledgeSuggestion[]
   aiUsage              AiUsage[]
+  aiPacks              AiPack[]
+  aiPackUses           AiPackUse[]
   platformAudit        PlatformAuditLog[]
   dealEvents           DealEvent[]
   lossReasons          LossReason[]
@@ -223,6 +225,49 @@ model AiUsage {
   @@index([orgId, createdAt])
   @@index([orgId, source, createdAt])
   @@map("ai_usage")
+}
+
+// Conversaciones con IA extra (paquetes): se pagan una vez, valen unos meses
+// y se gastan solo después del cupo del mes del plan, el que vence antes
+// primero. Mientras no haya cobro automático, los añade el operador desde la
+// consola. Quitar uno es vencerlo ya: el historial se queda.
+model AiPack {
+  id            String   @id @default(cuid())
+  orgId         String
+  conversations Int
+  used          Int      @default(0)
+  // Lo que pagó, en centavos de USD; null = regalo o compensación.
+  priceCents    Int?
+  note          String?
+  // Correo del operador que lo añadió.
+  createdBy     String?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  uses AiPackUse[]
+
+  @@index([orgId, expiresAt])
+  @@map("ai_packs")
+}
+
+// Qué conversación gastó una conversación extra, y en qué mes: así gasta una
+// sola vez al mes aunque el agente le conteste muchas veces o se reintente.
+model AiPackUse {
+  id             String   @id @default(cuid())
+  orgId          String
+  packId         String
+  conversationId String
+  // Día 1 del mes (UTC) en que se gastó.
+  month          DateTime
+  createdAt      DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  pack AiPack       @relation(fields: [packId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, conversationId, month])
+  @@index([packId])
+  @@map("ai_pack_uses")
 }
 
 // Preguntas que los clientes hacen y la base de conocimiento no cubre. Las

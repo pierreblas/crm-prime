@@ -29,7 +29,7 @@ function service(state: { plan: string | null; numbers: number; users: number; c
     $queryRaw: async () => [{ count: BigInt(state.activeContacts ?? 0) }],
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return new PlansService(prisma as any, { orgId: () => "org_1" } as any);
+  return new PlansService(prisma as any, { orgId: () => "org_1" } as any, { active: async () => [] } as any);
 }
 
 test("el catálogo es coherente: cada plan superior incluye lo del anterior", () => {
@@ -37,7 +37,12 @@ test("el catálogo es coherente: cada plan superior incluye lo del anterior", ()
   assert.equal(PLANS.free.limits.numbers, 1);
   assert.equal(PLANS.pro.features.coexistence, true);
   assert.equal(PLANS.business.limits.numbers, null, "Empresa no tiene tope de números");
-  assert.equal(planWithFeature("coexistence")?.key, "pro");
+  assert.equal(planWithFeature("coexistence")?.key, "starter", "la coexistencia empieza en Inicial");
+  assert.equal(planWithFeature("broadcasts")?.key, "pro");
+  assert.equal(formatPlanPrice(PLANS.starter), "USD 19/mes");
+  // Cada plan cuesta más que el anterior (el orden de PLAN_KEYS es el de precio).
+  const prices = shared.PLAN_KEYS.map((k) => PLANS[k].priceUsd ?? 0);
+  assert.deepEqual([...prices].sort((a, b) => a - b), prices);
   assert.equal(planWithFeature("prioritySupport")?.key, "business");
   assert.equal(planFor("desconocido").key, "free", "un plan raro cae en Gratis");
   assert.equal(planFor(null).key, "free");
@@ -49,7 +54,7 @@ test("Gratis: un número, dos usuarios, sin coexistencia", async () => {
   const svc = service({ plan: "free", numbers: 1, users: 2 });
   await assert.rejects(() => svc.assertCanAdd("numbers"), /admite 1 número de WhatsApp/);
   await assert.rejects(() => svc.assertCanAdd("users"), /admite 2 usuarios/);
-  await assert.rejects(() => svc.assertFeature("coexistence"), /a partir del plan Pro/);
+  await assert.rejects(() => svc.assertFeature("coexistence"), /a partir del plan Inicial/);
   await assert.rejects(() => svc.assertFeature("broadcasts"), /Difusiones/);
 });
 
@@ -97,7 +102,7 @@ test("mine() devuelve el plan, el uso y el catálogo", async () => {
   assert.deepEqual(mine.usage, { numbers: 2, users: 4, contacts: 0, deals: 0, activeContacts: 0, aiConversations: 0 });
   assert.deepEqual(
     mine.plans.map((p) => p.key),
-    ["free", "pro", "business"],
+    ["free", "starter", "pro", "business"],
   );
 });
 
@@ -110,6 +115,7 @@ test("contactos activos y retención: orientativos, con sus textos", async () =>
   assert.equal(formatPlanLimit("activeContacts", 3000), "Hasta 3000 contactos activos al mes");
   assert.equal(formatPlanLimit("activeContacts", 15000), "Hasta 15.000 contactos activos al mes");
   assert.equal(formatRetention(90), "Adjuntos guardados 90 días");
+  assert.equal(formatRetention(180), "Adjuntos guardados 6 meses", "medio año se lee en meses");
   assert.equal(formatRetention(365), "Adjuntos guardados 1 año");
   assert.equal(formatRetention(1095), "Adjuntos guardados 3 años");
   const svc = service({ plan: "free", numbers: 0, users: 1, activeContacts: 412 });
@@ -178,6 +184,8 @@ test("en prueba se puede lo de Pro; terminada, vuelven los límites de Gratis", 
   assert.equal(mine.trial?.active, true);
   assert.equal(mine.trial?.daysLeft, 3);
   assert.equal(mine.trial?.planName, "Pro");
+  assert.equal(mine.plan.aiConversations, shared.TRIAL_AI_CONVERSATIONS, "la prueba trae su propio cupo de IA, menor que el de Pro");
+  assert.deepEqual(mine.aiPacks, []);
 
   const terminada = service({ plan: "free", numbers: 1, users: 2, trialEndsAt: new Date(Date.now() - 86_400_000) });
   await assert.rejects(() => terminada.assertCanAdd("numbers"), /admite 1 número/);

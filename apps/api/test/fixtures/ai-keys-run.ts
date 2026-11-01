@@ -8,6 +8,7 @@
 //   argv[4] = gasto estimado en USD de la IA de Driony este mes (por defecto 0)
 //   argv[5] = plan de la empresa (por defecto "free")
 //   argv[6] = "counted" si la conversación de prueba ya contó este mes
+//   argv[7] = conversaciones extra (paquetes) que le quedan (por defecto 0)
 import { AiSettingsService } from "../../src/modules/ai/ai-settings.service";
 import { encryptSecret } from "../../src/common/utils/secret-box";
 
@@ -16,6 +17,7 @@ const conversations = Number(process.argv[3] ?? 0);
 const costUsd = Number(process.argv[4] ?? 0);
 const plan = process.argv[5] ?? "free";
 const counted = process.argv[6] === "counted";
+let extra = Number(process.argv[7] ?? 0);
 
 const row = {
   provider: "auto",
@@ -38,7 +40,12 @@ const usage = {
   invalidate: () => undefined,
 };
 
-const svc = new AiSettingsService(prisma as never, tenant as never, usage as never);
+const packs = {
+  extra: async () => ({ remaining: extra, usedThisMonth: 0, nextExpiresAt: extra > 0 ? new Date(Date.now() + 86_400_000) : null }),
+  consume: async () => (extra > 0 ? (extra--, true) : false),
+};
+
+const svc = new AiSettingsService(prisma as never, tenant as never, usage as never, packs as never);
 Promise.all([
   svc.getSettings(),
   svc.status(),

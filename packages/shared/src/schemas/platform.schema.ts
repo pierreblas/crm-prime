@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { planDefSchema, planKeySchema } from "../plans.js";
+import { aiPackSchema } from "../ai-usage.js";
 
 // ── Lo que ve cada empresa de su plan (Ajustes › Plan) ────────
 
@@ -25,6 +26,8 @@ export const myPlanSchema = z.object({
       planName: z.string(),
     })
     .nullable(),
+  /** Paquetes de conversaciones extra que aún valen (con o sin saldo), el que vence antes primero. */
+  aiPacks: z.array(aiPackSchema),
 });
 export type MyPlanDto = z.infer<typeof myPlanSchema>;
 
@@ -103,6 +106,10 @@ export const platformOrgSchema = z.object({
   /** Conversaciones del mes atendidas con la IA de Driony, frente al cupo de su plan (null = sin cupo). */
   aiIncludedConversations: z.number(),
   aiIncludedLimit: z.number().nullable(),
+  /** Conversaciones extra que le quedan en paquetes vigentes. */
+  aiExtraRemaining: z.number(),
+  /** Conversaciones extra gastadas este mes (suben su tope en dólares). */
+  aiExtraUsedMonth: z.number(),
   /** Tiene una clave de IA propia guardada (entonces no usa la de Driony). */
   aiOwnKey: z.boolean(),
   onboardingCompletedAt: z.string().nullable(),
@@ -131,7 +138,7 @@ export type UpdatePlatformOrgInput = z.infer<typeof updatePlatformOrgSchema>;
 export const platformAuditEntrySchema = z.object({
   id: z.string(),
   actorEmail: z.string(),
-  /** plan_changed | suspended | reactivated | expiry_changed | trial_changed | notes_changed | login_as */
+  /** plan_changed | suspended | reactivated | expiry_changed | trial_changed | notes_changed | login_as | ai_pack_added | ai_pack_removed */
   action: z.string(),
   orgId: z.string().nullable(),
   orgName: z.string().nullable(),
@@ -192,6 +199,16 @@ export const platformOrgDetailSchema = z.object({
     openConversations: z.number(),
   }),
   won30d: z.array(z.object({ currency: z.string(), total: z.number(), count: z.number() })),
+  /** Paquetes de conversaciones extra, también los vencidos o quitados (los últimos 20). */
+  aiPacks: z.array(
+    aiPackSchema.extend({
+      priceUsd: z.number().nullable(),
+      note: z.string().nullable(),
+      createdBy: z.string().nullable(),
+      /** Vigente: no venció ni se quitó. */
+      active: z.boolean(),
+    }),
+  ),
   audit: z.array(platformAuditEntrySchema),
 });
 export type PlatformOrgDetail = z.infer<typeof platformOrgDetailSchema>;

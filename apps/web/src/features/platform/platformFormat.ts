@@ -1,4 +1,4 @@
-import type { PlatformAuditEntry, PlatformOrg } from "@crm/shared";
+import { includedAiCapUsd, PLANS, PLAN_KEYS, type PlatformAuditEntry, type PlatformOrg } from "@crm/shared";
 
 export const money = (n: number) => `USD ${n.toFixed(2)}`;
 export const date = (iso: string) => new Date(iso).toLocaleDateString("es", { day: "numeric", month: "short" });
@@ -48,7 +48,12 @@ export function fromDateInput(v: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-const PLAN_NAMES: Record<string, string> = { free: "Gratis", pro: "Pro", business: "Empresa" };
+const PLAN_NAMES: Record<string, string> = Object.fromEntries(PLAN_KEYS.map((k) => [k, PLANS[k].name]));
+
+/** Tope en dólares de la IA incluida de una empresa: su cupo más sus conversaciones extra del mes y las que le quedan. */
+export function orgAiCapUsd(o: Pick<PlatformOrg, "aiIncludedLimit" | "aiExtraRemaining" | "aiExtraUsedMonth">): number {
+  return includedAiCapUsd((o.aiIncludedLimit ?? 0) + o.aiExtraUsedMonth + o.aiExtraRemaining);
+}
 
 /** Una línea del diario, en palabras. */
 export function describeAudit(e: PlatformAuditEntry): string {
@@ -68,6 +73,10 @@ export function describeAudit(e: PlatformAuditEntry): string {
       return "Editó las notas internas";
     case "login_as":
       return `Entró al panel como ${d.email ?? "administrador"}`;
+    case "ai_pack_added":
+      return `Añadió ${Number(d.conversations ?? 0).toLocaleString("es")} conversaciones extra${d.priceUsd === null || d.priceUsd === undefined ? " (regalo)" : ` (USD ${d.priceUsd})`}`;
+    case "ai_pack_removed":
+      return `Quitó un paquete de ${Number(d.conversations ?? 0).toLocaleString("es")} conversaciones extra (${Number(d.used ?? 0).toLocaleString("es")} gastadas)`;
     default:
       return e.action;
   }

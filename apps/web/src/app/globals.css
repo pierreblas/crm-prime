@@ -1234,6 +1234,196 @@ code {
   color: var(--muted);
 }
 
+/* ── Medidor de la IA incluida (cabecera, junto a la foto) ───── */
+.ai-meter-wrap {
+  position: relative;
+}
+.ai-meter {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 11px 2px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.ai-meter:hover {
+  border-color: var(--border-strong);
+}
+.ai-meter:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+.ai-meter > svg {
+  color: var(--accent-text);
+  flex-shrink: 0;
+}
+.ai-meter__bar {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 4px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+.ai-meter__bar > i,
+.ai-meter__track > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ai-meter.is-warn {
+  border-color: rgba(224, 164, 88, 0.45);
+  background: var(--warning-soft);
+}
+.ai-meter.is-warn > svg,
+.ai-meter.is-warn .ai-meter__text {
+  color: var(--warning);
+}
+.ai-meter.is-warn .ai-meter__bar > i,
+.ai-meter__track.is-warn > i {
+  background: var(--warning);
+}
+.ai-meter.is-full {
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  background: var(--danger-soft);
+}
+.ai-meter.is-full > svg,
+.ai-meter.is-full .ai-meter__text {
+  color: var(--danger);
+}
+.ai-meter.is-full .ai-meter__bar > i,
+.ai-meter__track.is-full > i {
+  background: var(--danger);
+}
+.ai-meter__pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(320px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-2);
+  box-shadow: var(--shadow-overlay);
+  animation: fadeIn 0.14s ease;
+  z-index: 5;
+}
+.ai-meter__eyebrow {
+  font-size: 12px;
+  color: var(--muted);
+}
+.ai-meter__count {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.ai-meter__track {
+  display: block;
+  height: 6px;
+  border-radius: 6px;
+  background: var(--border);
+  overflow: hidden;
+}
+.ai-meter__extra {
+  font-size: 12px;
+  color: var(--muted);
+}
+.ai-meter__status,
+.ai-meter__hint {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.ai-meter__hint {
+  color: var(--muted);
+}
+.ai-meter__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.ai-meter__link {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--accent-text);
+}
+/* Aviso del 80 % y del tope, debajo de la cabecera (solo administradores). */
+.ai-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin: 12px 20px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(224, 164, 88, 0.4);
+  background: var(--warning-soft);
+  font-size: 13px;
+}
+.ai-notice > svg {
+  color: var(--warning);
+  flex-shrink: 0;
+}
+.ai-notice.is-full {
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  background: var(--danger-soft);
+}
+.ai-notice.is-full > svg {
+  color: var(--danger);
+}
+.ai-notice__text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.45;
+}
+@media (max-width: 900px) {
+  .ai-meter__text {
+    display: none;
+  }
+  .ai-meter {
+    padding: 0 9px 2px;
+  }
+}
+@media (max-width: 640px) {
+  .ai-notice {
+    flex-wrap: wrap;
+    margin: 10px 12px 0;
+  }
+  .ai-notice__text {
+    flex-basis: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-meter__pop {
+    animation: none;
+  }
+  .ai-meter__bar > i,
+  .ai-meter__track > i {
+    transition: none;
+  }
+}
+
 /* ── Tours guiados ───────────────────────────────────────────── */
 .tour-layer {
   position: fixed;
@@ -1994,10 +2184,111 @@ code {
   margin: 4px 0 10px;
   font-size: 15px;
 }
+/* Conversaciones extra con IA (Ajustes › Plan, #extra). */
+.plan-extra {
+  scroll-margin-top: 16px;
+}
+.plan-extra__lede {
+  margin: 0 0 12px;
+  max-width: 70ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.plan-extra__mine {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.plan-extra__mine li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  font-size: 13px;
+  background: var(--surface);
+}
+.plan-extra__mine li + li {
+  border-top: 1px solid var(--border);
+}
+.plan-extra__mine li > svg {
+  color: var(--accent-text);
+  flex-shrink: 0;
+}
+.plan-extra__mine li > span:first-of-type {
+  flex: 1;
+  min-width: 0;
+}
+.plan-extra__mine strong {
+  font-variant-numeric: tabular-nums;
+}
+.plan-extra__mine li.is-spent {
+  color: var(--muted);
+}
+.plan-extra__mine li.is-spent > svg {
+  color: var(--muted);
+}
+.plan-extra__when {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.plan-extra__offers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.plan-extra__offer {
+  flex: 1 1 260px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.plan-extra__n {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
+}
+.plan-extra__what {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.plan-extra__what small {
+  font-size: 12px;
+  color: var(--muted);
+}
+/* Cuatro planes: 2×2 o una fila de cuatro, nunca tres y uno suelto. */
+.plan {
+  container-type: inline-size;
+}
 .plan-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
+}
+@container (min-width: 960px) {
+  .plan-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@container (max-width: 460px) {
+  .plan-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .plan-card {
   display: flex;
@@ -4150,6 +4441,21 @@ code {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+/* Conversaciones extra de una empresa (ficha de la consola). */
+.pc-packs {
+  margin: 4px 0 14px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.pc-packs h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+.pc-packs tr.is-off td {
+  color: var(--muted);
 }
 .pc-actions {
   display: flex;

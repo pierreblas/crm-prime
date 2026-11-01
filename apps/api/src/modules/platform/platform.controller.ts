@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -17,11 +18,13 @@ import {
   Role,
   loginSchema,
   updatePlatformOrgSchema,
+  grantAiPackSchema,
   updatePlatformFeedbackSchema,
   feedbackKinds,
   feedbackStatuses,
   type AuthTokens,
   type FeedbackKind,
+  type GrantAiPackInput,
   type FeedbackStatus,
   type PlatformFeedback,
   type PlatformFeedbackList,
@@ -154,6 +157,23 @@ export class PlatformController {
   @UseGuards(PlatformAdminGuard)
   orgs(@Query("search") search?: string): Promise<PlatformOrg[]> {
     return this.platform.orgs(search ?? "");
+  }
+
+  @Post("orgs/:id/ai-packs")
+  @UseGuards(PlatformAdminGuard)
+  @HttpCode(200)
+  grantAiPack(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(grantAiPackSchema)) body: GrantAiPackInput,
+    @Req() req: Request,
+  ): Promise<PlatformOrgDetail> {
+    return this.platform.grantAiPack(id, body, this.actor(req));
+  }
+
+  @Delete("orgs/:id/ai-packs/:packId")
+  @UseGuards(PlatformAdminGuard)
+  removeAiPack(@Param("id") id: string, @Param("packId") packId: string, @Req() req: Request): Promise<PlatformOrgDetail> {
+    return this.platform.removeAiPack(id, packId, this.actor(req));
   }
 
   @Patch("orgs/:id")
