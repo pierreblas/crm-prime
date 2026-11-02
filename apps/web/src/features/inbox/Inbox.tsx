@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ConversationStatus,
+  phoneLabel,
   type ConversationDto,
   type ConversationFilter,
   type ReplyFilter,
@@ -136,6 +137,7 @@ export function Inbox() {
         (c) =>
           (c.contact.name ?? "").toLowerCase().includes(query) ||
           c.contact.phone.toLowerCase().includes(query) ||
+          (c.contact.waUsername ?? "").toLowerCase().includes(query.replace(/^@/, "")) ||
           (c.lastMessage?.text ?? "").toLowerCase().includes(query),
       );
     }
@@ -161,7 +163,7 @@ export function Inbox() {
     return shown.find((c) => c.id === id) ?? null;
   }, [shown, selectedId, isMobile]);
 
-  const nombreDe = useCallback((c: ConversationDto) => c.contact.name ?? c.contact.phone, []);
+  const nombreDe = useCallback((c: ConversationDto) => c.contact.name ?? phoneLabel(c.contact.phone, c.contact.waUsername), []);
   const previewDe = useCallback((c: ConversationDto) => previewOf(c, t).text, [t]);
   // Para que los avisos globales callen en el chat que se está viendo.
   useEffect(() => {

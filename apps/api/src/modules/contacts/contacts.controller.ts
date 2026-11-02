@@ -185,6 +185,7 @@ export class ContactsController {
       id: c.id,
       name: c.name,
       phone: c.phone,
+      waUsername: c.waUsername,
       optIn: c.optIn,
       lastMessageAt: c.lastMessageAt?.toISOString() ?? null,
       createdAt: c.createdAt.toISOString(),
@@ -309,6 +310,7 @@ export class ContactsController {
       OR: [
         { name: { contains: search, mode: "insensitive" as const } },
         { phone: { contains: search } },
+        { waUsername: { contains: search.replace(/^@/, ""), mode: "insensitive" as const } },
       ],
     };
   }

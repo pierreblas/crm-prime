@@ -448,8 +448,16 @@ model IdempotencyKey {
 model Contact {
   id            String    @id @default(cuid())
   orgId         String
-  phone         String // E.164 (normalizado: siempre con "+")
+  // E.164 (normalizado: siempre con "+"). Si el cliente escribe con usuario
+  // de WhatsApp sin compartir su número, su identificador («PE.1349…») hasta
+  // que llegue el número (ver isWaUserId en @crm/shared).
+  phone         String
   name          String?
+  // Identificador de usuario de WhatsApp (BSUID) que manda Meta con cada
+  // mensaje, tenga o no número: reconoce a la persona aunque deje de
+  // compartirlo. No es único: el mismo cliente pudo entrar antes por número.
+  waUserId      String?
+  waUsername    String? // su usuario de WhatsApp («tienda.ana»), si tiene
   optIn         Boolean   @default(true)
   sourceId      String? // origen COMERCIAL del lead (Facebook Ads, Web…)
   lastMessageAt DateTime?
@@ -482,6 +490,7 @@ model Contact {
   conversionEvents ConversionEvent[]
 
   @@unique([orgId, phone])
+  @@index([orgId, waUserId])
   @@index([optIn])
   @@index([orgId, lastMessageAt])
   @@index([sourceId])

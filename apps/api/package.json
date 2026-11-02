@@ -40,7 +40,8 @@
     "test:templatesend": "tsx --test test/template-send.test.ts",
     "test:interactive": "tsx --test test/interactive.test.ts",
     "test:history": "tsx --test test/history-webhook.test.ts",
-    "test:flowtriggers": "tsx --test test/flow-triggers.test.ts"
+    "test:flowtriggers": "tsx --test test/flow-triggers.test.ts",
+    "test:wausers": "tsx --test test/wa-usernames.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

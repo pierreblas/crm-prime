@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import { explainWhatsappError, parseGraphError } from "@crm/shared";
+import { explainWhatsappError, isWaUserId, parseGraphError } from "@crm/shared";
 import type {
   DownloadedMedia,
   InteractiveButton,
@@ -279,7 +279,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
 
   private async post(
     creds: WhatsappCreds,
-    body: unknown,
+    body: Record<string, unknown>,
   ): Promise<SendResult> {
     const res = await fetch(
       `https://graph.facebook.com/${creds.version}/${creds.phoneNumberId}/messages`,
@@ -289,7 +289,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
           Authorization: `Bearer ${creds.token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(withRecipient(body)),
       },
     );
     if (!res.ok) {
@@ -331,6 +331,17 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     );
     return { waMessageId };
   }
+}
+
+/**
+ * A quien escribe con usuario de WhatsApp sin compartir su número se le
+ * contesta por su identificador: va en `recipient`, no en `to`.
+ * https://developers.facebook.com/documentation/business-messaging/whatsapp/business-scoped-user-ids/
+ */
+export function withRecipient(body: Record<string, unknown>): Record<string, unknown> {
+  if (typeof body.to !== "string" || !isWaUserId(body.to)) return body;
+  const { to, ...rest } = body;
+  return { ...rest, recipient: to };
 }
 
 /**

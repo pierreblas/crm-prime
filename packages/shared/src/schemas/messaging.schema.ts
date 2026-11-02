@@ -189,8 +189,11 @@ export const conversationDtoSchema = z.object({
   status: z.nativeEnum(ConversationStatus),
   contact: z.object({
     id: z.string(),
+    // El número o, si escribe con usuario de WhatsApp sin compartirlo, su identificador (ver phoneLabel).
     phone: z.string(),
     name: z.string().nullable(),
+    /** Su usuario de WhatsApp («tienda.ana»), si tiene. */
+    waUsername: z.string().nullable().default(null),
     tags: z
       .array(z.object({ name: z.string(), color: z.string().nullable() }))
       .default([]),

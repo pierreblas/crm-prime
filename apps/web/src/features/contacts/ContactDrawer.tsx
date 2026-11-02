@@ -7,6 +7,7 @@ import {
   CURRENCIES,
   countryFromPhone,
   contactOriginLabels,
+  phoneLabel,
   utmKeys,
   type ContactListItem,
   type ContactOrigin,
@@ -100,13 +101,13 @@ export function ContactDrawer({
       <div style={backdrop} onClick={onClose} />
       <aside style={drawer} role="dialog" aria-label="Ficha del contacto">
         <header style={head}>
-          <span style={avatar}>{initials(contact.name ?? contact.phone)}</span>
+          <span style={avatar}>{initials(contact.name ?? phoneLabel(contact.phone, contact.waUsername))}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 16 }}>
               {contact.name || "Sin nombre"}
             </div>
             <div style={{ color: "var(--muted)", fontSize: 13 }}>
-              {contact.phone}
+              {phoneLabel(contact.phone, contact.waUsername)}
             </div>
           </div>
           <button onClick={onClose} style={iconBtn} title="Cerrar (Esc)">

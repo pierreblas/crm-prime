@@ -18,6 +18,7 @@ import {
   adSummaryOf,
   parseUtms,
   phoneVariants,
+  isWaUserId,
   utmsFromUrl,
   type AdReferral,
   type Utms,
@@ -79,8 +80,12 @@ const WINDOW_MS = 24 * 60 * 60 * 1000;
 const OPT_OUT_KEYWORDS = ["BAJA", "STOP", "CANCELAR"];
 
 export interface InboundMessage {
-  from: string; // teléfono E.164
+  from: string; // teléfono E.164, o su identificador si escribe con usuario de WhatsApp sin compartir el número
   name?: string;
+  /** Identificador de usuario de WhatsApp (BSUID): llega con o sin número. */
+  waUserId?: string;
+  /** Su usuario de WhatsApp («tienda.ana»), si tiene. */
+  username?: string;
   waMessageId: string;
   type: MessageType;
   text?: string;
@@ -295,17 +300,24 @@ export class MessagingService {
       referral ? "ad" : "whatsapp",
     );
 
+    // Quién es: por su número o, si escribe con usuario de WhatsApp sin
+    // compartirlo, por su identificador (el mismo contacto de siempre si ya
+    // lo conocíamos por cualquiera de los dos).
+    const phone = await this.contactPhone(orgId, msg.from, msg.waUserId);
+
     // El mismo móvil puede estar guardado en otra forma (un lead del
     // formulario con «+52…» y su WhatsApp con «+521…»): es la misma persona.
     // Se queda la forma de WhatsApp, que es a la que se le puede escribir.
-    await this.adoptPhoneVariant(orgId, msg.from);
+    await this.adoptPhoneVariant(orgId, phone);
 
     const contact = await this.prisma.contact.upsert({
-      where: { orgId_phone: { orgId, phone: msg.from } },
+      where: { orgId_phone: { orgId, phone } },
       create: {
         orgId,
-        phone: msg.from,
+        phone,
         name: msg.name,
+        waUserId: msg.waUserId ?? null,
+        waUsername: msg.username ?? null,
         lastMessageAt: now,
         optIn: !optOut,
         // El origen solo se fija al crear: si el contacto ya existía,
@@ -320,6 +332,8 @@ export class MessagingService {
       update: {
         lastMessageAt: now,
         ...(msg.name ? { name: msg.name } : {}),
+        ...(msg.waUserId ? { waUserId: msg.waUserId } : {}),
+        ...(msg.username ? { waUsername: msg.username } : {}),
         ...(optOut ? { optIn: false } : {}),
       },
     });
@@ -468,6 +482,63 @@ export class MessagingService {
   }
 
   /**
+   * Con qué «teléfono» se guarda a quien escribe. `from` es su número o, si
+   * usa nombre de usuario y Meta no lo comparte, su identificador de usuario.
+   *  - Llega solo el identificador y ya lo conocíamos por su número: su
+   *    contacto de siempre.
+   *  - Llega por fin su número y lo teníamos solo por el identificador: ese
+   *    contacto pasa a tener el número (salvo que ya haya otro con él).
+   */
+  private async contactPhone(orgId: string, from: string, waUserId?: string): Promise<string> {
+    if (!waUserId) return from;
+    const known = await this.prisma.contact.findMany({
+      where: { orgId, waUserId },
+      select: { id: true, phone: true },
+      take: 5,
+    });
+    const byNumber = known.find((k) => !isWaUserId(k.phone));
+    if (isWaUserId(from)) return (byNumber ?? known[0])?.phone ?? from;
+    const byId = known.find((k) => isWaUserId(k.phone));
+    if (byId && !byNumber) {
+      const taken = await this.prisma.contact.findUnique({
+        where: { orgId_phone: { orgId, phone: from } },
+        select: { id: true },
+      });
+      if (!taken) {
+        await this.prisma.contact
+          .update({ where: { id: byId.id }, data: { phone: from } })
+          .then(() => this.logger.log(`Contacto ${byId.phone} ya tiene número: ${from}`))
+          .catch((e: Error) => this.logger.warn(`No se pudo poner ${from} a ${byId.phone}: ${e.message}`));
+      }
+    }
+    return from;
+  }
+
+  /**
+   * El cliente cambió de número y Meta, sin poder compartirlo, le dio otro
+   * identificador de usuario: sus contactos pasan al nuevo y siguen su chat.
+   */
+  async handleUserIdChange(previousUserId: string, userId: string): Promise<void> {
+    const orgId = this.tenant.orgId();
+    const rows = await this.prisma.contact.findMany({
+      where: { orgId, waUserId: previousUserId },
+      select: { id: true, phone: true },
+    });
+    for (const c of rows) {
+      const data: Prisma.ContactUpdateInput = { waUserId: userId };
+      if (c.phone === previousUserId) {
+        const taken = await this.prisma.contact.findUnique({
+          where: { orgId_phone: { orgId, phone: userId } },
+          select: { id: true },
+        });
+        if (!taken) data.phone = userId;
+      }
+      await this.prisma.contact.update({ where: { id: c.id }, data });
+    }
+    if (rows.length) this.logger.log(`Usuario de WhatsApp ${previousUserId} ahora es ${userId}`);
+  }
+
+  /**
    * Si no hay contacto con este número exacto pero sí con una forma
    * equivalente (México «52»/«521», Argentina «54»/«549»), ese contacto pasa a
    * tener el número de WhatsApp. Con el exacto, o sin ninguno, no hace nada.
@@ -496,6 +567,7 @@ export class MessagingService {
   // humano está respondiendo desde el teléfono.
   async handleEcho(echo: {
     to: string;
+    toUserId?: string;
     waMessageId: string;
     type: MessageType;
     text?: string;
@@ -516,11 +588,13 @@ export class MessagingService {
     const orgId = channel?.orgId ?? this.tenant.orgId();
 
     const now = new Date();
+    const phone = await this.contactPhone(orgId, echo.to, echo.toUserId);
     const contact = await this.prisma.contact.upsert({
-      where: { orgId_phone: { orgId, phone: echo.to } },
+      where: { orgId_phone: { orgId, phone } },
       create: {
         orgId,
-        phone: echo.to,
+        phone,
+        waUserId: echo.toUserId ?? null,
         lastMessageAt: now,
         origin: "whatsapp",
         originDetail: echo.channelPhoneNumberId ?? null,
@@ -636,11 +710,15 @@ export class MessagingService {
     const orgId = channel?.orgId ?? this.tenant.orgId();
 
     const when = new Date(job.timestampMs);
+    // Sin número que compartir, el hilo es el de su identificador de usuario.
+    const waUserId = isWaUserId(job.customerWaId) ? job.customerWaId : undefined;
+    const phone = await this.contactPhone(orgId, job.customerWaId, waUserId);
     const contact = await this.prisma.contact.upsert({
-      where: { orgId_phone: { orgId, phone: job.customerWaId } },
+      where: { orgId_phone: { orgId, phone } },
       create: {
         orgId,
-        phone: job.customerWaId,
+        phone,
+        waUserId: waUserId ?? null,
         lastMessageAt: when,
         origin: "whatsapp",
         originDetail: job.channelPhoneNumberId ?? null,
@@ -1141,6 +1219,7 @@ export class MessagingService {
       contact.OR = [
         { name: { contains: opts.q, mode: "insensitive" } },
         { phone: { contains: opts.q.replace(/[^\d+]/g, "") || opts.q } },
+        { waUsername: { contains: opts.q.replace(/^@/, ""), mode: "insensitive" } },
       ];
     }
     // Alcance del usuario (ver PermissionsService): todo, solo sus fuentes, o
@@ -1303,6 +1382,7 @@ export class MessagingService {
       id: string;
       phone: string;
       name: string | null;
+      waUsername?: string | null;
       tags?: { tag: { name: string; color: string | null } }[];
       source?: { id: string; name: string; color: string | null } | null;
     };
@@ -1346,6 +1426,7 @@ export class MessagingService {
         id: c.contact.id,
         phone: c.contact.phone,
         name: c.contact.name,
+        waUsername: c.contact.waUsername ?? null,
         tags: (c.contact.tags ?? []).map((ct) => ({
           name: ct.tag.name,
           color: ct.tag.color,

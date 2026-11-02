@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageDirection, MessageType, type ConversationDto } from "@crm/shared";
+import { MessageDirection, MessageType, phoneLabel, type ConversationDto } from "@crm/shared";
 import { NavIcon, type IconName } from "@/components/NavIcons";
 import { useT } from "@/i18n/I18nProvider";
 import type { Translator } from "@/i18n/translate";
@@ -119,7 +119,7 @@ export function ConversationList({
             style={row}
           >
             <div style={{ position: "relative", flexShrink: 0 }}>
-              <div style={avatar}>{initials(c.contact.name, c.contact.phone)}</div>
+              <div style={avatar}>{initials(c.contact.name, phoneLabel(c.contact.phone, c.contact.waUsername))}</div>
               {c.aiMode === "AUTOPILOT" && (
                 <span style={autoDot} title={t("inbox.modeAuto")}>
                   <NavIcon name="bot" size={9} />
@@ -130,7 +130,7 @@ export function ConversationList({
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={topRow}>
                 <span style={{ ...ellipsis, fontWeight: unread > 0 ? 700 : 600, fontSize: 14 }}>
-                  {c.contact.name ?? c.contact.phone}
+                  {c.contact.name ?? phoneLabel(c.contact.phone, c.contact.waUsername)}
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                   {waiting !== null ? (
@@ -163,7 +163,7 @@ export function ConversationList({
                       <NavIcon name={preview.icon} size={12} />
                     </span>
                   )}
-                  {preview.text || c.contact.phone}
+                  {preview.text || phoneLabel(c.contact.phone, c.contact.waUsername)}
                 </span>
                 {unread > 0 && (
                   <span style={unreadBadge} aria-label={t("inbox.unreadCount", { n: unread })}>

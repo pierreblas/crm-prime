@@ -34,7 +34,10 @@ export const phoneField = z
 export const contactListItemSchema = z.object({
   id: z.string(),
   name: z.string().nullable(),
+  // El número o, si escribe con usuario de WhatsApp sin compartirlo, su identificador (ver phoneLabel).
   phone: z.string(),
+  /** Su usuario de WhatsApp («tienda.ana»), si tiene. */
+  waUsername: z.string().nullable().default(null),
   optIn: z.boolean(),
   lastMessageAt: z.string().nullable(),
   createdAt: z.string(),

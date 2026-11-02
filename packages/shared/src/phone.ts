@@ -10,9 +10,14 @@
  * Ojo: esto arregla el FORMATO, no el prefijo de país. Un número nacional
  * suelto ("5512345678") no se puede completar sin saber el país, así que se
  * queda como "+5512345678"; `isValidPhone` solo comprueba la forma.
+ *
+ * Un cliente con usuario de WhatsApp puede no compartir su número: entonces
+ * Meta manda su identificador (ver `isWaUserId`) y ese es su «teléfono» en
+ * el CRM hasta que llegue el número. Se guarda tal cual.
  */
 
 export function normalizePhone(raw: string): string {
+  if (isWaUserId(raw.trim())) return raw.trim();
   // "00" inicial es la marcación internacional: equivale al "+".
   const trimmed = raw.trim().replace(/^00/, "+");
   const digits = trimmed.replace(/\D/g, "");
@@ -24,6 +29,28 @@ const E164 = /^\+[1-9]\d{6,14}$/;
 
 export function isValidPhone(value: string): boolean {
   return E164.test(value);
+}
+
+/**
+ * Identificador de usuario de WhatsApp (BSUID). Lo manda Meta en lugar del
+ * número cuando el cliente usa un nombre de usuario y no comparte su teléfono:
+ * el país (ISO), un punto y hasta 128 caracteres, «PE.13491208655302741918».
+ * El de toda la cartera lleva «ENT»: «PE.ENT.11815799212886844830».
+ * A ese cliente se le escribe con `recipient` en vez de `to`.
+ */
+const WA_USER_ID = /^[A-Z]{2}\.(?:ENT\.)?[A-Za-z0-9]{1,128}$/;
+
+export function isWaUserId(value: string | null | undefined): boolean {
+  return !!value && WA_USER_ID.test(value);
+}
+
+/**
+ * Cómo se muestra el teléfono de un contacto: el número, o su usuario
+ * («@tienda.ana») si escribe con usuario de WhatsApp sin compartir el número.
+ */
+export function phoneLabel(phone: string, username?: string | null): string {
+  if (!isWaUserId(phone)) return phone;
+  return username ? `@${username.replace(/^@/, "")}` : "Usuario de WhatsApp";
 }
 
 /**
@@ -49,6 +76,7 @@ export function phoneWithDefaultCountry(raw: string, dialCode: string | null): s
  * formulario y su chat de WhatsApp quedan como dos contactos distintos.
  */
 export function phoneVariants(e164: string): string[] {
+  if (isWaUserId(e164)) return [e164];
   const d = e164.replace(/\D/g, "");
   if (!d) return [];
   const out = new Set([`+${d}`]);

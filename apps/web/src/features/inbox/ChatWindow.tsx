@@ -7,6 +7,8 @@ import {
   ConversationStatus,
   MessageDirection,
   MessageType,
+  isWaUserId,
+  phoneLabel,
   type AiSuggestion,
   type ConversationDto,
 } from "@crm/shared";
@@ -180,6 +182,8 @@ export function ChatWindow({
     queryFn: () => fetchCalls({ conversationId: conversation.id }),
   });
   const phone = useCalls();
+  // Su número, o «@usuario» si escribe con usuario de WhatsApp sin compartirlo.
+  const contactPhone = phoneLabel(conversation.contact.phone, conversation.contact.waUsername);
 
   // Filtro del buscador: se aplica sobre lo ya cargado, sin ir al servidor.
   const searching = searchOpen && search.trim().length > 0;
@@ -369,14 +373,14 @@ export function ChatWindow({
             </button>
           )}
           <span style={avatar} aria-hidden>
-            {initials(conversation.contact.name ?? conversation.contact.phone)}
+            {initials(conversation.contact.name ?? contactPhone)}
           </span>
           <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
             <strong style={{ fontSize: 16, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {conversation.contact.name ?? conversation.contact.phone}
+              {conversation.contact.name ?? contactPhone}
             </strong>
             <span style={{ color: "var(--muted)", fontSize: 13 }}>
-              {conversation.contact.phone}
+              {contactPhone}
             </span>
             {conversation.contact.tags.length > 0 && (
               <button
@@ -432,21 +436,24 @@ export function ChatWindow({
             onChange={(m) => aiModeMut.mutate(m)}
           />
 
-          <button
-            type="button"
-            onClick={() =>
-              phone.call(conversation.contact.phone, {
-                name: conversation.contact.name,
-                contactId: conversation.contact.id,
-                conversationId: conversation.id,
-              })
-            }
-            title={t("calls.call")}
-            aria-label={t("calls.call")}
-            style={toggleBtn(false)}
-          >
-            <NavIcon name="phone" size={16} />
-          </button>
+          {/* Con usuario de WhatsApp y sin número no hay a dónde llamar. */}
+          {!isWaUserId(conversation.contact.phone) && (
+            <button
+              type="button"
+              onClick={() =>
+                phone.call(conversation.contact.phone, {
+                  name: conversation.contact.name,
+                  contactId: conversation.contact.id,
+                  conversationId: conversation.id,
+                })
+              }
+              title={t("calls.call")}
+              aria-label={t("calls.call")}
+              style={toggleBtn(false)}
+            >
+              <NavIcon name="phone" size={16} />
+            </button>
+          )}
 
           <button
             type="button"

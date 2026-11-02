@@ -60,6 +60,12 @@ Con tu propia app el número trabaja en **modo API**: se atiende solo desde el C
 
 Es una regla de WhatsApp, no del CRM: puedes escribir libremente a quien te haya escrito en las **últimas 24 horas**. Pasado ese tiempo, solo puedes iniciar con una **plantilla aprobada por Meta** ([Difusiones y plantillas](/docs/difusiones)). La bandeja te lo indica y te ofrece enviar una plantilla.
 
+## Clientes con usuario de WhatsApp
+
+WhatsApp permite usar un **nombre de usuario** («@tienda.ana») en lugar de mostrar el número. Si un cliente lo usa y Meta no puede compartir su número, te escribe igual: en la bandeja aparece con su nombre y su **@usuario** en lugar del teléfono, y el agente, los flujos y tu equipo le contestan como a cualquiera.
+
+Meta comparte el número si le escribiste o te escribió en los últimos 30 días, o si está en la agenda de tu negocio. Cuando llega, el mismo contacto pasa a tener su número, sin duplicarse. A quien solo tienes por su usuario no se le puede llamar por teléfono, y las plantillas de autenticación (códigos de un toque) necesitan el número.
+
 ## Problemas frecuentes
 
 | Lo que ves | Qué es |

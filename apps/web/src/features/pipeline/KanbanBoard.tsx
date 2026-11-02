@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
 import { NavIcon } from "@/components/NavIcons";
-import { contactCurrency, CURRENCIES, formatMoney } from "@crm/shared";
+import { contactCurrency, CURRENCIES, formatMoney, isWaUserId, phoneLabel } from "@crm/shared";
 import type { DealDto, PipelineDto, PipelineSummaryDto, PipelineView, StageDto } from "@crm/shared";
 import {
   createDeal,
@@ -748,7 +748,7 @@ function DealCard({
             {deal.title}
           </strong>
           <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 3 }}>
-            {deal.contact.name ?? deal.contact.phone}
+            {deal.contact.name ?? phoneLabel(deal.contact.phone)}
           </div>
         </div>
         {/* Al chat de un toque, sin pasar por el panel. */}
@@ -861,7 +861,7 @@ function DiscardedList({
           <div style={{ flex: 1, minWidth: 0 }}>
             <strong style={{ fontSize: 14 }}>{d.title}</strong>
             <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 3 }}>
-              {d.contact.name ?? d.contact.phone}
+              {d.contact.name ?? phoneLabel(d.contact.phone)}
               {d.source ? ` · ${d.source.name}` : ""}
               {d.discardedAt ? ` · ${fecha(d.discardedAt)}` : ""}
             </div>
@@ -967,29 +967,32 @@ function DealDetail({
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {deal.contact.name ?? deal.contact.phone}
+                {deal.contact.name ?? phoneLabel(deal.contact.phone)}
               </div>
               <div style={{ color: "var(--muted)", fontSize: 12.5 }}>
-                {deal.contact.phone}
+                {phoneLabel(deal.contact.phone)}
                 {deal.source ? ` · ${deal.source.name}` : ""}
               </div>
               <EstadoChat deal={deal} style={{ marginTop: 3 }} />
             </div>
-            <button
-              type="button"
-              style={{ ...ghostBtn, ...smBtn }}
-              title="Llamar al contacto"
-              onClick={() =>
-                phone.call(deal.contact.phone, {
-                  name: deal.contact.name,
-                  contactId: deal.contact.id,
-                  conversationId: deal.conversation?.id ?? null,
-                })
-              }
-            >
-              <NavIcon name="phone" size={14} />
-              Llamar
-            </button>
+            {/* Con usuario de WhatsApp y sin número no hay a dónde llamar. */}
+            {!isWaUserId(deal.contact.phone) && (
+              <button
+                type="button"
+                style={{ ...ghostBtn, ...smBtn }}
+                title="Llamar al contacto"
+                onClick={() =>
+                  phone.call(deal.contact.phone, {
+                    name: deal.contact.name,
+                    contactId: deal.contact.id,
+                    conversationId: deal.conversation?.id ?? null,
+                  })
+                }
+              >
+                <NavIcon name="phone" size={14} />
+                Llamar
+              </button>
+            )}
             {deal.conversation ? (
               <Link href={`/?c=${deal.conversation.id}`} style={{ ...primaryBtn, ...smBtn, textDecoration: "none" }}>
                 <NavIcon name="message" size={14} />
@@ -1342,7 +1345,7 @@ function NewDealForm({ pipelineId, onCreated }: { pipelineId: string; onCreated:
         <option value="">Contacto…</option>
         {contacts.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.name ?? c.phone}
+            {c.name ?? phoneLabel(c.phone)}
           </option>
         ))}
       </select>

@@ -3,8 +3,13 @@ import { explainWhatsappError, MessageStatus, MessageType, normalizePhone } from
 // ── Payloads de los jobs de la cola inbound ──────────────────
 export interface InboundMessageJob {
   kind: "message";
+  /** Su número o, si escribe con usuario de WhatsApp sin compartirlo, su identificador. */
   from: string;
   name?: string;
+  /** Identificador de usuario de WhatsApp (BSUID): llega siempre, con o sin número. */
+  waUserId?: string;
+  /** Su usuario de WhatsApp («tienda.ana»), si tiene. */
+  username?: string;
   waMessageId: string;
   type: MessageType;
   text?: string;
@@ -36,7 +41,8 @@ export interface InboundStatusJob {
 // celular. Meta lo reporta como "echo" para que el CRM se mantenga en sync.
 export interface InboundEchoJob {
   kind: "echo";
-  to: string; // teléfono del cliente (destinatario)
+  to: string; // teléfono del cliente (destinatario), o su identificador de usuario
+  toUserId?: string;
   waMessageId: string;
   type: MessageType;
   text?: string;
@@ -81,6 +87,15 @@ export interface InboundStateSyncJob {
 
 // Meta aprobó, rechazó o pausó una plantilla (field
 // message_template_status_update).
+// El cliente cambió de número y, sin poder compartirlo, Meta le dio otro
+// identificador de usuario: el contacto pasa al nuevo.
+export interface InboundUserIdChangeJob {
+  kind: "user_id_change";
+  previousUserId: string;
+  userId: string;
+  channelPhoneNumberId?: string;
+}
+
 export interface InboundTemplateStatusJob {
   kind: "template_status";
   // Sin esto el worker no sabe de qué empresa es lo que procesa. Este evento
@@ -114,14 +129,20 @@ export type InboundJob = (
   | InboundReactionJob
   | InboundHistoryJob
   | InboundStateSyncJob
+  | InboundUserIdChangeJob
   | InboundTemplateStatusJob
 ) &
   InboundOrigin;
 
 // ── Forma (parcial) del webhook de Meta ──────────────────────
+// Usuarios de WhatsApp: si el cliente usa nombre de usuario y Meta no puede
+// compartir su número, no vienen `wa_id` ni `from` (ni `to` en los ecos): solo
+// su identificador en `user_id` / `from_user_id` / `to_user_id`.
+// https://developers.facebook.com/documentation/business-messaging/whatsapp/business-scoped-user-ids/
 interface MetaContact {
-  profile?: { name?: string };
-  wa_id: string;
+  profile?: { name?: string; username?: string };
+  wa_id?: string;
+  user_id?: string;
 }
 // Anuncio Click-to-WhatsApp que originó el mensaje. Meta lo adjunta al mensaje
 // que el cliente envía tras tocar el anuncio (texto, medios, ubicación…; no a
@@ -143,13 +164,17 @@ export interface MetaReferral {
 }
 
 interface MetaMessage {
-  from: string;
+  from?: string;
+  from_user_id?: string;
   id: string;
   type: string;
   /** Segundos desde 1970, como texto. */
   timestamp?: string;
   /** Solo en mensajes que mandó el negocio (historial, ecos). */
   to?: string;
+  to_user_id?: string;
+  /** Avisos de WhatsApp (cambió de número, de identificador…), no son mensajes del cliente. */
+  system?: { type?: string; body?: string; user_id?: string; previous_user_id?: string };
   /** Solo en mensajes del historial importado al conectar (coexistencia). */
   history_context?: { status?: string };
   text?: { body: string };
@@ -182,6 +207,7 @@ interface MetaStatus {
 // Echo de coexistencia: el negocio envió desde la app del celular.
 interface MetaMessageEcho {
   to?: string;
+  to_user_id?: string;
   from?: string;
   id: string;
   type: string;
@@ -192,7 +218,8 @@ interface MetaMessageEcho {
 // Historial importado (coexistencia).
 interface MetaHistoryMessage {
   id: string;
-  from: string;
+  from?: string;
+  from_user_id?: string;
   to?: string;
   type: string;
   timestamp?: string;
@@ -201,7 +228,8 @@ interface MetaHistoryMessage {
   document?: { caption?: string };
 }
 interface MetaHistory {
-  threads?: { id: string; messages?: MetaHistoryMessage[] }[];
+  // Sin número que compartir no viene `id`: el cliente va en `context.user_id`.
+  threads?: { id?: string; context?: { wa_id?: string; user_id?: string }; messages?: MetaHistoryMessage[] }[];
 }
 // Sincronización de estado de la app (coexistencia).
 interface MetaStateSync {
@@ -282,9 +310,11 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
 
       const channelPhoneNumberId = value.metadata?.phone_number_id;
 
-      const nameByWaId = new Map<string, string | undefined>();
+      // Por número y por identificador de usuario: puede faltar el número.
+      const contactBy = new Map<string, MetaContact>();
       for (const c of value.contacts ?? []) {
-        nameByWaId.set(c.wa_id, c.profile?.name);
+        if (c.wa_id) contactBy.set(c.wa_id, c);
+        if (c.user_id) contactBy.set(c.user_id, c);
       }
 
       // Solo los del field «messages» son mensajes nuevos. Al conectar un número
@@ -296,8 +326,9 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
       const businessNumber = (value.metadata?.display_phone_number ?? "").replace(/\D/g, "");
       for (const m of value.messages ?? []) {
         if (!live || m.history_context) {
+          // El número del negocio siempre viene; el del cliente, no siempre.
           const fromCustomer = m.from !== businessNumber;
-          const customer = fromCustomer ? m.from : m.to;
+          const customer = fromCustomer ? (m.from ?? m.from_user_id) : (m.to ?? m.to_user_id);
           if (customer && m.type !== "reaction") {
             jobs.push({
               kind: "history",
@@ -309,6 +340,16 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
               timestampMs: m.timestamp ? Number(m.timestamp) * 1000 : Date.now(),
               channelPhoneNumberId,
             });
+          }
+          continue;
+        }
+        // Aviso de WhatsApp (cambió de número, de identificador…): no es algo
+        // que escribió el cliente y no debe abrir chat ni despertar al bot.
+        if (m.type === "system") {
+          const s = m.system;
+          const userId = s?.user_id ?? m.from_user_id;
+          if (s?.type === "user_changed_user_id" && s.previous_user_id && userId) {
+            jobs.push({ kind: "user_id_change", previousUserId: s.previous_user_id, userId, channelPhoneNumberId });
           }
           continue;
         }
@@ -329,11 +370,21 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
         const buttonText = m.button?.text ?? reply?.title;
         const buttonPayload = m.button?.payload ?? reply?.id;
 
+        // Su número o, si escribe con usuario de WhatsApp sin compartirlo, su
+        // identificador. Sin ninguno de los dos no hay a quién atribuirlo.
+        const sender = m.from ?? m.from_user_id;
+        if (!sender) continue;
+        const contact = contactBy.get(sender) ?? (m.from_user_id ? contactBy.get(m.from_user_id) : undefined);
+        const waUserId = m.from_user_id ?? contact?.user_id;
+        const username = contact?.profile?.username;
+
         const type = TYPE_MAP[m.type] ?? MessageType.TEXT;
         jobs.push({
           kind: "message",
-          from: normalizePhone(m.from),
-          name: nameByWaId.get(m.from),
+          from: normalizePhone(sender),
+          name: contact?.profile?.name,
+          ...(waUserId ? { waUserId } : {}),
+          ...(username ? { username } : {}),
           waMessageId: m.id,
           type,
           text: m.text?.body ?? buttonText ?? m.image?.caption ?? m.video?.caption ?? m.document?.caption,
@@ -363,10 +414,12 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
 
       // Coexistencia: mensajes enviados desde la app del celular.
       for (const e of value.message_echoes ?? []) {
-        if (!e.to) continue;
+        const to = e.to ?? e.to_user_id;
+        if (!to) continue;
         jobs.push({
           kind: "echo",
-          to: normalizePhone(e.to),
+          to: normalizePhone(to),
+          ...(e.to_user_id ? { toUserId: e.to_user_id } : {}),
           waMessageId: e.id,
           type: TYPE_MAP[e.type] ?? MessageType.TEXT,
           text: e.text?.body ?? e.image?.caption ?? e.document?.caption,
@@ -377,11 +430,14 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
       // Coexistencia: historial de chats importado al conectar.
       for (const h of value.history ?? []) {
         for (const thread of h.threads ?? []) {
+          const customer = thread.id ?? thread.context?.wa_id ?? thread.context?.user_id;
+          if (!customer) continue;
           for (const m of thread.messages ?? []) {
             jobs.push({
               kind: "history",
-              customerWaId: normalizePhone(thread.id),
-              fromCustomer: m.from === thread.id,
+              customerWaId: normalizePhone(customer),
+              // Sin `from` es el cliente: el número del negocio siempre viene.
+              fromCustomer: m.from ? m.from === customer : true,
               waMessageId: m.id,
               type: TYPE_MAP[m.type] ?? MessageType.TEXT,
               text: m.text?.body ?? m.image?.caption ?? m.document?.caption,

@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import {
   contactOriginLabels,
+  phoneLabel,
   type ContactListItem,
   type SourceDto,
 } from "@crm/shared";
@@ -182,10 +183,10 @@ function ContactRow({
     <tr style={tr} onClick={onOpen} className="contact-row">
       <td style={td}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={avatar}>{initials(c.name ?? c.phone)}</span>
+          <span style={avatar}>{initials(c.name ?? phoneLabel(c.phone, c.waUsername))}</span>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 600 }}>{c.name || "Sin nombre"}</div>
-            <div style={{ ...muted, fontSize: 12.5 }}>{c.phone}</div>
+            <div style={{ ...muted, fontSize: 12.5 }}>{phoneLabel(c.phone, c.waUsername)}</div>
           </div>
         </div>
       </td>

@@ -87,6 +87,7 @@ export class InboundProcessor extends WorkerHost {
     if (data.kind === "echo") {
       await this.messaging.handleEcho({
         to: data.to,
+        toUserId: data.toUserId,
         waMessageId: data.waMessageId,
         type: data.type,
         text: data.text,
@@ -118,6 +119,11 @@ export class InboundProcessor extends WorkerHost {
       return;
     }
 
+    if (data.kind === "user_id_change") {
+      await this.messaging.handleUserIdChange(data.previousUserId, data.userId);
+      return;
+    }
+
     // Meta revisó una plantilla: aprobada, rechazada, pausada…
     if (data.kind === "template_status") {
       await this.templates.applyStatusUpdate(data);
@@ -137,6 +143,8 @@ export class InboundProcessor extends WorkerHost {
     await this.messaging.handleInbound({
       from: data.from,
       name: data.name,
+      waUserId: data.waUserId,
+      username: data.username,
       waMessageId: data.waMessageId,
       type: data.type,
       text: data.text,

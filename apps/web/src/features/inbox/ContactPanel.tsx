@@ -12,6 +12,8 @@ import {
   type NoteDto,
   type SourceDto,
   type StageRef,
+  isWaUserId,
+  phoneLabel,
 } from "@crm/shared";
 import {
   addNote,
@@ -128,7 +130,7 @@ export function ContactPanel({
             <>
               <Identity conversation={conversation} contact={contact ?? null} sources={sources} fields={fields} />
               <OriginSection ad={conversation.ad} contact={contact ?? null} />
-              <DealsSection contactId={contactId} contactName={conversation.contact.name ?? conversation.contact.phone} />
+              <DealsSection contactId={contactId} contactName={conversation.contact.name ?? phoneLabel(conversation.contact.phone, conversation.contact.waUsername)} />
               <ContactBookings
                 contact={{ id: contactId, name: conversation.contact.name, phone: conversation.contact.phone }}
                 conversationId={conversation.id}
@@ -212,7 +214,7 @@ function Identity({
   return (
     <section className="cp-section cp-identity">
       <span className="cp-avatar" aria-hidden>
-        {initials(name || conversation.contact.phone)}
+        {initials(name || phoneLabel(conversation.contact.phone, conversation.contact.waUsername))}
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
         {editing ? (
@@ -248,7 +250,7 @@ function Identity({
           </div>
         )}
         <div className="cp-meta">
-          <span>{conversation.contact.phone}</span>
+          <span>{phoneLabel(conversation.contact.phone, conversation.contact.waUsername)}</span>
           {contact && (
             <span>
               {contact.country?.name ?? t("inbox.countryUnknown")}
@@ -267,20 +269,23 @@ function Identity({
           {t("inbox.fullProfile")}
         </button>
         <div className="cp-row" style={{ marginTop: 8, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() =>
-              phone.call(conversation.contact.phone, {
-                name: conversation.contact.name,
-                contactId: conversation.contact.id,
-                conversationId: conversation.id,
-              })
-            }
-          >
-            <NavIcon name="phone" size={13} />
-            {t("calls.call")}
-          </button>
+          {/* Con usuario de WhatsApp y sin número no hay a dónde llamar. */}
+          {!isWaUserId(conversation.contact.phone) && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() =>
+                phone.call(conversation.contact.phone, {
+                  name: conversation.contact.name,
+                  contactId: conversation.contact.id,
+                  conversationId: conversation.id,
+                })
+              }
+            >
+              <NavIcon name="phone" size={13} />
+              {t("calls.call")}
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-ghost btn-sm"
