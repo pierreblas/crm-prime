@@ -51,6 +51,13 @@ const FLOWS = [
     nodes: [node("s", "start"), node("a", "sendMessage", { text: "Te escribo en un rato" }), node("d", "delay", { delayValue: 30, delayUnit: "minutes" }), node("b", "sendMessage", { text: "¿Seguimos?" })],
     edges: [edge("s", "a"), edge("a", "d"), edge("d", "b")],
   },
+  {
+    id: "menu",
+    name: "Menú",
+    triggers: trigger("keyword", ["menu"]),
+    nodes: [node("s", "start"), node("b", "buttons", { text: "¿Qué necesitas?", buttons: [{ id: "p1", title: "Precios" }] }), node("p", "sendMessage", { text: "Lista de precios" })],
+    edges: [edge("s", "b"), edge("b", "p", "p1")],
+  },
 ].map((f) => ({ ...f, isActive: true, channelId: null, updatedAt: new Date() }));
 
 function setup() {
@@ -72,7 +79,8 @@ function setup() {
     contact: { findUnique: async () => contact },
     deal: { findFirst: async () => null },
     message: {
-      findFirst: async ({ where }: { where: { conversationId: string; direction?: string } }) => lastOf(where),
+      findFirst: async ({ where }: { where: { conversationId: string; direction?: string; id?: string } }) =>
+        where.id ? (messages.find((m) => m.id === where.id && m.conversationId === where.conversationId) ?? null) : lastOf(where),
       count: async ({ where }: { where: { conversationId: string; direction?: string } }) =>
         messages.filter((m) => m.conversationId === where.conversationId && (!where.direction || m.direction === where.direction)).length,
     },
@@ -118,22 +126,26 @@ function setup() {
     { emit: () => true } as never,
   );
 
-  /** Escribe el cliente: el mensaje se guarda y el motor lo procesa como en producción. */
-  const says = async (content: string, payload: string | null = null) => {
-    messages.push({ id: `m${++seq}`, conversationId: CONV, direction: "INBOUND", type: "TEXT", content, transcript: null, buttonPayload: payload, referral: null, createdAt: new Date() });
-    return engine.onInbound(CONV);
+  /** Llega un mensaje del cliente (se guarda; aún no se procesa). */
+  const push = (content: string, payload: string | null = null) => {
+    const id = `m${++seq}`;
+    messages.push({ id, conversationId: CONV, direction: "INBOUND", type: "TEXT", content, transcript: null, buttonPayload: payload, referral: null, createdAt: new Date() });
+    return id;
   };
+  /** Escribe el cliente: el mensaje se guarda y el motor lo procesa como en producción. */
+  const says = async (content: string, payload: string | null = null) => engine.onInbound(CONV, push(content, payload));
   const session = () => sessions.get(CONV) ?? null;
-  /** Como si la sesión llevara `hours` horas esperando. */
+  /** Como si el flujo hubiera arrancado y se hubiera puesto a esperar hace `hours` horas. */
   const age = (hours: number) => {
     const s = sessions.get(CONV)!;
-    sessions.set(CONV, { ...s, updatedAt: new Date(Date.now() - hours * 3600_000) });
+    const then = new Date(Date.now() - hours * 3600_000);
+    sessions.set(CONV, { ...s, updatedAt: then, startedAt: then });
   };
   const firstMessage = async (content: string) => {
     messages.push({ id: `m${++seq}`, conversationId: CONV, direction: "INBOUND", type: "TEXT", content, transcript: null, buttonPayload: null, referral: null, createdAt: new Date() });
     return engine.onCreated(CONV);
   };
-  return { engine, says, firstMessage, session, age, sent, jobs };
+  return { engine, says, push, firstMessage, session, age, sent, jobs };
 }
 
 const tick = () => new Promise((r) => setTimeout(r, 5));
@@ -242,4 +254,24 @@ test("durante un «Esperar», una palabra clave arranca su flujo y el temporizad
   await t.engine.resumeTimer(CONV, second.data.run);
   assert.equal(t.sent.at(-1), "¿Seguimos?");
   assert.equal(t.session()?.status, "completed");
+});
+
+test("escribir la palabra clave de su propio menú no lo vuelve a mandar", async () => {
+  const t = setup();
+  await t.says("menu");
+  assert.equal(t.session()?.currentNodeId, "b");
+  assert.equal(await t.says("el menu otra vez?"), false);
+  assert.deepEqual(t.sent, ["¿Qué necesitas?"], "el menú sale una sola vez");
+  assert.equal(await t.says("Precios", "p1"), true, "y el botón sigue valiendo");
+  assert.deepEqual(t.sent, ["¿Qué necesitas?", "Lista de precios"]);
+});
+
+test("dos mensajes seguidos se atienden cada uno con su texto: el flujo sale una vez", async () => {
+  const t = setup();
+  // Llegan los dos antes de que se procese el primero.
+  const first = t.push("hola, quiero información");
+  const second = t.push("gracias");
+  assert.equal(await t.engine.onInbound(CONV, first), true, "la palabra clave del primero no se pierde");
+  assert.equal(await t.engine.onInbound(CONV, second), false);
+  assert.deepEqual(t.sent, ["Te paso la información"]);
 });

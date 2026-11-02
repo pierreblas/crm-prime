@@ -57,10 +57,10 @@ export class AutomationService {
 
   // ── Conversación nueva: bienvenida + autopilot por defecto ──
   @OnEvent("conversation.created")
-  async onCreated(payload: { conversationId: string }): Promise<void> {
+  async onCreated(payload: { conversationId: string; messageId?: string }): Promise<void> {
     const { conversationId } = payload;
     // Se registra antes del primer await: el «entrante» se emite justo después.
-    const run = this.handleCreated(conversationId);
+    const run = this.handleCreated(conversationId, payload.messageId);
     this.creating.set(conversationId, run);
     try {
       await run;
@@ -70,7 +70,7 @@ export class AutomationService {
     }
   }
 
-  private async handleCreated(conversationId: string): Promise<boolean> {
+  private async handleCreated(conversationId: string, messageId?: string): Promise<boolean> {
     try {
       const convo = await this.prisma.conversation.findUnique({
         where: { id: conversationId },
@@ -91,7 +91,7 @@ export class AutomationService {
       }
 
       // Un flujo "al iniciar conversación" tiene prioridad sobre la bienvenida del bot.
-      if (await this.flows.onCreated(conversationId)) return true;
+      if (await this.flows.onCreated(conversationId, messageId)) return true;
       if (!bot) return false;
 
       if (bot.welcomeEnabled && bot.welcomeMessage?.trim()) {
@@ -114,10 +114,29 @@ export class AutomationService {
     }
   }
 
+  /**
+   * Los mensajes de una conversación se atienden de uno en uno y en orden.
+   * Varios seguidos («Hola» + «quiero el precio») corrían a la vez: cada uno
+   * veía que no había ningún flujo en marcha y el mismo flujo, o la misma
+   * automatización, salía dos veces.
+   */
+  private readonly turns = new Map<string, Promise<void>>();
+
   // ── Entrante: palabras clave → horario → autopilot ──────────
   @OnEvent("conversation.inbound")
-  async onInbound(payload: { conversationId: string }): Promise<void> {
+  async onInbound(payload: { conversationId: string; messageId?: string }): Promise<void> {
     const { conversationId } = payload;
+    const turn = (this.turns.get(conversationId) ?? Promise.resolve()).then(() => this.handleInbound(payload));
+    this.turns.set(conversationId, turn);
+    try {
+      await turn;
+    } finally {
+      if (this.turns.get(conversationId) === turn) this.turns.delete(conversationId);
+    }
+  }
+
+  private async handleInbound(payload: { conversationId: string; messageId?: string }): Promise<void> {
+    const { conversationId, messageId } = payload;
     try {
       // Primer mensaje de una conversación nueva: primero lo de «creada».
       const created = this.creating.get(conversationId);
@@ -136,18 +155,23 @@ export class AutomationService {
       await this.media.enrichLatest(conversationId);
 
       // Prioridad máxima: si hay un flujo activo/disparado, lo maneja el motor.
-      if (await this.flows.onInbound(conversationId)) return;
+      if (await this.flows.onInbound(conversationId, messageId)) return;
       // Después, las automatizaciones «llega un mensaje» de su etapa del embudo.
       if (await this.stageAutomations.onInbound(conversationId)) return;
 
       const bot = await this.bots.resolveForConversation(convo);
 
-      // Último texto entrante del contacto.
+      // Último texto entrante del contacto (el autopilot contesta a lo último)
+      // y el de este aviso (lo que se mira para las palabras clave).
       const lastInbound = await this.prisma.message.findFirst({
         where: { conversationId, direction: "INBOUND" },
         orderBy: { createdAt: "desc" },
       });
-      const text = lastInbound ? MediaUnderstandingService.textOf(lastInbound) : "";
+      const thisInbound =
+        messageId && messageId !== lastInbound?.id
+          ? await this.prisma.message.findFirst({ where: { id: messageId, conversationId } })
+          : lastInbound;
+      const text = thisInbound ? MediaUnderstandingService.textOf(thisInbound) : "";
 
       // 1) Disparadores por palabra clave (tienen prioridad), sin mirar tildes ni mayúsculas.
       const said = fold(text);

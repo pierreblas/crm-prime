@@ -426,7 +426,7 @@ export class MessagingService {
         })
       : null;
 
-    await this.prisma.message.create({
+    const saved = await this.prisma.message.create({
       data: {
         orgId,
         conversationId: conversation.id,
@@ -474,11 +474,13 @@ export class MessagingService {
     if (isNewConversation) {
       this.events.emit("conversation.created", {
         conversationId: conversation.id,
+        messageId: saved.id,
       });
     }
     // Disparar la automatización de IA (palabras clave, horario, autopilot).
-    // Lo maneja AutomationService de forma asíncrona con sus guardrails.
-    this.events.emit("conversation.inbound", { conversationId: conversation.id });
+    // Lo maneja AutomationService de forma asíncrona con sus guardrails. Con
+    // el mensaje: cada uno se atiende con su texto, aunque lleguen seguidos.
+    this.events.emit("conversation.inbound", { conversationId: conversation.id, messageId: saved.id });
   }
 
   /**

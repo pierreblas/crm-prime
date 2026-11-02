@@ -105,13 +105,13 @@ export class FlowEngineService {
   ) {}
 
   // ── Conversación nueva: ¿arranca un flujo "al iniciar"? ─────
-  async onCreated(conversationId: string): Promise<boolean> {
+  async onCreated(conversationId: string, messageId?: string): Promise<boolean> {
     const convo = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       include: { contact: true },
     });
     if (!convo || !convo.contact.optIn) return false;
-    const text = await this.lastInboundText(conversationId);
+    const text = await this.lastInboundText(conversationId, messageId);
     const ctx = () => this.condCtx(conversationId, text, {});
 
     // Nace desde un anuncio Click-to-WhatsApp: ese disparador va primero.
@@ -438,14 +438,15 @@ export class FlowEngineService {
 
   // ── Entrante: reanudar sesión o disparar flujo por palabra ──
   // Devuelve true si el flujo manejó el mensaje (el autopilot no debe correr).
-  async onInbound(conversationId: string): Promise<boolean> {
+  // `messageId` es el mensaje que se atiende; sin él, el último del cliente.
+  async onInbound(conversationId: string, messageId?: string): Promise<boolean> {
     const convo = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       include: { contact: true },
     });
     if (!convo || !convo.contact.optIn) return false;
 
-    const inbound = await this.lastInbound(conversationId);
+    const inbound = await this.lastInbound(conversationId, messageId);
     const text = inbound.text;
     const session = await this.prisma.flowSession.findUnique({
       where: { conversationId },
@@ -463,7 +464,9 @@ export class FlowEngineService {
       return true;
     }
 
-    // Sesión esperando respuesta (pregunta, botones, lista o carrusel).
+    // Sesión esperando respuesta (pregunta, botones, lista o carrusel). Si
+    // sigue esperando, su propia palabra clave no la vuelve a empezar.
+    let waitingFlowId: string | null = null;
     if (session && waitsAnswer(session)) {
       // Un mensaje de antes de que se pusiera a esperar (el que arrancó el
       // flujo, si llega tarde) no es la respuesta: ya está atendido.
@@ -479,10 +482,11 @@ export class FlowEngineService {
           await this.resume(flow, conversationId, node.id, inbound, vars);
           return true;
         }
-        // Una palabra clave arranca su flujo: el cliente cambió de tema. Solo
-        // la del mismo flujo, mientras contesta a su pregunta, es la respuesta.
+        // La palabra clave de otro flujo lo arranca: el cliente cambió de tema.
+        // La de este mismo flujo no lo vuelve a empezar (repetiría el menú cada
+        // vez que el cliente la escribe), salvo que la espera ya caducara.
         const hit = await keyword();
-        if (hit && (hit.flow.id !== flow.id || choice || !fresh)) {
+        if (hit && (hit.flow.id !== flow.id || !fresh)) {
           await this.startFlow(hit.flow, conversationId, text);
           return true;
         }
@@ -493,6 +497,7 @@ export class FlowEngineService {
         }
         // Si no, el mensaje no es para este flujo y sigue como cualquier otro
         // (la IA puede contestarlo); los botones del menú siguen valiendo.
+        if (fresh) waitingFlowId = flow.id;
       }
     }
 
@@ -509,7 +514,7 @@ export class FlowEngineService {
 
     // ¿Algún flujo por palabra clave coincide?
     const hit = await keyword();
-    if (hit) {
+    if (hit && hit.flow.id !== waitingFlowId) {
       await this.startFlow(hit.flow, conversationId, text);
       return true;
     }
@@ -1555,13 +1560,19 @@ export class FlowEngineService {
     });
   }
 
-  private async lastInboundText(conversationId: string): Promise<string> {
-    return (await this.lastInbound(conversationId)).text;
+  private async lastInboundText(conversationId: string, messageId?: string): Promise<string> {
+    return (await this.lastInbound(conversationId, messageId)).text;
   }
 
-  private async lastInbound(conversationId: string): Promise<Inbound> {
+  /**
+   * El mensaje del cliente que se atiende: el del aviso (`messageId`) o, sin
+   * él, el último. Con el del aviso, dos mensajes seguidos se miran cada uno
+   * con su texto: si no, los dos veían el segundo y la palabra clave del
+   * primero se perdía, o la del segundo arrancaba el flujo dos veces.
+   */
+  private async lastInbound(conversationId: string, messageId?: string): Promise<Inbound> {
     const m = await this.prisma.message.findFirst({
-      where: { conversationId, direction: "INBOUND" },
+      where: { conversationId, direction: "INBOUND", ...(messageId ? { id: messageId } : {}) },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: { type: true, content: true, transcript: true, buttonPayload: true, referral: true, createdAt: true },
     });
