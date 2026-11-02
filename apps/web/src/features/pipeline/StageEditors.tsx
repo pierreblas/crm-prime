@@ -2,8 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { FlowRule, FlowSummary, StageAutomationDto, StageAutomationTrigger, StageConversionEvent, StageDto } from "@crm/shared";
-import { metaStandardEvents, stageAutomationTriggers } from "@crm/shared";
+import type {
+  FlowRule,
+  FlowSummary,
+  MetaStandardEvent,
+  StageAutomationDto,
+  StageAutomationTrigger,
+  StageConversionEvent,
+  StageDto,
+} from "@crm/shared";
+import { META_EVENT_GROUPS, META_EVENT_INFO, metaEventLabel, metaStandardEvents, stageAutomationTriggers } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { dangerBtn, ghostBtn, input, smBtn } from "@/components/ui";
 import {
@@ -53,25 +61,12 @@ export const TRIGGER_ICON: Record<StageAutomationTrigger, "pipeline" | "message"
 };
 
 // ── Conversiones de Meta ────────────────────────────────────
-// Eventos que Meta admite para mensajería, con su nombre legible.
-export const EVENT_LABEL: Record<string, string> = {
-  LeadSubmitted: "Lead enviado (LeadSubmitted)",
-  QualifiedLead: "Lead calificado (QualifiedLead)",
-  Purchase: "Compra (Purchase)",
-  InitiateCheckout: "Inicio de pago (InitiateCheckout)",
-  AddToCart: "Añadido al carrito (AddToCart)",
-  ViewContent: "Contenido visto (ViewContent)",
-  CartAbandoned: "Carrito abandonado (CartAbandoned)",
-  OrderCreated: "Pedido creado (OrderCreated)",
-  OrderShipped: "Pedido enviado (OrderShipped)",
-  OrderDelivered: "Pedido entregado (OrderDelivered)",
-  OrderCanceled: "Pedido cancelado (OrderCanceled)",
-  OrderReturned: "Pedido devuelto (OrderReturned)",
-  RatingProvided: "Valoración dada (RatingProvided)",
-  ReviewProvided: "Reseña dada (ReviewProvided)",
-};
-const CUSTOM = "__custom__";
+// Eventos que Meta admite para mensajería, con su nombre legible: «Compra (Purchase)».
+export const EVENT_LABEL: Record<string, string> = Object.fromEntries(metaStandardEvents.map((n) => [n, metaEventLabel(n)]));
 const isStandard = (name: string) => (metaStandardEvents as readonly string[]).includes(name);
+/** El evento que toca en una etapa según su rol: la compra en la ganada, el interesado en la de potenciales. */
+const recommendedFor = (stage: StageDto): MetaStandardEvent | null =>
+  stage.isWon ? "Purchase" : stage.isQualified ? "LeadSubmitted" : null;
 
 /**
  * El diálogo «Configurar etapa». Recibe la etapa ya fresca (quien lo pinta la
@@ -142,8 +137,8 @@ export function StageConfigDialog({ stage, onClose, onChanged }: { stage: StageD
               </h4>
             </div>
             <p style={hint}>
-              Eventos que se envían a Meta (Conversions API) cuando una oportunidad que vino de un anuncio de Click to WhatsApp
-              llega a esta etapa. Varios por etapa; cada uno una sola vez por oportunidad.
+              Le dicen a Meta qué chats de tus anuncios de WhatsApp terminan en algo bueno, para que busque más clientes así. Se
+              envían cuando una oportunidad que vino de un anuncio llega a esta etapa, cada uno una sola vez por oportunidad.
             </p>
             <ConversionsEditor stage={stage} onChanged={onChanged} />
           </section>
@@ -174,9 +169,9 @@ export function StageConfigDialog({ stage, onClose, onChanged }: { stage: StageD
 
 /**
  * Conversiones de Meta de una etapa: la lista de eventos que se envían cuando
- * una oportunidad que vino de un anuncio llega aquí. Varios por etapa, como
- * en Kommo: «Potencial» manda LeadSubmitted, «Ganada» Purchase con el valor,
- * y cualquier etapa puede mandar Contact, Schedule o uno propio.
+ * una oportunidad que vino de un anuncio llega aquí. Varios por etapa. Como en
+ * Kommo, se recomienda el que toca por el rol de la etapa: «Potencial» manda
+ * el lead interesado y «Ganada» la compra con el valor.
  */
 export function ConversionsEditor({ stage, onChanged }: { stage: StageDto; onChanged: () => void }) {
   const save = useMutation({
@@ -185,7 +180,10 @@ export function ConversionsEditor({ stage, onChanged }: { stage: StageDto; onCha
     onError: (e) => toast.error((e as Error).message),
   });
   const list = stage.conversionEvents;
-  const firstFree = metaStandardEvents.find((n) => !list.some((e) => e.eventName === n)) ?? metaStandardEvents[0];
+  const has = (n: string) => list.some((e) => e.eventName === n);
+  const recommended = recommendedFor(stage);
+  const missing = recommended && !has(recommended) ? recommended : null;
+  const firstFree = missing ?? metaStandardEvents.find((n) => !has(n)) ?? metaStandardEvents[0];
   const set = (i: number, patch: Partial<StageConversionEvent>) =>
     save.mutate(list.map((e, j) => (j === i ? { ...e, ...patch } : e)));
 
@@ -205,11 +203,16 @@ export function ConversionsEditor({ stage, onChanged }: { stage: StageDto; onCha
           onClick={() => save.mutate([...list, { eventName: firstFree, withValue: firstFree === "Purchase" }])}
           disabled={save.isPending || list.length >= 10}
           style={{ ...ghostBtn, ...smBtn }}
+          data-add-conversion
         >
-          + Añadir evento
+          + {missing ? `Añadir ${META_EVENT_INFO[missing].label.toLowerCase()}` : "Añadir evento"}
         </button>
         <span style={hint}>
-          {list.length === 0 ? "Ejemplo: «Compra (Purchase)» en la etapa ganada, «Cita agendada» cuando se reserva. " : ""}
+          {missing
+            ? `Recomendado en esta etapa: ${metaEventLabel(missing)}. `
+            : list.length === 0
+              ? "Lo habitual: Lead interesado en la etapa de potenciales y Compra en la ganada. "
+              : ""}
           Solo con las conversiones activadas en{" "}
           <a href="/settings?tab=integrations" style={{ color: "var(--accent-text)" }}>Integraciones</a>.
         </span>
@@ -229,63 +232,55 @@ function ConversionRow({
   onSave: (patch: Partial<StageConversionEvent>) => void;
   onDelete: () => void;
 }) {
+  // Un nombre propio guardado antes: se conserva, pero Meta no lo admite en WhatsApp.
   const custom = !isStandard(e.eventName);
-  const [name, setName] = useState(custom ? e.eventName : "");
-  useEffect(() => setName(custom ? e.eventName : ""), [custom, e.eventName]);
-  const commitName = () => {
-    const v = name.trim();
-    if (v && v !== e.eventName && !taken.includes(v)) onSave({ eventName: v });
-  };
   const valueLocked = e.eventName === "Purchase";
+  const info = custom ? null : META_EVENT_INFO[e.eventName as MetaStandardEvent];
 
   return (
-    <div style={stageRow} data-conversion-event={e.eventName}>
-      <span style={{ color: "var(--accent-text)", display: "inline-flex", width: 20, justifyContent: "center" }}>
-        <NavIcon name="target" size={14} />
-      </span>
-      <select
-        style={{ ...input, width: custom ? 200 : 250 }}
-        value={custom ? CUSTOM : e.eventName}
-        onChange={(ev) => {
-          const v = ev.target.value;
-          if (v === CUSTOM) {
-            setName("");
-            onSave({ eventName: "MiEvento", withValue: e.withValue });
-          } else onSave({ eventName: v, withValue: v === "Purchase" ? true : e.withValue });
-        }}
-        aria-label="Evento"
-      >
-        {metaStandardEvents.map((n) => (
-          <option key={n} value={n} disabled={n !== e.eventName && taken.includes(n)}>
-            {EVENT_LABEL[n]}
-          </option>
-        ))}
-        <option value={CUSTOM} title="Meta no garantiza aceptar eventos fuera de su lista">
-          Nombre propio (Meta puede rechazarlo)…
-        </option>
-      </select>
-      {custom && (
-        <input
-          style={{ ...input, width: 150 }}
-          value={name}
-          placeholder="Ej. CotizacionEnviada"
-          onChange={(ev) => setName(ev.target.value.replace(/[^A-Za-z0-9_]/g, ""))}
-          onBlur={commitName}
-          onKeyDown={(ev) => ev.key === "Enter" && commitName()}
-          aria-label="Nombre del evento"
-          title="Letras, números y guion bajo, sin espacios"
-        />
-      )}
-      <label
-        style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)", cursor: valueLocked ? "default" : "pointer" }}
-        title={valueLocked ? "Purchase lleva siempre el valor y la moneda de la oportunidad" : "Enviar también el valor y la moneda de la oportunidad"}
-      >
-        <input type="checkbox" checked={valueLocked || e.withValue} disabled={valueLocked} onChange={(ev) => onSave({ withValue: ev.target.checked })} aria-label="Con valor" />
-        con valor
-      </label>
-      <button onClick={onDelete} style={{ ...dangerBtn, ...smBtn, padding: "6px 8px" }} title="Quitar evento">
-        <NavIcon name="x" size={13} />
-      </button>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }} data-conversion-event={e.eventName}>
+      <div style={stageRow}>
+        <span style={{ color: "var(--accent-text)", display: "inline-flex", width: 20, justifyContent: "center" }}>
+          <NavIcon name="target" size={14} />
+        </span>
+        <select
+          style={{ ...input, width: 260 }}
+          value={e.eventName}
+          onChange={(ev) => {
+            const v = ev.target.value;
+            onSave({ eventName: v, withValue: v === "Purchase" ? true : e.withValue });
+          }}
+          aria-label="Evento"
+        >
+          {custom && <option value={e.eventName}>{e.eventName} (Meta no lo admite)</option>}
+          {META_EVENT_GROUPS.map((g) => (
+            <optgroup key={g.key} label={g.label}>
+              {metaStandardEvents
+                .filter((n) => META_EVENT_INFO[n].group === g.key)
+                .map((n) => (
+                  <option key={n} value={n} disabled={n !== e.eventName && taken.includes(n)}>
+                    {EVENT_LABEL[n]}
+                  </option>
+                ))}
+            </optgroup>
+          ))}
+        </select>
+        <label
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)", cursor: valueLocked ? "default" : "pointer" }}
+          title={valueLocked ? "La compra lleva siempre el valor y la moneda de la oportunidad" : "Enviar también el valor y la moneda de la oportunidad"}
+        >
+          <input type="checkbox" checked={valueLocked || e.withValue} disabled={valueLocked} onChange={(ev) => onSave({ withValue: ev.target.checked })} aria-label="Con valor" />
+          con valor
+        </label>
+        <button onClick={onDelete} style={{ ...dangerBtn, ...smBtn, padding: "6px 8px" }} title="Quitar evento">
+          <NavIcon name="x" size={13} />
+        </button>
+      </div>
+      <p style={{ ...hint, margin: "0 0 0 28px", ...(custom ? { color: "#e08a8a" } : {}) }} data-conversion-help>
+        {info
+          ? info.help
+          : "Meta no admite eventos con nombre propio en WhatsApp y lo rechazará: cámbialo por uno de la lista."}
+      </p>
     </div>
   );
 }

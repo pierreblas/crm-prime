@@ -34,6 +34,7 @@ import {
 import { useRealtimeCtx } from "@/components/RealtimeProvider";
 import { BulkBar, DealHistory, DropZones, daysInStage, type BulkRequest, type DropTarget } from "./BoardExtras";
 import { LostReasonDialog } from "./LossReasons";
+import { asksValue, WonValueDialog } from "./WonValue";
 import { dangerBtn, ghostBtn, primaryBtn, smBtn } from "@/components/ui";
 import { TagEditor, tagColor } from "@/features/contacts/TagEditor";
 import { useCalls } from "@/features/calls/CallProvider";
@@ -147,6 +148,8 @@ export function KanbanBoard() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragging, setDragging] = useState(false);
   const [lostAsk, setLostAsk] = useState<{ ids: string[]; stageId: string; bulk: boolean } | null>(null);
+  // Ganada sin valor: antes, «¿Cuánto fue la venta?».
+  const [wonAsk, setWonAsk] = useState<{ deal: DealDto; stageId: string } | null>(null);
   const exitSelecting = () => {
     setSelecting(false);
     setSelected(new Set());
@@ -227,6 +230,13 @@ export function KanbanBoard() {
     },
     onSettled: invalidate,
   });
+
+  /** Mover una oportunidad: a perdida pregunta el motivo; a ganada sin valor, cuánto fue la venta. */
+  const moveTo = (deal: DealDto, stage: StageDto) => {
+    if (stage.isLost) setLostAsk({ ids: [deal.id], stageId: stage.id, bulk: false });
+    else if (asksValue(deal, stage)) setWonAsk({ deal, stageId: stage.id });
+    else move.mutate({ dealId: deal.id, stageId: stage.id });
+  };
 
   const discard = useMutation({
     mutationFn: (dealId: string) => discardDeal(dealId, "manual"),
@@ -482,10 +492,7 @@ export function KanbanBoard() {
                   const dealId = e.dataTransfer.getData("text/plain");
                   const deal = data.deals.find((d) => d.id === dealId);
                   setDragging(false);
-                  if (dealId && deal && deal.stageId !== stage.id) {
-                    if (stage.isLost) setLostAsk({ ids: [dealId], stageId: stage.id, bulk: false });
-                    else move.mutate({ dealId, stageId: stage.id });
-                  }
+                  if (dealId && deal && deal.stageId !== stage.id) moveTo(deal, stage);
                 }}
                 style={column}
               >
@@ -634,9 +641,31 @@ export function KanbanBoard() {
             setDragging(false);
             const won = data.stages.find((s) => s.isWon);
             const lost = data.stages.find((s) => s.isLost);
-            if (t === "won" && won) move.mutate({ dealId, stageId: won.id });
+            const deal = data.deals.find((d) => d.id === dealId);
+            if (t === "won" && won && deal) moveTo(deal, won);
             else if (t === "lost" && lost) setLostAsk({ ids: [dealId], stageId: lost.id, bulk: false });
             else if (t === "discard") discard.mutate(dealId);
+          }}
+        />
+      )}
+
+      {wonAsk && (
+        <WonValueDialog
+          currency={wonAsk.deal.currency}
+          onCancel={() => setWonAsk(null)}
+          onSkip={() => {
+            const ask = wonAsk;
+            setWonAsk(null);
+            move.mutate({ dealId: ask.deal.id, stageId: ask.stageId });
+          }}
+          onSave={(value, currency) => {
+            const ask = wonAsk;
+            setWonAsk(null);
+            // Primero el valor: así la compra sale a Meta con él al cambiar de etapa.
+            updateDeal(ask.deal.id, { value, currency }).then(
+              () => move.mutate({ dealId: ask.deal.id, stageId: ask.stageId }),
+              (e: Error) => toast.error(e.message),
+            );
           }}
         />
       )}
@@ -662,6 +691,7 @@ export function KanbanBoard() {
             deal={d}
             stages={data.stages}
             onAskLost={(stageId) => setLostAsk({ ids: [d.id], stageId, bulk: false })}
+            onAskWon={(stageId) => setWonAsk({ deal: d, stageId })}
             onClose={() => setSelectedDealId(null)}
             onChanged={invalidate}
             onDiscard={() => discard.mutate(d.id)}
@@ -883,6 +913,7 @@ function DealDetail({
   deal,
   stages,
   onAskLost,
+  onAskWon,
   onClose,
   onChanged,
   onDiscard,
@@ -893,6 +924,8 @@ function DealDetail({
   stages: StageDto[];
   /** Cerrar como perdida: el tablero pregunta antes el motivo. */
   onAskLost: (stageId: string) => void;
+  /** Ganar sin valor: el tablero pregunta antes cuánto fue la venta. */
+  onAskWon: (stageId: string) => void;
   onClose: () => void;
   onChanged: () => void;
   onDiscard: () => void;
@@ -1031,7 +1064,15 @@ function DealDetail({
               </div>
             </Field>
             <Field label="Etapa" style={{ flex: "1 1 140px" }}>
-              <select style={field} value={deal.stageId} onChange={(e) => setStage.mutate(e.target.value)}>
+              <select
+                style={field}
+                value={deal.stageId}
+                onChange={(e) => {
+                  const to = stages.find((s) => s.id === e.target.value);
+                  if (to && asksValue(deal, to)) onAskWon(to.id);
+                  else setStage.mutate(e.target.value);
+                }}
+              >
                 {stages.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -1056,7 +1097,7 @@ function DealDetail({
           <div style={{ display: "flex", gap: 8 }}>
             {won && (
               <button
-                onClick={() => setStage.mutate(won.id)}
+                onClick={() => (asksValue(deal, won) ? onAskWon(won.id) : setStage.mutate(won.id))}
                 style={{ ...primaryBtn, flex: 1, background: "#1f6f46", boxShadow: "none" }}
               >
                 <NavIcon name="trophy" size={15} />

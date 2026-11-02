@@ -61,7 +61,7 @@ const FAQ = [
   },
   {
     q: "¿Mis anuncios de Meta se enteran de las ventas?",
-    a: "Sí. Activa las conversiones en Integraciones y elige en cada etapa del embudo qué evento se envía a Meta (LeadSubmitted, Purchase con el valor de la venta, u otros). Solo se envían para chats que llegaron por un anuncio de Click to WhatsApp, y cada evento una sola vez por oportunidad.",
+    a: "Sí. Activa las conversiones en Integraciones y elige en cada etapa del embudo qué evento se envía a Meta (lead interesado, lead calificado, compra con el valor de la venta, u otros). Solo se envían para chats que llegaron por un anuncio de Click to WhatsApp, y cada evento una sola vez por oportunidad.",
   },
   {
     q: "¿Puedo instalarlo yo en mi servidor?",

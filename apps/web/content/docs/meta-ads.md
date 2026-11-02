@@ -64,9 +64,19 @@ Driony devuelve a Meta las etapas del embudo de los chats que vinieron de un anu
 
 En **Ajustes › Integraciones › Conversiones de anuncios (Meta)** activa cada número de WhatsApp. Al activarlo, Driony obtiene (o crea) el *dataset* de su cuenta de WhatsApp Business.
 
-Qué se envía lo decides **etapa por etapa**: pulsa el engranaje de la etapa (en la columna del tablero del embudo o en **Ajustes › Embudos y etapas**) y, en «Conversiones de Meta», añade eventos. Un embudo nuevo arranca con `LeadSubmitted` en la etapa Potencial y `Purchase` (con el valor y la moneda de la oportunidad) en la Ganada.
+Qué se envía lo decides **etapa por etapa**: pulsa el engranaje de la etapa (en la columna del tablero del embudo o en **Ajustes › Embudos y etapas**) y, en «Conversiones de Meta», añade eventos. Un embudo nuevo arranca con **Lead interesado** en la etapa Potencial y **Compra** (con el valor y la moneda de la oportunidad) en la Ganada, y en esas etapas el panel te recomienda el que toca si falta.
 
-La lista ofrece los eventos que Meta admite para mensajería: LeadSubmitted, QualifiedLead, Purchase, InitiateCheckout, AddToCart, ViewContent, CartAbandoned, los de pedido (OrderCreated, OrderShipped, OrderDelivered, OrderCanceled, OrderReturned), RatingProvided y ReviewProvided. Puedes poner un nombre propio, pero Meta no garantiza aceptarlo.
+Casi todos los negocios usan solo estos tres:
+
+| Evento | Qué significa | Qué hace Meta |
+|---|---|---|
+| **Lead interesado** (`LeadSubmitted`) | Mostró interés real: pidió precio, dejó sus datos o quiere comprar. | Busca más gente así. |
+| **Lead calificado** (`QualifiedLead`) | Tu equipo confirmó que es un buen cliente potencial. | Busca clientes de más calidad, no solo más chats. |
+| **Compra** (`Purchase`) | Compró, con el valor de la oportunidad. | Busca compradores parecidos y mide cuánto vendieron tus anuncios. |
+
+Para tiendas hay también *Vio un producto*, *Añadió al carrito*, *Empezó a pagar*, *Carrito abandonado* y los de pedido (creado, enviado, entregado, cancelado, devuelto), y para opiniones *Dio una valoración* y *Dejó una reseña*. Son todos los que Meta admite en WhatsApp; eventos con nombre propio no los acepta.
+
+**La compra necesita el valor.** Al pasar a Ganada una oportunidad sin valor, el tablero te pregunta «¿Cuánto fue la venta?». Si la marca la IA o eliges «Ganada sin valor», la compra no se envía con 0: espera, y sale sola en cuanto le pongas el valor a la oportunidad (en la tarjeta de Integraciones aparece como «Espera el valor»).
 
 Cuando una oportunidad cuyo chat vino de un anuncio llega a una etapa, se envían sus eventos, cada uno una sola vez por oportunidad, con el **último clic** del cliente que traiga `ctwa_clid`. El agente de IA mueve a Potencial y Ganada con `mark_lead`; el resto, con las automatizaciones o a mano. En la tarjeta de Integraciones ves los últimos eventos enviados y puedes reintentar los que fallaron. Los chats que no vinieron de un anuncio no envían nada. Requiere que la app de Meta tenga el permiso `whatsapp_business_manage_events`.
 

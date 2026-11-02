@@ -10,10 +10,18 @@ import { ConversionsService } from "../src/modules/conversions/conversions.servi
 
 type Ref = Record<string, unknown> | null;
 
-function setup(opts: { messages?: { referral: Ref; channelId: string | null }[]; conversations?: { referral: Ref; channelId: string | null }[] }) {
+function setup(opts: {
+  messages?: { referral: Ref; channelId: string | null }[];
+  conversations?: { referral: Ref; channelId: string | null }[];
+  events?: { eventName: string; withValue?: boolean }[];
+  deal?: { value: number | null; currency: string };
+}) {
   const saved: Record<string, unknown>[] = [];
+  // Una fila por oportunidad y evento, como la base (único por dealId + eventName).
+  const rows = new Map<string, Record<string, unknown>>();
+  const deal = opts.deal ?? { value: 0, currency: "USD" };
   const prisma = {
-    pipelineStage: { findUnique: async () => ({ conversionEvents: [{ eventName: "LeadSubmitted" }] }) },
+    pipelineStage: { findUnique: async () => ({ conversionEvents: opts.events ?? [{ eventName: "LeadSubmitted" }] }) },
     message: {
       findMany: async () => (opts.messages ?? []).map((m) => ({ referral: m.referral, conversation: { channelId: m.channelId } })),
     },
@@ -22,16 +30,20 @@ function setup(opts: { messages?: { referral: Ref; channelId: string | null }[];
       findUnique: async () => ({ id: "c1", capiEnabled: true, capiDatasetId: "ds1", wabaId: "waba1", accessToken: "tok" }),
     },
     conversionEvent: {
-      findUnique: async () => null,
-      upsert: async (args: { create: Record<string, unknown> }) => {
-        saved.push(args.create);
-        return args.create;
+      findUnique: async ({ where }: { where: { dealId_eventName: { eventName: string } } }) => rows.get(where.dealId_eventName.eventName) ?? null,
+      findMany: async ({ where }: { where: { status?: string } }) => [...rows.values()].filter((r) => !where.status || r.status === where.status),
+      upsert: async (args: { where: { dealId_eventName: { eventName: string } }; create: Record<string, unknown>; update: Record<string, unknown> }) => {
+        const key = args.where.dealId_eventName.eventName;
+        const row = rows.has(key) ? { ...rows.get(key)!, ...args.update } : { ...args.create };
+        rows.set(key, row);
+        saved.push(row);
+        return row;
       },
     },
-    deal: { findUnique: async () => ({ value: 0, currency: "USD" }) },
+    deal: { findUnique: async () => deal },
   };
   const svc = new ConversionsService(prisma as never, { orgId: () => "o1" } as never);
-  return { svc, saved };
+  return { svc, saved, rows, deal };
 }
 
 async function sent(run: () => Promise<void>): Promise<unknown[]> {
@@ -88,4 +100,44 @@ test("también acepta un referral guardado con la forma de Meta (snake_case)", a
   const bodies = await sent(() => report(svc));
   const ev = (bodies[0] as { data: { user_data: { ctwa_clid: string } }[] }).data[0]!;
   assert.equal(ev.user_data.ctwa_clid, "clid-snake");
+});
+
+test("una compra sin valor no sale con 0: queda esperando", async () => {
+  const t = setup({
+    conversations: [{ referral: { sourceId: "111", ctwaClid: "clid-111" }, channelId: "c1" }],
+    events: [{ eventName: "Purchase", withValue: true }],
+    deal: { value: null, currency: "PEN" },
+  });
+  const bodies = await sent(() => report(t.svc));
+  assert.equal(bodies.length, 0, "Meta no recibe una compra de 0");
+  assert.equal(t.rows.get("Purchase")?.status, "waiting");
+});
+
+test("al ponerle valor a la oportunidad, la compra que esperaba sale con él", async () => {
+  const t = setup({
+    conversations: [{ referral: { sourceId: "111", ctwaClid: "clid-111" }, channelId: "c1" }],
+    events: [{ eventName: "Purchase", withValue: true }],
+    deal: { value: null, currency: "PEN" },
+  });
+  await sent(() => report(t.svc));
+  t.deal.value = 350;
+  const bodies = await sent(() => t.svc.onValue({ orgId: "o1", dealId: "d1" }));
+  assert.equal(bodies.length, 1);
+  const ev = (bodies[0] as { data: { event_name: string; custom_data: { value: number; currency: string } }[] }).data[0]!;
+  assert.equal(ev.event_name, "Purchase");
+  assert.deepEqual(ev.custom_data, { currency: "PEN", value: 350 });
+  assert.equal(t.rows.get("Purchase")?.status, "sent");
+  // Y no se repite si vuelve a cambiar el valor.
+  assert.equal((await sent(() => t.svc.onValue({ orgId: "o1", dealId: "d1" }))).length, 0);
+});
+
+test("un lead interesado no espera valor", async () => {
+  const t = setup({
+    conversations: [{ referral: { sourceId: "111", ctwaClid: "clid-111" }, channelId: "c1" }],
+    events: [{ eventName: "LeadSubmitted" }],
+    deal: { value: null, currency: "PEN" },
+  });
+  const bodies = await sent(() => report(t.svc));
+  assert.equal(bodies.length, 1);
+  assert.equal(t.rows.get("LeadSubmitted")?.status, "sent");
 });

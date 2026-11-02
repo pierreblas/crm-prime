@@ -1,16 +1,11 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ConversionsOverview } from "@crm/shared";
+import { metaEventLabel, type ConversionsOverview } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { card, ghostBtn, primaryBtn, smBtn } from "@/components/ui";
 import { disableConversions, enableConversions, fetchConversions, retryConversion } from "@/lib/bff";
 import { toast } from "@/lib/toast";
-
-const EVENT_LABEL: Record<string, string> = {
-  LeadSubmitted: "Potencial (LeadSubmitted)",
-  Purchase: "Compra (Purchase)",
-};
 
 /**
  * Conversiones de anuncios: cuando un chat que vino de un anuncio Click to
@@ -42,8 +37,8 @@ export function MetaConversionsCard() {
       </h3>
       <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 12px", lineHeight: 1.5 }}>
         Cuando un chat que vino de un anuncio de Click to WhatsApp avanza en el embudo, Driony envía a Meta los eventos
-        de cada etapa (<code>LeadSubmitted</code> al llegar a Potencial, <code>Purchase</code> con el valor al llegar a
-        Ganada, y los que tú añadas). Así tus campañas aprenden de los clientes que compran, no solo de los clics. Los
+        de cada etapa: <strong>Lead interesado</strong> al llegar a Potencial y <strong>Compra</strong> con el valor al llegar a
+        Ganada, más los que tú añadas. Así tus campañas aprenden de los clientes que compran, no solo de los clics. Los
         eventos de cada etapa se eligen en <a href="/settings?tab=stages" style={{ color: "var(--accent-text)" }}>Ajustes › Embudos y etapas</a>.
       </p>
 
@@ -96,7 +91,7 @@ export function MetaConversionsCard() {
               <tbody>
                 {data.events.map((e) => (
                   <tr key={e.id}>
-                    <td style={td}>{EVENT_LABEL[e.eventName] ?? e.eventName}</td>
+                    <td style={td}>{metaEventLabel(e.eventName)}</td>
                     <td style={td}>
                       {e.dealTitle ?? "—"}
                       {e.contactName && <span style={{ color: "var(--muted)" }}> · {e.contactName}</span>}
@@ -105,6 +100,10 @@ export function MetaConversionsCard() {
                     <td style={td}>
                       {e.status === "sent" ? (
                         <span style={{ color: "var(--positive)" }}>Enviado</span>
+                      ) : e.status === "waiting" ? (
+                        <span style={{ color: "var(--muted)" }} title="Sale sola en cuanto pongas el valor de la oportunidad">
+                          Espera el valor
+                        </span>
                       ) : (
                         <span style={{ color: "#e08a8a" }} title={e.error ?? undefined}>
                           Falló{" "}

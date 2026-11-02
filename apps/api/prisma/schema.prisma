@@ -1515,8 +1515,8 @@ model ConversionEvent {
   dealId       String
   contactId    String
   connectionId String?
-  eventName    String // LeadSubmitted | Purchase
-  status       String // sent | failed
+  eventName    String // LeadSubmitted | Purchase | … (metaStandardEvents en @crm/shared)
+  status       String // sent | failed | waiting (compra que espera el valor de la oportunidad)
   value        Decimal?  @db.Decimal(12, 2)
   currency     String?
   error        String?

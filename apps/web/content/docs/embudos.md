@@ -33,7 +33,7 @@ Ejemplos: *Entrantes* → «Entra a la etapa → Bienvenida»; *Propuesta* → �
 
 ## Conversiones de Meta por etapa
 
-Si un chat vino de un **anuncio de Click to WhatsApp**, cada etapa puede avisar a Meta cuando la oportunidad llega a ella. Pulsa el **engranaje de la etapa** (en la cabecera de la columna del tablero, o en Ajustes › Embudos y etapas) y añade eventos en «Conversiones de Meta». Una etapa puede enviar varios eventos: `LeadSubmitted`, `Purchase` con el valor de la oportunidad, `Contact`, `Schedule`, o uno con nombre propio. Así Meta optimiza las campañas hacia quien de verdad compra. Se activa por número en **Ajustes › Integraciones**; el detalle está en [Meta Ads](/docs/meta-ads).
+Si un chat vino de un **anuncio de Click to WhatsApp**, cada etapa puede avisar a Meta cuando la oportunidad llega a ella. Pulsa el **engranaje de la etapa** (en la cabecera de la columna del tablero, o en Ajustes › Embudos y etapas) y añade eventos en «Conversiones de Meta». Una etapa puede enviar varios eventos; los habituales son **Lead interesado**, **Lead calificado** y **Compra** (con el valor de la oportunidad), y cada uno explica en el panel qué significa. Así Meta optimiza las campañas hacia quien de verdad compra. Al pasar a Ganada una oportunidad sin valor, el tablero pregunta cuánto fue la venta. Se activa por número en **Ajustes › Integraciones**; el detalle está en [Meta Ads](/docs/meta-ads).
 
 ## Agente de IA del embudo
 

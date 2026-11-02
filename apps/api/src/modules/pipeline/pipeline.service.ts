@@ -442,6 +442,10 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
       });
     this.changed(deal.id);
     if (before && before.ownerId !== deal.ownerId) this.ownerChanged(deal.id, deal.contactId, deal.ownerId);
+    // Las compras que esperaban el valor para avisar a Meta salen ahora (ConversionsService).
+    if (input.value !== undefined && Number(deal.value ?? 0) > 0) {
+      this.events.emit("deal.value_changed", { orgId: this.tenant.orgId(), dealId: deal.id });
+    }
     return this.toDealDto(deal);
   }
 

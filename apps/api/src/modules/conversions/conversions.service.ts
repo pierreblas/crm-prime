@@ -75,7 +75,7 @@ export class ConversionsService {
         (e): ConversionEventDto => ({
           id: e.id,
           eventName: e.eventName,
-          status: e.status === "sent" ? "sent" : "failed",
+          status: e.status === "sent" || e.status === "waiting" ? e.status : "failed",
           value: e.value == null ? null : Number(e.value),
           currency: e.currency,
           error: e.error,
@@ -137,6 +137,20 @@ export class ConversionsService {
     if (!e.orgId) return;
     try {
       await runInOrg(e.orgId, () => this.report(e.dealId, e.contactId, e.stageId));
+    } catch (err) {
+      this.logger.error(`Conversión de la oportunidad ${e.dealId}: ${(err as Error).message}`);
+    }
+  }
+
+  /** La oportunidad ya tiene valor: salen las compras que lo esperaban. */
+  @OnEvent("deal.value_changed", { async: true })
+  async onValue(e: { orgId: string | null; dealId: string }): Promise<void> {
+    if (!e.orgId) return;
+    try {
+      await runInOrg(e.orgId, async () => {
+        const waiting = await this.prisma.conversionEvent.findMany({ where: { dealId: e.dealId, status: "waiting" } });
+        for (const ev of waiting) await this.send(ev.dealId, ev.contactId, { eventName: ev.eventName, withValue: true });
+      });
     } catch (err) {
       this.logger.error(`Conversión de la oportunidad ${e.dealId}: ${(err as Error).message}`);
     }
@@ -219,6 +233,20 @@ export class ConversionsService {
       : null;
     const value = withValue ? Number(deal?.value ?? 0) : null;
     const currency = withValue ? (deal?.currency ?? "USD") : null;
+
+    // Una compra sin valor no se manda: Meta aprendería que vale 0 y, como sale
+    // una sola vez, ya no se corregiría. Queda esperando y sale en cuanto la
+    // oportunidad tenga valor (onValue).
+    if (eventName === "Purchase" && !(value! > 0)) {
+      const waiting = { status: "waiting", error: null, value: null, currency, connectionId: conn.id, sentAt: null };
+      await this.prisma.conversionEvent.upsert({
+        where: { dealId_eventName: { dealId, eventName } },
+        create: { orgId: this.tenant.orgId(), dealId, contactId, eventName, ...waiting },
+        update: waiting,
+      });
+      this.logger.log(`${eventName} espera el valor de la oportunidad ${dealId}`);
+      return;
+    }
     const payload = {
       data: [
         {
