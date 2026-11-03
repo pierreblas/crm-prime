@@ -138,6 +138,7 @@ import type {
   ImportProductsInput,
   ImportProductsResult,
   MetaPageDto,
+  MetaLeadFormsResult,
   MetaPagesAvailableResult,
   ConnectMetaPagesInput,
   UpdateMetaPageInput,
@@ -921,6 +922,13 @@ export async function updateMetaPage(
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar"));
+  return res.json();
+}
+
+/** Formularios de una página con su regla: si se importan y a qué etapa van. */
+export async function fetchMetaPageForms(id: string): Promise<MetaLeadFormsResult> {
+  const res = await bffFetch(`/api/bff/meta/pages/${id}/forms`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar los formularios"));
   return res.json();
 }
 

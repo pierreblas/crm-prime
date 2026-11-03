@@ -836,6 +836,12 @@ model MetaPage {
   sourceId          String? // fuente comercial que se asigna al contacto
   tagIds            Json? // etiquetas a aplicar
   createDeal        Boolean   @default(false)
+  // Etapa donde entra la oportunidad de sus leads (null = primera del embudo
+  // predeterminado). Sin FK: si se borra la etapa, se vuelve a esa.
+  dealStageId       String?
+  // Qué hacer con cada formulario: [{ formId, formName, enabled, stage }]
+  // (metaFormRuleSchema en @crm/shared). Sin regla, sigue a la página.
+  formRules         Json?
   welcomeTemplateId String? // plantilla de WhatsApp de bienvenida
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt

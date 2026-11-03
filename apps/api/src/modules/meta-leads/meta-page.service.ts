@@ -6,11 +6,15 @@ import {
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
-import type {
-  AvailableMetaPage,
-  MetaPageDto,
-  MetaPagesAvailableResult,
-  UpdateMetaPageInput,
+import {
+  parseMetaFormRules,
+  type AvailableMetaPage,
+  type MetaFormRule,
+  type MetaLeadFormDto,
+  type MetaLeadFormsResult,
+  type MetaPageDto,
+  type MetaPagesAvailableResult,
+  type UpdateMetaPageInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
@@ -127,6 +131,8 @@ export class MetaPageService {
         sourceId: p.sourceId,
         tagIds: Array.isArray(p.tagIds) ? (p.tagIds as string[]) : [],
         createDeal: p.createDeal,
+        dealStageId: p.dealStageId,
+        formRules: parseMetaFormRules(p.formRules),
         welcomeTemplateId: p.welcomeTemplateId,
         leadCount: mine.reduce((n, c) => n + c._count._all, 0),
         pendingCount:
@@ -158,6 +164,15 @@ export class MetaPageService {
         );
       }
     }
+    // Las etapas elegidas tienen que existir (la de la página y las de cada formulario).
+    const stageIds = [
+      ...(input.dealStageId ? [input.dealStageId] : []),
+      ...(input.formRules ?? []).map((r) => r.stage).filter((s) => s !== "page" && s !== "none"),
+    ];
+    if (stageIds.length) {
+      const found = await this.prisma.pipelineStage.count({ where: { id: { in: [...new Set(stageIds)] } } });
+      if (found !== new Set(stageIds).size) throw new BadRequestException("Esa etapa ya no existe");
+    }
 
     await this.prisma.metaPage.update({
       where: { id },
@@ -169,6 +184,10 @@ export class MetaPageService {
         ...(input.createDeal !== undefined
           ? { createDeal: input.createDeal }
           : {}),
+        ...(input.dealStageId !== undefined ? { dealStageId: input.dealStageId } : {}),
+        ...(input.formRules !== undefined
+          ? { formRules: input.formRules as unknown as Prisma.InputJsonValue }
+          : {}),
         ...(input.welcomeTemplateId !== undefined
           ? { welcomeTemplateId: input.welcomeTemplateId }
           : {}),
@@ -176,6 +195,56 @@ export class MetaPageService {
       },
     });
     return this.list();
+  }
+
+  /**
+   * Los formularios de la página, cada uno con su regla y los leads que trajo:
+   * los que Meta lista (si el permiso lo deja) más los que ya mandaron algún
+   * lead, que salen aunque Meta no deje listarlos o ya estén archivados.
+   */
+  async forms(id: string): Promise<MetaLeadFormsResult> {
+    const page = await this.prisma.metaPage.findUnique({ where: { id } });
+    if (!page) throw new NotFoundException("Página no encontrada");
+    const [fromMeta, seen] = await Promise.all([
+      this.graph.listForms(page.pageId, page.accessToken),
+      this.prisma.metaLead.groupBy({
+        by: ["formId", "formName"],
+        where: { pageId: page.pageId, formId: { not: null } },
+        _count: { _all: true },
+        _max: { createdAt: true },
+      }),
+    ]);
+    const rules = parseMetaFormRules(page.formRules);
+    const byId = new Map<string, MetaLeadFormDto>();
+    const ruleOf = (formId: string, formName: string): MetaFormRule =>
+      rules.find((r) => r.formId === formId) ?? { formId, formName, enabled: true, stage: "page" };
+
+    for (const f of fromMeta ?? []) {
+      byId.set(f.id, { ...ruleOf(f.id, f.name), formName: f.name, status: f.status, leadCount: 0, lastLeadAt: null });
+    }
+    for (const s of seen) {
+      const formId = s.formId!;
+      const prev = byId.get(formId);
+      const leadCount = (prev?.leadCount ?? 0) + s._count._all;
+      const last = s._max.createdAt?.toISOString() ?? null;
+      byId.set(formId, {
+        ...(prev ?? { ...ruleOf(formId, s.formName ?? formId), status: null }),
+        formName: prev?.formName ?? s.formName ?? formId,
+        leadCount,
+        lastLeadAt: [prev?.lastLeadAt, last].filter(Boolean).sort().at(-1) ?? null,
+      });
+    }
+    // Una regla de un formulario que ya no aparece por ningún lado se conserva igual.
+    for (const r of rules) if (!byId.has(r.formId)) byId.set(r.formId, { ...r, status: null, leadCount: 0, lastLeadAt: null });
+
+    // Primero los activos y los que traen leads; los archivados al final.
+    const forms = [...byId.values()].sort(
+      (a, b) =>
+        Number(a.status === "ARCHIVED") - Number(b.status === "ARCHIVED") ||
+        (b.lastLeadAt ?? "").localeCompare(a.lastLeadAt ?? "") ||
+        a.formName.localeCompare(b.formName, "es"),
+    );
+    return { forms, fromMeta: fromMeta !== null };
   }
 
   /** Reintenta la suscripción (p. ej. tras arreglar permisos en Meta). */

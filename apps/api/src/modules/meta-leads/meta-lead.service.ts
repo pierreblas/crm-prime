@@ -1,9 +1,11 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Prisma } from "@prisma/client";
 import {
   countryFromPhone,
   dialCodeOf,
   mapMetaLeadFields,
+  parseMetaFormRules,
   phoneWithDefaultCountry,
   MessageAuthor,
   type MetaLeadDto,
@@ -11,10 +13,27 @@ import {
   type MetaLeadStatusValue,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { runAsActor } from "../../infra/tenant/actor";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { LeadService } from "../leads/lead.service";
 import { MessagingService } from "../messaging/messaging.service";
+import { decideIntake } from "../pipeline/intake";
 import { MetaGraphClient } from "./meta-graph.client";
+
+/** Lo que el lead necesita de su página para decidir qué hacer. */
+type LeadPage = {
+  // Los leads llegan por webhook de Meta, sin petición del usuario detrás.
+  // La empresa sale de la página conectada, que es quien recibió el lead.
+  orgId: string;
+  pageId: string;
+  name: string;
+  sourceId: string | null;
+  tagIds: unknown;
+  createDeal: boolean;
+  dealStageId: string | null;
+  formRules: unknown;
+  welcomeTemplateId: string | null;
+};
 
 export interface LeadgenNotification {
   leadgenId: string;
@@ -38,7 +57,24 @@ export class MetaLeadService {
     private readonly graph: MetaGraphClient,
     private readonly leads: LeadService,
     private readonly messaging: MessagingService,
+    private readonly events: EventEmitter2,
   ) {}
+
+  /** La regla de ese formulario en la página, si la tiene. */
+  private ruleFor(page: LeadPage, formId: string | null | undefined) {
+    return formId ? parseMetaFormRules(page.formRules).find((r) => r.formId === formId) : undefined;
+  }
+
+  /**
+   * Dónde va la oportunidad del lead: la etapa elegida para su formulario, la
+   * de la página o ninguna. `stageId` null = primera del embudo predeterminado.
+   */
+  private dealTarget(page: LeadPage, formId: string | null | undefined): { stageId: string | null } | null {
+    const rule = this.ruleFor(page, formId);
+    if (rule?.stage === "none") return null;
+    if (rule && rule.stage !== "page") return { stageId: rule.stage };
+    return page.createDeal ? { stageId: page.dealStageId } : null;
+  }
 
   async processNotification(note: LeadgenNotification): Promise<void> {
     // Meta reintenta el webhook si tardamos: no dupliques el lead.
@@ -59,6 +95,11 @@ export class MetaLeadService {
       );
       return;
     }
+    // Formulario apagado en Ajustes: sus leads no entran.
+    if (this.ruleFor(page, note.formId)?.enabled === false) {
+      this.logger.log(`Lead ${note.leadgenId} del formulario ${note.formId}, desactivado: se ignora`);
+      return;
+    }
 
     let detail;
     try {
@@ -70,6 +111,12 @@ export class MetaLeadService {
         error: (e as Error).message.slice(0, 300),
       });
       throw e;
+    }
+
+    // El aviso de Meta puede no traer el formulario: con el del lead se mira otra vez.
+    if (!note.formId && this.ruleFor(page, detail.formId)?.enabled === false) {
+      this.logger.log(`Lead ${note.leadgenId} del formulario ${detail.formId}, desactivado: se ignora`);
+      return;
     }
 
     const mapped = mapMetaLeadFields(detail.fields);
@@ -92,7 +139,7 @@ export class MetaLeadService {
       return;
     }
 
-    const contactId = await this.createContact(page, mapped, formName, ad);
+    const contactId = await this.createContact(page, mapped, formName, ad, detail.formId ?? note.formId ?? null);
 
     await this.record(
       { ...note, formId: detail.formId ?? undefined },
@@ -107,20 +154,11 @@ export class MetaLeadService {
 
   /** Crea/actualiza el contacto y dispara las acciones de la página. */
   private async createContact(
-    page: {
-      // Los leads llegan por webhook de Meta, sin petición del usuario detrás.
-      // La empresa sale de la página conectada, que es quien recibió el lead.
-      orgId: string;
-      pageId: string;
-      name: string;
-      sourceId: string | null;
-      tagIds: unknown;
-      createDeal: boolean;
-      welcomeTemplateId: string | null;
-    },
+    page: LeadPage,
     mapped: ReturnType<typeof mapMetaLeadFields>,
     formName: string | null,
     ad: { adName: string | null; campaignName: string | null } = { adName: null, campaignName: null },
+    formId: string | null = null,
   ): Promise<string> {
     const source = page.sourceId
       ? await this.prisma.source.findUnique({ where: { id: page.sourceId } })
@@ -148,11 +186,12 @@ export class MetaLeadService {
         integration: `Meta · ${page.name}`,
       },
       `Meta Lead Ads · ${page.name}`,
-      { via: "meta", formName },
+      { via: "meta", formName, formId },
     );
 
-    if (page.createDeal) {
-      await this.createDeal(page.orgId, contactId, mapped.name, formName);
+    const target = this.dealTarget(page, formId);
+    if (target) {
+      await runAsActor("system:meta", () => this.createDeal(page.orgId, contactId, mapped.name, formName, target.stageId));
     }
     if (page.welcomeTemplateId) {
       await this.sendWelcome(page.orgId, contactId, page.welcomeTemplateId);
@@ -172,36 +211,64 @@ export class MetaLeadService {
     return country ? dialCodeOf(country.code) : null;
   }
 
-  /** Oportunidad en la primera etapa del pipeline. */
+  /**
+   * Oportunidad en la etapa elegida (sin ella o si ya no existe, la primera
+   * del embudo predeterminado). Como la entrada desde WhatsApp: si el cliente
+   * ya tiene una en curso no se duplica, y una descartada por inactividad en
+   * ese embudo vuelve. Avisa del cambio de etapa para que corran sus
+   * automatizaciones, conversiones y flujos.
+   */
   private async createDeal(
     orgId: string,
     contactId: string,
     name: string | null,
     formName: string | null,
+    stageId: string | null,
   ): Promise<void> {
-    // Primera etapa del embudo predeterminado.
-    const stage = await this.prisma.pipelineStage.findFirst({
-      where: { pipeline: { isDefault: true } },
-      orderBy: { order: "asc" },
-    });
+    const select = { id: true, pipelineId: true } as const;
+    const stage =
+      (stageId ? await this.prisma.pipelineStage.findUnique({ where: { id: stageId }, select }) : null) ??
+      (await this.prisma.pipelineStage.findFirst({ where: { pipeline: { isDefault: true } }, orderBy: { order: "asc" }, select }));
     if (!stage) {
       this.logger.warn("No hay etapas en el pipeline: no se creó la oportunidad");
       return;
     }
-    await this.prisma.deal
-      .create({
-        data: {
-          orgId,
-          contactId,
-          stageId: stage.id,
-          title: formName
-            ? `${name ?? "Lead"} · ${formName}`
-            : (name ?? "Lead de Meta"),
-        },
-      })
-      .catch((e: Error) =>
-        this.logger.warn(`No se pudo crear la oportunidad: ${e.message}`),
-      );
+
+    const last = await this.prisma.deal.findFirst({
+      where: { contactId },
+      orderBy: { createdAt: "desc" },
+      include: { stage: { select: { isWon: true, isLost: true, pipelineId: true } } },
+    });
+    const decision = decideIntake(last, stage.pipelineId);
+    if (decision === "skip") {
+      this.logger.log(`El contacto ${contactId} ya tiene una oportunidad en curso: no se crea otra`);
+      return;
+    }
+
+    try {
+      const dealId =
+        decision === "restore" && last
+          ? (
+              await this.prisma.deal.update({
+                where: { id: last.id },
+                data: { discardedAt: null, discardReason: null, stageId: stage.id },
+              })
+            ).id
+          : (
+              await this.prisma.deal.create({
+                data: {
+                  orgId,
+                  contactId,
+                  stageId: stage.id,
+                  title: formName ? `${name ?? "Lead"} · ${formName}` : (name ?? "Lead de Meta"),
+                },
+              })
+            ).id;
+      this.events.emit("deal.stage_changed", { orgId, dealId, contactId, stageId: stage.id });
+      this.events.emit("pipeline.changed", { orgId, dealId });
+    } catch (e) {
+      this.logger.warn(`No se pudo crear la oportunidad: ${(e as Error).message}`);
+    }
   }
 
   /**
@@ -325,10 +392,13 @@ export class MetaLeadService {
     const fields = (lead.fieldData as MetaLeadField[] | null) ?? [];
     const mapped = { ...mapMetaLeadFields(fields), phone };
 
-    const contactId = await this.createContact(lead.page, mapped, lead.formName, {
-      adName: lead.adName,
-      campaignName: lead.campaignName,
-    });
+    const contactId = await this.createContact(
+      lead.page,
+      mapped,
+      lead.formName,
+      { adName: lead.adName, campaignName: lead.campaignName },
+      lead.formId,
+    );
 
     await this.prisma.metaLead.update({
       where: { id },

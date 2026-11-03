@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AvailableMetaPage,
+  MetaFormRule,
   MetaLeadDto,
+  MetaLeadFormDto,
   MetaPageDto,
+  StageRef,
   TemplateDto,
 } from "@crm/shared";
 import {
@@ -15,8 +18,10 @@ import {
   discardMetaLead,
   fetchAvailableMetaPages,
   fetchMetaLeads,
+  fetchMetaPageForms,
   fetchMetaPages,
   fetchSources,
+  fetchStages,
   fetchTags,
   fetchTemplates,
   resubscribeMetaPage,
@@ -84,10 +89,12 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
     queryKey: ["templates"],
     queryFn: fetchTemplates,
   });
+  const { data: stages = [] } = useQuery({ queryKey: ["stages"], queryFn: fetchStages });
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["meta-pages"] });
     queryClient.invalidateQueries({ queryKey: ["meta-leads"] });
+    queryClient.invalidateQueries({ queryKey: ["meta-forms"] });
   };
 
   // SDK de Facebook (el mismo que usa la conexión de WhatsApp). En SaaS no: ver `hub`.
@@ -212,6 +219,7 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
           sources={sources}
           tags={tags}
           templates={templates}
+          stages={stages}
           onChanged={refresh}
         />
       ))}
@@ -331,17 +339,46 @@ function PagePicker({
   );
 }
 
+/** Etapas agrupadas por embudo, para los selectores de «a qué etapa». */
+function StageOptions({ stages }: { stages: StageRef[] }) {
+  const pipelines = [...new Set(stages.map((s) => s.pipelineName))];
+  return (
+    <>
+      {pipelines.map((p) => (
+        <optgroup key={p} label={p}>
+          {stages
+            .filter((s) => s.pipelineName === p)
+            .map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+        </optgroup>
+      ))}
+    </>
+  );
+}
+
+/** Lo que hace la página con sus leads, en palabras: «Nuevo (Ventas)», «sin oportunidad». */
+function pageTarget(page: MetaPageDto, stages: StageRef[]): string {
+  if (!page.createDeal) return "sin oportunidad";
+  const s = stages.find((x) => x.id === page.dealStageId);
+  return s ? `${s.name} · ${s.pipelineName}` : "primera etapa";
+}
+
 function PageRow({
   page,
   sources,
   tags,
   templates,
+  stages,
   onChanged,
 }: {
   page: MetaPageDto;
   sources: { id: string; name: string }[];
   tags: { id: string; name: string }[];
   templates: TemplateDto[];
+  stages: StageRef[];
   onChanged: () => void;
 }) {
   const save = useMutation({
@@ -365,6 +402,12 @@ function PageRow({
   });
 
   const approved = templates.filter((t) => t.status === "APPROVED");
+  // «none» = sin oportunidad; «default» = primera etapa del embudo predeterminado.
+  const dealValue = !page.createDeal
+    ? "none"
+    : page.dealStageId && stages.some((s) => s.id === page.dealStageId)
+      ? page.dealStageId
+      : "default";
 
   return (
     <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -443,16 +486,28 @@ function PageRow({
         </label>
       </div>
 
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}>
-          <input
-            type="checkbox"
-            checked={page.createDeal}
-            onChange={(e) => save.mutate({ createDeal: e.target.checked })}
-          />
-          Crear una oportunidad en el pipeline
-        </label>
-      </div>
+      <label>
+        <div style={label}>Oportunidad para sus leads</div>
+        <select
+          style={input}
+          value={dealValue}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === "none") save.mutate({ createDeal: false });
+            else save.mutate({ createDeal: true, dealStageId: v === "default" ? null : v });
+          }}
+          data-page-stage
+        >
+          <option value="none">No crear oportunidad</option>
+          <option value="default">Primera etapa del embudo predeterminado</option>
+          <StageOptions stages={stages} />
+        </select>
+        <div style={{ ...muted, fontSize: 12, marginTop: 4 }}>
+          Si el cliente ya tiene una oportunidad en curso, no se crea otra. Cada formulario puede ir a otra etapa (abajo).
+        </div>
+      </label>
+
+      <PageForms page={page} stages={stages} saving={save.isPending} onSave={(formRules) => save.mutate({ formRules })} />
 
       <div>
         <div style={label}>Etiquetas para estos contactos</div>
@@ -488,6 +543,86 @@ function PageRow({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Los formularios de la página: si sus leads entran y a qué etapa va cada
+ * uno. Sin tocar, siguen a la página. Si Meta no deja listarlos (falta un
+ * permiso), salen los que ya mandaron algún lead.
+ */
+function PageForms({
+  page,
+  stages,
+  saving,
+  onSave,
+}: {
+  page: MetaPageDto;
+  stages: StageRef[];
+  saving: boolean;
+  onSave: (rules: MetaFormRule[]) => void;
+}) {
+  const { data, isPending } = useQuery({
+    queryKey: ["meta-forms", page.id],
+    queryFn: () => fetchMetaPageForms(page.id),
+  });
+  const forms = data?.forms ?? [];
+  const setRule = (f: MetaLeadFormDto, patch: Partial<MetaFormRule>) =>
+    onSave([
+      ...page.formRules.filter((r) => r.formId !== f.formId),
+      { formId: f.formId, formName: f.formName, enabled: f.enabled, stage: f.stage, ...patch },
+    ]);
+  const known = (stage: string) => stage === "page" || stage === "none" || stages.some((s) => s.id === stage);
+
+  return (
+    <section data-meta-forms={page.id}>
+      <div style={label}>Formularios</div>
+      {isPending && <p style={{ ...muted, margin: 0 }}>Cargando formularios…</p>}
+      {!isPending && forms.length === 0 && (
+        <p style={{ ...muted, fontSize: 13, margin: 0 }}>
+          {data?.fromMeta
+            ? "Esta página aún no tiene formularios de clientes potenciales."
+            : "Aparecerán aquí cuando llegue el primer lead de cada formulario. Mientras, entran como indica la página."}
+        </p>
+      )}
+      {forms.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {forms.map((f) => (
+            <div key={f.formId} style={formRow} data-meta-form={f.formId}>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", flex: "1 1 220px", minWidth: 0, cursor: "pointer" }} title={f.enabled ? "Sus leads entran al CRM" : "Sus leads se ignoran"}>
+                <input type="checkbox" checked={f.enabled} disabled={saving} onChange={(e) => setRule(f, { enabled: e.target.checked })} aria-label={`Importar ${f.formName}`} />
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: f.enabled ? "var(--text)" : "var(--muted)" }}>
+                    {f.formName}
+                    {f.status === "ARCHIVED" && <span style={{ ...pill("#3a3f4a"), marginLeft: 6 }}>Archivado</span>}
+                  </span>
+                  <span style={{ ...muted, fontSize: 12 }}>
+                    {f.leadCount ? `${f.leadCount} lead${f.leadCount === 1 ? "" : "s"}` : "Sin leads aún"}
+                    {f.lastLeadAt ? ` · último ${new Date(f.lastLeadAt).toLocaleDateString("es", { day: "numeric", month: "short" })}` : ""}
+                  </span>
+                </span>
+              </label>
+              <select
+                style={{ ...input, width: 260, flex: "0 1 260px" }}
+                value={known(f.stage) ? f.stage : "page"}
+                disabled={!f.enabled || saving}
+                onChange={(e) => setRule(f, { stage: e.target.value })}
+                aria-label={`Etapa de ${f.formName}`}
+              >
+                <option value="page">Como la página ({pageTarget(page, stages)})</option>
+                <option value="none">No crear oportunidad</option>
+                <StageOptions stages={stages} />
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
+      {!isPending && data && !data.fromMeta && forms.length > 0 && (
+        <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>
+          Meta no deja listar los formularios con los permisos actuales: aquí salen los que ya mandaron algún lead. Uno nuevo entra como indica la página.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -576,6 +711,16 @@ const empty: React.CSSProperties = {
   padding: "28px 24px",
   border: "1px dashed var(--border)",
   borderRadius: 12,
+};
+
+const formRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  flexWrap: "wrap",
+  padding: "8px 10px",
+  border: "1px solid var(--border)",
+  borderRadius: 9,
 };
 
 const grid: React.CSSProperties = {

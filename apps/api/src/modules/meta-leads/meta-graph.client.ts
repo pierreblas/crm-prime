@@ -235,6 +235,29 @@ export class MetaGraphClient {
     }
   }
 
+  /**
+   * Los formularios de la página. Meta puede negarlo según los permisos del
+   * token (pide pages_manage_ads): null entonces, sin error, y el CRM se
+   * queda con los formularios de los que ya llegó algún lead.
+   */
+  async listForms(
+    pageId: string,
+    pageToken: string,
+  ): Promise<{ id: string; name: string; status: string | null }[] | null> {
+    try {
+      const { graphVersion } = await this.requireApp();
+      const res = await fetch(
+        `${this.baseUrl}/${graphVersion}/${pageId}/leadgen_forms` +
+          `?fields=id,name,status&limit=200&access_token=${encodeURIComponent(pageToken)}`,
+      );
+      if (!res.ok) return null;
+      const data = (await res.json()) as { data?: { id: string; name?: string; status?: string }[] };
+      return (data.data ?? []).map((f) => ({ id: f.id, name: f.name ?? f.id, status: f.status ?? null }));
+    } catch {
+      return null;
+    }
+  }
+
   private async getJson<T>(url: string, what: string): Promise<T> {
     const res = await fetch(url);
     const data = (await res.json().catch(() => null)) as

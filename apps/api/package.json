@@ -42,7 +42,8 @@
     "test:history": "tsx --test test/history-webhook.test.ts",
     "test:flowtriggers": "tsx --test test/flow-triggers.test.ts",
     "test:wausers": "tsx --test test/wa-usernames.test.ts",
-    "test:order": "tsx --test test/inbound-order.test.ts"
+    "test:order": "tsx --test test/inbound-order.test.ts",
+    "test:metaforms": "tsx --test test/meta-lead-forms.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

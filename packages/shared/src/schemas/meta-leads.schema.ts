@@ -5,6 +5,29 @@ import { phoneField } from "./contact.schema.js";
 // El token de cada página NUNCA sale de la API: el navegador solo ve ids y
 // nombres.
 
+/**
+ * Regla de un formulario de la página:
+ *  - enabled: si sus leads entran (apagado, se ignoran);
+ *  - stage: "page" = la etapa de la página; "none" = sin oportunidad; o el id
+ *    de una etapa concreta (de cualquier embudo).
+ */
+export const metaFormRuleSchema = z.object({
+  formId: z.string().min(1).max(64),
+  formName: z.string().max(200).default(""),
+  enabled: z.boolean().default(true),
+  stage: z.string().min(1).max(64).default("page"),
+});
+export type MetaFormRule = z.infer<typeof metaFormRuleSchema>;
+
+/** Lee las reglas guardadas (JSON libre) sin fiarse del formato: lo irreconocible se salta. */
+export function parseMetaFormRules(raw: unknown): MetaFormRule[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((r) => {
+    const p = metaFormRuleSchema.safeParse(r);
+    return p.success ? [p.data] : [];
+  });
+}
+
 export const metaPageDtoSchema = z.object({
   id: z.string(),
   pageId: z.string(),
@@ -15,12 +38,35 @@ export const metaPageDtoSchema = z.object({
   sourceId: z.string().nullable(),
   tagIds: z.array(z.string()),
   createDeal: z.boolean(),
+  /** Etapa donde entra la oportunidad de sus leads. Null = primera del embudo predeterminado. */
+  dealStageId: z.string().nullable(),
+  /** Qué hacer con cada formulario (los que no están aquí siguen a la página). */
+  formRules: z.array(metaFormRuleSchema),
   welcomeTemplateId: z.string().nullable(),
   leadCount: z.number(),
   pendingCount: z.number(),
   createdAt: z.string(),
 });
 export type MetaPageDto = z.infer<typeof metaPageDtoSchema>;
+
+/** Un formulario de la página, con su regla y cuántos leads trajo. */
+export const metaLeadFormSchema = metaFormRuleSchema.extend({
+  /** Estado en Meta (ACTIVE, ARCHIVED…), si Meta deja listarlos. */
+  status: z.string().nullable(),
+  leadCount: z.number(),
+  lastLeadAt: z.string().nullable(),
+});
+export type MetaLeadFormDto = z.infer<typeof metaLeadFormSchema>;
+
+export const metaLeadFormsResultSchema = z.object({
+  forms: z.array(metaLeadFormSchema),
+  /**
+   * false = Meta no dejó listar los formularios de la página (falta un
+   * permiso): solo salen los que ya trajeron algún lead.
+   */
+  fromMeta: z.boolean(),
+});
+export type MetaLeadFormsResult = z.infer<typeof metaLeadFormsResultSchema>;
 
 /** Página que devuelve Facebook al iniciar sesión, antes de conectarla. */
 export const availableMetaPageSchema = z.object({
@@ -59,6 +105,9 @@ export const updateMetaPageSchema = z.object({
   sourceId: z.string().nullable().optional(),
   tagIds: z.array(z.string()).optional(),
   createDeal: z.boolean().optional(),
+  dealStageId: z.string().nullable().optional(),
+  /** La lista entera de reglas por formulario (reemplaza la anterior). */
+  formRules: z.array(metaFormRuleSchema).max(300).optional(),
   welcomeTemplateId: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
 });

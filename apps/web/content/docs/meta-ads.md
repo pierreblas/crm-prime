@@ -36,7 +36,12 @@ Los formularios de clientes potenciales de Facebook e Instagram entran al CRM en
 
 1. **Ajustes › Canales › Formularios de Facebook → Conectar con Facebook**: autoriza con la cuenta que administra la página.
 2. Elige la **fuente** que reciben esos leads y, si quieres, una **plantilla de bienvenida**: como el lead no te ha escrito, la ventana de 24 horas está cerrada y solo una plantilla aprobada puede abrir la conversación.
-3. Cada lead crea (o actualiza) el contacto con las respuestas del formulario y una oportunidad en la primera etapa del embudo predeterminado.
+3. En **Oportunidad para sus leads** elige en qué etapa (de cualquier embudo) entra la oportunidad de cada lead, o «No crear oportunidad».
+4. En **Formularios**, cada formulario de la página puede ir a su propia etapa («Inscripción a cursos» a *Inscritos*, «Promo» a *Nuevo*) o no importarse (desmarcado, sus leads se ignoran). Los que no toques siguen lo de la página.
+
+Cada lead crea (o actualiza) el contacto con las respuestas del formulario. Si el cliente ya tiene una oportunidad en curso no se crea otra; si estaba ganada o perdida, se abre una nueva. Al entrar en la etapa corren sus automatizaciones y sus conversiones de Meta, como si la hubieras movido tú.
+
+La lista de formularios la da Meta cuando los permisos de la página lo permiten. Si no, aparecen los formularios de los que ya llegó algún lead, y uno nuevo entra como indique la página hasta que lo configures.
 
 Con cada lead se guardan el **formulario** y, si Meta los da con el permiso de tu página, el **anuncio** y la **campaña**. En **Ajustes › Canales › Formularios de Facebook** ves cada lead recibido y si se procesó bien.
 

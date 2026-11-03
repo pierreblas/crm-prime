@@ -71,6 +71,12 @@ export class MetaLeadsController {
     return this.pages.update(id, body);
   }
 
+  /** Formularios de la página con su regla (importar y a qué etapa). */
+  @Get("pages/:id/forms")
+  forms(@Param("id") id: string) {
+    return this.pages.forms(id);
+  }
+
   @Post("pages/:id/resubscribe")
   resubscribe(@Param("id") id: string) {
     return this.pages.resubscribe(id);
