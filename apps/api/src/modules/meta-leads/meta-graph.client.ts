@@ -8,6 +8,7 @@ import { i18n } from "../../i18n/i18n";
 //   /me/accounts    -> páginas del usuario, con su token de página
 //   /{page}/subscribed_apps?subscribed_fields=leadgen
 //   /{leadgen_id}   -> respuestas del formulario
+//   /{form_id}?fields=questions -> preguntas del formulario
 //
 // META_GRAPH_URL permite apuntar a un servidor de pruebas; por defecto va a
 // graph.facebook.com.
@@ -253,6 +254,24 @@ export class MetaGraphClient {
       if (!res.ok) return null;
       const data = (await res.json()) as { data?: { id: string; name?: string; status?: string }[] };
       return (data.data ?? []).map((f) => ({ id: f.id, name: f.name ?? f.id, status: f.status ?? null }));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Las preguntas del formulario (clave con la que llegan en los leads y su
+   * texto). Como listForms: null si Meta no lo deja con este token.
+   */
+  async getFormQuestions(formId: string, pageToken: string): Promise<{ key: string; label: string }[] | null> {
+    try {
+      const { graphVersion } = await this.requireApp();
+      const res = await fetch(
+        `${this.baseUrl}/${graphVersion}/${formId}?fields=questions&access_token=${encodeURIComponent(pageToken)}`,
+      );
+      if (!res.ok) return null;
+      const data = (await res.json()) as { questions?: { key?: string; label?: string }[] };
+      return (data.questions ?? []).filter((q) => q.key).map((q) => ({ key: q.key!, label: q.label || q.key! }));
     } catch {
       return null;
     }

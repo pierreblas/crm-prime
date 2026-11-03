@@ -839,8 +839,9 @@ model MetaPage {
   // Etapa donde entra la oportunidad de sus leads (null = primera del embudo
   // predeterminado). Sin FK: si se borra la etapa, se vuelve a esa.
   dealStageId       String?
-  // Qué hacer con cada formulario: [{ formId, formName, enabled, stage }]
-  // (metaFormRuleSchema en @crm/shared). Sin regla, sigue a la página.
+  // Qué hacer con cada formulario: [{ formId, formName, enabled, stage,
+  // source, tagIds, fieldMap }] (metaFormRuleSchema en @crm/shared). Sin
+  // regla, sigue a la página.
   formRules         Json?
   welcomeTemplateId String? // plantilla de WhatsApp de bienvenida
   createdAt         DateTime  @default(now())

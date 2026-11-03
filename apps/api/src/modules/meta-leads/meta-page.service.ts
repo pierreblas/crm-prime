@@ -7,9 +7,13 @@ import {
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import {
+  defaultMetaFormRule,
   parseMetaFormRules,
   type AvailableMetaPage,
+  type MetaFormQuestion,
+  type MetaFormQuestionsResult,
   type MetaFormRule,
+  type MetaLeadField,
   type MetaLeadFormDto,
   type MetaLeadFormsResult,
   type MetaPageDto,
@@ -19,6 +23,35 @@ import {
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { MetaGraphClient, type MetaPageAccount } from "./meta-graph.client";
+
+// Preguntas estándar de Meta, por su clave en los leads.
+const STANDARD_QUESTIONS: Record<string, string> = {
+  full_name: "Nombre completo",
+  first_name: "Nombre",
+  last_name: "Apellido",
+  email: "Email",
+  phone_number: "Teléfono",
+  city: "Ciudad",
+  state: "Estado o región",
+  province: "Provincia",
+  country: "País",
+  zip_code: "Código postal",
+  post_code: "Código postal",
+  street_address: "Dirección",
+  date_of_birth: "Fecha de nacimiento",
+  gender: "Género",
+  job_title: "Cargo",
+  company_name: "Empresa",
+  work_email: "Email del trabajo",
+  work_phone_number: "Teléfono del trabajo",
+};
+
+/** Texto de una pregunta de la que solo se conoce la clave («¿qué_curso?» → «¿Qué curso?»). */
+function questionLabel(key: string): string {
+  const text = STANDARD_QUESTIONS[key] ?? key.replace(/_/g, " ").trim();
+  const first = text.search(/\p{L}/u);
+  return first < 0 ? text : text.slice(0, first) + text[first]!.toUpperCase() + text.slice(first + 1);
+}
 
 /** El token de usuario solo vive unos minutos, entre elegir páginas y guardar. */
 const SESSION_TTL_MS = 10 * 60 * 1000;
@@ -146,12 +179,15 @@ export class MetaPageService {
     const existing = await this.prisma.metaPage.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException("Página no encontrada");
 
-    // Sin esto, un id inexistente sale como un error opaco de la base.
-    if (input.sourceId) {
-      const source = await this.prisma.source.findUnique({
-        where: { id: input.sourceId },
-      });
-      if (!source) throw new BadRequestException("Esa fuente ya no existe");
+    // Sin esto, un id inexistente sale como un error opaco de la base. Las
+    // fuentes elegidas tienen que existir (la de la página y las de cada formulario).
+    const sourceIds = [
+      ...(input.sourceId ? [input.sourceId] : []),
+      ...(input.formRules ?? []).map((r) => r.source).filter((s) => s !== "page" && s !== "auto"),
+    ];
+    if (sourceIds.length) {
+      const found = await this.prisma.source.count({ where: { id: { in: [...new Set(sourceIds)] } } });
+      if (found !== new Set(sourceIds).size) throw new BadRequestException("Esa fuente ya no existe");
     }
     if (input.welcomeTemplateId) {
       const template = await this.prisma.template.findUnique({
@@ -217,7 +253,7 @@ export class MetaPageService {
     const rules = parseMetaFormRules(page.formRules);
     const byId = new Map<string, MetaLeadFormDto>();
     const ruleOf = (formId: string, formName: string): MetaFormRule =>
-      rules.find((r) => r.formId === formId) ?? { formId, formName, enabled: true, stage: "page" };
+      rules.find((r) => r.formId === formId) ?? defaultMetaFormRule(formId, formName);
 
     for (const f of fromMeta ?? []) {
       byId.set(f.id, { ...ruleOf(f.id, f.name), formName: f.name, status: f.status, leadCount: 0, lastLeadAt: null });
@@ -245,6 +281,37 @@ export class MetaPageService {
         a.formName.localeCompare(b.formName, "es"),
     );
     return { forms, fromMeta: fromMeta !== null };
+  }
+
+  /**
+   * Las preguntas de un formulario, para elegir a dónde va cada respuesta: las
+   * que da Meta (si el permiso lo deja) más las que llegaron en los últimos
+   * leads, con la última respuesta de ejemplo.
+   */
+  async questions(id: string, formId: string): Promise<MetaFormQuestionsResult> {
+    // Va dentro de la URL de la Graph API: solo un id de Meta (números).
+    if (!/^\d{1,30}$/.test(formId)) throw new BadRequestException("Formulario no válido");
+    const page = await this.prisma.metaPage.findUnique({ where: { id } });
+    if (!page) throw new NotFoundException("Página no encontrada");
+    const [fromMeta, recent] = await Promise.all([
+      this.graph.getFormQuestions(formId, page.accessToken),
+      this.prisma.metaLead.findMany({
+        where: { pageId: page.pageId, formId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { fieldData: true },
+      }),
+    ]);
+    const sample = new Map<string, string>();
+    for (const lead of recent) {
+      for (const f of (lead.fieldData as MetaLeadField[] | null) ?? []) {
+        if (f.value?.trim() && !sample.has(f.name)) sample.set(f.name, f.value.trim().slice(0, 80));
+      }
+    }
+    const byKey = new Map<string, MetaFormQuestion>();
+    for (const q of fromMeta ?? []) byKey.set(q.key, { key: q.key, label: q.label, sample: sample.get(q.key) ?? null });
+    for (const [key, value] of sample) if (!byKey.has(key)) byKey.set(key, { key, label: questionLabel(key), sample: value });
+    return { questions: [...byKey.values()], fromMeta: fromMeta !== null };
   }
 
   /** Reintenta la suscripción (p. ej. tras arreglar permisos en Meta). */

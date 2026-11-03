@@ -35,13 +35,17 @@ Lo que Meta envía y lo que no:
 Los formularios de clientes potenciales de Facebook e Instagram entran al CRM en el momento en que alguien los envía:
 
 1. **Ajustes › Canales › Formularios de Facebook → Conectar con Facebook**: autoriza con la cuenta que administra la página.
-2. Elige la **fuente** que reciben esos leads y, si quieres, una **plantilla de bienvenida**: como el lead no te ha escrito, la ventana de 24 horas está cerrada y solo una plantilla aprobada puede abrir la conversación.
+2. La **fuente** de esos leads es, si no eliges otra, **Formulario de Facebook** (se crea sola con el primer lead, también para los de Instagram). Si quieres, añade una **plantilla de bienvenida**: como el lead no te ha escrito, la ventana de 24 horas está cerrada y solo una plantilla aprobada puede abrir la conversación.
 3. En **Oportunidad para sus leads** elige en qué etapa (de cualquier embudo) entra la oportunidad de cada lead, o «No crear oportunidad».
 4. En **Formularios**, cada formulario de la página puede ir a su propia etapa («Inscripción a cursos» a *Inscritos*, «Promo» a *Nuevo*) o no importarse (desmarcado, sus leads se ignoran). Los que no toques siguen lo de la página.
+5. En **Ajustes** de cada formulario:
+   - **Fuente**: la de la página, la automática u otra («Inscripción a cursos» con la fuente *Cursos*).
+   - **Etiquetas**: se suman a las de la página.
+   - **Campos**: a dónde va cada respuesta. Elige *Nombre*, *Teléfono*, *Email*, uno de tus campos o *No guardar*; *Crear campo* crea uno con el texto de la pregunta. Sin elegir, cada respuesta va sola por el nombre de la pregunta: las estándar de Meta (nombre, teléfono, correo) a su sitio y el resto a un campo con ese nombre, si lo tienes; si no, se guarda pero no sale en la ficha. Si el formulario pide el WhatsApp con una pregunta propia, llévala a *Teléfono*: sin teléfono, el lead se queda pendiente.
 
 Cada lead crea (o actualiza) el contacto con las respuestas del formulario. Si el cliente ya tiene una oportunidad en curso no se crea otra; si estaba ganada o perdida, se abre una nueva. Al entrar en la etapa corren sus automatizaciones y sus conversiones de Meta, como si la hubieras movido tú.
 
-La lista de formularios la da Meta cuando los permisos de la página lo permiten. Si no, aparecen los formularios de los que ya llegó algún lead, y uno nuevo entra como indique la página hasta que lo configures.
+La lista de formularios y sus preguntas las da Meta cuando los permisos de la página lo permiten. Si no, aparecen los formularios de los que ya llegó algún lead, con las preguntas de esos leads, y uno nuevo entra como indique la página hasta que lo configures.
 
 Con cada lead se guardan el **formulario** y, si Meta los da con el permiso de tu página, el **anuncio** y la **campaña**. En **Ajustes › Canales › Formularios de Facebook** ves cada lead recibido y si se procesó bien.
 
@@ -50,6 +54,7 @@ Con cada lead se guardan el **formulario** y, si Meta los da con el permiso de t
 Muchos formularios terminan con un botón para escribir por WhatsApp. Meta no une el formulario con el chat: la unión es el **teléfono**. Driony lo hace solo:
 
 - Si el formulario trae el número **sin prefijo de país**, se le pone el del número de WhatsApp de tu empresa.
+- Si escribe por WhatsApp **antes** de que llegue el lead, el contacto pasa de la fuente «WhatsApp» a «Formulario de Facebook». Una fuente que hayas puesto a mano no se toca.
 - **México y Argentina**: WhatsApp identifica esos móviles con «+52 1» y «+54 9», y los formularios suelen traerlos sin ese dígito. Driony los reconoce como el mismo número: el chat cae en el contacto del lead, que pasa a tener el número de WhatsApp.
 
 En el chat, **Detalles › Origen** muestra el formulario que llenó (con su campaña y anuncio si los hay), y el agente de IA sabe que ya dejó sus datos para no volver a pedírselos.

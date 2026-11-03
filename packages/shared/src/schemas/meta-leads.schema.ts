@@ -5,19 +5,46 @@ import { phoneField } from "./contact.schema.js";
 // El token de cada página NUNCA sale de la API: el navegador solo ve ids y
 // nombres.
 
+/** Fuente automática de los leads de formularios cuando la página no elige otra. */
+export const META_FORM_SOURCE_NAME = "Formulario de Facebook";
+
+/**
+ * A dónde va la respuesta de una pregunta del formulario:
+ *  - "std:name" | "std:phone" | "std:email": nombre, teléfono o correo del contacto
+ *    (varias preguntas al nombre se juntan: «Nombres» + «Apellidos»);
+ *  - "field:<clave>": ese campo personalizado;
+ *  - "skip": no se guarda.
+ */
+export const metaFieldTargetSchema = z
+  .string()
+  .regex(/^(std:(name|phone|email)|skip|field:[a-z][a-z0-9_]{0,39})$/, "Destino de campo no válido");
+
 /**
  * Regla de un formulario de la página:
  *  - enabled: si sus leads entran (apagado, se ignoran);
  *  - stage: "page" = la etapa de la página; "none" = sin oportunidad; o el id
- *    de una etapa concreta (de cualquier embudo).
+ *    de una etapa concreta (de cualquier embudo);
+ *  - source: "page" = la fuente de la página; "auto" = «Formulario de
+ *    Facebook»; o el id de una fuente;
+ *  - tagIds: etiquetas que se suman a las de la página;
+ *  - fieldMap: a dónde va cada pregunta, por su clave en Meta. Las que no
+ *    están se reparten solas por su nombre (mapMetaLeadFields).
  */
 export const metaFormRuleSchema = z.object({
   formId: z.string().min(1).max(64),
   formName: z.string().max(200).default(""),
   enabled: z.boolean().default(true),
   stage: z.string().min(1).max(64).default("page"),
+  source: z.string().min(1).max(64).default("page"),
+  tagIds: z.array(z.string().max(64)).max(50).default([]),
+  fieldMap: z.record(z.string().max(200), metaFieldTargetSchema).default({}),
 });
 export type MetaFormRule = z.infer<typeof metaFormRuleSchema>;
+
+/** La regla de un formulario sin tocar: entra, y todo como la página. */
+export function defaultMetaFormRule(formId: string, formName: string): MetaFormRule {
+  return metaFormRuleSchema.parse({ formId, formName });
+}
 
 /** Lee las reglas guardadas (JSON libre) sin fiarse del formato: lo irreconocible se salta. */
 export function parseMetaFormRules(raw: unknown): MetaFormRule[] {
@@ -35,6 +62,7 @@ export const metaPageDtoSchema = z.object({
   isActive: z.boolean(),
   /** Cuándo se suscribió a los avisos de leads. Null = sin suscribir. */
   subscribedAt: z.string().nullable(),
+  /** Fuente de sus leads. Null = la automática «Formulario de Facebook». */
   sourceId: z.string().nullable(),
   tagIds: z.array(z.string()),
   createDeal: z.boolean(),
@@ -67,6 +95,23 @@ export const metaLeadFormsResultSchema = z.object({
   fromMeta: z.boolean(),
 });
 export type MetaLeadFormsResult = z.infer<typeof metaLeadFormsResultSchema>;
+
+/** Una pregunta del formulario, para elegir a dónde va su respuesta. */
+export const metaFormQuestionSchema = z.object({
+  /** Nombre de la respuesta en los leads de Meta (la clave de `fieldMap`). */
+  key: z.string(),
+  label: z.string(),
+  /** La última respuesta recibida, de ejemplo. */
+  sample: z.string().nullable(),
+});
+export type MetaFormQuestion = z.infer<typeof metaFormQuestionSchema>;
+
+export const metaFormQuestionsResultSchema = z.object({
+  questions: z.array(metaFormQuestionSchema),
+  /** false = Meta no dejó leer el formulario: salen las preguntas de los leads recibidos. */
+  fromMeta: z.boolean(),
+});
+export type MetaFormQuestionsResult = z.infer<typeof metaFormQuestionsResultSchema>;
 
 /** Página que devuelve Facebook al iniciar sesión, antes de conectarla. */
 export const availableMetaPageSchema = z.object({
@@ -161,12 +206,25 @@ const LAST_NAME_KEYS = ["last_name", "apellidos", "apellido"];
 const normalize = (s: string) =>
   s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
+/** A dónde iría solo una pregunta por su nombre: nombre, teléfono, correo o (null) un campo. */
+export function metaFieldAutoTarget(name: string): "std:name" | "std:phone" | "std:email" | null {
+  const key = normalize(name);
+  if (PHONE_KEYS.includes(key)) return "std:phone";
+  if (EMAIL_KEYS.includes(key)) return "std:email";
+  if ([...FULL_NAME_KEYS, ...FIRST_NAME_KEYS, ...LAST_NAME_KEYS].includes(key)) return "std:name";
+  return null;
+}
+
 /**
  * Traduce las respuestas del formulario (`field_data` de Meta) a los datos que
- * usa el CRM. Lo que no es teléfono, nombre ni correo se conserva aparte para
- * guardarlo como información extra del contacto.
+ * usa el CRM. Primero lo elegido en `fieldMap` (por formulario, en Ajustes);
+ * el resto, por el nombre de la pregunta. Lo que no es teléfono, nombre ni
+ * correo se conserva aparte para guardarlo como información extra del contacto.
  */
-export function mapMetaLeadFields(fields: MetaLeadField[]): {
+export function mapMetaLeadFields(
+  fields: MetaLeadField[],
+  fieldMap: Record<string, string> = {},
+): {
   name: string | null;
   phone: string | null;
   email: string | null;
@@ -177,9 +235,21 @@ export function mapMetaLeadFields(fields: MetaLeadField[]): {
   let fullName: string | null = null;
   let firstName: string | null = null;
   let lastName: string | null = null;
+  const nameParts: string[] = [];
   const extra: Record<string, string> = {};
 
   for (const field of fields) {
+    const to = fieldMap[field.name];
+    const value = field.value.trim();
+    if (!to || !value) continue;
+    if (to === "std:phone") phone ??= value;
+    else if (to === "std:email") email ??= value;
+    else if (to === "std:name") nameParts.push(value);
+    else if (to.startsWith("field:")) extra[to.slice("field:".length)] = value;
+  }
+
+  for (const field of fields) {
+    if (fieldMap[field.name]) continue;
     const key = normalize(field.name);
     const value = field.value.trim();
     if (!value) continue;
@@ -193,7 +263,8 @@ export function mapMetaLeadFields(fields: MetaLeadField[]): {
   }
 
   const name =
-    fullName ?? [firstName, lastName].filter(Boolean).join(" ").trim();
+    nameParts.join(" ") ||
+    (fullName ?? [firstName, lastName].filter(Boolean).join(" ").trim());
 
   return { name: name || null, phone, email, extra };
 }

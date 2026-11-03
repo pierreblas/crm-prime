@@ -1,6 +1,7 @@
 /**
- * Formularios de Meta (Lead Ads): por formulario, si sus leads entran y a qué
- * etapa del embudo va su oportunidad. Base de datos y Graph API simuladas.
+ * Formularios de Meta (Lead Ads): por formulario, si sus leads entran, a qué
+ * etapa del embudo va su oportunidad, su fuente, sus etiquetas y a dónde va
+ * cada respuesta. Base de datos y Graph API simuladas.
  *
  *   npm run test:metaforms --workspace=apps/api
  */
@@ -8,6 +9,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { MetaLeadService } from "../src/modules/meta-leads/meta-lead.service";
 import { MetaPageService } from "../src/modules/meta-leads/meta-page.service";
+import { mapMetaLeadFields } from "@crm/shared";
 
 type Deal = { id: string; contactId: string; stageId: string; discardedAt: Date | null; discardReason: string | null; createdAt: Date };
 const STAGES = [
@@ -17,13 +19,48 @@ const STAGES = [
   { id: "inscritos", pipelineId: "cursos", order: 0, isWon: false, isLost: false, isDefault: false },
 ];
 
-function setup(page: Record<string, unknown>, opts: { formId?: string; deals?: Deal[] } = {}) {
+function setup(
+  page: Record<string, unknown>,
+  opts: {
+    formId?: string;
+    deals?: Deal[];
+    contactSource?: string | null;
+    sources?: Record<string, string>;
+    fields?: Array<{ name: string; value: string }>;
+  } = {},
+) {
   const deals: Deal[] = [...(opts.deals ?? [])];
   const emitted: Array<{ name: string; payload: { stageId?: string; dealId?: string } }> = [];
   const recorded: Array<{ status: string }> = [];
+  // Lo que llega a LeadService.ingestLead, para ver nombre, teléfono, campos y etiquetas.
+  const ingested: Array<{ name?: string; phone: string; source?: string; tags: string[]; fields: Record<string, string> }> = [];
+  // Fuentes de la empresa por nombre → id, y la del contacto que deja el lead.
+  const sources = new Map(Object.entries(opts.sources ?? {}));
+  const contact = { sourceId: opts.contactSource ?? null };
   let seq = 0;
   const stageSel = (s: (typeof STAGES)[number] | undefined) => (s ? { id: s.id, pipelineId: s.pipelineId } : null);
   const prisma = {
+    source: {
+      findUnique: async ({ where }: { where: { id?: string; orgId_name?: { name: string } } }) => {
+        const hit = [...sources].find(([name, id]) => (where.id ? id === where.id : name === where.orgId_name!.name));
+        return hit ? { id: hit[1], name: hit[0] } : null;
+      },
+      upsert: async ({ where }: { where: { orgId_name: { name: string } } }) => {
+        const name = where.orgId_name.name;
+        if (!sources.has(name)) sources.set(name, `src-${name}`);
+        return { id: sources.get(name)! };
+      },
+    },
+    contact: {
+      updateMany: async ({ where, data }: { where: { OR: Array<{ sourceId: string | null }> }; data: { sourceId: string } }) => {
+        if (!where.OR.some((c) => c.sourceId === contact.sourceId)) return { count: 0 };
+        contact.sourceId = data.sourceId;
+        return { count: 1 };
+      },
+    },
+    tag: {
+      findMany: async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.map((id) => ({ id, name: `tag-${id}` })),
+    },
     metaLead: {
       findUnique: async () => null,
       create: async ({ data }: { data: { status: string } }) => void recorded.push(data),
@@ -54,15 +91,25 @@ function setup(page: Record<string, unknown>, opts: { formId?: string; deals?: D
     },
   };
   const graph = {
-    getLead: async () => ({ formId: opts.formId ?? "f-cursos", fields: [{ name: "full_name", value: "Ana" }, { name: "phone_number", value: "+51999888777" }] }),
+    getLead: async () => ({ formId: opts.formId ?? "f-cursos", fields: opts.fields ?? [{ name: "full_name", value: "Ana" }, { name: "phone_number", value: "+51999888777" }] }),
     getFormName: async () => "Formulario de prueba",
     getLeadAdInfo: async () => null,
   };
-  const leads = { ingestLead: async () => ({ id: "ct1", created: true }) };
+  // Como LeadService: una fuente con nombre se crea si falta y se pone al contacto.
+  const leads = {
+    ingestLead: async (input: (typeof ingested)[number]) => {
+      ingested.push(input);
+      if (input.source) {
+        if (!sources.has(input.source)) sources.set(input.source, `src-${input.source}`);
+        contact.sourceId = sources.get(input.source)!;
+      }
+      return { id: "ct1", created: true };
+    },
+  };
   const events = { emit: (name: string, payload: { stageId?: string; dealId?: string }) => void emitted.push({ name, payload }) };
   const svc = new MetaLeadService(prisma as never, {} as never, graph as never, leads as never, {} as never, events as never);
   const lead = () => svc.processNotification({ leadgenId: `lg${++seq}`, pageId: "p1", formId: opts.formId ?? "f-cursos" });
-  return { lead, deals, emitted, recorded };
+  return { lead, deals, emitted, recorded, contact, sources, ingested };
 }
 
 const PAGE = { orgId: "org1", pageId: "p1", name: "Mi página", sourceId: null, tagIds: [], welcomeTemplateId: null };
@@ -124,6 +171,109 @@ test("si ya tiene una oportunidad en curso no se duplica; una ganada sí abre ot
   assert.deepEqual(won.deals.map((d) => d.stageId), ["ganado", "nuevo"]);
 });
 
+test("sin fuente elegida, el lead recibe «Formulario de Facebook», no «WhatsApp»", async () => {
+  const fresh = setup({ ...PAGE, createDeal: false, dealStageId: null, formRules: [] });
+  await fresh.lead();
+  assert.equal(fresh.contact.sourceId, fresh.sources.get("Formulario de Facebook"), "se crea y se pone");
+
+  // Escribió por el botón de WhatsApp del formulario antes de que llegara el lead.
+  const viaWa = setup(
+    { ...PAGE, createDeal: false, dealStageId: null, formRules: [] },
+    { sources: { WhatsApp: "src-wa" }, contactSource: "src-wa" },
+  );
+  await viaWa.lead();
+  assert.equal(viaWa.contact.sourceId, viaWa.sources.get("Formulario de Facebook"), "la del formulario dice más que «WhatsApp»");
+
+  const manual = setup(
+    { ...PAGE, createDeal: false, dealStageId: null, formRules: [] },
+    { sources: { Referidos: "src-ref" }, contactSource: "src-ref" },
+  );
+  await manual.lead();
+  assert.equal(manual.contact.sourceId, "src-ref", "una fuente puesta a mano se respeta");
+
+  const chosen = setup(
+    { ...PAGE, sourceId: "src-fb", createDeal: false, dealStageId: null, formRules: [] },
+    { sources: { "Facebook Ads": "src-fb" } },
+  );
+  await chosen.lead();
+  assert.equal(chosen.contact.sourceId, "src-fb", "la que elige la página");
+  assert.equal(chosen.sources.has("Formulario de Facebook"), false, "y no se crea la automática");
+});
+
+test("cada formulario puede tener su fuente y sumar etiquetas a las de la página", async () => {
+  const rule = { formId: "f-cursos", formName: "Cursos", enabled: true, stage: "page" };
+  const own = setup(
+    { ...PAGE, sourceId: "src-fb", tagIds: ["t-page"], createDeal: false, dealStageId: null, formRules: [{ ...rule, source: "src-cursos", tagIds: ["t-cursos", "t-page"] }] },
+    { sources: { "Facebook Ads": "src-fb", Cursos: "src-cursos" } },
+  );
+  await own.lead();
+  assert.equal(own.contact.sourceId, "src-cursos");
+  assert.deepEqual(own.ingested[0]!.tags.sort(), ["tag-t-cursos", "tag-t-page"], "las dos, sin repetir");
+
+  const auto = setup(
+    { ...PAGE, sourceId: "src-fb", createDeal: false, dealStageId: null, formRules: [{ ...rule, source: "auto" }] },
+    { sources: { "Facebook Ads": "src-fb" } },
+  );
+  await auto.lead();
+  assert.equal(auto.contact.sourceId, auto.sources.get("Formulario de Facebook"), "«automática» aunque la página tenga otra");
+
+  const gone = setup(
+    { ...PAGE, sourceId: "src-fb", createDeal: false, dealStageId: null, formRules: [{ ...rule, source: "src-borrada" }] },
+    { sources: { "Facebook Ads": "src-fb" } },
+  );
+  await gone.lead();
+  assert.equal(gone.contact.sourceId, "src-fb", "si la del formulario se borró, la de la página");
+});
+
+test("las respuestas van a donde se eligió; el resto, solas por el nombre de la pregunta", async () => {
+  const t = setup(
+    {
+      ...PAGE,
+      createDeal: false,
+      dealStageId: null,
+      formRules: [
+        {
+          formId: "f-cursos",
+          formName: "Cursos",
+          fieldMap: {
+            "¿cuál_es_tu_whatsapp?": "std:phone",
+            "nombres": "std:name",
+            "apellidos": "std:name",
+            "¿qué_curso_te_interesa?": "field:curso",
+            "comentario": "skip",
+          },
+        },
+      ],
+    },
+    {
+      fields: [
+        { name: "nombres", value: "Ana María" },
+        { name: "apellidos", value: "Quispe" },
+        { name: "¿cuál_es_tu_whatsapp?", value: "+51 999 888 777" },
+        { name: "¿qué_curso_te_interesa?", value: "Excel avanzado" },
+        { name: "comentario", value: "llamar de tarde" },
+        { name: "ciudad", value: "Arequipa" },
+      ],
+    },
+  );
+  await t.lead();
+  assert.equal(t.recorded[0]?.status, "PROCESSED", "con el teléfono elegido ya no queda pendiente");
+  const got = t.ingested[0]!;
+  assert.equal(got.name, "Ana María Quispe");
+  assert.equal(got.phone, "+51999888777");
+  assert.equal(got.fields.curso, "Excel avanzado");
+  assert.equal(got.fields.ciudad, "Arequipa", "sin elegir: como siempre");
+  assert.equal(Object.values(got.fields).includes("llamar de tarde"), false, "«No guardar»");
+
+  // Sin reglas, lo de siempre: el teléfono estándar y lo demás como dato.
+  const plain = mapMetaLeadFields([
+    { name: "phone_number", value: "+51999888777" },
+    { name: "full_name", value: "Ana" },
+    { name: "¿qué_curso_te_interesa?", value: "Excel" },
+  ]);
+  assert.deepEqual(plain, { name: "Ana", phone: "+51999888777", email: null, extra: { "¿qué_curso_te_interesa?": "Excel" } });
+});
+
 test("la lista de formularios junta los de Meta, los que trajeron leads y las reglas guardadas", async () => {
   const page = {
     id: "mp1",
@@ -159,4 +309,30 @@ test("la lista de formularios junta los de Meta, los que trajeron leads y las re
   const r2 = await noMeta.forms("mp1");
   assert.equal(r2.fromMeta, false, "Meta no deja listarlos: solo los que mandaron leads");
   assert.deepEqual(r2.forms.map((f) => f.formId).sort(), ["f2", "f9"]);
+});
+
+test("las preguntas del formulario: las de Meta con su ejemplo, más las que llegaron en leads", async () => {
+  const prisma = {
+    metaPage: { findUnique: async () => ({ id: "mp1", pageId: "p1", accessToken: "tok" }) },
+    metaLead: {
+      findMany: async () => [
+        { fieldData: [{ name: "full_name", value: "Ana" }, { name: "ciudad", value: "Cusco" }] },
+        { fieldData: [{ name: "full_name", value: "Luis" }, { name: "¿qué_curso?", value: "Excel" }] },
+      ],
+    },
+  };
+  const svc = new MetaPageService(prisma as never, {} as never, {
+    getFormQuestions: async () => [
+      { key: "full_name", label: "Nombre completo" },
+      { key: "¿qué_curso?", label: "¿Qué curso te interesa?" },
+    ],
+  } as never);
+  const r = await svc.questions("mp1", "123456");
+  assert.equal(r.fromMeta, true);
+  assert.deepEqual(r.questions, [
+    { key: "full_name", label: "Nombre completo", sample: "Ana" },
+    { key: "¿qué_curso?", label: "¿Qué curso te interesa?", sample: "Excel" },
+    { key: "ciudad", label: "Ciudad", sample: "Cusco" },
+  ]);
+  await assert.rejects(svc.questions("mp1", "../me"), /no válido/, "el id va dentro de la URL de Meta");
 });

@@ -18,6 +18,7 @@ import { TenantService } from "../../infra/tenant/tenant.service";
 import { LeadService } from "../leads/lead.service";
 import { MessagingService } from "../messaging/messaging.service";
 import { decideIntake } from "../pipeline/intake";
+import { fuenteAutomatica, fuenteAutomaticaExistente } from "../sources/fuente-automatica";
 import { MetaGraphClient } from "./meta-graph.client";
 
 /** Lo que el lead necesita de su página para decidir qué hacer. */
@@ -119,7 +120,7 @@ export class MetaLeadService {
       return;
     }
 
-    const mapped = mapMetaLeadFields(detail.fields);
+    const mapped = mapMetaLeadFields(detail.fields, this.ruleFor(page, detail.formId ?? note.formId)?.fieldMap);
     const [formName, adInfo] = await Promise.all([
       detail.formId ? this.graph.getFormName(detail.formId, page.accessToken) : null,
       this.graph.getLeadAdInfo(note.leadgenId, page.accessToken),
@@ -160,10 +161,16 @@ export class MetaLeadService {
     ad: { adName: string | null; campaignName: string | null } = { adName: null, campaignName: null },
     formId: string | null = null,
   ): Promise<string> {
-    const source = page.sourceId
-      ? await this.prisma.source.findUnique({ where: { id: page.sourceId } })
-      : null;
-    const tagIds = Array.isArray(page.tagIds) ? (page.tagIds as string[]) : [];
+    // Fuente: la del formulario si la tiene («auto» = la automática); si no, o
+    // si ya no existe, la de la página. Etiquetas: las de los dos.
+    const rule = this.ruleFor(page, formId);
+    const formSourceId = rule && rule.source !== "page" && rule.source !== "auto" ? rule.source : null;
+    const source =
+      rule?.source === "auto"
+        ? null
+        : ((formSourceId && (await this.prisma.source.findUnique({ where: { id: formSourceId } }))) ||
+          (page.sourceId ? await this.prisma.source.findUnique({ where: { id: page.sourceId } }) : null));
+    const tagIds = [...new Set([...(Array.isArray(page.tagIds) ? (page.tagIds as string[]) : []), ...(rule?.tagIds ?? [])])];
     const tags = tagIds.length
       ? await this.prisma.tag.findMany({ where: { id: { in: tagIds } } })
       : [];
@@ -188,6 +195,7 @@ export class MetaLeadService {
       `Meta Lead Ads · ${page.name}`,
       { via: "meta", formName, formId },
     );
+    if (!source) await this.formSource(page.orgId, contactId);
 
     const target = this.dealTarget(page, formId);
     if (target) {
@@ -198,6 +206,24 @@ export class MetaLeadService {
     }
 
     return contactId;
+  }
+
+  /**
+   * Página sin fuente elegida: la automática «Formulario de Facebook». Solo si
+   * el contacto no tiene fuente o tiene la automática «WhatsApp» (escribió por
+   * el botón del formulario antes de que llegara el lead): una puesta a mano
+   * se respeta.
+   */
+  private async formSource(orgId: string, contactId: string): Promise<void> {
+    const formId = await fuenteAutomatica(this.prisma, orgId, "form");
+    const whatsappId = await fuenteAutomaticaExistente(this.prisma, orgId, "whatsapp");
+    await this.prisma.contact.updateMany({
+      where: {
+        id: contactId,
+        OR: [{ sourceId: null }, ...(whatsappId ? [{ sourceId: whatsappId }] : [])],
+      },
+      data: { sourceId: formId },
+    });
   }
 
   /** Prefijo del país del número de WhatsApp principal de la empresa («51»), o null. */
@@ -390,7 +416,7 @@ export class MetaLeadService {
     if (!lead) throw new NotFoundException("Lead no encontrado");
 
     const fields = (lead.fieldData as MetaLeadField[] | null) ?? [];
-    const mapped = { ...mapMetaLeadFields(fields), phone };
+    const mapped = { ...mapMetaLeadFields(fields, this.ruleFor(lead.page, lead.formId)?.fieldMap), phone };
 
     const contactId = await this.createContact(
       lead.page,

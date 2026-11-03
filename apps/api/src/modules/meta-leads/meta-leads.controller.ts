@@ -77,6 +77,12 @@ export class MetaLeadsController {
     return this.pages.forms(id);
   }
 
+  /** Preguntas de un formulario, para elegir a dónde va cada respuesta. */
+  @Get("pages/:id/forms/:formId/questions")
+  questions(@Param("id") id: string, @Param("formId") formId: string) {
+    return this.pages.questions(id, formId);
+  }
+
   @Post("pages/:id/resubscribe")
   resubscribe(@Param("id") id: string) {
     return this.pages.resubscribe(id);

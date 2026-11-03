@@ -55,6 +55,7 @@ import type { MetaReferral } from "../whatsapp/webhook.types";
 import { TemplateFillService } from "../campaigns/template-fill.service";
 import { PipelineService } from "../pipeline/pipeline.service";
 import { PermissionsService } from "../permissions/permissions.service";
+import { fuenteAutomatica } from "../sources/fuente-automatica";
 import { i18n } from "../../i18n/i18n";
 
 // Aplana el payload de Meta a nuestra forma, en camelCase y con nulls
@@ -1529,25 +1530,3 @@ export class MessagingService {
   }
 }
 
-/**
- * Fuente automática de los contactos que llegan por WhatsApp ("WhatsApp") o
- * por un anuncio de Meta ("Anuncio de Meta"). Se crea una vez por empresa y
- * se reutiliza; si la empresa la renombra, se crea otra antes que pisar la
- * suya. Sirve para que el vendedor asignado a esa fuente vea al contacto sin
- * que nadie lo etiquete a mano.
- */
-async function fuenteAutomatica(
-  prisma: PrismaService,
-  orgId: string,
-  kind: "whatsapp" | "ad",
-): Promise<string> {
-  const name = kind === "ad" ? "Anuncio de Meta" : "WhatsApp";
-  const color = kind === "ad" ? "#1877f2" : "#25d366";
-  const s = await prisma.source.upsert({
-    where: { orgId_name: { orgId, name } },
-    create: { orgId, name, color },
-    update: {},
-    select: { id: true },
-  });
-  return s.id;
-}

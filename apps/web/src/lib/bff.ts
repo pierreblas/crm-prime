@@ -932,6 +932,15 @@ export async function fetchMetaPageForms(id: string): Promise<MetaLeadFormsResul
   return res.json();
 }
 
+export async function fetchMetaFormQuestions(
+  pageId: string,
+  formId: string,
+): Promise<import("@crm/shared").MetaFormQuestionsResult> {
+  const res = await bffFetch(`/api/bff/meta/pages/${pageId}/forms/${encodeURIComponent(formId)}/questions`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar las preguntas"));
+  return res.json();
+}
+
 export async function resubscribeMetaPage(id: string): Promise<MetaPageDto[]> {
   const res = await bffFetch(`/api/bff/meta/pages/${id}/resubscribe`, {
     method: "POST",
