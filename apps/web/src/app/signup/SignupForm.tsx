@@ -386,7 +386,7 @@ export function SignupForm({ baseDomain }: { baseDomain: string }) {
             Guarda esa dirección: es por donde entrará tu equipo.
             <br />
             Si no te lleva solo,{" "}
-            <a href={`${resultado.url}/login`} style={{ color: "var(--accent)" }}>
+            <a href={`${resultado.url}/login`} style={{ color: "var(--accent-text)" }}>
               entra aquí
             </a>
             .
@@ -497,8 +497,8 @@ function colorSlug(e: EstadoSlug, error?: string): string {
 // ── Estilo: los tokens del sistema (La Sala de Control) ──────
 // Peligro y positivo salen de DESIGN.md; no existen aún como variables CSS.
 
-const DANGER = "#e08a8a";
-const POSITIVE = "#7ee2a8";
+const DANGER = "var(--danger)";
+const POSITIVE = "var(--positive)";
 
 const css = `
 .signup-paso { animation: signup-entrar 0.18s ease-out; }
@@ -606,7 +606,7 @@ const sello: React.CSSProperties = {
   display: "grid",
   placeItems: "center",
   background: "var(--accent-soft)",
-  color: "var(--accent)",
+  color: "var(--accent-text)",
   fontSize: 22,
   fontWeight: 700,
 };

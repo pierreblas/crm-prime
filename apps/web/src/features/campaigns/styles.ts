@@ -1,3 +1,4 @@
+import { readableInk } from "@/lib/readable-ink";
 import type { CSSProperties } from "react";
 
 export const box: CSSProperties = {
@@ -47,7 +48,7 @@ export function badge(bg: string): CSSProperties {
     padding: "2px 9px",
     borderRadius: 999,
     background: bg,
-    color: "#e9f1ff",
+    color: readableInk(bg),
     textTransform: "uppercase",
     letterSpacing: 0.3,
   };
@@ -55,8 +56,8 @@ export function badge(bg: string): CSSProperties {
 
 export const STATUS_COLOR: Record<string, string> = {
   DRAFT: "var(--surface-3)",
-  SCHEDULED: "#caa14a",
-  RUNNING: "#2c6fb0",
-  COMPLETED: "#1f6f46",
-  CANCELLED: "#7a3a3a",
+  SCHEDULED: "var(--warning)",
+  RUNNING: "#0b6cd8",
+  COMPLETED: "#0a6b42",
+  CANCELLED: "#b3261e",
 };

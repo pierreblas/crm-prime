@@ -254,7 +254,7 @@ export function CampaignWizard({ onDone, preset }: { onDone: () => void; preset?
                 const val = varValues[v.index];
                 return (
                   <div key={v.index} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <code style={{ minWidth: 44, color: "var(--accent)" }}>{`{{${v.name ?? v.index}}}`}</code>
+                    <code style={{ minWidth: 44, color: "var(--accent-text)" }}>{`{{${v.name ?? v.index}}}`}</code>
                     <select
                       style={{ ...input, width: 200 }}
                       value={val?.source ?? "static"}
@@ -311,7 +311,7 @@ export function CampaignWizard({ onDone, preset }: { onDone: () => void; preset?
         <Summary label="Difusión" value={name || "—"} />
         <Summary label="Plantilla" value={template?.name ?? "—"} />
         <Summary label="Destinatarios" value={count ? `${count.count} contacto${count.count === 1 ? "" : "s"}` : "…"} highlight />
-        {count && count.count === 0 && <p style={{ color: "#e0a458", fontSize: 12.5, margin: "4px 0 0" }}>Nadie cumple los filtros: revisa la audiencia.</p>}
+        {count && count.count === 0 && <p style={{ color: "var(--warning)", fontSize: 12.5, margin: "4px 0 0" }}>Nadie cumple los filtros: revisa la audiencia.</p>}
         <Summary
           label="Envío"
           value={schedule ? (scheduledAt ? new Date(scheduledAt).toLocaleString() : "programar") : "ahora"}
@@ -339,7 +339,7 @@ export function CampaignWizard({ onDone, preset }: { onDone: () => void; preset?
           </div>
         </div>
         {create.isError && (
-          <p style={{ color: "#ff6b6b", fontSize: 13 }}>{(create.error as Error).message}</p>
+          <p style={{ color: "var(--danger)", fontSize: 13 }}>{(create.error as Error).message}</p>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
           <button
@@ -390,7 +390,7 @@ function Summary({
   return (
     <div style={{ marginTop: 10 }}>
       <div style={{ fontSize: 12, color: "var(--muted)" }}>{l}</div>
-      <div style={{ fontSize: highlight ? 18 : 14, fontWeight: highlight ? 700 : 500, color: highlight ? "#7ee2a8" : "var(--text)" }}>
+      <div style={{ fontSize: highlight ? 18 : 14, fontWeight: highlight ? 700 : 500, color: highlight ? "var(--positive)" : "var(--text)" }}>
         {value}
       </div>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { NavIcon } from "@/components/NavIcons";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -197,9 +198,9 @@ const dangerBtn: React.CSSProperties = {
   width: 34,
   height: 34,
   borderRadius: 8,
-  border: "1px solid #5a2a2a",
+  border: "1px solid var(--danger-border)",
   background: "transparent",
-  color: "#e08a8a",
+  color: "var(--danger)",
   cursor: "pointer",
   fontSize: 13,
   flexShrink: 0,
@@ -212,7 +213,7 @@ function badge(bg: string): React.CSSProperties {
     padding: "2px 8px",
     borderRadius: 999,
     background: bg,
-    color: "#eaf2ff",
+    color: readableInk(bg),
     whiteSpace: "nowrap",
   };
 }

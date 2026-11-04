@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchTags, setContactTags } from "@/lib/bff";
@@ -61,7 +62,7 @@ export function TagEditor({
       {names.length > 0 ? (
         <div className="cp-tags">
           {names.map((name) => (
-            <span key={name} className="cp-tag" style={{ background: tagColor(colorOf(name)) }}>
+            <span key={name} className="cp-tag" style={{ background: tagColor(colorOf(name)), color: readableInk(tagColor(colorOf(name))) }}>
               {name}
               <button
                 type="button"

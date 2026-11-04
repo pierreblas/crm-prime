@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { BotDto, FlowSummary, PipelineSummaryDto, StageDto, WhatsappChannel } from "@crm/shared";
@@ -221,13 +222,13 @@ function PipelineCard({
           </button>
         </div>
         <button onClick={onToggle} style={titleBtn}>
-          <span style={{ color: "var(--accent)", display: "inline-flex" }}>
+          <span style={{ color: "var(--accent-text)", display: "inline-flex" }}>
             <NavIcon name="pipeline" size={16} />
           </span>
           <strong style={{ fontSize: 15 }}>{pipeline.name}</strong>
-          {pipeline.isDefault && <span style={badge("#1f4d38")}>predeterminado</span>}
+          {pipeline.isDefault && <span style={badge("#0a6b42")}>predeterminado</span>}
           {pipeline.inboundEnabled && (
-            <span style={badge("#2c4b7a")} title="Las conversaciones nuevas de WhatsApp crean una oportunidad aquí">
+            <span style={badge("#0a58b4")} title="Las conversaciones nuevas de WhatsApp crean una oportunidad aquí">
               entrada automática
             </span>
           )}
@@ -510,7 +511,7 @@ function StagesEditor({
                 }}
               />
               <select
-                style={{ ...input, width: 160, ...(ROLE_OF(s) === "won" ? { color: "#7ee2a8" } : ROLE_OF(s) === "lost" ? { color: "#e08a8a" } : ROLE_OF(s) === "qualified" ? { color: "#ffd98a" } : {}) }}
+                style={{ ...input, width: 160, ...(ROLE_OF(s) === "won" ? { color: "var(--positive)" } : ROLE_OF(s) === "lost" ? { color: "var(--danger)" } : ROLE_OF(s) === "qualified" ? { color: "var(--warning)" } : {}) }}
                 value={ROLE_OF(s)}
                 onChange={(e) => flag.mutate({ id: s.id, role: e.target.value as StageRole })}
                 title="Rol de la etapa: a dónde manda el agente a los potenciales, las compras y los perdidos"
@@ -623,7 +624,7 @@ function badge(bg: string): React.CSSProperties {
     padding: "2px 8px",
     borderRadius: 999,
     background: bg,
-    color: "#eaf2ff",
+    color: readableInk(bg),
     whiteSpace: "nowrap",
   };
 }

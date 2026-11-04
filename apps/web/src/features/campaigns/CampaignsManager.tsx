@@ -212,7 +212,7 @@ function CampaignCard({
         {!running && (
           <button
             onClick={onDelete}
-            style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+            style={{ ...ghostBtn, color: "var(--danger)", borderColor: "var(--danger-border)" }}
           >
             Eliminar
           </button>
@@ -234,8 +234,8 @@ function CampaignCard({
           <Metric label="Destinatarios" value={c.totalRecipients} />
           <Metric label="Entregados" value={c.deliveredCount} sub={`${pct(c.deliveredCount)}%`} />
           <Metric label="Leídos" value={c.readCount} sub={`${pct(c.readCount)}%`} />
-          <Metric label="Respondieron" value={c.repliedCount} sub={`${pct(c.repliedCount)}%`} color="#7ee2a8" />
-          <Metric label="Fallidos" value={c.failedCount} color={c.failedCount ? "#e08a8a" : undefined} />
+          <Metric label="Respondieron" value={c.repliedCount} sub={`${pct(c.repliedCount)}%`} color="var(--positive)" />
+          <Metric label="Fallidos" value={c.failedCount} color={c.failedCount ? "var(--danger)" : undefined} />
         </div>
       )}
     </div>

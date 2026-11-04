@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { NavIcon } from "@/components/NavIcons";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "@/lib/toast";
@@ -322,10 +323,10 @@ export function WhatsAppConnect({ hub = false, embedded = false }: { hub?: boole
       </PlanGate>
 
       {connectError && (
-        <p style={{ color: "#ff6b6b", fontSize: 13 }}>{connectError}</p>
+        <p style={{ color: "var(--danger)", fontSize: 13 }}>{connectError}</p>
       )}
       {justConnected && (
-        <p style={{ color: "#7ee2a8", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+        <p style={{ color: "var(--positive)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
           <NavIcon name="check" size={14} />
           Número conectado. Ya puedes recibir y enviar mensajes desde el CRM.
         </p>
@@ -684,12 +685,12 @@ function ManualConnect({
       )}
 
       {save.isError && (
-        <p style={{ color: "#ff6b6b", fontSize: 13 }}>
+        <p style={{ color: "var(--danger)", fontSize: 13 }}>
           {(save.error as Error).message}
         </p>
       )}
       {save.isSuccess && (
-        <p style={{ color: "#7ee2a8", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+        <p style={{ color: "var(--positive)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
           <NavIcon name="check" size={14} />
           {renewing ? "Token actualizado" : "Número conectado"}
         </p>
@@ -751,7 +752,7 @@ function WebhookInfo({ hub }: { hub: boolean }) {
   }
 
   return (
-    <div style={{ ...syncNote, borderColor: isLocal ? "#7a6f4a" : "#1f6f46" }}>
+    <div style={{ ...syncNote, borderColor: isLocal ? "var(--warning-border)" : "var(--positive-border)" }}>
       <strong style={{ color: "var(--text)" }}>
         URL del webhook (para recibir mensajes)
       </strong>
@@ -768,7 +769,7 @@ function WebhookInfo({ hub }: { hub: boolean }) {
         Suscribe los campos <code>messages</code> y <code>message_echoes</code>.
       </p>
       {isLocal && (
-        <p style={{ margin: "8px 0 0", color: "#e0b766" }}>
+        <p style={{ margin: "8px 0 0", color: "var(--warning)" }}>
           <span style={{ marginRight: 6, verticalAlign: "-2px", display: "inline-block" }}>
             <NavIcon name="alert" size={14} />
           </span>
@@ -787,9 +788,9 @@ const avisoModo: React.CSSProperties = {
   marginTop: 12,
   padding: "8px 10px",
   borderRadius: 7,
-  border: "1px solid #7a6f4a",
-  background: "rgba(224,183,102,0.08)",
-  color: "#e0b766",
+  border: "1px solid var(--warning-border)",
+  background: "rgba(240, 180, 90, 0.08)",
+  color: "var(--warning)",
   fontSize: 12.5,
   lineHeight: 1.5,
 };
@@ -1045,9 +1046,9 @@ const errorNote: React.CSSProperties = {
   marginTop: 6,
   padding: "7px 9px",
   borderRadius: 7,
-  border: "1px solid #6b3232",
-  background: "rgba(200,80,80,0.12)",
-  color: "#ffb3b3",
+  border: "1px solid var(--danger-border)",
+  background: "rgba(240, 138, 138, 0.12)",
+  color: "var(--danger)",
   fontSize: 12.5,
   lineHeight: 1.45,
 };
@@ -1067,7 +1068,7 @@ function Empty({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={dot("#7a8aa0")} />
+        <span style={dot("var(--muted)")} />
         <strong style={{ fontSize: 16 }}>Sin números conectados</strong>
       </div>
       <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
@@ -1100,7 +1101,7 @@ function PendingConfig({ hasAppId }: { hasAppId: boolean }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={dot("#e0a458")} />
+        <span style={dot("var(--warning)")} />
         <strong style={{ fontSize: 16 }}>Configuración pendiente</strong>
       </div>
       <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>
@@ -1152,7 +1153,7 @@ const row: React.CSSProperties = {
   padding: "12px 14px",
   border: "1px solid var(--border)",
   borderRadius: 10,
-  background: "rgba(255,255,255,0.02)",
+  background: "rgba(154, 185, 194, 0.02)",
 };
 
 const waBtn: React.CSSProperties = {
@@ -1186,9 +1187,9 @@ const addBtn: React.CSSProperties = {
 const ghostBtn: React.CSSProperties = {
   padding: "7px 13px",
   borderRadius: 8,
-  border: "1px solid #5a2a2a",
+  border: "1px solid var(--danger-border)",
   background: "transparent",
-  color: "#e08a8a",
+  color: "var(--danger)",
   cursor: "pointer",
   fontSize: 13,
   whiteSpace: "nowrap",
@@ -1210,7 +1211,7 @@ function pill(bg: string): React.CSSProperties {
     padding: "2px 9px",
     borderRadius: 999,
     background: bg,
-    color: "#e9f1ff",
+    color: readableInk(bg),
     textTransform: "uppercase",
     letterSpacing: 0.4,
   };

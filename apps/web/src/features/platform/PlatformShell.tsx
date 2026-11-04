@@ -1,3 +1,4 @@
+import { Wordmark } from "@/components/BrandMark";
 import { signOut } from "@/auth";
 import { cookies } from "next/headers";
 import { readSessionCookie, revokeRefreshToken } from "@/lib/session-token";
@@ -12,8 +13,7 @@ export function PlatformShell({ email, children }: { email: string; children: Re
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <header className="topbar" style={bar}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span className="brand-mark" style={mark}>D</span>
-          <span className="brand-name" style={{ fontWeight: 700, fontSize: 16 }}>Driony</span>
+          <Wordmark size={17} />
           <span className="pc-chip">Consola de plataforma</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -47,12 +47,3 @@ const bar: React.CSSProperties = {
   top: 0,
 };
 
-const mark: React.CSSProperties = {
-  width: 28,
-  height: 28,
-  borderRadius: 8,
-  display: "grid",
-  placeItems: "center",
-  fontWeight: 800,
-  color: "var(--accent-ink)",
-};

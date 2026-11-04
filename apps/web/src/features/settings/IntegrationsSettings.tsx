@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { provisionTwilio, updateIntegrationSettings as saveIntegrations } from "@/lib/bff";
 import type { TwilioProvisionResult } from "@crm/shared";
 
@@ -122,7 +123,7 @@ export function IntegrationsSettings() {
           <strong style={{ fontSize: 14 }}>Embeddings (Voyage AI)</strong>
           <span
             style={badge(
-              data.embeddingsProvider === "voyage" ? "#1f4d38" : "#5a4a2a",
+              data.embeddingsProvider === "voyage" ? "#0a6b42" : "#8a5300",
             )}
           >
             {data.embeddingsProvider === "voyage" ? "Activo" : "Simulado"}
@@ -166,7 +167,7 @@ export function IntegrationsSettings() {
         )}
 
         {data.embeddingsProvider === "voyage" && (
-          <p style={{ ...hint, color: "#e0b766", display: "flex", alignItems: "flex-start", gap: 6 }}>
+          <p style={{ ...hint, color: "var(--warning)", display: "flex", alignItems: "flex-start", gap: 6 }}>
             <NavIcon name="alert" size={14} />
             Si cambias de embedder (o pones/quitas la key), los vectores
             antiguos dejan de ser comparables: hay que reindexar la base de
@@ -183,7 +184,7 @@ export function IntegrationsSettings() {
           </strong>
           <span
             style={badge(
-              data.webhookSignatureVerified ? "#1f4d38" : saas ? "#3a3a3a" : "#5a4a2a",
+              data.webhookSignatureVerified ? "#0a6b42" : saas ? "#3f5b6b" : "#8a5300",
             )}
           >
             {saas
@@ -228,7 +229,7 @@ export function IntegrationsSettings() {
                 sistema con los permisos de WhatsApp).
               </li>
             </ol>
-            <p style={{ ...hint, color: "#e0b766", display: "flex", alignItems: "flex-start", gap: 6 }}>
+            <p style={{ ...hint, color: "var(--warning)", display: "flex", alignItems: "flex-start", gap: 6 }}>
               <NavIcon name="alert" size={14} />
               <span>
                 Ten en cuenta: con tu propia app el número trabaja en{" "}
@@ -402,7 +403,7 @@ function TwilioCard({
     <div style={card}>
       <div style={rowHead}>
         <strong style={{ fontSize: 14 }}>Llamadas telefónicas (Twilio)</strong>
-        <span style={badge(active ? "#1f4d38" : data.twilioConfigured ? "#5a4a2a" : "#3a3a3a")}>
+        <span style={badge(active ? "#0a6b42" : data.twilioConfigured ? "#8a5300" : "#3f5b6b")}>
           {active ? "Activo" : data.twilioConfigured ? "Falta activar" : "Sin configurar"}
         </span>
         <div style={{ flex: 1 }} />
@@ -446,7 +447,7 @@ function TwilioCard({
           {data.twilioAppSid ? <> · App de voz <code style={chip}>{data.twilioAppSid}</code></> : null}
         </p>
       ) : (
-        <p style={{ ...hint, color: "#e0b766" }}>
+        <p style={{ ...hint, color: "var(--warning)" }}>
           El servidor no sabe su dirección pública: define <code style={chip}>API_PUBLIC_URL</code> para que Twilio pueda llegar a Driony.
         </p>
       )}
@@ -500,7 +501,7 @@ function SecretField({
         </div>
       ) : (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={badge(state.configured ? "#1f4d38" : "#3a3a3a")}>
+          <span style={badge(state.configured ? "#0a6b42" : "#3f5b6b")}>
             {state.source === "db"
               ? "Guardado"
               : state.source === "env"
@@ -580,7 +581,7 @@ function badge(bg: string): React.CSSProperties {
     padding: "2px 8px",
     borderRadius: 999,
     background: bg,
-    color: "#eaf2ff",
+    color: readableInk(bg),
     whiteSpace: "nowrap",
   };
 }
@@ -591,8 +592,8 @@ function testBox(ok: boolean): React.CSSProperties {
     padding: "9px 11px",
     borderRadius: 8,
     fontSize: 13,
-    background: ok ? "rgba(63,140,110,0.14)" : "rgba(200,80,80,0.14)",
-    border: `1px solid ${ok ? "#2f6b52" : "#6b3232"}`,
-    color: ok ? "#8fe6c0" : "#ffb3b3",
+    background: ok ? "rgba(126, 226, 168, 0.14)" : "rgba(240, 138, 138, 0.14)",
+    border: `1px solid ${ok ? "var(--positive-border)" : "var(--danger-border)"}`,
+    color: ok ? "var(--positive)" : "var(--danger)",
   };
 }

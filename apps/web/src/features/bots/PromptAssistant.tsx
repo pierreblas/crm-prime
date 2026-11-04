@@ -443,7 +443,7 @@ function ProposalCard({
 const backdrop: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.5)",
+  background: "var(--scrim)",
   zIndex: 1000,
   animation: "fadeIn 0.15s ease",
 };
@@ -565,7 +565,7 @@ const linkBtn: React.CSSProperties = {
   padding: 0,
   border: "none",
   background: "transparent",
-  color: "var(--accent)",
+  color: "var(--accent-text)",
   fontSize: 12,
   cursor: "pointer",
 };
@@ -573,7 +573,7 @@ const linkBtn: React.CSSProperties = {
 const fakeNote: React.CSSProperties = {
   marginTop: 9,
   fontSize: 11.5,
-  color: "#ffd98a",
+  color: "var(--warning)",
 };
 
 const exampleBtn: React.CSSProperties = {

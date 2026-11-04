@@ -104,7 +104,7 @@ export function FollowUpsEditor({ value, onChange }: { value: FollowUps; onChang
               <button
                 type="button"
                 onClick={() => onChange({ ...value, steps: value.steps.filter((_, idx) => idx !== i) })}
-                style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+                style={{ ...ghostBtn, color: "var(--danger)", borderColor: "var(--danger-border)" }}
                 title="Quitar este toque"
                 aria-label={`Quitar el toque ${i + 1}`}
               >
@@ -207,4 +207,4 @@ export function FollowUpsEditor({ value, onChange }: { value: FollowUps; onChang
 }
 
 const hint: React.CSSProperties = { color: "var(--muted)", fontSize: 12.5, lineHeight: 1.45 };
-const warn: React.CSSProperties = { margin: 0, color: "#e08a8a", fontSize: 12.5, lineHeight: 1.45 };
+const warn: React.CSSProperties = { margin: 0, color: "var(--danger)", fontSize: 12.5, lineHeight: 1.45 };

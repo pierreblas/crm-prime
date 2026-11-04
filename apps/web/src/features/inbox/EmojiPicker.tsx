@@ -307,7 +307,7 @@ const panel: React.CSSProperties = {
   borderRadius: 12,
   border: "1px solid var(--border)",
   background: "var(--surface, var(--panel))",
-  boxShadow: "0 6px 20px rgba(0,0,0,0.45)",
+  boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
   overflow: "hidden",
   zIndex: 30,
 };
@@ -375,7 +375,7 @@ function tab(active: boolean): React.CSSProperties {
     padding: "9px 0",
     border: "none",
     background: active ? "rgba(37,211,102,0.12)" : "transparent",
-    color: active ? "var(--positive, #7ee2a8)" : "var(--muted)",
+    color: active ? "var(--positive, var(--positive))" : "var(--muted)",
     cursor: "pointer",
     transition: "background 140ms, color 140ms",
   };

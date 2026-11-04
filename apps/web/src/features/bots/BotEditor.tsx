@@ -875,7 +875,7 @@ export function BotEditor({
       {/* Acciones: fijas abajo, alcanzables desde cualquier pestaña */}
       <div className="sticky-bar agent-actions" style={actionBar}>
         {!isNew && onDeleted && !bot?.isDefault && (
-          <button onClick={onDeleted} style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}>
+          <button onClick={onDeleted} style={{ ...ghostBtn, color: "var(--danger)", borderColor: "var(--danger-border)" }}>
             Eliminar
           </button>
         )}
@@ -1177,7 +1177,7 @@ function BudgetMeter({ bot, limit, model }: { bot: BotDto; limit: number; model:
           }}
         />
       </div>
-      <span className="agent-hint" style={{ color: over ? "#e08a8a" : undefined }}>
+      <span className="agent-hint" style={{ color: over ? "var(--danger)" : undefined }}>
         Este mes: {spentText} · {pct} % del límite{over ? " · agotado, el agente no responde" : ""}
       </span>
     </div>
@@ -1296,7 +1296,7 @@ function KeywordTriggersEditor({ value, onChange }: { value: KeywordTrigger[]; o
             </div>
             <button
               onClick={() => onChange(value.filter((_, idx) => idx !== i))}
-              style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+              style={{ ...ghostBtn, color: "var(--danger)", borderColor: "var(--danger-border)" }}
               title="Quitar"
               aria-label="Quitar esta respuesta"
             >
@@ -1397,7 +1397,7 @@ function KeywordVariantsEditor({
             )}
             <button
               onClick={() => onChange(value.filter((_, idx) => idx !== i))}
-              style={{ ...ghostBtn, ...smBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+              style={{ ...ghostBtn, ...smBtn, color: "var(--danger)", borderColor: "var(--danger-border)" }}
               title="Quitar esta versión"
               aria-label={`Respuesta ${index + 1}: quitar versión ${i + 1}`}
             >

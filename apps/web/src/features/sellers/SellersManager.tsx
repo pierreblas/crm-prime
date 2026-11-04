@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { NavIcon } from "@/components/NavIcons";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -51,7 +52,7 @@ export function SellersManager() {
   return (
     <div style={{ maxWidth: 980, margin: "0 auto", padding: 24, display: "flex", flexDirection: "column", gap: 22 }}>
       {isPending && <p style={muted}>Cargando…</p>}
-      {isError && <p style={{ color: "#ff6b6b" }}>{(error as Error).message}</p>}
+      {isError && <p style={{ color: "var(--danger)" }}>{(error as Error).message}</p>}
 
       <section>
         <h3 style={{ margin: "0 0 4px" }}>Equipo</h3>
@@ -283,7 +284,7 @@ function SellerRow({ seller, sources, onSaved }: { seller: SellerDto; sources: S
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <strong>{seller.name ?? seller.email}</strong>
-            {!seller.isActive && <span style={chip("#5a4a2a")}>inactivo</span>}
+            {!seller.isActive && <span style={chip("#8a5300")}>inactivo</span>}
           </div>
           <div style={{ ...muted, fontSize: 12 }}>
             {seller.email} · {isAdmin ? "ve todo" : SCOPE_LABELS[perms.scope].toLowerCase()}
@@ -472,9 +473,9 @@ const ghostBtn: React.CSSProperties = {
 const dangerBtn: React.CSSProperties = {
   padding: "9px 16px",
   borderRadius: 8,
-  border: "1px solid #5a2a2a",
+  border: "1px solid var(--danger-border)",
   background: "transparent",
-  color: "#e08a8a",
+  color: "var(--danger)",
   cursor: "pointer",
   fontSize: 14,
   whiteSpace: "nowrap",
@@ -509,7 +510,7 @@ function chip(color: string | null): React.CSSProperties {
     padding: "4px 10px",
     borderRadius: 999,
     background: color ?? "var(--surface-3)",
-    color: "#eaf2ff",
+    color: readableInk(color ?? "var(--surface-3)"),
   };
 }
 const chipX: React.CSSProperties = {

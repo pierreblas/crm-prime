@@ -1,36 +1,36 @@
 ---
 name: Driony
-description: CRM para WhatsApp con agentes IA — la sala de control del vendedor, edición nocturna
+description: CRM para WhatsApp con agentes IA — la sala de control del vendedor, en noche, Lemon y Super Sonic
 colors:
-  lime: "#c8ff00"
-  lime-hover: "#d6ff47"
-  lime-press: "#b4e600"
-  lime-deep: "#9fe000"
-  lime-text: "#dcff70"
-  lime-soft: "#c8ff001a"
-  lime-ink: "#0b1000"
-  olive-text: "#435c00"
-  chart-2: "#9fb0c4"
+  lemon: "#fefd14"
+  lemon-hover: "#ffff66"
+  lemon-press: "#e3e210"
+  lemon-ink: "#060e1c"
+  super-sonic: "#0b6cd8"
+  blue-soft: "#0b6cd838"
+  bubble-out: "#08448d"
+  sea-angel: "#9ab9c2"
   whatsapp: "#25d366"
   positive: "#7ee2a8"
   positive-soft: "#7ee2a824"
-  warning: "#e0a458"
-  warning-soft: "#e0a45824"
-  danger: "#e08a8a"
-  danger-soft: "#e08a8a24"
-  bg: "#090c0d"
-  panel: "#161c1a9e"
-  panel-deep: "#0c100fd6"
-  sidebar: "#080b0b8c"
-  field: "#03050580"
-  surface: "#ffffff0b"
-  surface-2: "#ffffff13"
-  surface-3: "#cde1c81f"
-  border: "#cde1c824"
-  border-strong: "#cde1c847"
-  ink: "#f1f4ee"
-  muted: "#9aa596"
-  placeholder: "#7f8a7b"
+  warning: "#f0b45a"
+  warning-soft: "#f0b45a24"
+  danger: "#f08a8a"
+  danger-soft: "#f08a8a24"
+  bg: "#060e1c"
+  panel: "#0c1829"
+  panel-deep: "#0a1424ed"
+  sidebar: "#060e1c"
+  field: "#03081299"
+  surface: "#9ab9c212"
+  surface-2: "#9ab9c21f"
+  surface-3: "#9ab9c22e"
+  bubble-in: "#16263c"
+  border: "#9ab9c229"
+  border-strong: "#9ab9c257"
+  ink: "#f2f7f9"
+  muted: "#9ab9c2"
+  placeholder: "#86a6b0"
 typography:
   display:
     fontFamily: "Bricolage Grotesque, Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
@@ -45,25 +45,25 @@ typography:
     lineHeight: 1.08
     letterSpacing: "-0.02em"
   title:
-    fontFamily: "Space Grotesk, Inter, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Bricolage Grotesque, Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
     fontSize: "16px"
     fontWeight: 700
     lineHeight: 1.25
     letterSpacing: "-0.01em"
   body:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontFamily: "Hanken Grotesk, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
     fontSize: "14px"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "normal"
   label:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontFamily: "Hanken Grotesk, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
     fontSize: "12.5px"
     fontWeight: 500
     lineHeight: 1.4
     letterSpacing: "normal"
   overline:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontFamily: "Hanken Grotesk, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
     fontSize: "10.5px"
     fontWeight: 600
     lineHeight: 1.3
@@ -88,21 +88,21 @@ spacing:
   xl: "24px"
 components:
   button-primary:
-    backgroundColor: "{colors.lime}"
-    textColor: "{colors.lime-ink}"
+    backgroundColor: "{colors.lemon}"
+    textColor: "{colors.lemon-ink}"
     rounded: "{rounded.control}"
     padding: "9px 16px"
   button-primary-hover:
-    backgroundColor: "{colors.lime-hover}"
-    textColor: "{colors.lime-ink}"
+    backgroundColor: "{colors.lemon-hover}"
+    textColor: "{colors.lemon-ink}"
   button-ghost:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
     rounded: "{rounded.control}"
     padding: "9px 14px"
   button-soft:
-    backgroundColor: "{colors.lime-soft}"
-    textColor: "{colors.lime-text}"
+    backgroundColor: "{colors.blue-soft}"
+    textColor: "{colors.lemon}"
     rounded: "{rounded.control}"
     padding: "9px 14px"
   button-danger:
@@ -136,7 +136,7 @@ components:
     rounded: "{rounded.surface}"
     padding: "9px 12px"
   nav-item-active:
-    backgroundColor: "{colors.lime-soft}"
+    backgroundColor: "{colors.blue-soft}"
     textColor: "{colors.ink}"
     rounded: "{rounded.surface}"
     padding: "9px 12px"
@@ -146,12 +146,12 @@ components:
     rounded: "{rounded.control}"
     padding: "3px"
   bubble-out:
-    backgroundColor: "{colors.lime-soft}"
+    backgroundColor: "{colors.bubble-out}"
     textColor: "{colors.ink}"
     rounded: "{rounded.surface}"
     padding: "9px 12px"
   bubble-in:
-    backgroundColor: "{colors.surface-2}"
+    backgroundColor: "{colors.bubble-in}"
     textColor: "{colors.ink}"
     rounded: "{rounded.surface}"
     padding: "9px 12px"
@@ -171,124 +171,104 @@ components:
 
 ## 1. Overview
 
-**Creative North Star: "La Sala de Control, edición nocturna"**
+**Creative North Star: "La Sala de Control, en noche y neón"**
 
-Driony sigue siendo el puesto de mando del vendedor: una sala a oscuras donde
-toda la operación —conversaciones en vivo, oportunidades, campañas— está a la
-vista y bajo control. Lo que cambia en esta edición es la materia de la sala. El
-fondo es un carbón casi negro con un tinte verdoso mínimo (#090c0d) sobre el que
-respiran dos brillos muy bajos (lima arriba a la izquierda, verde a la derecha) y
-una rejilla técnica fina que asoma en la esquina y se desvanece. Los paneles ya no
-son placas opacas: son **cristal**. Dejan pasar el brillo del fondo y, cuando
-flotan sobre contenido que se mueve (menú, cabecera, cajones, diálogos), lo
-desenfocan. Las tarjetas son translúcidas pero nunca desenfocan; el cristal es
-estructural, no decorativo.
+Driony es el puesto de mando del vendedor: una sala a oscuras donde toda la
+operación —conversaciones en vivo, oportunidades, campañas— está a la vista y bajo
+control. El fondo es **Noche** (#060e1c), un casi negro con el matiz del azul de la
+marca y un solo brillo muy bajo de Super Sonic arriba a la izquierda. Los paneles
+son planos y un punto más claros (#0c1829); lo estructural que flota sobre contenido
+que se mueve (cabecera, cajones, diálogos) es cristal y desenfoca lo de detrás.
 
-La luz de esta sala es el **Lima** (#c8ff00): el único acento de marca. Señala
-acción (botón primario lima con texto carbón), foco (anillo y resplandor de los
-campos), selección (ítem activo del menú, fila activa de la bandeja) y la voz del
-negocio en el chat (burbuja saliente, lima muy bajo). Es un color que grita: por
-eso aparece poco y siempre con texto **carbón** encima, nunca blanco. El **Verde
-WhatsApp** (#25d366) y el **Verde Vital** (#7ee2a8) no compiten: quedan
-reservados a lo que *es* WhatsApp (número conectado, «en vivo») y a los estados
-positivos (entregado, ganado, opt-in). El lima es amarillo verdoso y el verde
-vital es menta: se distinguen, pero nunca se ponen a competir lado a lado como
-dos series de un gráfico.
+La paleta sale de tres Pantone con oficios separados. **Lemon Tonic** (#fefd14) es
+la acción y la selección: botón primario, ítem activo del menú, enlaces, foco.
+**Super Sonic** (#0b6cd8) es el bloque, el gráfico y el tinte: la voz del negocio en
+el chat, las series de datos y el fondo de lo seleccionado. **Sea Angel** (#9ab9c2)
+es el texto secundario y los neutros. Juntos hacen el póster; por separado, cada uno
+significa siempre lo mismo.
 
 El sistema es **denso pero legible**: muchos hilos, tarjetas y métricas a la vez,
-empaquetados con jerarquía y aire suficiente. La energía viene del movimiento
-táctil (hover que aviva, pulsación que hunde, entradas cortas) y de los halos con
-sentido, no de más color. Rechaza explícitamente el **SaaS genérico de plantilla**
-(tarjetas clonadas, gris plano, «big number + label»), lo **colorido/infantil**
-(arcoíris y emojis por doquier) y lo **corporativo frío/anticuado** (azules
-rígidos, tablas de los 2000). Si una pantalla pudiera ser de cualquier otro
-SaaS, falló.
+con jerarquía y aire suficiente. La energía viene del contraste entre esos tres
+colores y del movimiento táctil, no de más color. Rechaza el **SaaS genérico de
+plantilla**, lo **colorido/infantil** y lo **corporativo frío/anticuado**. Si una
+pantalla pudiera ser de cualquier otro SaaS, falló.
 
 **Key Characteristics:**
-- Carbón con brillos de fondo muy bajos; los paneles son cristal que deja pasar la luz.
-- Un solo acento de marca, el Lima, con texto carbón encima y halo solo donde hay acción.
+- Noche casi plana; los paneles se separan por tono y un filete de Sea Angel.
+- Lemon para actuar, Super Sonic para llenar, Sea Angel para matizar.
+- Bloques de color pleno solo donde mandan: la fila de KPI del panel, la banda y el cierre de la landing.
 - El verde es señal de WhatsApp y de estado positivo, nunca decoración.
-- Densidad con jerarquía; aire que respira, nunca apretado.
-- Dos familias con oficios separados: Space Grotesk titula, Inter trabaja.
+- Dos familias con oficios separados: Bricolage Grotesque titula, Hanken Grotesk trabaja.
 - Estados siempre explícitos (color + icono o palabra), nunca solo color.
 
 ## 2. Colors
 
-Carbón como escenario, un lima como única voz de marca y un verde que solo habla
-cuando algo es WhatsApp o salió bien.
+Noche como escenario y tres colores que no se pisan el oficio. El contraste decide
+quién va sobre quién, y las cifras de abajo están medidas.
 
 ### Primary
-- **Lima** (#c8ff00): el acento de marca. Botón primario (plano, con una luz
-  blanca arriba), foco de campos, ítem de navegación activo, fila activa de la
-  bandeja, marca «D», banda y cierre de la landing, primera serie de los gráficos.
-- **Lima Claro** (#d6ff47) y **Lima Hundido** (#b4e600): hover y `:active` del
+- **Lemon Tonic** (#fefd14, Pantone 12-0645 TN): acción y selección. Botón primario,
+  ítem activo del menú, enlaces, foco, marcador de la fila activa, segunda serie de
+  los gráficos, palabra clave del titular. 17,7:1 sobre Noche.
+- **Lemon Claro** (#ffff66) y **Lemon Hundido** (#e3e210): hover y `:active` del
   botón primario. Nunca como colores sueltos.
-- **Lima Hondo** (#9fe000): segunda parada de los degradados (barras de progreso,
-  barra del ítem activo, esfera de «Construyendo tu IA»).
-- **Lima Texto** (#dcff70): el lima como texto sobre fondo oscuro (enlaces, chips
-  suaves, botón suave).
-- **Lima Tenue** (#c8ff00 al 10%): fondo de selección, de chips suaves y de la
-  burbuja saliente. Tinte, no bloque. El lima pesa mucho: sus tintes van a la
-  mitad del alfa que tendría otro color.
-- **Tinta Carbón** (#0b1000): el texto que va encima del lima (botones, insignias,
-  banda, perilla de los interruptores encendidos). 16,6:1.
-- **Oliva Texto** (#435c00): el acento de texto sobre blanco (landing en tema
-  claro). El lima sobre blanco no sirve como texto (1,2:1).
-
-### Gráficos
-- **Pizarra** (#9fb0c4, `--chart-2`): la segunda serie de cualquier gráfico, junto
-  al lima. Nunca otro verde al lado del lima.
+- **Tinta Noche** (#060e1c): el texto que va encima de Lemon (botones, insignias,
+  ítem activo, cierre de la landing). 17,7:1.
 
 ### Secondary
-- **Verde WhatsApp** (#25d366): exclusivo de lo que es WhatsApp: botón «Conectar
-  WhatsApp», icono del canal, número conectado, «en vivo». Es herencia, no acento.
-- **Verde Vital** (#7ee2a8) y **Verde Tenue** (#7ee2a8 al 14%): estado positivo
-  como texto y como chip (entregado, ganado, opt-in sí, conexión activa).
+- **Super Sonic** (#0b6cd8, Pantone 18-4143 TCX, ajustado un punto desde #0c6fdc para
+  que el amarillo llegue a AA): bloques y datos. Primera serie de los gráficos, KPI
+  azul, banda de la landing, estallido de puntos. Encima lee Lemon (4,64:1) o blanco
+  (5,06:1). Como trazo sobre Noche da 3,82:1, válido para gráficos, no para texto.
+- **Azul Tenue** (Super Sonic al 22%): el fondo de lo seleccionado, de los botones
+  suaves y de la fila activa. Lleva texto Lemon o Tinta.
+- **Burbuja Saliente** (#08448d): Super Sonic hondo, para leer largo: blanco 9,2:1 y
+  la hora en Sea Angel 4,5:1.
+- **Verde WhatsApp** (#25d366): exclusivo de lo que es WhatsApp. Es herencia, no acento.
+- **Verde Vital** (#7ee2a8) y **Verde Tenue**: estado positivo (entregado, ganado, opt-in).
 
 ### Tertiary (estados)
-- **Ámbar** (#e0a458) y **Ámbar Tenue**: advertencia y pendiente (conversación
-  esperando, token por caducar, aviso de límite).
-- **Rojo Suave** (#e08a8a) y **Rojo Tenue**: error, perder, opt-out, acciones
-  destructivas.
+- **Ámbar** (#f0b45a) y **Ámbar Tenue**: advertencia y pendiente.
+- **Rojo Suave** (#f08a8a) y **Rojo Tenue**: error, perder, opt-out, destructivo.
 
 ### Neutral
-- **Carbón** (#090c0d): el lienzo. Casi negro con un tinte verdoso mínimo; encima
-  van dos brillos radiales muy bajos (lima, verde) y la rejilla de 40px.
-- **Cristal** (#161c1a al 62%): tarjetas y paneles. Translúcido: deja pasar el
-  brillo del fondo. Lleva una línea de luz de 1px arriba.
-- **Cristal Hondo** (#0c100f al 84%): cajones, diálogos y barras pegajosas; más
-  opaco para que el contenido que pasa por debajo no compita, y **con desenfoque**.
-- **Barra Lateral** (#080b0b al 55%): la navegación, cristal con desenfoque.
-- **Campo** (#030505 al 50%): el interior de inputs, selects y textareas; el hueco
-  donde se escribe, con sombra interior de 1px.
-- **Capa 1 / Capa 2** (blanco al 4,5% / 7,5%): superficies que flotan sobre el
-  cristal (burbuja entrante, segmento activo, notas). Cada capa un poco más clara.
-- **Capa Salvia** (#cde1c8 al 12%): chips y avatares neutros.
-- **Borde** (#cde1c8 al 14%) y **Borde Fuerte** (al 28%): hairline para estructura;
-  el fuerte solo en hover y foco.
-- **Tinta** (#f1f4ee): texto principal.
-- **Tinta Apagada** (#9aa596): texto secundario, etiquetas, metadatos. Gris salvia,
-  no gris muerto. 7,7:1 sobre el carbón.
-- **Placeholder** (#7f8a7b): el mínimo legible dentro de un campo (5,4:1).
+- **Noche** (#060e1c): el lienzo.
+- **Panel** (#0c1829): tarjetas y paneles, opaco.
+- **Panel Hondo** (#0a1424 al 93%): cajones, diálogos y barras pegajosas, con desenfoque.
+- **Campo** (#030812 al 60%): el interior de inputs y selects, con borde visible (Sea Angel al 42%).
+- **Capa 1 / 2 / 3** (Sea Angel al 7%, 12% y 18%): superficies sobre el panel y chips neutros.
+- **Borde** (Sea Angel al 16%) y **Borde Fuerte** (al 34%): hairline; el fuerte en hover y foco.
+- **Tinta** (#f2f7f9): texto principal, 16,5:1 sobre el panel.
+- **Sea Angel** (#9ab9c2, Pantone 14-4315 TCX): texto secundario, etiquetas y metadatos,
+  8,6:1 sobre el panel. También el tercer bloque de KPI, con tinta #142a3a (7,1:1).
+- **Placeholder** (#86a6b0): el mínimo legible dentro de un campo (7,4:1).
 
 ### Named Rules
-**La Regla del Único Acento.** El Lima es el único color de marca. Aparece en ≤15%
-de cualquier pantalla: acción, foco, selección, voz del negocio. Si dos cosas lima
-compiten por atención, una de las dos no debería ser lima.
+**La Regla de los Tres Oficios.** Lemon actúa, Super Sonic llena, Sea Angel matiza.
+Un color no hace el trabajo de otro. Si dos cosas Lemon compiten por atención, una de
+las dos no debería ser Lemon.
 
-**La Regla de la Tinta Carbón.** Sobre lima el texto va siempre en Tinta Carbón,
-nunca en blanco (1,1:1). Y sobre blanco el lima nunca es texto: ahí el acento de
-texto es el Oliva.
+**La Regla de la Tinta Noche.** Sobre Lemon el texto va siempre en Tinta Noche, nunca
+en blanco (1,1:1).
 
-**La Regla del Verde Reservado.** El verde solo dice dos cosas: «esto es WhatsApp»
-o «esto salió bien». Jamás en un botón primario, un titular o un adorno.
+**La Regla del Tinte Azul.** Los tintes translúcidos son de Super Sonic o de Sea
+Angel. Lemon translúcido sobre Noche se vuelve oliva: ni tintes ni estados
+desactivados en amarillo. Un primario desactivado va en Capa 2 con texto Sea Angel.
 
-**La Regla del Estado Doble.** Ningún estado se comunica solo con color. Entregado,
-ganado, perdido, pausado: siempre color **+** icono o palabra.
+**La Regla del Bloque Legible.** Dentro de un bloque de color pleno cada tono redefine
+sus tokens (`--text`, `--muted`, `--positive`, `--danger`) para que todo lea a 4,5:1.
+Sobre Sea Angel ni Lemon (1,9:1) ni Super Sonic (2,3:1) son texto: ahí escribe la
+tinta. Un verde sobre azul o un gris sobre amarillo no pasan.
 
-**La Regla de la Transparencia con Fondo.** Los colores translúcidos existen para
-dejar pasar el brillo del fondo. Nunca se apilan más de dos capas translúcidas:
-la tercera se vuelve barro.
+**La Regla de la Tinta Automática.** Las etiquetas y fuentes llevan colores que elige
+el usuario: el texto encima lo decide `readableInk()` (`lib/readable-ink.ts`), nunca un
+color fijo.
+
+**La Regla del Verde Reservado.** El verde solo dice dos cosas: «esto es WhatsApp» o
+«esto salió bien». Jamás en un botón primario, un titular o un adorno.
+
+**La Regla del Estado Doble.** Ningún estado se comunica solo con color: siempre color
+**+** icono o palabra.
 
 ## 3. Typography
 
@@ -324,8 +304,9 @@ cae al stack del sistema sin romper nada.
 - **Mono** (0.88em): chips de código con fondo Campo y borde.
 
 ### Named Rules
-**La Regla de las Dos Familias.** Space Grotesk titula, Inter trabaja. Prohibida la
-display en botones, etiquetas, campos o datos; prohibida Inter en el h1 del hero.
+**La Regla de las Dos Familias.** Bricolage Grotesque titula, Hanken Grotesk trabaja.
+Prohibida la display en botones, etiquetas, campos o datos; prohibida Hanken en el h1
+del hero.
 
 **La Regla del Overline Confinado.** Las mayúsculas tracked viven únicamente en los
 rótulos de grupo del nav. No son un eyebrow para poner sobre cada sección.
@@ -340,10 +321,10 @@ línea de luz del borde superior y el desenfoque, no sombras oscuras. Cada capa 
 lee por cuánto brillo del fondo deja pasar: fondo (todo el brillo) → tarjeta de
 cristal (parte) → cajón o diálogo (casi nada, y desenfoca lo de detrás). Las
 sombras existen, pero son largas y muy suaves: separan sin dibujar un contorno
-gris. El halo lima es la excepción luminosa, y solo para acción y foco.
+gris. El halo Lemon es la excepción luminosa, y solo para acción y foco.
 
 ### Shadow Vocabulary
-- **Línea de luz** (`inset 0 1px 0 rgba(255,255,255,.06)`): el borde superior de
+- **Línea de luz** (`inset 0 1px 0 rgba(255,255,255,.05)`): el borde superior de
   todo cristal (tarjetas, cajones, diálogos, ítem activo). Es lo que hace leer la
   superficie como vidrio y no como placa gris.
 - **Sombra de tarjeta** (`0 12px 32px -20px rgba(0,0,0,.75)` + línea de luz): tarjetas
@@ -352,9 +333,9 @@ gris. El halo lima es la excepción luminosa, y solo para acción y foco.
   popovers, diálogos.
 - **Sombra de cajón** (`-24px 0 70px -24px rgba(0,0,0,.8)`): paneles laterales
   (playground, asistente, detalle de oportunidad).
-- **Halo de acento** (`0 0 0 1px rgba(200,255,0,.3), 0 10px 26px -12px rgba(200,255,0,.45)`):
-  botón primario en reposo; crece en hover. También en el foco de campos
-  (`0 0 0 3px` tenue + `0 0 22px -6px`).
+- **Halo de acento** (`0 0 0 1px rgba(254,253,20,.3), 0 10px 26px -12px rgba(254,253,20,.4)`):
+  botón primario en reposo; crece en hover. El foco de campos combina borde Lemon con
+  un anillo de 3px en Azul Tenue y un resplandor azul corto.
 - **Desenfoque de cristal** (`backdrop-filter: blur(18px) saturate(160%)`): barra
   lateral, cabecera, cajones, diálogos, menús flotantes, avisos y barras pegajosas.
   Los fondos de modal desenfocan la página con `blur(6px)`.
@@ -366,7 +347,7 @@ translúcidas pero **nunca** llevan `backdrop-filter`: además de ser decoració
 desenfoque convierte a la tarjeta en contenedor de sus modales `position: fixed` y
 los recorta.
 
-**La Regla del Halo con Sentido.** El resplandor lima solo aparece en la acción
+**La Regla del Halo con Sentido.** El resplandor Lemon solo aparece en la acción
 principal, en el foco y en la selección activa. Un halo en algo que no se puede
 pulsar miente.
 
@@ -376,142 +357,143 @@ Si una tarjeta lleva borde, su sombra es la larga y negativa de arriba o ninguna
 
 ## 5. Components
 
-Carácter general: **táctil y con luz propia**. Superficies de cristal que
-responden al instante: el hover aviva, la pulsación hunde 1px, el foco enciende un
-anillo lima. Sin floritura; una herramienta que responde.
+Carácter general: **táctil y con luz propia**. El hover aviva, la pulsación hunde 1px,
+el foco enciende un anillo Lemon. Sin floritura; una herramienta que responde.
 
 ### Buttons
 - **Shape:** esquinas suaves (8px, `{rounded.control}`); compacto 7px; en la landing,
   pastilla (999px).
-- **Primary:** Lima plano con una luz blanca arriba (20%), texto Tinta Carbón, peso
-  600, padding 9px 16px, Halo de acento. Hover: Lima Claro y halo más largo;
-  `:active` Lima Hundido, sin luz ni halo largo. En la app muchos botones llevan el
-  fondo inline (`background: var(--accent)`); `globals.css` los reconoce por ese
-  estilo en sus dos formas (con espacio, del navegador, y sin espacio, del HTML del
-  servidor) y les fuerza la Tinta Carbón.
-- **Ghost:** transparente, borde Borde, texto Tinta; hover rellena al 5% y sube el
-  borde a Borde Fuerte. Para Cancelar, Editar, acciones secundarias.
-- **Soft:** Lima Tenue con texto Lima Texto y borde lima al 21%; hover añade un halo
-  corto. Para acciones destacadas que no son la principal (Probar, Asistente).
-- **Danger:** transparente con texto y borde rojo; hover tiñe de Rojo Tenue.
-- **Focus:** anillo `outline` 2px lima con offset 2px en todo lo pulsable.
-- **Disabled:** 55% de opacidad y cursor `not-allowed`.
-- **Landing:** primario en pastilla, lima plano con texto carbón y halo; sobre la
-  banda lima el primario se invierte (carbón con texto lima) y el secundario es
-  contorno carbón.
+- **Primary:** Lemon plano con una luz blanca arriba (20%), Tinta Noche, peso 600,
+  padding 9px 16px, Halo de acento. Hover: Lemon Claro y halo más largo; `:active` Lemon
+  Hundido. En la app muchos botones llevan el fondo inline (`background: var(--accent)`);
+  `globals.css` los reconoce por ese estilo en sus dos formas (con espacio, del navegador,
+  y sin espacio, del HTML del servidor) y les fuerza la Tinta Noche.
+- **Ghost:** transparente, borde Borde, texto Tinta; hover rellena y sube a Borde Fuerte.
+- **Soft:** Azul Tenue con texto Lemon y borde azul. Para acciones destacadas que no son
+  la principal (Copiloto, Probar, Asistente).
+- **Danger:** transparente con texto y borde rojo; hover tiñe de Rojo Tenue. Los botones
+  inline se reconocen por `var(--danger-border)`.
+- **Focus:** anillo `outline` 2px Lemon con offset 2px en todo lo pulsable.
+- **Disabled:** Capa 2 con texto Sea Angel en el primario (Regla del Tinte Azul); 55% de
+  opacidad en el resto.
+- **Landing:** primario en pastilla, Lemon con Tinta Noche; sobre el cierre en Lemon se
+  invierte (noche con texto Lemon) y el secundario es contorno noche.
 
 ### Chips
 - **Style:** pastilla (999px), 11–13px, `inline-flex` con icono de 10px si lo lleva.
-  Neutro = Capa Salvia con texto Tinta. Positivo = Verde Tenue + Verde Vital.
-  Advertencia = Ámbar Tenue + Ámbar. Etiquetas y fuentes = su color propio a tono pleno.
-- **State:** filtro seleccionado = Lima pleno con Tinta Carbón; no seleccionado =
-  transparente + Borde, texto Tinta Apagada.
+  Neutro = Capa 3 con texto Tinta. Positivo = Verde Tenue + Verde Vital. Advertencia = Ámbar
+  Tenue + Ámbar. Etiquetas y fuentes = su color propio a tono pleno, con `readableInk()`.
+- **State:** filtro seleccionado = Lemon pleno con Tinta Noche; no seleccionado =
+  transparente + Borde, texto Sea Angel.
 
 ### Cards / Containers
 - **Corner Style:** 12px (`{rounded.surface}`); diálogos 14px.
-- **Background:** Cristal (translúcido) sobre Noche. Deja pasar el brillo.
-- **Shadow Strategy:** Sombra de tarjeta (línea de luz + sombra larga). Sin
-  `backdrop-filter` (Regla del Cristal Estructural).
+- **Background:** Panel opaco sobre Noche.
+- **Shadow Strategy:** línea de luz + sombra larga y negativa. Sin `backdrop-filter`
+  (Regla del Cristal Estructural).
 - **Border:** Borde de 1px hairline.
 - **Internal Padding:** 18px (tarjeta) / 16px (paneles compactos).
 
+### KPI del panel (componente firma)
+La fila de métricas de `/dashboard`: tres bloques de color pleno y el resto en Panel.
+Conversaciones en Super Sonic (volumen), Ventas ganadas en Lemon (el dinero, lo que más
+se mira), Primera respuesta en Sea Angel (velocidad). Se pintan con `data-tone`, que
+redefine los tokens dentro del bloque (Regla del Bloque Legible). Es la única rejilla de
+tarjetas con color de fondo: fuera de aquí, el bloque pleno no se usa en la app.
+
+### Gráficos
+Dos series: Super Sonic (`--chart-1`) y Lemon (`--chart-2`), el contraste del póster. El
+verde solo para ventas ganadas, por significado. Mapa de calor y embudo en tintes de Super
+Sonic. Nunca otro color entre medias.
+
 ### Inputs / Fields
-- **Style:** fondo Campo (translúcido y más hondo), borde Borde, radio 8px, texto Tinta,
-  sombra interior de 1px. Placeholder #7f8a7b. El select lleva su propia flecha
-  (chevron en Tinta Apagada) y la lista desplegada es opaca (#0f1413).
-- **Focus:** borde lima + anillo tenue de 3px + resplandor corto. Caret lima.
+- **Style:** fondo Campo, borde Sea Angel al 42%, radio 8px, texto Tinta. Placeholder
+  #86a6b0. El select lleva su propia flecha y la lista desplegada es opaca (#0c1829).
+- **Focus:** borde Lemon + anillo azul de 3px + resplandor corto. Caret Lemon.
 - **Hover:** borde sube a Borde Fuerte.
 - **Error / Disabled:** error en Rojo Suave; disabled al 60% con `not-allowed`.
-- **Segmentado:** contenedor Campo con sombra interior; el segmento activo es Capa 2
-  con línea de luz.
+- **Segmentado:** contenedor Campo; el segmento activo es Capa 2 con línea de luz.
 
 ### Navigation
-- **Style:** barra lateral fija de 226px en cristal desenfocado, con línea sutil en su
-  borde derecho; grupos con Overline; ítem = icono de línea (18px, trazo 1.75) + etiqueta
-  14px/500, radio 12px. Marca: cuadrado lima (Lima → Lima Hondo) con la «D» en Tinta
-  Carbón y halo; nombre en la display.
-- **States:** default Tinta Apagada; hover Tinta + fondo blanco al 5%; **activo** =
-  degradado Lima Tenue → transparente, texto claro, línea de luz, icono con sombra
-  lima y **barra indicadora de 3px** (Lima → Lima Hondo, con brillo) pegada al borde
-  izquierdo. Es un indicador de selección, la única raya lateral permitida.
-- **Cabecera:** cristal desenfocado con una línea de luz lima que recorre su borde
-  inferior y se apaga; título en la display; avatar con un lima bajo.
-- **Móvil:** el menú se pliega y sale como cajón de cristal con fondo desenfocado
-  (montado con portal); el título deja de mostrar subtítulo.
+- **Style:** barra lateral de 226px en Noche, con filete a la derecha; grupos con Overline;
+  ítem = icono de línea (18px, trazo 1.75) + etiqueta 14px/500, radio 12px.
+- **States:** default Sea Angel; hover Tinta + Capa; **activo** = Lemon pleno con Tinta Noche
+  y peso 600. La insignia sobre el activo se invierte (noche con texto Lemon).
+- **Estallido:** en pantallas de más de 1040px de alto asoma al pie del menú, detrás de todo.
+- **Cabecera:** cristal desenfocado con una línea Super Sonic que recorre su borde inferior
+  y se apaga; título en la display; avatar Lemon con Tinta Noche.
+- **Móvil:** el menú se pliega y sale como cajón con fondo desenfocado (montado con portal).
 
-### Burbuja de mensaje (componente firma)
-El corazón de la bandeja. Saliente = degradado lima al 17% → 8% (un oliva oscuro,
-con texto Tinta), a la derecha; entrante = Capa 2, a la izquierda. Estado de entrega en texto pequeño con
-icono (check, doble check, reloj) y en Verde Vital cuando está leído. Acciones
-(responder, reaccionar) aparecen al pasar el cursor o al enfocar con teclado.
-Fila de conversación: avatar con iniciales, vista previa con icono del tipo de
-archivo, contador lima de no leídos (con Tinta Carbón) y chip de espera que pasa a
-ámbar a la hora; la fila activa lleva el tinte lima y la barra indicadora.
+### Marca
+`components/BrandMark.tsx`: «DRIONY» en mayúsculas (display 700, +0.05em) con la «O» como un
+círculo en tres franjas: Sea Angel, Lemon y Super Sonic. La «O» sola es el favicon. Se lee
+como «Driony» (`role="img"`). El producto se sigue escribiendo «Driony» en el texto corrido.
 
-### Banda lima (landing)
-Franja a todo ancho en Lima plano, texto Tinta Carbón en mayúsculas con puntos
-carbón, en marquesina lenta (se pausa al
-pasar el cursor y se detiene con `prefers-reduced-motion`). La misma materia
-cierra la página: sección a pantalla completa, limpia (sin rejilla ni marca de
-fondo), con el botón primario invertido.
+### Estallido
+`public/landing/estallido.webp`: una explosión de puntos en Super Sonic con fondo
+transparente, generada por código con semilla fija. Es el único adorno de la marca: detrás
+de la conversación en el hero, asomando en el cierre (el azul sobre el amarillo) y al pie del
+menú si hay sitio. Nunca detrás de texto suelto: lo que flota encima lleva superficie opaca.
+
+### Burbuja de mensaje
+El corazón de la bandeja. Saliente = Burbuja Saliente con texto blanco, a la derecha; entrante
+= #16263c, a la izquierda. Estado de entrega con icono (check, doble check, reloj); leído en
+Lemon. Acciones al pasar el cursor o al enfocar con teclado. Fila de conversación: avatar con
+iniciales, vista previa, contador Lemon con Tinta Noche y chip de espera que pasa a ámbar a la
+hora; la fila activa lleva Azul Tenue y el marcador Lemon de 3px.
+
+### Banda y cierre (landing)
+Marquesina a todo ancho en Super Sonic con letra Lemon en mayúsculas (se pausa al pasar el
+cursor y se detiene con `prefers-reduced-motion`). El cierre es la pareja: Lemon a sangre con
+Tinta Noche, botón invertido y el estallido asomando por la derecha.
 
 ### Conversación en vivo (hero de la landing)
-Una venta de principio a fin en vez de una captura reducida: el chat (burbuja
-entrante en Capa 2, saliente en lima bajo, sello «IA») y al lado el registro de lo
-que hace el CRM, con un hilo vertical y el paso actual con halo lima. Se
-reproduce una vez al cargar y se repite con «Ver otra vez». El HTML del servidor
-trae el estado final, así que sin JS o con movimiento reducido se ve completa.
+Una venta de principio a fin: el chat y al lado el registro de lo que hace el CRM, ambos sobre
+superficie opaca porque flotan sobre el estallido. Se reproduce una vez al cargar y se repite
+con «Ver otra vez». El HTML del servidor trae el estado final, así que sin JS o con movimiento
+reducido se ve completa.
+
+### Tema claro de la landing
+El selector de la cabecera ofrece el póster: lienzo Sea Angel plano, tinta #07233f, primario
+Super Sonic con letra Lemon y la palabra clave marcada en Lemon. La app no tiene tema claro.
 
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** usar el Lima (#c8ff00) solo para acción, foco, selección y la voz del
-  negocio; ≤15% de la pantalla (La Regla del Único Acento), y siempre con Tinta Carbón
-  encima (La Regla de la Tinta Carbón).
-- **Do** usar Pizarra (#9fb0c4) como segunda serie de cualquier gráfico.
-- **Do** reservar el verde (#25d366 / #7ee2a8) a lo que es WhatsApp y a los estados
-  positivos (La Regla del Verde Reservado).
-- **Do** comunicar todo estado con color **+** icono o palabra (La Regla del Estado Doble).
-- **Do** separar superficies con transparencia y línea de luz; desenfocar solo lo
-  estructural: menú, cabecera, cajones, diálogos, menús, avisos.
-- **Do** montar con portal cualquier cosa `position: fixed` que nazca dentro de un
-  elemento con `backdrop-filter`.
-- **Do** dar respuesta táctil: hover que aviva, `:active` que hunde 1px, anillo de foco
-  lima por `outline`.
-- **Do** titular con Space Grotesk y trabajar con Inter; jerarquía por tamaño y peso.
-- **Do** texto de cuerpo a ≥4.5:1 (Tinta #f1f4ee y Tinta Apagada #9aa596 sobre cristal);
-  placeholders a #7f8a7b, nunca gris fantasma.
-- **Do** usar iconos SVG de línea (18px, trazo 1.75) para toda señal de interfaz; los
-  emojis solo dentro del contenido de los mensajes.
-- **Do** respetar `prefers-reduced-motion`: toda animación tiene alternativa de
-  crossfade o instantánea.
+- **Do** usar Lemon (#fefd14) para acción, foco y selección, siempre con Tinta Noche encima.
+- **Do** usar Super Sonic para bloques, datos y tintes, y Sea Angel para el texto secundario.
+- **Do** redefinir los tokens dentro de un bloque de color y medir el contraste (Regla del
+  Bloque Legible).
+- **Do** pasar los colores que elige el usuario por `readableInk()`.
+- **Do** reservar el verde (#25d366 / #7ee2a8) a lo que es WhatsApp y a los estados positivos.
+- **Do** comunicar todo estado con color **+** icono o palabra.
+- **Do** desenfocar solo lo estructural: menú, cabecera, cajones, diálogos, menús, avisos.
+- **Do** montar con portal cualquier cosa `position: fixed` que nazca dentro de un elemento con
+  `backdrop-filter`.
+- **Do** dar respuesta táctil: hover que aviva, `:active` que hunde 1px, anillo de foco Lemon.
+- **Do** titular con Bricolage Grotesque y trabajar con Hanken Grotesk.
+- **Do** texto de cuerpo a ≥4.5:1; placeholders a #86a6b0, nunca gris fantasma.
+- **Do** usar iconos SVG de línea (18px, trazo 1.75); los emojis solo dentro de los mensajes.
+- **Do** respetar `prefers-reduced-motion`: toda animación tiene alternativa.
 
 ### Don't:
-- **Don't** caer en **SaaS genérico de plantilla**: rejillas de tarjetas idénticas, todo
-  gris, el template «big number + label» de dashboard.
-- **Don't** volverlo **colorido/infantil**: arcoíris de colores ni emojis por todos lados;
-  la energía va por movimiento y el acento, no por ruido.
-- **Don't** parecer **corporativo frío/anticuado**: azules corporativos rígidos ni tablas
-  densas estilo software de los 2000.
-- **Don't** poner `backdrop-filter` en tarjetas ni usar el cristal como decoración
-  (La Regla del Cristal Estructural).
-- **Don't** usar degradado en el texto de titulares ni en la marca; énfasis por peso,
-  tamaño o un color plano (La Regla del Titular Sólido).
-- **Don't** repetir eyebrows en mayúsculas sobre cada sección; el overline vive solo en
-  los grupos del nav (La Regla del Overline Confinado).
-- **Don't** usar `border-left`/`border-right` mayor de 1px como raya decorativa en
-  tarjetas, avisos o listas. Las únicas rayas laterales son el indicador de selección
-  de 3px del nav y de la fila activa de la bandeja, y la barra de la cita dentro de
-  una burbuja del chat (la convención de WhatsApp para «respondiendo a»).
-- **Don't** parear `border: 1px solid` con `box-shadow` de blur ≥16px positivo en la
-  misma tarjeta o botón (ghost-card); la sombra de tarjeta es larga y negativa o no es.
-- **Don't** redondear tarjetas o campos a 24/28/32px+. Techo: 12px en superficies, 14px
-  en diálogos; pastilla solo en chips y en los botones de la landing.
-- **Don't** usar el verde en botones primarios, titulares o adornos, ni el lima en
-  chips de estado positivo.
-- **Don't** poner texto blanco sobre lima, ni lima como texto sobre blanco.
-- **Don't** poner otro verde como segunda serie al lado del lima en un gráfico.
-- **Don't** apilar más de dos capas translúcidas (La Regla de la Transparencia con
-  Fondo).
-- **Don't** animar propiedades de layout (`width`, `height`) salvo el pliegue del menú;
-  las transiciones son de 120–250 ms y comunican estado, no decoran.
+- **Don't** caer en **SaaS genérico de plantilla**: rejillas de tarjetas idénticas o todo gris.
+  La fila de KPI con color es la excepción y no se copia a otras pantallas.
+- **Don't** volverlo **colorido/infantil**: arcoíris de colores ni emojis por todos lados.
+- **Don't** parecer **corporativo frío/anticuado**: azules rígidos ni tablas de los 2000.
+- **Don't** usar Lemon translúcido ni en estados desactivados: sobre Noche es oliva.
+- **Don't** escribir en Lemon ni en Super Sonic sobre Sea Angel: no llegan a 3:1.
+- **Don't** poner texto blanco sobre Lemon, ni verde sobre azul, ni gris sobre amarillo.
+- **Don't** poner texto suelto sobre el estallido: lo que flota encima lleva superficie opaca.
+- **Don't** poner `backdrop-filter` en tarjetas ni usar el cristal como decoración.
+- **Don't** usar degradado en el texto de titulares ni en la marca.
+- **Don't** repetir eyebrows en mayúsculas sobre cada sección; el overline vive en el nav.
+- **Don't** usar `border-left`/`border-right` mayor de 1px como raya decorativa. Las únicas
+  son el marcador de la fila activa de la bandeja y la cita dentro de una burbuja.
+- **Don't** parear `border: 1px solid` con `box-shadow` de blur ≥16px positivo en la misma
+  tarjeta o botón (ghost-card).
+- **Don't** redondear tarjetas o campos a 24/28/32px+. Techo: 12px en superficies, 14px en
+  diálogos; pastilla solo en chips y en los botones de la landing.
+- **Don't** usar el verde en botones primarios, titulares o adornos.
+- **Don't** animar propiedades de layout salvo el pliegue del menú; las transiciones son de
+  120–250 ms y comunican estado, no decoran.

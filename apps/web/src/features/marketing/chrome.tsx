@@ -1,5 +1,6 @@
 "use client";
 
+import { Wordmark } from "@/components/BrandMark";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -66,10 +67,7 @@ export function MarketingHeader({ active, home = false }: { active?: string | nu
       <header className="lp-nav" data-scrolled={scrolled}>
         <div className="lp-wrap lp-nav__inner">
           <Link href="/" className="lp-brand" aria-label="Driony, inicio">
-            <span className="lp-brand__mark">
-              <Logo />
-            </span>
-            Driony
+            <Wordmark size={19} />
           </Link>
           <nav className="lp-nav__links" aria-label="Secciones">
             {NAV.map((n) => (
@@ -115,11 +113,8 @@ export function MarketingFooter({ home = false }: { home?: boolean }) {
   return (
     <footer className="lp-foot">
       <div className="lp-wrap lp-foot__inner">
-        <span className="lp-brand" style={{ fontSize: 16 }}>
-          <span className="lp-brand__mark" style={{ width: 26, height: 26 }}>
-            <Logo />
-          </span>
-          Driony
+        <span className="lp-brand">
+          <Wordmark size={16} />
         </span>
         <nav className="lp-foot__links" aria-label="Pie de página">
           <a href={sectionHref("capacidades", home)}>Capacidades</a>
@@ -215,10 +210,7 @@ function MobileMenu({ home, onClose, theme, onToggleTheme }: { home: boolean; on
     >
       <div className="lp-menu__top">
         <span className="lp-brand">
-          <span className="lp-brand__mark">
-            <Logo />
-          </span>
-          Driony
+          <Wordmark size={19} />
         </span>
         <button type="button" className="lp-menu__close" aria-label="Cerrar menú" onClick={onClose}>
           <Close />

@@ -368,7 +368,7 @@ const warnList: React.CSSProperties = {
   margin: "9px 0 0",
   paddingLeft: 16,
   fontSize: 11.5,
-  color: "#e8d79a",
+  color: "var(--warning)",
   display: "grid",
   gap: 3,
 };
@@ -376,7 +376,7 @@ const warnList: React.CSSProperties = {
 const fakeNote: React.CSSProperties = {
   marginTop: 9,
   fontSize: 11.5,
-  color: "#ffd98a",
+  color: "var(--warning)",
 };
 
 const exampleBtn: React.CSSProperties = {

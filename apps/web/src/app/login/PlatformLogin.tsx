@@ -1,3 +1,4 @@
+import { Wordmark } from "@/components/BrandMark";
 import { PasswordField } from "@/components/PasswordField";
 
 /**
@@ -15,8 +16,7 @@ export function PlatformLogin({
     <main style={{ display: "grid", placeItems: "center", minHeight: "100vh", padding: 24 }}>
       <div style={{ width: 380, maxWidth: "100%" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-          <span className="brand-mark" style={mark}>D</span>
-          <span className="brand-name" style={{ fontSize: 17, fontWeight: 700 }}>Driony</span>
+          <Wordmark size={18} />
           <span className="pc-chip" style={{ marginLeft: 4 }}>Consola</span>
         </div>
         <form action={action} className="card-lift" style={{ padding: 28, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -46,12 +46,3 @@ export function PlatformLogin({
   );
 }
 
-const mark: React.CSSProperties = {
-  width: 30,
-  height: 30,
-  borderRadius: 8,
-  display: "grid",
-  placeItems: "center",
-  fontWeight: 800,
-  color: "var(--accent-ink)",
-};

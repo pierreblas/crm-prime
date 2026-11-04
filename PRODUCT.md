@@ -42,9 +42,10 @@ lo repetitivo para que el humano cierre las ventas.
 "de tú a tú" como una herramienta hecha por gente que también vende. El producto
 se siente **actual y con ritmo** (no estático ni acartonado) y, sobre todo,
 transmite **control**: el usuario siente que su operación está ordenada y bajo
-mando. La energía se expresa con movimiento intencional y un acento vivo —el
-**lima sobre carbón** es el ancla de identidad; el **verde WhatsApp** queda para
-señalar lo que es WhatsApp y lo que salió bien—, no con saturación.
+mando. La energía se expresa con movimiento intencional y un contraste con oficio
+—**Lemon Tonic y Super Sonic sobre noche, con Sea Angel de matiz** son el ancla de
+identidad; el **verde WhatsApp** queda para señalar lo que es WhatsApp y lo que salió
+bien—, no con ruido.
 
 ## Anti-references
 
@@ -52,7 +53,7 @@ señalar lo que es WhatsApp y lo que salió bien—, no con saturación.
   dashboards clonados con "big number + label". Si grita "lo generó una IA", falló.
 - **Demasiado colorido/infantil:** exceso de colores y emojis por todos lados,
   sensación de juguete. La energía va por movimiento y un acento, no por ruido.
-- **Corporativo frío/anticuado:** azules corporativos rígidos, tablas densas
+- **Corporativo frío/anticuado:** azules corporativos apagados y rígidos, tablas densas
   estilo software de los 2000, sensación pesada y burocrática.
 
 ## Design Principles
@@ -64,7 +65,7 @@ señalar lo que es WhatsApp y lo que salió bien—, no con saturación.
 3. **Densidad legible.** Mucha información (hilos, tarjetas, métricas) con
    jerarquía clara y aire suficiente: densa pero nunca apretada ni ruidosa.
 4. **Que no parezca plantilla.** Huir del SaaS genérico; identidad propia anclada
-   en el lima de marca y en patrones pensados, no clonados.
+   en la paleta de marca y en patrones pensados, no clonados.
 5. **Confianza operativa.** Estados siempre claros (entregado/leído, ganado/
    perdido, IA pausada) y feedback inmediato a cada acción: el usuario nunca duda
    de qué pasó.

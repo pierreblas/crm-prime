@@ -44,7 +44,7 @@ import { toast } from "@/lib/toast";
 // ── Rol ─────────────────────────────────────────────────────
 export type StageRole = "" | "qualified" | "won" | "lost";
 export const ROLE_OF = (s: StageDto): StageRole => (s.isWon ? "won" : s.isLost ? "lost" : s.isQualified ? "qualified" : "");
-export const ROLE_COLOR: Record<StageRole, string | undefined> = { "": undefined, qualified: "#ffd98a", won: "#7ee2a8", lost: "#e08a8a" };
+export const ROLE_COLOR: Record<StageRole, string | undefined> = { "": undefined, qualified: "var(--warning)", won: "var(--positive)", lost: "var(--danger)" };
 
 // ── Automatizaciones ────────────────────────────────────────
 export const TRIGGER_LABEL: Record<StageAutomationTrigger, string> = {
@@ -276,7 +276,7 @@ function ConversionRow({
           <NavIcon name="x" size={13} />
         </button>
       </div>
-      <p style={{ ...hint, margin: "0 0 0 28px", ...(custom ? { color: "#e08a8a" } : {}) }} data-conversion-help>
+      <p style={{ ...hint, margin: "0 0 0 28px", ...(custom ? { color: "var(--danger)" } : {}) }} data-conversion-help>
         {info
           ? info.help
           : "Meta no admite eventos con nombre propio en WhatsApp y lo rechazará: cámbialo por uno de la lista."}
@@ -499,7 +499,7 @@ function AutomationRow({
         )}
         <span style={{ color: "var(--muted)", fontSize: 13 }}>→</span>
         <select
-          style={{ ...input, flex: "1 1 140px", minWidth: 0, ...(flowGone ? { color: "#e08a8a" } : {}) }}
+          style={{ ...input, flex: "1 1 140px", minWidth: 0, ...(flowGone ? { color: "var(--danger)" } : {}) }}
           value={a.flowId}
           onChange={(e) => onSave({ flowId: e.target.value })}
           aria-label="Flujo"

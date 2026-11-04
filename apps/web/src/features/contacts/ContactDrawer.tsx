@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
@@ -192,7 +193,7 @@ export function ContactDrawer({
                 {contactOriginLabels[contact.origin]}
               </span>
               {contact.originDetail && (
-                <span style={badge("var(--surface-3)")}>{contact.originDetail}</span>
+                <span style={badge("#3f5b6b")}>{contact.originDetail}</span>
               )}
             </div>
 
@@ -396,10 +397,10 @@ export function initials(value: string): string {
 
 export const ORIGIN_COLORS: Record<ContactOrigin, string> = {
   ad: "#7a5fb0",
-  whatsapp: "#1f4d38",
-  webhook: "#2c4b7a",
-  manual: "#3a3a3a",
-  import: "#5a4a2a",
+  whatsapp: "#0a6b42",
+  webhook: "#0a58b4",
+  manual: "#3f5b6b",
+  import: "#8a5300",
   call: "#3f7a8c",
 };
 
@@ -414,7 +415,7 @@ export function hasAttribution(c: ContactListItem): boolean {
 const backdrop: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.5)",
+  background: "var(--scrim)",
   zIndex: 40,
 };
 
@@ -428,7 +429,7 @@ const drawer: React.CSSProperties = {
   flexDirection: "column",
   background: "var(--surface, var(--panel))",
   borderLeft: "1px solid var(--border)",
-  boxShadow: "-8px 0 24px rgba(0,0,0,0.4)",
+  boxShadow: "-8px 0 24px rgba(0, 0, 0, 0.4)",
   zIndex: 41,
 };
 
@@ -463,7 +464,7 @@ const avatar: React.CSSProperties = {
   flexShrink: 0,
   borderRadius: "50%",
   background: "rgba(37,211,102,0.14)",
-  color: "var(--positive, #7ee2a8)",
+  color: "var(--positive, var(--positive))",
   fontSize: 14,
   fontWeight: 700,
 };
@@ -602,7 +603,7 @@ function badge(bg: string): React.CSSProperties {
     padding: "3px 9px",
     borderRadius: 999,
     background: bg,
-    color: "#eaf2ff",
+    color: readableInk(bg),
     whiteSpace: "nowrap",
   };
 }

@@ -250,7 +250,7 @@ export function TemplateEditor({
               </div>
             )}
             {uploadError && (
-              <div style={{ color: "#ff6b6b", fontSize: 12.5 }}>{uploadError}</div>
+              <div style={{ color: "var(--danger)", fontSize: 12.5 }}>{uploadError}</div>
             )}
           </div>
         )}
@@ -329,7 +329,7 @@ export function TemplateEditor({
             ))}
           </div>
           {buttonsError && (
-            <div style={{ color: "#ff6b6b", fontSize: 12.5 }}>{buttonsError}</div>
+            <div style={{ color: "var(--danger)", fontSize: 12.5 }}>{buttonsError}</div>
           )}
         </div>
 
@@ -346,7 +346,7 @@ export function TemplateEditor({
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
           {save.isError && (
-            <span style={{ color: "#ff6b6b", fontSize: 13 }}>
+            <span style={{ color: "var(--danger)", fontSize: 13 }}>
               {(save.error as Error).message}
             </span>
           )}
@@ -442,7 +442,7 @@ function ButtonRow({
         />
       )}
 
-      <button type="button" onClick={onRemove} style={{ ...ghostBtn, color: "#e08a8a" }}>
+      <button type="button" onClick={onRemove} style={{ ...ghostBtn, color: "var(--danger)" }}>
         Quitar
       </button>
     </div>

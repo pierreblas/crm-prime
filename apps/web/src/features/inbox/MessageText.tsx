@@ -101,7 +101,7 @@ function mark(value: string, term: string | null | undefined): React.ReactNode {
 }
 
 const hit: React.CSSProperties = {
-  background: "rgba(224,164,88,0.35)",
+  background: "rgba(240, 180, 90, 0.35)",
   color: "inherit",
   borderRadius: 3,
   padding: "0 1px",
@@ -143,7 +143,7 @@ const body: React.CSSProperties = {
 
 const mono: React.CSSProperties = {
   display: "block",
-  background: "rgba(0,0,0,0.28)",
+  background: "var(--surface-2)",
   borderRadius: 6,
   padding: "6px 8px",
   margin: "3px 0",

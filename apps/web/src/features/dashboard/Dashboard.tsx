@@ -15,11 +15,11 @@ const PERIODS: { key: DashboardPeriod; label: string }[] = [
 ];
 
 const C = {
-  lime: "#c8ff00",
-  slate: "#9fb0c4", // = --chart-2; los gráficos SVG lo usan como atributo
-  green: "#7ee2a8",
-  amber: "#e0a458",
-  muted: "rgba(205,225,200,.55)",
+  blue: "var(--chart-1)",
+  lemon: "var(--chart-2)",
+  green: "var(--positive)",
+  amber: "var(--warning)",
+  muted: "rgba(154, 185, 194, .55)",
 };
 
 /** "45 s", "4 min", "1,5 h", "2 d". */
@@ -112,8 +112,8 @@ export function Dashboard() {
             <TimeChart
               days={data.daily.map((d) => d.day)}
               series={[
-                { key: "inbound", label: "Mensajes de clientes", color: C.lime, values: data.daily.map((d) => d.inbound) },
-                { key: "conv", label: "Conversaciones nuevas", color: C.slate, values: data.daily.map((d) => d.conversations), kind: "line" },
+                { key: "inbound", label: "Mensajes de clientes", color: C.blue, values: data.daily.map((d) => d.inbound) },
+                { key: "conv", label: "Conversaciones nuevas", color: C.lemon, values: data.daily.map((d) => d.conversations), kind: "line" },
               ]}
             />
           </section>
@@ -128,8 +128,8 @@ export function Dashboard() {
               <StackedBars
                 days={data.daily.map((d) => d.day)}
                 series={[
-                  { key: "ai", label: "IA", color: C.lime, values: data.daily.map((d) => d.outboundAi) },
-                  { key: "human", label: "Equipo", color: C.slate, values: data.daily.map((d) => d.outboundHuman) },
+                  { key: "ai", label: "IA", color: C.lemon, values: data.daily.map((d) => d.outboundAi) },
+                  { key: "human", label: "Equipo", color: C.blue, values: data.daily.map((d) => d.outboundHuman) },
                 ]}
               />
             </section>
@@ -224,17 +224,18 @@ function Kpis({ data }: { data: DashboardDto }) {
   const won = k.wonCount.value ?? 0;
   return (
     <section className="dash__kpis">
-      <Kpi icon="inbox" label="Conversaciones" kpi={k.conversations} format={(n) => n.toLocaleString("es")} hint="nuevas" />
+      <Kpi tone="blue" icon="inbox" label="Conversaciones" kpi={k.conversations} format={(n) => n.toLocaleString("es")} hint="nuevas" />
+      <Kpi tone="lemon" icon="trophy" label="Ventas ganadas" kpi={k.wonValue} format={money} hint={won === 1 ? "1 oportunidad" : `${won} oportunidades`} />
+      <Kpi tone="sea" icon="clock" label="Primera respuesta" kpi={k.firstResponseSec} format={duration} lowerIsBetter hint="mediana" />
       <Kpi icon="user" label="Leads nuevos" kpi={k.leads} format={(n) => n.toLocaleString("es")} />
-      <Kpi icon="clock" label="Primera respuesta" kpi={k.firstResponseSec} format={duration} lowerIsBetter hint="mediana" />
       <Kpi icon="bot" label="Respondido por IA" kpi={k.aiShare} format={(n) => pct(n)} ratio />
-      <Kpi icon="trophy" label="Ventas ganadas" kpi={k.wonValue} format={money} hint={won === 1 ? "1 oportunidad" : `${won} oportunidades`} />
       <Kpi icon="target" label="Tasa de cierre" kpi={k.winRate} format={(n) => pct(n)} ratio hint="ganadas / cerradas" />
     </section>
   );
 }
 
 function Kpi({
+  tone,
   icon,
   label,
   kpi,
@@ -243,6 +244,7 @@ function Kpi({
   lowerIsBetter,
   ratio,
 }: {
+  tone?: "blue" | "lemon" | "sea";
   icon: IconName;
   label: string;
   kpi: DashboardKpi;
@@ -265,7 +267,7 @@ function Kpi({
     }
   }
   return (
-    <div className="dash__kpi">
+    <div className="dash__kpi" data-tone={tone}>
       <span className="dash__kpilabel">
         <NavIcon name={icon} size={14} />
         {label}

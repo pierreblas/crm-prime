@@ -280,7 +280,7 @@ export function ConnectWhatsappHub({
       <p style={texto}>{t.subtitle}</p>
 
       {estado.tipo === "error" && (
-        <p role="alert" style={{ ...texto, color: "#e08a8a" }}>{estado.mensaje}</p>
+        <p role="alert" style={{ ...texto, color: "var(--danger)" }}>{estado.mensaje}</p>
       )}
 
       <button

@@ -1,5 +1,6 @@
 "use client";
 
+import { Wordmark } from "@/components/BrandMark";
 import { useState } from "react";
 import Link from "next/link";
 import { NavIcon, type IconName } from "./NavIcons";
@@ -153,12 +154,11 @@ export function SideNav({
   }
 
   return (
-    <aside className="side-nav" style={{ ...sidebar, width: collapsed ? 64 : "var(--sidebar-w)" }}>
+    <aside className="side-nav" data-collapsed={collapsed} style={{ ...sidebar, width: collapsed ? 64 : "var(--sidebar-w)" }}>
       <div style={{ ...brand, justifyContent: collapsed ? "center" : "space-between" }}>
         {!collapsed && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span className="brand-mark" style={brandMark}>D</span>
-            <span className="brand-name" style={{ fontWeight: 700, fontSize: 16 }}>Driony</span>
+            <Wordmark size={17} />
           </div>
         )}
         <button
@@ -245,17 +245,6 @@ const brand: React.CSSProperties = {
   height: "var(--header-h)",
   padding: "0 12px",
   borderBottom: "1px solid var(--border)",
-};
-
-const brandMark: React.CSSProperties = {
-  width: 28,
-  height: 28,
-  borderRadius: 8,
-  color: "var(--accent-ink)",
-  display: "grid",
-  placeItems: "center",
-  fontWeight: 800,
-  flexShrink: 0,
 };
 
 const toggleBtn: React.CSSProperties = {

@@ -75,7 +75,7 @@ export function MetaLoginHub({ origin }: { origin: string }) {
       <h1 style={{ margin: 0, fontSize: 20 }}>Conectar con Facebook</h1>
       <p style={texto}>Entra con la cuenta que administra tus páginas. Al terminar, esta ventana se cierra y vuelves al panel.</p>
       {estado.tipo === "error" && (
-        <p role="alert" style={{ ...texto, color: "#e08a8a" }}>
+        <p role="alert" style={{ ...texto, color: "var(--danger)" }}>
           {estado.mensaje}
         </p>
       )}

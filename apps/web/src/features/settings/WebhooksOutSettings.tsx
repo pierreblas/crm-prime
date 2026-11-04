@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -177,7 +178,7 @@ function NewWebhookForm({
             />
             <span>
               <strong style={{ fontSize: 13 }}>{webhookEventLabels[ev]}</strong>{" "}
-              <code style={{ color: "var(--accent)", fontSize: 11 }}>{ev}</code>
+              <code style={{ color: "var(--accent-text)", fontSize: 11 }}>{ev}</code>
             </span>
           </label>
         ))}
@@ -229,8 +230,8 @@ function WebhookRow({
     <div style={{ ...card, opacity: h.isActive ? 1 : 0.6 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <strong style={{ fontSize: 14 }}>{h.name}</strong>
-        {!h.isActive && <span style={badge("#3a3a3a")}>Pausado</span>}
-        {broken && <span style={badge("#6b3232")}>Error {h.lastStatus}</span>}
+        {!h.isActive && <span style={badge("#3f5b6b")}>Pausado</span>}
+        {broken && <span style={badge("#b3261e")}>Error {h.lastStatus}</span>}
         <div style={{ flex: 1 }} />
         <button onClick={() => test.mutate()} disabled={test.isPending} style={ghostBtn}>
           {test.isPending ? "…" : "Probar"}
@@ -256,7 +257,7 @@ function WebhookRow({
 
       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 9 }}>
         {h.events.map((e) => (
-          <span key={e} style={badge("#2c4b7a")}>
+          <span key={e} style={badge("#0a58b4")}>
             {webhookEventLabels[e] ?? e}
           </span>
         ))}
@@ -277,7 +278,7 @@ function WebhookRow({
           : " · sin intentos aún"}
       </div>
       {broken && h.lastError && (
-        <div style={{ ...muted, fontSize: 12, color: "#e08a8a", marginTop: 3 }}>
+        <div style={{ ...muted, fontSize: 12, color: "var(--danger)", marginTop: 3 }}>
           {h.lastError}
         </div>
       )}
@@ -300,8 +301,8 @@ const card: React.CSSProperties = {
 
 const banner: React.CSSProperties = {
   ...card,
-  background: "rgba(63,140,110,0.12)",
-  border: "1px solid #2f6b52",
+  background: "rgba(126, 226, 168, 0.12)",
+  border: "1px solid var(--positive-border)",
 };
 
 const secretBox: React.CSSProperties = {
@@ -385,9 +386,9 @@ const dangerBtn: React.CSSProperties = {
   width: 34,
   height: 34,
   borderRadius: 8,
-  border: "1px solid #5a2a2a",
+  border: "1px solid var(--danger-border)",
   background: "transparent",
-  color: "#e08a8a",
+  color: "var(--danger)",
   cursor: "pointer",
   flexShrink: 0,
 };
@@ -398,7 +399,7 @@ function badge(bg: string): React.CSSProperties {
     padding: "2px 8px",
     borderRadius: 999,
     background: bg,
-    color: "#eaf2ff",
+    color: readableInk(bg),
     whiteSpace: "nowrap",
   };
 }
@@ -409,8 +410,8 @@ function resultBox(ok: boolean): React.CSSProperties {
     padding: "8px 10px",
     borderRadius: 8,
     fontSize: 12.5,
-    background: ok ? "rgba(63,140,110,0.14)" : "rgba(200,80,80,0.14)",
-    border: `1px solid ${ok ? "#2f6b52" : "#6b3232"}`,
-    color: ok ? "#8fe6c0" : "#ffb3b3",
+    background: ok ? "rgba(126, 226, 168, 0.14)" : "rgba(240, 138, 138, 0.14)",
+    border: `1px solid ${ok ? "var(--positive-border)" : "var(--danger-border)"}`,
+    color: ok ? "var(--positive)" : "var(--danger)",
   };
 }

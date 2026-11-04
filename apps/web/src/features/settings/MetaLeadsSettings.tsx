@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
@@ -415,9 +416,9 @@ function PageRow({
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <strong>{page.name}</strong>
         {page.subscribedAt ? (
-          <span style={pill("#1f6f46")}>Recibiendo leads</span>
+          <span style={pill("#0a6b42")}>Recibiendo leads</span>
         ) : (
-          <span style={pill("#7a5a2a")}>Sin suscribir</span>
+          <span style={pill("#8a5300")}>Sin suscribir</span>
         )}
         <span style={{ ...muted, fontSize: 12.5 }}>
           {page.leadCount} lead(s)
@@ -440,7 +441,7 @@ function PageRow({
               danger: true,
             }).then((ok) => ok && disconnect.mutate());
           }}
-          style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+          style={{ ...ghostBtn, color: "var(--danger)", borderColor: "var(--danger-border)" }}
         >
           Desconectar
         </button>
@@ -624,7 +625,7 @@ function PageForms({
                 <span style={{ minWidth: 0 }}>
                   <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: f.enabled ? "var(--text)" : "var(--muted)" }}>
                     {f.formName}
-                    {f.status === "ARCHIVED" && <span style={{ ...pill("#3a3f4a"), marginLeft: 6 }}>Archivado</span>}
+                    {f.status === "ARCHIVED" && <span style={{ ...pill("#3f5b6b"), marginLeft: 6 }}>Archivado</span>}
                   </span>
                   <span style={{ ...muted, fontSize: 12 }}>
                     {f.leadCount ? `${f.leadCount} lead${f.leadCount === 1 ? "" : "s"}` : "Sin leads aún"}
@@ -933,7 +934,7 @@ function PendingLeadRow({
             (ok) => ok && discard.mutate(),
           );
         }}
-        style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+        style={{ ...ghostBtn, color: "var(--danger)", borderColor: "var(--danger-border)" }}
       >
         Descartar
       </button>
@@ -1046,6 +1047,6 @@ function pill(bg: string): React.CSSProperties {
     padding: "2px 9px",
     borderRadius: 999,
     background: bg,
-    color: "#e9f1ff",
+    color: readableInk(bg),
   };
 }

@@ -68,7 +68,7 @@ export function QuickRepliesSettings() {
           <div key={r.id} style={{ ...box, display: "flex", gap: 12, alignItems: "flex-start" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <code style={{ color: "var(--accent)" }}>{r.shortcut}</code>
+                <code style={{ color: "var(--accent-text)" }}>{r.shortcut}</code>
                 <strong>{r.title}</strong>
                 {r.mediaUrl && (
                   <span
@@ -99,7 +99,7 @@ export function QuickRepliesSettings() {
                   danger: true,
                 }).then((ok) => ok && remove.mutate(r.id));
               }}
-              style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+              style={{ ...ghostBtn, color: "var(--danger)", borderColor: "var(--danger-border)" }}
             >
               Eliminar
             </button>

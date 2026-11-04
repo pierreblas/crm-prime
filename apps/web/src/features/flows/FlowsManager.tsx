@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { NavIcon } from "@/components/NavIcons";
 import { useState } from "react";
 import { toast } from "@/lib/toast";
@@ -70,7 +71,7 @@ export function FlowsManager() {
       </div>
 
       {isPending && <p style={muted}>Cargando…</p>}
-      {isError && <p style={{ color: "#ff6b6b" }}>{(error as Error).message}</p>}
+      {isError && <p style={{ color: "var(--danger)" }}>{(error as Error).message}</p>}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
         {flows.map((f) => (
@@ -112,16 +113,16 @@ function FlowRow({
 }) {
   return (
     <div style={row}>
-      <span style={dot(flow.isActive ? "var(--accent)" : "#7a8aa0")} />
+      <span style={dot(flow.isActive ? "var(--accent)" : "var(--muted)")} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <strong style={{ fontSize: 15 }}>{flow.name}</strong>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-          <span style={badge("var(--surface-3)")}>
+          <span style={badge("#3f5b6b")}>
             {triggersShort(flow.triggerTypes)}
           </span>
           <span
             style={{
-              ...badge(flow.channel ? "#1f5a6f" : "var(--surface-3)"),
+              ...badge(flow.channel ? "#1f5a6f" : "#3f5b6b"),
               display: "inline-flex",
               alignItems: "center",
               gap: 4,
@@ -136,8 +137,8 @@ function FlowRow({
               "cualquier número"
             )}
           </span>
-          <span style={badge("var(--surface-3)")}>{flow.nodeCount} bloques</span>
-          {!flow.isActive && <span style={badge("#5a4a2a")}>inactivo</span>}
+          <span style={badge("#3f5b6b")}>{flow.nodeCount} bloques</span>
+          {!flow.isActive && <span style={badge("#8a5300")}>inactivo</span>}
         </div>
       </div>
       <button onClick={onEdit} style={ghost}>
@@ -145,7 +146,7 @@ function FlowRow({
       </button>
       <button
         onClick={onDelete}
-        style={{ ...ghost, color: "#e08a8a", borderColor: "#5a2a2a" }}
+        style={{ ...ghost, color: "var(--danger)", borderColor: "var(--danger-border)" }}
       >
         Eliminar
       </button>
@@ -214,6 +215,6 @@ function badge(bg: string): React.CSSProperties {
     padding: "2px 8px",
     borderRadius: 999,
     background: bg,
-    color: "#e9f1ff",
+    color: readableInk(bg),
   };
 }

@@ -135,7 +135,7 @@ export default async function LoginPage({
         </p>
 
         {error ? (
-          <p role="alert" style={{ color: "#e08a8a" }}>
+          <p role="alert" style={{ color: "var(--danger)" }}>
             {error === "handoff"
               ? t("auth.handoffExpired")
               : t("auth.invalidCredentials")}
@@ -177,14 +177,14 @@ export default async function LoginPage({
         ) : esSaaS ? (
           <p style={pieTexto}>
             {t("auth.companyNotHere")}{" "}
-            <Link href="/signup" style={{ color: "var(--accent)" }}>
+            <Link href="/signup" style={{ color: "var(--accent-text)" }}>
               {t("auth.createCompany")}
             </Link>
           </p>
         ) : (
           <p style={pieTexto}>
             {t("auth.noAccount")}{" "}
-            <Link href="/register" style={{ color: "var(--accent)" }}>
+            <Link href="/register" style={{ color: "var(--accent-text)" }}>
               {t("auth.signUp")}
             </Link>
           </p>

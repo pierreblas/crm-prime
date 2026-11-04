@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { MessageDirection, MessageType, phoneLabel, type ConversationDto } from "@crm/shared";
 import { NavIcon, type IconName } from "@/components/NavIcons";
 import { useT } from "@/i18n/I18nProvider";
@@ -191,7 +192,7 @@ export function ConversationList({
                     {c.assignedAgent.name ?? "—"}
                   </span>
                 ) : (
-                  <span style={{ ...metaChip, color: "#c9a25a" }}>
+                  <span style={{ ...metaChip, color: "var(--warning)" }}>
                     <NavIcon name="user" size={10} />
                     {t("inbox.unassigned")}
                   </span>
@@ -307,7 +308,7 @@ function tagChip(color: string | null): React.CSSProperties {
     ...metaChip,
     border: "1px solid transparent",
     background: bg,
-    color: "#eaf2ff",
+    color: readableInk(bg),
     fontWeight: 600,
   };
 }
@@ -350,7 +351,7 @@ const avatar: React.CSSProperties = {
   height: 40,
   borderRadius: "50%",
   background: "var(--accent-soft)",
-  color: "#dbe7ff",
+  color: "var(--text)",
   display: "grid",
   placeItems: "center",
   fontSize: 14,

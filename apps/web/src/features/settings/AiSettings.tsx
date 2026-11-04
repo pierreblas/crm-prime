@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { NavIcon } from "@/components/NavIcons";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -168,7 +169,7 @@ export function AiSettings() {
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span
             style={dot(
-              data.activeProvider === "fake" ? "#b08a3f" : "#3f8c6e",
+              data.activeProvider === "fake" ? "#8a5300" : "#0a6b42",
             )}
           />
           <strong style={{ fontSize: 14 }}>
@@ -215,7 +216,7 @@ export function AiSettings() {
         )}
 
         {sinRespaldo && !included && data.activeProvider === "fake" && (
-          <div style={{ ...testBox(false), borderColor: "#7a6f4a", background: "rgba(224,183,102,0.08)", color: "#e0b766" }}>
+          <div style={{ ...testBox(false), borderColor: "var(--warning-border)", background: "rgba(240, 180, 90, 0.08)", color: "var(--warning)" }}>
             <strong>Para activar la IA necesitas una API key tuya.</strong> Crea una
             en <em>platform.openai.com</em> (OpenAI) o en <em>console.anthropic.com</em>{" "}
             (Claude), pégala abajo, guarda y pulsa «Probar conexión». Cada respuesta
@@ -328,7 +329,7 @@ function ProviderCard({
     <div style={card}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
         <strong style={{ fontSize: 14 }}>{title}</strong>
-        <span style={badge(state.configured ? "#1f4d38" : "#3a3a3a")}>
+        <span style={badge(state.configured ? "#0a6b42" : "#3f5b6b")}>
           {state.source === "db"
             ? "Key guardada"
             : state.source === "env"
@@ -459,7 +460,7 @@ function badge(bg: string): React.CSSProperties {
     padding: "2px 8px",
     borderRadius: 999,
     background: bg,
-    color: "#eaf2ff",
+    color: readableInk(bg),
     whiteSpace: "nowrap",
   };
 }
@@ -480,8 +481,8 @@ function testBox(ok: boolean): React.CSSProperties {
     padding: "9px 11px",
     borderRadius: 8,
     fontSize: 13,
-    background: ok ? "rgba(63,140,110,0.14)" : "rgba(200,80,80,0.14)",
-    border: `1px solid ${ok ? "#2f6b52" : "#6b3232"}`,
-    color: ok ? "#8fe6c0" : "#ffb3b3",
+    background: ok ? "rgba(126, 226, 168, 0.14)" : "rgba(240, 138, 138, 0.14)",
+    border: `1px solid ${ok ? "var(--positive-border)" : "var(--danger-border)"}`,
+    color: ok ? "var(--positive)" : "var(--danger)",
   };
 }

@@ -11,12 +11,12 @@ import { TemplateEditor } from "./TemplateEditor";
 import { TemplatePreview } from "./TemplatePreview";
 
 const TEMPLATE_STATUS_COLOR: Record<string, string> = {
-  APPROVED: "#1f6f46",
-  PENDING: "#caa14a",
-  IN_APPEAL: "#caa14a",
-  PENDING_DELETION: "#7a3a3a",
-  REJECTED: "#7a3a3a",
-  PAUSED: "#7a5a2a",
+  APPROVED: "#0a6b42",
+  PENDING: "var(--warning)",
+  IN_APPEAL: "var(--warning)",
+  PENDING_DELETION: "#b3261e",
+  REJECTED: "#b3261e",
+  PAUSED: "#8a5300",
   DISABLED: "var(--surface-3)",
 };
 
@@ -163,23 +163,23 @@ function TemplateRow({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <strong>{template.name}</strong>
-          <span style={badge("var(--surface-3)")}>{template.language}</span>
-          <span style={badge("var(--surface-3)")}>
+          <span style={badge("#3f5b6b")}>{template.language}</span>
+          <span style={badge("#3f5b6b")}>
             {CATEGORY_TEXT[template.category] ?? template.category}
           </span>
           <span style={badge(TEMPLATE_STATUS_COLOR[template.status] ?? "var(--surface-3)")}>
             {STATUS_TEXT[template.status] ?? template.status}
           </span>
           {template.header && (
-            <span style={badge("var(--surface-3)")}>Encabezado: {template.header.format}</span>
+            <span style={badge("#3f5b6b")}>Encabezado: {template.header.format}</span>
           )}
           {template.buttons.length > 0 && (
-            <span style={badge("var(--surface-3)")}>{template.buttons.length} botón(es)</span>
+            <span style={badge("#3f5b6b")}>{template.buttons.length} botón(es)</span>
           )}
         </div>
 
         {template.status === "REJECTED" && template.rejectedReason && (
-          <div style={{ color: "#e08a8a", fontSize: 12.5, marginTop: 6 }}>
+          <div style={{ color: "var(--danger)", fontSize: 12.5, marginTop: 6 }}>
             Meta la rechazó: {template.rejectedReason}
           </div>
         )}
@@ -234,7 +234,7 @@ function TemplateRow({
               danger: true,
             }).then((ok) => ok && onDelete());
           }}
-          style={{ ...ghostBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+          style={{ ...ghostBtn, color: "var(--danger)", borderColor: "var(--danger-border)" }}
         >
           Eliminar
         </button>

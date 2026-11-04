@@ -134,7 +134,7 @@ export function NodeInspector({
               <NavIcon name="copy" size={13} />
             </button>
             <button
-              style={{ ...iconBtn, color: "#e08a8a", borderColor: "#5a2a2a" }}
+              style={{ ...iconBtn, color: "var(--danger)", borderColor: "var(--danger-border)" }}
               title="Eliminar (Supr)"
               onClick={onDelete}
             >
@@ -866,7 +866,7 @@ function ButtonsFields({ buttons, onChange }: { buttons: FlowButton[]; onChange:
             onChange={(e) => update(i, e.target.value)}
           />
           <span style={{ ...hint, margin: 0, width: 38, textAlign: "right" }}>{b.title.length}/20</span>
-          <button style={{ ...miniBtn, color: "#e08a8a" }} title="Quitar botón" onClick={() => onChange(buttons.filter((_, idx) => idx !== i))}>
+          <button style={{ ...miniBtn, color: "var(--danger)" }} title="Quitar botón" onClick={() => onChange(buttons.filter((_, idx) => idx !== i))}>
             <NavIcon name="x" size={12} />
           </button>
         </div>
@@ -904,7 +904,7 @@ function SplitFields({ splits, onChange }: { splits: FlowSplit[]; onChange: (s: 
             onChange={(e) => update(i, { weight: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
           />
           <span style={{ ...hint, margin: 0 }}>%</span>
-          <button style={{ ...miniBtn, color: "#e08a8a" }} title="Quitar variante" disabled={splits.length <= 2} onClick={() => onChange(splits.filter((_, idx) => idx !== i))}>
+          <button style={{ ...miniBtn, color: "var(--danger)" }} title="Quitar variante" disabled={splits.length <= 2} onClick={() => onChange(splits.filter((_, idx) => idx !== i))}>
             <NavIcon name="x" size={12} />
           </button>
         </div>
@@ -918,7 +918,7 @@ function SplitFields({ splits, onChange }: { splits: FlowSplit[]; onChange: (s: 
             + Añadir variante
           </button>
         )}
-        <span style={{ ...hint, margin: 0, color: total === 100 ? "var(--muted)" : "#e0b766" }}>
+        <span style={{ ...hint, margin: 0, color: total === 100 ? "var(--muted)" : "var(--warning)" }}>
           Suma {total}% {total !== 100 ? "(se reparte en proporción)" : ""}
         </span>
       </div>
@@ -989,7 +989,7 @@ function VarChips({ variables, onPick }: { variables: string[]; onPick: (v: stri
 function Counter({ value }: { value: string }) {
   const n = value.length;
   return (
-    <div style={{ ...hint, textAlign: "right", color: n > WA_TEXT_MAX * 0.9 ? "#e0b766" : "var(--muted)" }}>
+    <div style={{ ...hint, textAlign: "right", color: n > WA_TEXT_MAX * 0.9 ? "var(--warning)" : "var(--muted)" }}>
       {n} / {WA_TEXT_MAX}
     </div>
   );
@@ -1037,7 +1037,7 @@ function ConditionFields({
                 <NavIcon name="arrow-down" size={12} />
               </button>
               <button
-                style={{ ...miniBtn, color: "#e08a8a" }}
+                style={{ ...miniBtn, color: "var(--danger)" }}
                 title="Quitar rama"
                 onClick={() => onChange(branches.filter((_, idx) => idx !== i))}
               >
@@ -1167,9 +1167,9 @@ const issueBox: React.CSSProperties = {
   gap: 6,
   padding: "8px 10px",
   borderRadius: 8,
-  border: "1px solid #7a6f4a",
-  background: "rgba(224,183,102,0.08)",
-  color: "#e0b766",
+  border: "1px solid var(--warning-border)",
+  background: "rgba(240, 180, 90, 0.08)",
+  color: "var(--warning)",
   fontSize: 12.5,
   lineHeight: 1.4,
 };
@@ -1195,7 +1195,7 @@ const chipBtn: React.CSSProperties = {
   borderRadius: 999,
   border: "1px solid var(--border)",
   background: "var(--field)",
-  color: "#7ee2a8",
+  color: "var(--positive)",
   fontSize: 11.5,
   fontFamily: "ui-monospace, monospace",
   cursor: "pointer",

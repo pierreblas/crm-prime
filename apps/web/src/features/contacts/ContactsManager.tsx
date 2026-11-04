@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "@/lib/toast";
@@ -237,11 +238,11 @@ function ContactRow({
 
       <td style={td}>
         {c.optIn ? (
-          <span style={{ ...okMark, color: "#7ee2a8" }}>
+          <span style={{ ...okMark, color: "var(--positive)" }}>
             <NavIcon name="check" size={14} /> Sí
           </span>
         ) : (
-          <span style={{ ...okMark, color: "#e08a8a" }}>
+          <span style={{ ...okMark, color: "var(--danger)" }}>
             <NavIcon name="x" size={14} /> No
           </span>
         )}
@@ -298,7 +299,7 @@ function NewContactForm({
         ))}
       </select>
       {save.isError && (
-        <span style={{ color: "#ff6b6b", fontSize: 13, alignSelf: "center" }}>
+        <span style={{ color: "var(--danger)", fontSize: 13, alignSelf: "center" }}>
           {(save.error as Error).message}
         </span>
       )}
@@ -326,7 +327,7 @@ const avatar: React.CSSProperties = {
   flexShrink: 0,
   borderRadius: "50%",
   background: "rgba(37,211,102,0.12)",
-  color: "var(--positive, #7ee2a8)",
+  color: "var(--positive, var(--positive))",
   fontSize: 12,
   fontWeight: 700,
 };
@@ -369,7 +370,7 @@ function badge(bg: string): React.CSSProperties {
     padding: "3px 9px",
     borderRadius: 999,
     background: bg,
-    color: "#eaf2ff",
+    color: readableInk(bg),
     whiteSpace: "nowrap",
   };
 }
@@ -491,7 +492,7 @@ const miniBtn: React.CSSProperties = {
 
 const linkBtn: React.CSSProperties = {
   fontSize: 13,
-  color: "var(--accent)",
+  color: "var(--accent-text)",
   textDecoration: "none",
 };
 
@@ -510,7 +511,7 @@ const urlBox: React.CSSProperties = {
   borderRadius: 8,
   border: "1px solid var(--border)",
   fontSize: 13,
-  color: "#7ee2a8",
+  color: "var(--positive)",
   wordBreak: "break-all",
 };
 
@@ -521,7 +522,7 @@ const pre: React.CSSProperties = {
   borderRadius: 8,
   border: "1px solid var(--border)",
   fontSize: 12,
-  color: "#aebfd6",
+  color: "var(--muted)",
   overflowX: "auto",
   whiteSpace: "pre-wrap",
 };
@@ -538,6 +539,6 @@ function chip(color: string | null): React.CSSProperties {
     padding: "2px 9px",
     borderRadius: 999,
     background: bg,
-    color: "#eaf2ff",
+    color: readableInk(bg),
   };
 }

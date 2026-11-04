@@ -22,7 +22,7 @@ export async function FindCompany({
       <p style={{ color: "var(--muted)", marginTop: -8 }}>{t("auth.findCompanySubtitle")}</p>
 
       {error === "unknown-company" && (
-        <p role="alert" style={{ color: "#e08a8a" }}>{t("auth.unknownCompany")}</p>
+        <p role="alert" style={{ color: "var(--danger)" }}>{t("auth.unknownCompany")}</p>
       )}
 
       <label htmlFor="slug" style={etiqueta}>{t("auth.companyAddress")}</label>
@@ -46,7 +46,7 @@ export async function FindCompany({
       <p style={pie}>{t("auth.forgotAddress")}</p>
       <p style={pie}>
         {t("auth.companyNotHere")}{" "}
-        <Link href="/signup" style={{ color: "var(--accent)" }}>{t("auth.createCompany")}</Link>
+        <Link href="/signup" style={{ color: "var(--accent-text)" }}>{t("auth.createCompany")}</Link>
       </p>
     </form>
   );

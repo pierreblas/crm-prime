@@ -21,8 +21,8 @@ const LEVELS = [
   { label: "Muy débil", color: "var(--danger)" },
   { label: "Débil", color: "var(--danger)" },
   { label: "Aceptable", color: "var(--warning)" },
-  { label: "Buena", color: "#7ee2a8" },
-  { label: "Fuerte", color: "var(--accent)" },
+  { label: "Buena", color: "var(--positive)" },
+  { label: "Fuerte", color: "var(--accent-text)" },
 ] as const;
 
 export function PasswordStrength({ value }: { value: string }) {

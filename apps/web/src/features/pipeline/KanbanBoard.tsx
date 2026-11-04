@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -329,7 +330,7 @@ export function KanbanBoard() {
         <h2 style={{ margin: 0 }}>Embudo</h2>
         <span
           title={connected ? "En tiempo real" : "Desconectado"}
-          style={{ width: 8, height: 8, borderRadius: "50%", background: connected ? "var(--accent)" : "#7a8aa0" }}
+          style={{ width: 8, height: 8, borderRadius: "50%", background: connected ? "var(--accent)" : "var(--muted)" }}
         />
         {data.pipelines.length > 1 ? (
           <div className="seg" role="tablist" aria-label="Embudos">
@@ -501,7 +502,7 @@ export function KanbanBoard() {
                     {stage.isWon && <NavIcon name="trophy" size={14} />}
                     {stage.isLost && <NavIcon name="x" size={14} />}
                     {stage.isQualified && (
-                      <span title="Potenciales: aquí manda el agente a quien muestra interés real" style={{ color: "#ffd98a", display: "inline-flex" }}>
+                      <span title="Potenciales: aquí manda el agente a quien muestra interés real" style={{ color: "var(--warning)", display: "inline-flex" }}>
                         <NavIcon name="target" size={14} />
                       </span>
                     )}
@@ -560,7 +561,7 @@ export function KanbanBoard() {
                   </span>
                 </div>
                 {total > 0 && (
-                  <div style={{ color: "#7ee2a8", fontSize: 12, marginBottom: 10, fontWeight: 600 }}>
+                  <div style={{ color: "var(--positive)", fontSize: 12, marginBottom: 10, fontWeight: 600 }}>
                     {[...totals].map(([c, v]) => money(v, c)).join(" · ")}
                   </div>
                 )}
@@ -799,7 +800,7 @@ function DealCard({
       {deal.tags.length > 0 && (
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 7 }}>
           {shownTags.map((tg) => (
-            <span key={tg.name} style={{ ...cardTag, background: tagColor(tg.color) }}>
+            <span key={tg.name} style={{ ...cardTag, background: tagColor(tg.color), color: readableInk(tagColor(tg.color)) }}>
               {tg.name}
             </span>
           ))}
@@ -814,12 +815,12 @@ function DealCard({
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
           {deal.source && (
             <span style={sourceChip} title={`Fuente: ${deal.source.name}`}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: deal.source.color ?? "#7a8aa0", flexShrink: 0 }} />
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: deal.source.color ?? "var(--muted)", flexShrink: 0 }} />
               {deal.source.name}
             </span>
           )}
           {deal.value !== null && (
-            <span style={{ color: "var(--accent)", fontSize: 13 }}>{money(deal.value, deal.currency)}</span>
+            <span style={{ color: "var(--accent-text)", fontSize: 13 }}>{money(deal.value, deal.currency)}</span>
           )}
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -896,7 +897,7 @@ function DiscardedList({
               {d.discardedAt ? ` · ${fecha(d.discardedAt)}` : ""}
             </div>
           </div>
-          <span style={{ fontSize: 12, color: "#e0b766", whiteSpace: "nowrap" }}>{motivo(d)}</span>
+          <span style={{ fontSize: 12, color: "var(--warning)", whiteSpace: "nowrap" }}>{motivo(d)}</span>
           <button onClick={() => onOpen(d.id)} style={{ ...ghostBtn, ...smBtn }}>
             Ver
           </button>
@@ -1098,7 +1099,7 @@ function DealDetail({
             {won && (
               <button
                 onClick={() => (asksValue(deal, won) ? onAskWon(won.id) : setStage.mutate(won.id))}
-                style={{ ...primaryBtn, flex: 1, background: "#1f6f46", boxShadow: "none" }}
+                style={{ ...primaryBtn, flex: 1, background: "#0a6b42", boxShadow: "none" }}
               >
                 <NavIcon name="trophy" size={15} />
                 Ganado
@@ -1261,7 +1262,7 @@ function StageManager({
                     (ok) => ok && remove.mutate(s.id),
                   );
                 }}
-                style={{ ...miniBtn, color: "#e08a8a" }}
+                style={{ ...miniBtn, color: "var(--danger)" }}
                 title="Eliminar etapa"
               >
                 <NavIcon name="x" size={13} />
@@ -1269,7 +1270,7 @@ function StageManager({
             </div>
           ))}
           {remove.isError && (
-            <span style={{ color: "#ff6b6b", fontSize: 13 }}>{(remove.error as Error).message}</span>
+            <span style={{ color: "var(--danger)", fontSize: 13 }}>{(remove.error as Error).message}</span>
           )}
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             <input style={{ ...field, flex: 1 }} value={name} placeholder="Nueva etapa" onChange={(e) => setName(e.target.value)} />
@@ -1299,7 +1300,7 @@ function PipelineError({ message, onRetry }: { message: string; onRetry: () => v
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-start" }}>
       <h2 style={{ margin: 0 }}>Embudo</h2>
-      <div style={{ padding: "12px 16px", borderRadius: 10, background: "#2a2113", border: "1px solid #5a4a2a", color: "#e0b766", fontSize: 14 }}>
+      <div style={{ padding: "12px 16px", borderRadius: 10, background: "var(--warning-soft)", border: "1px solid var(--warning-border)", color: "var(--warning)", fontSize: 14 }}>
         No se pudo cargar el tablero: {message}
       </div>
       <button onClick={onRetry} style={primaryBtn}>
@@ -1480,9 +1481,9 @@ const discardedNote: React.CSSProperties = {
   flexWrap: "wrap",
   padding: "8px 10px",
   borderRadius: 8,
-  border: "1px solid #7a6f4a",
-  background: "rgba(224,183,102,0.08)",
-  color: "#e0b766",
+  border: "1px solid var(--warning-border)",
+  background: "rgba(240, 180, 90, 0.08)",
+  color: "var(--warning)",
   fontSize: 13,
 };
 
@@ -1499,7 +1500,7 @@ const cardTag: React.CSSProperties = {
   fontWeight: 500,
   padding: "1px 7px",
   borderRadius: 999,
-  color: "#eaf2ff",
+  color: "#ffffff",
   maxWidth: 110,
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -1524,7 +1525,7 @@ const contactAvatar: React.CSSProperties = {
   flexShrink: 0,
   borderRadius: "50%",
   background: "var(--accent-soft)",
-  color: "#9dc0ff",
+  color: "var(--accent-text)",
   fontSize: 13,
   fontWeight: 700,
 };
@@ -1534,7 +1535,7 @@ const unreadPill: React.CSSProperties = {
   height: 17,
   padding: "0 5px",
   borderRadius: 999,
-  background: "rgba(0,0,0,0.28)",
+  background: "var(--surface-2)",
   fontSize: 10.5,
   fontWeight: 700,
   display: "inline-grid",
@@ -1581,7 +1582,7 @@ const ownerAvatar: React.CSSProperties = {
 const backdrop: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.5)",
+  background: "var(--scrim)",
   zIndex: 40,
 };
 
@@ -1597,7 +1598,7 @@ const drawer: React.CSSProperties = {
   zIndex: 41,
   display: "flex",
   flexDirection: "column",
-  boxShadow: "-8px 0 24px rgba(0,0,0,0.4)",
+  boxShadow: "-8px 0 24px rgba(0, 0, 0, 0.4)",
 };
 
 const drawerHeader: React.CSSProperties = {

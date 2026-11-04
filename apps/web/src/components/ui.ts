@@ -26,7 +26,7 @@ export const primaryBtn: CSSProperties = {
   lineHeight: 1.2,
   cursor: "pointer",
   whiteSpace: "nowrap",
-  boxShadow: "0 1px 2px rgba(0,0,0,0.3)",
+  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
 };
 
 export const ghostBtn: CSSProperties = {
@@ -49,7 +49,7 @@ export const ghostBtn: CSSProperties = {
 export const dangerBtn: CSSProperties = {
   ...ghostBtn,
   color: "var(--danger)",
-  border: "1px solid #5a2a2a",
+  border: "1px solid var(--danger-border)",
 };
 
 /** Botón de acento suave: para acciones secundarias que aun así destacan. */
@@ -57,7 +57,7 @@ export const softBtn: CSSProperties = {
   ...ghostBtn,
   background: "var(--accent-soft)",
   color: "var(--accent-text)",
-  border: "1px solid rgba(200,255,0,0.24)",
+  border: "1px solid rgba(11, 108, 216, 0.48)",
 };
 
 /** Versión compacta de cualquiera de los anteriores: `{ ...ghostBtn, ...smBtn }`. */

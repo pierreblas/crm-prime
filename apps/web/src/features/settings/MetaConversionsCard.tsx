@@ -105,7 +105,7 @@ export function MetaConversionsCard() {
                           Espera el valor
                         </span>
                       ) : (
-                        <span style={{ color: "#e08a8a" }} title={e.error ?? undefined}>
+                        <span style={{ color: "var(--danger)" }} title={e.error ?? undefined}>
                           Falló{" "}
                           <button
                             type="button"

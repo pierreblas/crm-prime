@@ -730,7 +730,7 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
               fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
               colorMode="dark"
             >
-              <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="#243049" />
+              <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="rgba(154, 185, 194, 0.22)" />
               <Controls />
               {/* El minimapa solo ayuda con flujos grandes; en uno pequeño tapa bloques. */}
               {nodes.length >= 8 && (
@@ -739,7 +739,7 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
                   zoomable
                   style={{ width: 150, height: 96 }}
                   nodeColor={(n) => NODE_META[n.type ?? ""]?.color ?? "#3a4c6a"}
-                  maskColor="rgba(9,13,21,0.7)"
+                  maskColor="rgba(6,14,28,0.7)"
                 />
               )}
             </ReactFlow>
@@ -957,7 +957,7 @@ function assistantBtn(active: boolean): React.CSSProperties {
     padding: "7px 12px",
     borderRadius: 7,
     border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-    background: active ? "rgba(200,255,0,0.08)" : "transparent",
+    background: active ? "rgba(11, 108, 216, 0.16)" : "transparent",
     color: active ? "var(--accent)" : "var(--text)",
     cursor: "pointer",
     fontSize: 13,
@@ -979,15 +979,15 @@ const issuesBtnBase: React.CSSProperties = {
 };
 const issuesBtnOk: React.CSSProperties = {
   ...issuesBtnBase,
-  border: "1px solid #1f6f46",
-  background: "rgba(63,140,110,0.12)",
-  color: "#8fe6c0",
+  border: "1px solid var(--positive-border)",
+  background: "rgba(126, 226, 168, 0.12)",
+  color: "var(--positive)",
 };
 const issuesBtnWarn: React.CSSProperties = {
   ...issuesBtnBase,
-  border: "1px solid #7a6f4a",
-  background: "rgba(224,183,102,0.1)",
-  color: "#e0b766",
+  border: "1px solid var(--warning-border)",
+  background: "rgba(240, 180, 90, 0.1)",
+  color: "var(--warning)",
 };
 
 const issuesMenu: React.CSSProperties = {
@@ -1002,7 +1002,7 @@ const issuesMenu: React.CSSProperties = {
   border: "1px solid var(--border-strong)",
   borderRadius: 10,
   padding: 4,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5)",
 };
 
 const issuesItem: React.CSSProperties = {
@@ -1015,7 +1015,7 @@ const issuesItem: React.CSSProperties = {
   borderRadius: 7,
   border: "none",
   background: "transparent",
-  color: "#e6edf6",
+  color: "var(--text)",
   fontSize: 12.5,
   cursor: "pointer",
   textAlign: "left",
@@ -1058,7 +1058,7 @@ const menu: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 2,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.55)",
+  boxShadow: "0 10px 30px rgba(0, 0, 0, 0.55)",
 };
 
 const menuItem: React.CSSProperties = {
@@ -1069,7 +1069,7 @@ const menuItem: React.CSSProperties = {
   borderRadius: 7,
   border: "none",
   background: "transparent",
-  color: "#e6edf6",
+  color: "var(--text)",
   fontSize: 12.5,
   cursor: "pointer",
   textAlign: "left",

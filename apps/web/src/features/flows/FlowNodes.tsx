@@ -169,7 +169,7 @@ function Shell({
               <NavIcon name="copy" size={13} /> Duplicar
             </button>
             <button
-              style={{ ...toolBtn, color: "#e08a8a" }}
+              style={{ ...toolBtn, color: "var(--danger)" }}
               title="Eliminar (Supr)"
               onClick={() => actions?.deleteNode(id)}
             >
@@ -302,17 +302,17 @@ export function AskQuestionNode({ id, data, selected }: NodeProps) {
       <div style={body}>
         <InlineText nodeId={id} value={d.text ?? ""} placeholder="Escribe la pregunta…" selected={selected} />
         <div style={{ marginTop: 5, fontSize: 11, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ color: d.variable ? "#7ee2a8" : "#8aa0bd", fontFamily: "ui-monospace, monospace" }}>
+          <span style={{ color: d.variable ? "var(--positive)" : "var(--muted)", fontFamily: "ui-monospace, monospace" }}>
             → {d.variable ? `{{${d.variable}}}` : "sin variable"}
           </span>
-          {validated && <span style={{ color: "#cbb6ff" }}>espera: {VALIDATION_LABEL[d.validate!]?.toLowerCase()}</span>}
+          {validated && <span style={{ color: "#c9b6f0" }}>espera: {VALIDATION_LABEL[d.validate!]?.toLowerCase()}</span>}
         </div>
       </div>
       {validated && (
-        <div style={{ padding: "0 10px 6px", borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 4 }}>
+        <div style={{ padding: "0 10px 6px", borderTop: "1px solid rgba(154, 185, 194, 0.07)", paddingTop: 4 }}>
           <Row>
-            <span style={{ ...branchText, color: "#e0b766" }}>si no es válida</span>
-            <OutputHandle nodeId={id} handleId="invalid" position={Position.Right} color="#e0b766" top={ROW_H / 2} />
+            <span style={{ ...branchText, color: "var(--warning)" }}>si no es válida</span>
+            <OutputHandle nodeId={id} handleId="invalid" position={Position.Right} color="var(--warning)" top={ROW_H / 2} />
           </Row>
         </div>
       )}
@@ -344,8 +344,8 @@ export function ConditionNode({ id, data, selected }: NodeProps) {
           </Row>
         ))}
         <Row>
-          <span style={{ ...branchText, color: "#8aa0bd" }}>en otro caso</span>
-          <OutputHandle nodeId={id} handleId="else" position={Position.Right} color="#8aa0bd" top={ROW_H / 2} />
+          <span style={{ ...branchText, color: "var(--muted)" }}>en otro caso</span>
+          <OutputHandle nodeId={id} handleId="else" position={Position.Right} color="var(--muted)" top={ROW_H / 2} />
         </Row>
       </div>
     </Shell>
@@ -511,8 +511,8 @@ function ButtonRows({
         </button>
       )}
       <Row>
-        <span style={{ ...branchText, color: "#8aa0bd" }}>otra respuesta</span>
-        <OutputHandle nodeId={id} handleId="else" position={Position.Right} color="#8aa0bd" top={ROW_H / 2} />
+        <span style={{ ...branchText, color: "var(--muted)" }}>otra respuesta</span>
+        <OutputHandle nodeId={id} handleId="else" position={Position.Right} color="var(--muted)" top={ROW_H / 2} />
       </Row>
     </div>
   );
@@ -589,8 +589,8 @@ export function CarouselNode({ id, data, selected }: NodeProps) {
         })}
         {reply ? (
           <Row>
-            <span style={{ ...branchText, color: "#8aa0bd" }}>otra respuesta</span>
-            <OutputHandle nodeId={id} handleId="else" position={Position.Right} color="#8aa0bd" top={ROW_H / 2} />
+            <span style={{ ...branchText, color: "var(--muted)" }}>otra respuesta</span>
+            <OutputHandle nodeId={id} handleId="else" position={Position.Right} color="var(--muted)" top={ROW_H / 2} />
           </Row>
         ) : (
           <div style={{ ...placeholder, fontSize: 11 }}>Botones con enlace: sigue sin esperar.</div>
@@ -670,7 +670,7 @@ export function SetFieldNode({ id, data, selected }: NodeProps) {
       <div style={body}>
         {d.fieldKey ? (
           <>
-            <span style={{ color: "#8fd6e6" }}>{d.fieldKey === "name" ? "Nombre" : d.fieldKey}</span> ={" "}
+            <span style={{ color: "var(--accent-text)" }}>{d.fieldKey === "name" ? "Nombre" : d.fieldKey}</span> ={" "}
             {d.value || <i style={placeholder}>vacío</i>}
           </>
         ) : (
@@ -733,8 +733,8 @@ export function ScheduleNode({ id, data, selected }: NodeProps) {
       <OutputRows
         id={id}
         rows={[
-          { id: "in", label: "en horario", color: "#7ee2a8" },
-          { id: "out", label: "fuera de horario", color: "#e0b766" },
+          { id: "in", label: "en horario", color: "var(--positive)" },
+          { id: "out", label: "fuera de horario", color: "var(--warning)" },
         ]}
       />
     </Shell>
@@ -772,9 +772,9 @@ function shell(selected: boolean, color: string, minWidth = 220): React.CSSPrope
     borderRadius: 10,
     border: `1.5px solid ${selected ? "var(--accent)" : color}`,
     background: "var(--panel-2)",
-    color: "#e6edf6",
+    color: "var(--text)",
     fontSize: 12,
-    boxShadow: selected ? "0 0 0 3px rgba(200,255,0,0.2), 0 8px 24px rgba(0,0,0,0.35)" : "0 2px 10px rgba(0,0,0,0.25)",
+    boxShadow: selected ? "0 0 0 3px rgba(11, 108, 216, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35)" : "0 2px 10px rgba(0, 0, 0, 0.25)",
     transition: "box-shadow 0.12s ease, border-color 0.12s ease",
   };
 }
@@ -784,14 +784,14 @@ const head: React.CSSProperties = {
   alignItems: "center",
   gap: 7,
   padding: "7px 10px",
-  borderBottom: "1px solid rgba(255,255,255,0.07)",
+  borderBottom: "1px solid rgba(154, 185, 194, 0.07)",
   fontWeight: 700,
   fontSize: 12,
 };
 
 const body: React.CSSProperties = {
   padding: "8px 10px",
-  color: "#aebfd6",
+  color: "var(--muted)",
   whiteSpace: "pre-wrap",
   wordBreak: "break-word",
   lineHeight: 1.45,
@@ -823,7 +823,7 @@ const toolbar: React.CSSProperties = {
   borderRadius: 8,
   background: "var(--field)",
   border: "1px solid var(--border)",
-  boxShadow: "0 6px 20px rgba(0,0,0,0.4)",
+  boxShadow: "0 6px 20px rgba(0, 0, 0, 0.4)",
 };
 
 const toolBtn: React.CSSProperties = {
@@ -853,7 +853,7 @@ const issueDot: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+  boxShadow: "0 1px 4px rgba(0, 0, 0, 0.4)",
   cursor: "help",
   zIndex: 6,
 };

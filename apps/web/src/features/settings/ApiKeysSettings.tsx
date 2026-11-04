@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { NavIcon } from "@/components/NavIcons";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -190,7 +191,7 @@ function NewKeyForm({
             />
             <span>
               <strong style={{ fontSize: 13 }}>{apiScopeLabels[s]}</strong>{" "}
-              <code style={{ color: "var(--accent)", fontSize: 11 }}>{s}</code>
+              <code style={{ color: "var(--accent-text)", fontSize: 11 }}>{s}</code>
               <div style={{ color: "var(--muted)", fontSize: 12 }}>
                 {apiScopeHints[s]}
               </div>
@@ -243,7 +244,7 @@ function KeyRow({
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <strong style={{ fontSize: 14 }}>{k.name}</strong>
         <code style={chip}>{k.prefix}…</code>
-        {revoked && <span style={badge("#5a2a2a")}>Revocada</span>}
+        {revoked && <span style={badge("#b3261e")}>Revocada</span>}
         <div style={{ flex: 1 }} />
         {!revoked && (
           <button
@@ -274,7 +275,7 @@ function KeyRow({
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 9 }}>
         {k.scopes.map((s) => (
-          <span key={s} style={badge("#2c4b7a")}>
+          <span key={s} style={badge("#0a58b4")}>
             {apiScopeLabels[s]}
           </span>
         ))}
@@ -305,8 +306,8 @@ const card: React.CSSProperties = {
 
 const banner: React.CSSProperties = {
   ...card,
-  background: "rgba(63,140,110,0.12)",
-  border: "1px solid #2f6b52",
+  background: "rgba(126, 226, 168, 0.12)",
+  border: "1px solid var(--positive-border)",
 };
 
 const secretBox: React.CSSProperties = {
@@ -387,9 +388,9 @@ const dangerBtn: React.CSSProperties = {
   width: 34,
   height: 34,
   borderRadius: 8,
-  border: "1px solid #5a2a2a",
+  border: "1px solid var(--danger-border)",
   background: "transparent",
-  color: "#e08a8a",
+  color: "var(--danger)",
   cursor: "pointer",
   fontSize: 13,
   flexShrink: 0,
@@ -409,7 +410,7 @@ function badge(bg: string): React.CSSProperties {
     padding: "2px 8px",
     borderRadius: 999,
     background: bg,
-    color: "#eaf2ff",
+    color: readableInk(bg),
     whiteSpace: "nowrap",
   };
 }

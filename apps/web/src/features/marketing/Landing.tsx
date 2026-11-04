@@ -18,7 +18,7 @@ const COMPARE = [
   ["Anuncios que optimizan a clics, no a ventas", "Meta aprende de tus ventas reales y trae mejores leads"],
 ];
 
-// Frases de la banda lima. Se pintan dos veces para que la marquesina
+// Frases de la banda de color. Se pintan dos veces para que la marquesina
 // haga un bucle sin salto.
 const BAND_ITEMS = [
   `${TRIAL_DAYS} días de Pro gratis`,
@@ -165,7 +165,7 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ── Banda lima a todo ancho, en marquesina ── */}
+        {/* ── Banda de color a todo ancho, en marquesina ── */}
         <section className="lp-band" data-paused={paused} aria-label="Lo que incluye Driony">
           <div className="lp-band__track">
             {[0, 1].map((copy) => (
@@ -543,7 +543,7 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ── Cierre: lima a todo ancho ── */}
+        {/* ── Cierre: color de acción a todo ancho ── */}
         <section className="lp-cta-band">
           <div className="lp-wrap lp-cta-band__inner lp-reveal">
             <h2>Pon a tu agente a vender hoy.</h2>

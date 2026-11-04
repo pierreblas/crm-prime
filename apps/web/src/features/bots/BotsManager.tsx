@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@/lib/toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -155,7 +156,7 @@ export function BotsManager() {
         </div>
 
         {isPending && <p style={muted}>Cargando…</p>}
-        {isError && <p style={{ color: "#ff6b6b" }}>{(error as Error).message}</p>}
+        {isError && <p style={{ color: "var(--danger)" }}>{(error as Error).message}</p>}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {bots.map((b) => (
@@ -220,7 +221,7 @@ export function BotsManager() {
             <div style={detailHead}>
               <h2 style={detailTitle}>{selectedBot.name}</h2>
               {selectedBot.isDefault && (
-                <span style={badge("var(--surface-3)")} title="Atiende los números que no tienen un agente propio. No se puede eliminar.">
+                <span style={badge("#3f5b6b")} title="Atiende los números que no tienen un agente propio. No se puede eliminar.">
                   Principal
                 </span>
               )}
@@ -294,7 +295,7 @@ function BotCard({
   return (
     <button onClick={onClick} style={card(active)}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={dot(bot.isActive ? "var(--accent)" : "#7a8aa0")} />
+        <span style={dot(bot.isActive ? "var(--accent)" : "var(--muted)")} />
         <strong style={{ fontSize: 14 }}>{bot.name}</strong>
       </div>
       <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
@@ -305,14 +306,14 @@ function BotCard({
             : "Te sugiere respuestas"}
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-        <span style={badge(bot.channel ? "rgba(200,255,0,.16)" : "var(--surface-3)")}>
+        <span style={badge(bot.channel ? "rgba(11, 108, 216, 0.32)" : "var(--surface-3)")}>
           <NavIcon name="phone" size={10} />
           {bot.channel ? bot.channel.label ?? bot.channel.displayPhoneNumber : "Todos los números"}
         </span>
-        {bot.welcomeEnabled && <span style={badge("var(--surface-3)")}>Saluda</span>}
-        {bot.businessHoursEnabled && <span style={badge("var(--surface-3)")}>Con horario</span>}
+        {bot.welcomeEnabled && <span style={badge("#3f5b6b")}>Saluda</span>}
+        {bot.businessHoursEnabled && <span style={badge("#3f5b6b")}>Con horario</span>}
         {bot.keywordTriggers.length > 0 && (
-          <span style={badge("var(--surface-3)")}>
+          <span style={badge("#3f5b6b")}>
             {bot.keywordTriggers.length} {bot.keywordTriggers.length > 1 ? "palabras clave" : "palabra clave"}
           </span>
         )}
@@ -398,7 +399,7 @@ function badge(bg: string): React.CSSProperties {
     padding: "2px 8px",
     borderRadius: 999,
     background: bg,
-    color: "#e9f1ff",
+    color: readableInk(bg),
   };
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import type { TagDto } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { useT } from "@/i18n/I18nProvider";
@@ -133,7 +134,7 @@ export function TagPicker({
             key={tg.id}
             type="button"
             className={`flt-chip flt-chip--tag${on ? " is-on" : ""}`}
-            style={on ? { background: tagColor(tg.color), borderColor: tagColor(tg.color), color: "#eaf2ff" } : undefined}
+            style={on ? { background: tagColor(tg.color), borderColor: tagColor(tg.color), color: readableInk(tagColor(tg.color)) } : undefined}
             onClick={() => toggle(tg.name)}
           >
             <span className="flt-dot" style={{ background: tagColor(tg.color) }} />

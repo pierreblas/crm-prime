@@ -426,7 +426,7 @@ const tocLink: React.CSSProperties = {
   color: "var(--muted)",
   textDecoration: "none",
 };
-const link: React.CSSProperties = { color: "var(--accent)" };
+const link: React.CSSProperties = { color: "var(--accent-text)" };
 const foot: React.CSSProperties = {
   marginTop: 48,
   paddingTop: 20,

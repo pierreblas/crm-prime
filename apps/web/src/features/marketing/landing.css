@@ -1,27 +1,30 @@
-/* Landing pública — lima sobre carbón. La identidad la cargan el titular, la
-   banda lima y el cierre a sangre; el resto de la página es producto real
-   (capturas) sobre superficies planas y translúcidas. El lima es para marca
-   y acción: sobre lima el texto va siempre en carbón, y sobre blanco no sirve
-   como texto (1,2:1), ahí el acento de texto es un oliva oscuro.
+/* Landing pública — noche, Lemon Tonic y Super Sonic. La identidad la cargan el
+   titular en Lemon, el estallido de puntos en Super Sonic, la banda azul con
+   letra Lemon y el cierre a sangre en Lemon con tinta noche. Sea Angel es el
+   texto secundario. La variante clara (data-theme="light", al final del archivo)
+   es el póster: lienzo Sea Angel, donde ni el amarillo (1,9:1) ni el azul (2,3:1)
+   sirven como texto y escribe el azul noche.
    Todo va scopeado bajo .lp para no filtrarse a la app. Las fuentes vienen
    de globals.css (--font-display / --font-sans). */
 
 .lp {
-  --bg: #090c0d;
-  --surface: rgba(22, 28, 26, 0.6);
-  --surface-2: rgba(12, 16, 15, 0.66);
-  --border: rgba(205, 225, 200, 0.14);
-  --border-soft: rgba(205, 225, 200, 0.09);
-  --ink: #f1f4ee;
-  --ink-dim: #ccd3c8;
-  --muted: #9aa596;
-  --accent: #c8ff00;
-  --accent-bright: #d4ff3d;
-  --accent-text: #dcff70;
-  --accent-ink: #0b1000;
-  --accent-soft: rgba(200, 255, 0, 0.1);
-  --accent-line: rgba(200, 255, 0, 0.32);
-  --positive: #dcff70;
+  --bg: #060e1c;
+  --surface: #0c1829;
+  --surface-2: #0a1424;
+  --border: rgba(154, 185, 194, 0.2);
+  --border-soft: rgba(154, 185, 194, 0.12);
+  --ink: #f2f7f9;
+  --ink-dim: #d6e4e9;
+  --muted: #9ab9c2;
+  --accent: #fefd14;
+  --accent-hover: #ffff66;
+  --accent-bright: #ffff66;
+  --accent-text: #fefd14;
+  --accent-ink: #060e1c;
+  --accent-soft: rgba(11, 108, 216, 0.24);
+  --accent-line: rgba(254, 253, 20, 0.32);
+  --invert-hover: #0f2240;
+  --positive: #fefd14;
   --glass-line: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 
   --r-sm: 8px;
@@ -40,10 +43,9 @@
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
-  /* Brillos detrás de todo: lima arriba y un verde muy bajo a la derecha. */
+  /* Un brillo bajo de Super Sonic arriba a la izquierda. */
   background:
-    radial-gradient(1000px 560px at 8% -6%, rgba(200, 255, 0, 0.08), transparent 62%),
-    radial-gradient(800px 500px at 102% 18%, rgba(160, 220, 120, 0.04), transparent 60%),
+    radial-gradient(1000px 560px at 8% -6%, rgba(11, 108, 216, 0.26), transparent 62%),
     var(--bg);
 }
 
@@ -54,8 +56,8 @@
 }
 
 .lp ::selection {
-  background: rgba(200, 255, 0, 0.3);
-  color: var(--ink);
+  background: var(--lemon-tonic, #fefd14);
+  color: #07233f;
 }
 
 /* ── Tipografía ─────────────────────────────────────────────── */
@@ -168,7 +170,7 @@
 .lp-btn--primary {
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 0 0 1px rgba(200, 255, 0, 0.35), 0 10px 26px -12px rgba(200, 255, 0, 0.45);
+  box-shadow: 0 0 0 1px rgba(254, 253, 20, 0.35), 0 10px 26px -12px rgba(254, 253, 20, 0.45);
 }
 .lp-btn--ghost {
   background: rgba(255, 255, 255, 0.03);
@@ -179,24 +181,24 @@
   padding: 15px 28px;
   font-size: 16px;
 }
-/* Sobre la banda lima el primario se invierte. .lp a pesa más que una
+/* Sobre la banda de color el primario se invierte. .lp a pesa más que una
    clase sola, de ahí el selector compuesto. */
 .lp .lp-btn--white {
   background: var(--accent-ink);
   color: var(--accent);
-  box-shadow: 0 12px 30px -14px rgba(11, 16, 0, 0.6);
+  box-shadow: 0 12px 30px -14px rgba(7, 35, 63, 0.6);
 }
 .lp .lp-btn--outline {
   background: transparent;
   color: var(--accent-ink);
-  border-color: rgba(11, 16, 0, 0.55);
+  border-color: currentColor;
   font-weight: 700;
 }
 @media (hover: hover) {
   .lp-btn--primary:hover {
-    background: #d6ff47;
+    background: var(--accent-hover);
     transform: translateY(-2px);
-    box-shadow: 0 0 0 1px rgba(200, 255, 0, 0.5), 0 14px 32px -12px rgba(200, 255, 0, 0.6);
+    box-shadow: 0 0 0 1px rgba(254, 253, 20, 0.5), 0 14px 32px -12px rgba(254, 253, 20, 0.6);
   }
   .lp-btn--ghost:hover {
     border-color: var(--accent-line);
@@ -204,12 +206,12 @@
     transform: translateY(-2px);
   }
   .lp .lp-btn--white:hover {
-    background: #1c2507;
+    background: var(--invert-hover);
     color: var(--accent);
     transform: translateY(-2px);
   }
   .lp .lp-btn--outline:hover {
-    background: rgba(11, 16, 0, 0.08);
+    background: rgba(255, 255, 255, 0.1);
     border-color: var(--accent-ink);
     transform: translateY(-2px);
   }
@@ -220,7 +222,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(9, 12, 13, 0.6);
+  background: rgba(6, 14, 28, 0.8);
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
   border-bottom: 1px solid transparent;
@@ -324,7 +326,7 @@
   display: flex;
   flex-direction: column;
   padding: max(16px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
-  background: rgba(9, 12, 13, 0.97);
+  background: rgba(6, 14, 28, 0.98);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   color: var(--ink);
@@ -387,7 +389,27 @@
   padding-top: clamp(40px, 6vw, 76px);
   padding-bottom: clamp(48px, 6vw, 88px);
 }
+/* Estallido de puntos en Super Sonic, detrás de la conversación. */
+.lp-hero::before {
+  content: "";
+  position: absolute;
+  top: -9%;
+  left: 50%;
+  width: min(960px, 78vw);
+  aspect-ratio: 1;
+  pointer-events: none;
+  background: url("/landing/estallido.webp") center / contain no-repeat;
+}
+@media (max-width: 1024px) {
+  .lp-hero::before {
+    top: auto;
+    bottom: -40px;
+    left: 18%;
+    width: max(620px, 110vw);
+  }
+}
 .lp-hero__grid {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: clamp(28px, 4vw, 56px);
@@ -502,9 +524,7 @@
 .lp-live__chat {
   border-radius: 14px;
   border: 1px solid var(--border);
-  background:
-    radial-gradient(120% 70% at 100% 100%, rgba(200, 255, 0, 0.06), transparent 60%),
-    var(--surface-2);
+  background: var(--surface-2);
   box-shadow: var(--glass-line), 0 40px 80px -48px rgba(0, 0, 0, 0.9);
   overflow: hidden;
   display: flex;
@@ -526,7 +546,7 @@
   height: 32px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: rgba(205, 225, 200, 0.16);
+  background: rgba(154, 185, 194, 0.16);
   color: var(--ink);
   font-size: 12px;
   font-weight: 700;
@@ -564,7 +584,7 @@
   height: 7px;
   border-radius: 50%;
   background: var(--accent-bright);
-  box-shadow: 0 0 0 3px rgba(200, 255, 0, 0.2);
+  box-shadow: 0 0 0 3px rgba(254, 253, 20, 0.2);
 }
 .lp-live__msgs {
   list-style: none;
@@ -595,7 +615,7 @@
   border-bottom-left-radius: 4px;
 }
 .lp-msg--out .lp-msg__bubble {
-  background: rgba(200, 255, 0, 0.14);
+  background: rgba(11, 108, 216, 0.42);
   border-bottom-right-radius: 4px;
 }
 .lp-msg__file {
@@ -622,7 +642,7 @@
 .lp-msg__ai {
   padding: 0 6px;
   border-radius: var(--r-pill);
-  background: rgba(200, 255, 0, 0.18);
+  background: rgba(254, 253, 20, 0.18);
   color: var(--accent-text);
   font-weight: 700;
   font-size: 10px;
@@ -637,7 +657,7 @@
   padding: 12px 14px;
   border-radius: 12px;
   border-bottom-right-radius: 4px;
-  background: rgba(200, 255, 0, 0.14);
+  background: rgba(254, 253, 20, 0.14);
 }
 .lp-msg__typing i {
   width: 6px;
@@ -667,7 +687,10 @@
 .lp-live__side {
   display: flex;
   flex-direction: column;
-  padding: 4px 0;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
 }
 .lp-live__label {
   color: var(--muted);
@@ -719,7 +742,7 @@
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--bg);
-  border: 1px solid rgba(205, 225, 200, 0.3);
+  border: 1px solid rgba(154, 185, 194, 0.3);
   color: var(--positive);
 }
 .lp-live__tick svg {
@@ -728,7 +751,7 @@
 }
 .lp-live__log li[data-last="true"] .lp-live__tick {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(200, 255, 0, 0.16);
+  box-shadow: 0 0 0 4px rgba(254, 253, 20, 0.16);
 }
 .lp-live__replay {
   margin-top: auto;
@@ -809,28 +832,14 @@
   margin-bottom: 2px;
 }
 
-/* ── Banda lima a todo ancho (marquesina) ──────────────────── */
+/* ── Banda de color a todo ancho (marquesina) ──────────────────── */
 .lp-band {
   position: relative;
   overflow: hidden;
   padding-block: 16px;
-  color: var(--accent-ink);
-  background: var(--accent);
-  border-block: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fefd14;
+  background: #0b6cd8;
   box-shadow: none;
-  border-block-color: rgba(11, 16, 0, 0.2);
-}
-.lp-band::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(11, 16, 0, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(11, 16, 0, 0.06) 1px, transparent 1px);
-  background-size: 40px 40px;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
 }
 .lp-band__track {
   display: flex;
@@ -865,7 +874,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(11, 16, 0, 0.75);
+  background: currentColor;
 }
 /* Fundido bajo el botón de pausa para que el texto no choque con él. */
 .lp-band::after {
@@ -876,7 +885,7 @@
   right: 0;
   width: 120px;
   pointer-events: none;
-  background: linear-gradient(90deg, rgba(200, 255, 0, 0), var(--accent) 70%);
+  background: linear-gradient(90deg, transparent, #0b6cd8 70%);
 }
 .lp-band__pause {
   position: absolute;
@@ -887,13 +896,12 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  background: rgba(11, 16, 0, 0.1);
-  color: var(--accent-ink);
+  border: 1px solid currentColor;
+  background: #0b6cd8;
+  color: #fefd14;
   cursor: pointer;
   display: grid;
   place-items: center;
-  border-color: rgba(11, 16, 0, 0.45);
 }
 @keyframes lp-marquee {
   from {
@@ -942,7 +950,7 @@
 }
 .lp-card--feature {
   background:
-    radial-gradient(80% 120% at 100% 0%, rgba(200, 255, 0, 0.07), transparent 60%),
+    radial-gradient(80% 120% at 100% 0%, rgba(254, 253, 20, 0.07), transparent 60%),
     var(--surface);
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
@@ -1042,7 +1050,7 @@
   font-size: 11.5px;
   padding: 2px 8px;
   border-radius: var(--r-pill);
-  background: rgba(205, 225, 200, 0.1);
+  background: rgba(154, 185, 194, 0.1);
   color: var(--accent-text);
   white-space: nowrap;
 }
@@ -1193,11 +1201,11 @@
   color: var(--muted);
 }
 .lp-vs__bad svg {
-  color: #848f80;
+  color: var(--muted);
 }
 .lp-vs__good,
 .lp-vs__row--head > span:last-child {
-  background: rgba(200, 255, 0, 0.06);
+  background: rgba(254, 253, 20, 0.06);
 }
 .lp-vs__good {
   color: var(--ink);
@@ -1243,7 +1251,7 @@
 }
 .lp-plan--cloud {
   background:
-    radial-gradient(90% 100% at 100% 0%, rgba(200, 255, 0, 0.09), transparent 60%),
+    radial-gradient(90% 100% at 100% 0%, rgba(254, 253, 20, 0.09), transparent 60%),
     var(--surface);
   border-color: var(--accent-line);
 }
@@ -1534,7 +1542,7 @@
   max-width: 68ch;
 }
 
-/* ── Cierre a todo ancho en lima ─────────────────────────────── */
+/* ── Cierre a todo ancho, en el color de acción ─────────────────────────────── */
 .lp-cta-band {
   position: relative;
   overflow: hidden;
@@ -1542,10 +1550,25 @@
   padding-block: clamp(72px, 9vw, 128px);
   text-align: center;
   color: var(--accent-ink);
-  background:
-    radial-gradient(70% 120% at 50% 0%, rgba(255, 255, 255, 0.3), transparent 60%),
-    var(--accent);
+  background: var(--accent);
   box-shadow: none;
+}
+/* En el cierre el estallido asoma por la derecha (el azul sobre el amarillo). */
+.lp-cta-band::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -260px;
+  width: 760px;
+  aspect-ratio: 1;
+  transform: translateY(-50%);
+  pointer-events: none;
+  background: url("/landing/estallido.webp") center / contain no-repeat;
+}
+@media (max-width: 1100px) {
+  .lp-cta-band::before {
+    display: none;
+  }
 }
 .lp-cta-band__inner {
   position: relative;
@@ -1702,9 +1725,6 @@
   .lp-live__log::before {
     display: none;
   }
-  .lp-live__side {
-    padding: 0 2px;
-  }
   .lp-live__replay {
     margin-top: 14px;
   }
@@ -1722,7 +1742,7 @@
     padding-bottom: 4px;
     font-size: 14.5px;
     text-decoration: line-through;
-    text-decoration-color: rgba(154, 165, 150, 0.5);
+    text-decoration-color: rgba(169, 196, 204, 0.5);
   }
   .lp-vs__row > .lp-vs__good {
     padding-top: 4px;
@@ -1788,58 +1808,65 @@
   }
 }
 
-/* ══ Tema claro ═══════════════════════════════════════════════
-   La misma página en blanco: fondo blanco neutro (no crema), tinta casi
-   negra y el acento de texto en oliva. La banda lima, el cierre y los
-   botones primarios no cambian: son la identidad.
-   Se activa con data-theme="light" en .lp (selector de la cabecera,
-   ?tema=claro o lo que se eligió la última vez). */
+/* ══ El póster (tema predeterminado) ══════════════════════════
+   Lienzo Sea Angel plano, superficies en un Sea Angel casi blanco y tinta azul
+   noche. Super Sonic con letra Lemon en la acción, la banda y el cierre; Lemon
+   con tinta noche como marcador. Se quita con data-theme="dark" en .lp (selector
+   de la cabecera, ?tema=oscuro o lo que se eligió la última vez). */
 .lp[data-theme="light"] {
-  --bg: #f8f9f7;
-  --surface: #ffffff;
-  --surface-2: #f1f3ee;
-  --border: rgba(20, 30, 10, 0.14);
-  --border-soft: rgba(20, 30, 10, 0.09);
-  --ink: #10140c;
-  --ink-dim: #30382a;
-  --muted: #565f50;
-  --accent-bright: #4f6b00;
-  --accent-text: #435c00;
-  --accent-soft: rgba(130, 170, 0, 0.12);
-  --accent-line: rgba(90, 120, 0, 0.4);
-  --positive: #3f6a00;
-  --glass-line: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  background:
-    radial-gradient(1000px 560px at 8% -6%, rgba(200, 255, 0, 0.2), transparent 62%),
-    var(--bg);
+  --bg: #9ab9c2;
+  --surface: #e8f0f3;
+  --surface-2: #dbe6ea;
+  --border: rgba(7, 35, 63, 0.18);
+  --border-soft: rgba(7, 35, 63, 0.11);
+  --ink: #07233f;
+  --ink-dim: #0f2f4c;
+  --muted: #2b4756;
+  --accent: #0b6cd8;
+  --accent-hover: #0a61c2;
+  --accent-bright: #0a3f82;
+  /* Sobre Sea Angel el azul de acción no llega a 3:1: como texto va este, hondo. */
+  --accent-text: #0a3f82;
+  --accent-ink: #fefd14;
+  --accent-soft: rgba(11, 108, 216, 0.12);
+  --accent-line: rgba(11, 108, 216, 0.5);
+  --invert-hover: #fdfd6b;
+  --positive: #064d30;
+  --glass-line: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: var(--bg);
   color-scheme: light;
 }
-.lp[data-theme="light"] ::selection {
-  background: rgba(200, 255, 0, 0.55);
+/* La palabra clave del titular: Lemon como marcador, con tinta noche (14,6:1). */
+.lp[data-theme="light"] .lp-hero__accent {
   color: var(--ink);
+  background: #fefd14;
+  padding: 0 0.14em;
+  border-radius: 6px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
-/* Superficies que en oscuro eran un velo blanco: en claro, un velo oliva. */
 .lp[data-theme="light"] .lp-btn--ghost {
-  background: #fff;
+  background: transparent;
+  border-color: rgba(7, 35, 63, 0.55);
 }
 .lp[data-theme="light"] .lp-nav__links a[aria-current="true"],
 .lp[data-theme="light"] .lp-nav__login:hover,
 .lp[data-theme="light"] .lp-foot__links a:hover,
 .lp[data-theme="light"] .lp-chip,
 .lp[data-theme="light"] .lp-plan__tag {
-  background: rgba(20, 30, 10, 0.05);
+  background: rgba(7, 35, 63, 0.07);
 }
 .lp[data-theme="light"] .lp-partner {
-  background: #fff;
+  background: var(--surface);
 }
 .lp[data-theme="light"] .lp-meter__bar {
-  background: rgba(20, 30, 10, 0.08);
+  background: rgba(7, 35, 63, 0.1);
 }
 .lp[data-theme="light"] .lp-trace__ev {
   background: var(--accent-soft);
 }
 .lp[data-theme="light"] .lp-vs__bad svg {
-  color: #7d8677;
+  color: var(--muted);
 }
 .lp[data-theme="light"] .lp-vs {
   background: var(--surface);
@@ -1847,65 +1874,63 @@
 @media (min-width: 701px) {
   .lp[data-theme="light"] .lp-vs__good,
   .lp[data-theme="light"] .lp-vs__row--head > span:last-child {
-    background: rgba(200, 255, 0, 0.14);
+    background: rgba(254, 253, 20, 0.42);
   }
 }
-/* Conversación del hero en claro: burbujas sobre blanco. */
+/* Conversación del hero: el negocio habla en Lemon rebajado, como en la bandeja. */
 .lp[data-theme="light"] .lp-live__chat {
-  background:
-    radial-gradient(120% 70% at 100% 100%, rgba(200, 255, 0, 0.1), transparent 60%),
-    var(--surface);
-  box-shadow: 0 1px 2px rgba(20, 30, 10, 0.05), 0 8px 24px -16px rgba(20, 30, 10, 0.2);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(7, 35, 63, 0.06), 0 8px 24px -16px rgba(7, 35, 63, 0.3);
 }
 .lp[data-theme="light"] .lp-msg--in .lp-msg__bubble {
-  background: #eff1ec;
+  background: #ffffff;
 }
 .lp[data-theme="light"] .lp-msg--out .lp-msg__bubble,
 .lp[data-theme="light"] .lp-msg__typing {
-  background: #ecffb8;
+  background: #f6f79c;
 }
 .lp[data-theme="light"] .lp-msg__file {
-  background: rgba(20, 30, 10, 0.07);
+  background: rgba(7, 35, 63, 0.08);
 }
 .lp[data-theme="light"] .lp-msg__ai {
-  background: rgba(200, 255, 0, 0.6);
-  color: #2f4200;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .lp[data-theme="light"] .lp-live__avatar {
-  background: rgba(20, 30, 10, 0.07);
+  background: rgba(7, 35, 63, 0.08);
 }
 .lp[data-theme="light"] .lp-live__tick {
-  border-color: rgba(20, 30, 10, 0.2);
+  border-color: rgba(7, 35, 63, 0.3);
 }
 .lp[data-theme="light"] .lp-live__log li[data-last="true"] .lp-live__tick {
-  border-color: #6f9400;
-  box-shadow: 0 0 0 4px rgba(200, 255, 0, 0.35);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(11, 108, 216, 0.22);
 }
-/* Cabecera y menú: vidrio blanco en vez de negro. */
+/* Cabecera y menú: Sea Angel esmerilado. */
 .lp[data-theme="light"] .lp-nav {
-  background: rgba(248, 249, 247, 0.78);
+  background: rgba(154, 185, 194, 0.86);
 }
 .lp-menu[data-theme="light"] {
-  background: rgba(248, 249, 247, 0.97);
+  background: rgba(154, 185, 194, 0.98);
 }
-/* Tarjetas: en claro las separa una sombra corta, no el contraste del fondo. */
+/* Tarjetas: las separa el tono del lienzo; una sombra corta las asienta. */
 .lp[data-theme="light"] .lp-card,
 .lp[data-theme="light"] .lp-plan {
-  box-shadow: 0 1px 2px rgba(20, 30, 10, 0.05), 0 8px 24px -16px rgba(20, 30, 10, 0.18);
+  box-shadow: 0 1px 2px rgba(7, 35, 63, 0.06), 0 8px 24px -16px rgba(7, 35, 63, 0.28);
 }
 .lp[data-theme="light"] .lp-card--feature,
 .lp[data-theme="light"] .lp-plan--cloud {
   background:
-    radial-gradient(90% 100% at 100% 0%, rgba(200, 255, 0, 0.16), transparent 60%),
+    radial-gradient(90% 100% at 100% 0%, rgba(11, 108, 216, 0.12), transparent 60%),
     var(--surface);
 }
-/* Las capturas son del panel (oscuro): marco fino y sombra suave. */
+/* Las capturas son del panel: marco fino y sombra suave. */
 .lp[data-theme="light"] .lp-shot {
-  background: #0c100e;
-  box-shadow: 0 0 0 1px rgba(20, 30, 10, 0.14), 0 30px 70px -38px rgba(20, 30, 10, 0.45);
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px rgba(7, 35, 63, 0.16), 0 30px 70px -38px rgba(7, 35, 63, 0.55);
 }
 .lp[data-theme="light"] .lp-btn--primary {
-  box-shadow: 0 0 0 1px rgba(90, 120, 0, 0.35), 0 10px 24px -12px rgba(90, 120, 0, 0.4);
+  box-shadow: 0 0 0 1px rgba(11, 108, 216, 0.3), 0 10px 24px -12px rgba(11, 108, 216, 0.6);
 }
 
 /* Selector de tema (sol / luna) */

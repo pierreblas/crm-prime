@@ -245,7 +245,7 @@ export function useChannelRouting() {
 const backdrop: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  background: "rgba(3, 5, 5, 0.55)",
+  background: "var(--scrim)",
   backdropFilter: "blur(2px)",
   zIndex: 1060,
 };

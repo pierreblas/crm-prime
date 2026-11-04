@@ -194,7 +194,7 @@ export function AgentPlayground({
 const backdrop: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.5)",
+  background: "var(--scrim)",
   zIndex: 1000,
   animation: "fadeIn 0.15s ease",
 };
@@ -257,9 +257,9 @@ const simActions: React.CSSProperties = {
   marginTop: 7,
   padding: "7px 9px",
   borderRadius: 7,
-  background: "rgba(224,183,102,0.10)",
-  border: "1px solid #5a4a2a",
-  color: "#e0b766",
+  background: "rgba(240, 180, 90, 0.10)",
+  border: "1px solid var(--warning-border)",
+  color: "var(--warning)",
 };
 
 const metaLine: React.CSSProperties = {

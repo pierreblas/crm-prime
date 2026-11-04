@@ -60,7 +60,7 @@ export function SessionsManager() {
       </div>
 
       {isPending && <p style={{ color: "var(--muted)" }}>Cargando…</p>}
-      {isError && <p style={{ color: "#ff6b6b" }}>{(error as Error).message}</p>}
+      {isError && <p style={{ color: "var(--danger)" }}>{(error as Error).message}</p>}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {(sessions ?? []).map((s) => (
@@ -87,7 +87,7 @@ function SessionRow({
 }) {
   return (
     <div style={row}>
-      <span style={dot(s.current ? "var(--accent)" : "#7a8aa0")} />
+      <span style={dot(s.current ? "var(--accent)" : "var(--muted)")} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <strong>{s.deviceName || PLATFORM_LABEL[s.platform] || s.platform}</strong>
@@ -125,16 +125,16 @@ const badge: React.CSSProperties = {
   fontSize: 11,
   padding: "2px 8px",
   borderRadius: 999,
-  background: "#1f6f46",
-  color: "#eaf2ff",
+  background: "#0a6b42",
+  color: "#ffffff",
 };
 
 const ghostBtn: React.CSSProperties = {
   padding: "8px 14px",
   borderRadius: 8,
-  border: "1px solid #5a2a2a",
+  border: "1px solid var(--danger-border)",
   background: "transparent",
-  color: "#e08a8a",
+  color: "var(--danger)",
   cursor: "pointer",
   fontSize: 13,
   whiteSpace: "nowrap",
@@ -143,9 +143,9 @@ const ghostBtn: React.CSSProperties = {
 const revokeAllBtn: React.CSSProperties = {
   padding: "8px 14px",
   borderRadius: 8,
-  border: "1px solid #5a2a2a",
+  border: "1px solid var(--danger-border)",
   background: "transparent",
-  color: "#e08a8a",
+  color: "var(--danger)",
   cursor: "pointer",
   fontSize: 13,
   whiteSpace: "nowrap",

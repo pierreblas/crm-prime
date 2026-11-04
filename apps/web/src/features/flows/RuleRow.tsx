@@ -183,7 +183,7 @@ export function RuleRow({
             </optgroup>
           ))}
         </select>
-        <button type="button" style={{ ...miniBtn, color: "#e08a8a" }} title="Quitar condición" aria-label="Quitar condición" onClick={onRemove}>
+        <button type="button" style={{ ...miniBtn, color: "var(--danger)" }} title="Quitar condición" aria-label="Quitar condición" onClick={onRemove}>
           <NavIcon name="x" size={12} />
         </button>
       </div>

@@ -607,7 +607,7 @@ function HealthPanel({ health, loading, error, onOpen }: { health?: PlatformHeal
 
 function Kpi({ label, value, sub, accent, warn }: { label: string; value?: number | string; sub?: string; accent?: boolean; warn?: boolean }) {
   return (
-    <div className={`pc-kpi${accent ? " is-accent" : ""}`} style={warn ? { borderColor: "rgba(224, 164, 88, 0.55)" } : undefined}>
+    <div className={`pc-kpi${accent ? " is-accent" : ""}`} style={warn ? { borderColor: "rgba(240, 180, 90, 0.55)" } : undefined}>
       <span className="pc-kpi__label">{label}</span>
       {value === undefined ? (
         <span className="skeleton" style={{ height: 28, width: 60, display: "block" }} />
@@ -674,7 +674,7 @@ function SignupsChart({ data, loading }: { data: { day: string; count: number }[
   );
 }
 
-/** Treinta días de mensajes: recibidos (lima) sobre enviados (pizarra). */
+/** Treinta días de mensajes: recibidos (Super Sonic) sobre enviados (Sea Angel hondo). */
 function TrafficChart({ data, loading }: { data: { day: string; inbound: number; outbound: number }[]; loading: boolean }) {
   const days = useMemo(() => lastDays(data, 30, (day) => ({ day, inbound: 0, outbound: 0 })), [data]);
   const max = Math.max(1, ...days.map((d) => d.inbound + d.outbound));

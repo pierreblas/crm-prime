@@ -656,11 +656,11 @@ const quoteBar: React.CSSProperties = {
   gap: 10,
   padding: "8px 16px",
   borderTop: "1px solid var(--border)",
-  background: "rgba(255,255,255,0.03)",
+  background: "rgba(154, 185, 194, 0.03)",
 };
 
 const quoteIcon: React.CSSProperties = {
-  color: "var(--accent)",
+  color: "var(--accent-text)",
   display: "inline-flex",
   flexShrink: 0,
 };
@@ -676,7 +676,7 @@ const thumbImg: React.CSSProperties = {
 const quoteWho: React.CSSProperties = {
   fontSize: 11.5,
   fontWeight: 700,
-  color: "var(--accent)",
+  color: "var(--accent-text)",
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
@@ -737,7 +737,7 @@ const menuIcon: React.CSSProperties = {
   height: 32,
   borderRadius: 8,
   background: "var(--field)",
-  color: "var(--accent)",
+  color: "var(--accent-text)",
   flexShrink: 0,
 };
 

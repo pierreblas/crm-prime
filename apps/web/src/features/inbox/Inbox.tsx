@@ -475,7 +475,7 @@ const switchThumb: React.CSSProperties = {
   borderRadius: 999,
   background: "var(--surface)",
   border: "1px solid var(--border)",
-  boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.35)",
   transition: "transform 0.22s cubic-bezier(0.22,1,0.36,1)",
   pointerEvents: "none",
 };
@@ -503,6 +503,7 @@ function switchSeg(active: boolean): React.CSSProperties {
 
 const listPane: React.CSSProperties = {
   width: 360,
+  background: "var(--panel)",
   borderRight: "1px solid var(--border)",
   display: "flex",
   flexDirection: "column",
@@ -543,7 +544,7 @@ function liveDot(connected: boolean): React.CSSProperties {
     width: 7,
     height: 7,
     borderRadius: "50%",
-    background: connected ? "var(--positive)" : "#7a8aa0",
+    background: connected ? "var(--positive)" : "var(--muted)",
     flexShrink: 0,
   };
 }

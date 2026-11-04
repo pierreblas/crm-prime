@@ -365,7 +365,7 @@ function NotesEditor({ value, onSave }: { value: string | null; onSave: (v: stri
   );
 }
 
-/** Catorce días de barras apiladas: recibidos (lima) y enviados (pizarra). */
+/** Catorce días de barras apiladas: recibidos (Super Sonic) y enviados (Sea Angel hondo). */
 function ActivityBars({ data }: { data: { day: string; inbound: number; outbound: number }[] }) {
   const byDay = new Map(data.map((d) => [d.day, d]));
   const days: { day: string; inbound: number; outbound: number }[] = [];

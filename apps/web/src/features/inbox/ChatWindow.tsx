@@ -1,5 +1,6 @@
 "use client";
 
+import { readableInk } from "@/lib/readable-ink";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -817,7 +818,8 @@ function MessageBubble({
     >
       <div
         style={{
-          background: out ? "var(--bubble-out)" : "var(--surface-2)",
+          background: out ? "var(--bubble-out)" : "var(--bubble-in)",
+          ...(out ? ({ "--danger": "#ffc9c2" } as React.CSSProperties) : null),
           color: "var(--text)",
           padding: "8px 12px",
           borderRadius: 10,
@@ -864,7 +866,7 @@ function MessageBubble({
           </div>
         )}
         <div style={metaRow(out)}>
-          <span style={{ fontSize: 10.5, color: "rgba(230,237,246,0.45)" }}>
+          <span style={{ fontSize: 10.5, color: "var(--muted)" }}>
             {new Date(m.createdAt).toLocaleTimeString(locale, {
               hour: "2-digit",
               minute: "2-digit",
@@ -980,7 +982,7 @@ function tagChip(color: string | null): React.CSSProperties {
     padding: "1px 8px",
     borderRadius: 999,
     background: bg,
-    color: "#eaf2ff",
+    color: readableInk(bg),
   };
 }
 
@@ -996,6 +998,7 @@ const chatHeader: React.CSSProperties = {
   justifyContent: "space-between",
   gap: 12,
   padding: "12px 16px",
+  background: "var(--panel)",
   borderBottom: "1px solid var(--border)",
 };
 
@@ -1077,8 +1080,8 @@ const messagesArea: React.CSSProperties = {
 };
 
 const messageButton: React.CSSProperties = {
-  background: "rgba(255,255,255,0.08)",
-  color: "#53bdeb",
+  background: "rgba(154, 185, 194, 0.08)",
+  color: "var(--accent-text)",
   textAlign: "center",
   borderRadius: 7,
   padding: "6px 8px",
@@ -1105,7 +1108,7 @@ const windowClosed: React.CSSProperties = {
   gap: 12,
   padding: 16,
   borderTop: "1px solid var(--border)",
-  background: "var(--warning-soft)",
+  background: "linear-gradient(var(--warning-soft), var(--warning-soft)), var(--panel)",
   color: "var(--text)",
 };
 
@@ -1128,7 +1131,7 @@ const avatar: React.CSSProperties = {
   flexShrink: 0,
   borderRadius: "50%",
   background: "var(--accent-soft)",
-  color: "#9dc0ff",
+  color: "var(--accent-text)",
   fontSize: 14,
   fontWeight: 700,
   letterSpacing: "0.01em",
@@ -1172,7 +1175,7 @@ const quotedBlock: React.CSSProperties = {
 const quotedWho: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
-  color: "#9dc0ff",
+  color: "var(--accent-text)",
 };
 
 const quotedText: React.CSSProperties = {
@@ -1202,7 +1205,7 @@ const aiBanner: React.CSSProperties = {
   gap: 12,
   padding: "8px 16px",
   borderTop: "1px solid var(--border)",
-  background: "var(--accent-soft)",
+  background: "linear-gradient(var(--accent-soft), var(--accent-soft)), var(--panel)",
   color: "var(--accent-text)",
   fontSize: 13,
 };
@@ -1213,7 +1216,7 @@ const actionsBox: React.CSSProperties = {
   order: 3,
   padding: "8px 10px",
   borderRadius: 8,
-  background: "rgba(255,255,255,0.05)",
+  background: "rgba(154, 185, 194, 0.05)",
   border: "1px solid var(--border)",
   color: "var(--text)",
 };
@@ -1230,6 +1233,6 @@ const discardBtn: React.CSSProperties = {
 
 const aiBannerWarn: React.CSSProperties = {
   ...aiBanner,
-  background: "var(--warning-soft)",
+  background: "linear-gradient(var(--warning-soft), var(--warning-soft)), var(--panel)",
   color: "var(--warning)",
 };

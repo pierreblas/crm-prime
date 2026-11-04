@@ -48,7 +48,7 @@ export function FlowEdge(props: EdgeProps) {
         id={id}
         path={path}
         markerEnd={markerEnd}
-        style={{ stroke: selected ? "#6ba2ff" : "#3d5078", strokeWidth: selected ? 2.2 : 1.6 }}
+        style={{ stroke: selected ? "var(--accent)" : "#3d5078", strokeWidth: selected ? 2.2 : 1.6 }}
       />
       <EdgeLabelRenderer>
         <div
@@ -75,7 +75,7 @@ export function FlowEdge(props: EdgeProps) {
             +
           </button>
           <button
-            style={{ ...btn, color: "#e08a8a" }}
+            style={{ ...btn, color: "var(--danger)" }}
             title="Quitar la conexión"
             onClick={(e) => {
               e.stopPropagation();
@@ -97,7 +97,7 @@ const btn: React.CSSProperties = {
   width: 20,
   height: 20,
   borderRadius: "50%",
-  border: "1px solid #2b3d5c",
+  border: "1px solid var(--border-strong)",
   background: "var(--field)",
   color: "var(--accent-text)",
   fontSize: 14,

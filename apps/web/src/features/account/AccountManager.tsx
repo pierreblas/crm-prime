@@ -247,7 +247,7 @@ const primaryBtn: React.CSSProperties = {
 const linkBtn: React.CSSProperties = {
   display: "inline-block",
   marginTop: 4,
-  color: "var(--accent)",
+  color: "var(--accent-text)",
   fontSize: 14,
   fontWeight: 600,
   padding: "4px 0",
@@ -258,7 +258,7 @@ function roleBadge(role: string): React.CSSProperties {
     fontSize: 12,
     padding: "3px 10px",
     borderRadius: 999,
-    background: role === "ADMIN" ? "#1f5a6f" : "var(--surface-3)",
-    color: "#eaf2ff",
+    background: role === "ADMIN" ? "#1f5a6f" : "#3f5b6b",
+    color: "#ffffff",
   };
 }

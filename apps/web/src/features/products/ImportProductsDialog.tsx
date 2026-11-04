@@ -234,12 +234,12 @@ export function ImportProductsDialog({
         {result ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", gap: 20 }}>
-              <Stat label="Creados" value={result.created} color="#7ee2a8" />
-              <Stat label="Actualizados" value={result.updated} color="#7fb7ff" />
+              <Stat label="Creados" value={result.created} color="var(--positive)" />
+              <Stat label="Actualizados" value={result.updated} color="var(--accent-text)" />
               <Stat
                 label="Omitidos"
                 value={result.skipped}
-                color={result.skipped ? "#e0b766" : undefined}
+                color={result.skipped ? "var(--warning)" : undefined}
               />
             </div>
             {result.errors.length > 0 && (
@@ -292,7 +292,7 @@ export function ImportProductsDialog({
             </div>
 
             {readError && (
-              <p style={{ color: "#ff6b6b", fontSize: 13 }}>{readError}</p>
+              <p style={{ color: "var(--danger)", fontSize: 13 }}>{readError}</p>
             )}
 
             {parsed && mapping && (
@@ -304,7 +304,7 @@ export function ImportProductsDialog({
                     <label key={f.key} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <span style={{ width: 110, fontSize: 13, color: "var(--muted)" }}>
                         {f.label}
-                        {f.required && <span style={{ color: "#e08a8a" }}> *</span>}
+                        {f.required && <span style={{ color: "var(--danger)" }}> *</span>}
                       </span>
                       <select
                         style={select}
@@ -341,7 +341,7 @@ export function ImportProductsDialog({
                         <label key={c.key} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                           <span style={{ width: 110, fontSize: 13, color: "var(--muted)" }}>
                             {c.label}
-                            {c.required && <span style={{ color: "#e08a8a" }}> *</span>}
+                            {c.required && <span style={{ color: "var(--danger)" }}> *</span>}
                           </span>
                           <select
                             style={select}
@@ -391,7 +391,7 @@ export function ImportProductsDialog({
                 )}
 
                 {missingRequired.length > 0 && (
-                  <p style={{ color: "#e0b766", fontSize: 13 }}>
+                  <p style={{ color: "var(--warning)", fontSize: 13 }}>
                     <NavIcon name="alert" size={13} /> Falta indicar:{" "}
                     {missingRequired.map((f) => f.label).join(", ")}
                   </p>
@@ -443,7 +443,7 @@ export function ImportProductsDialog({
                               ))}
                             </>
                           ) : (
-                            <td style={{ ...td, color: "#e08a8a" }} colSpan={4 + usedFields.length}>
+                            <td style={{ ...td, color: "var(--danger)" }} colSpan={4 + usedFields.length}>
                               {r.error}
                             </td>
                           )}
@@ -485,7 +485,7 @@ export function ImportProductsDialog({
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 18 }}>
               {importMut.isError && (
-                <span style={{ color: "#ff6b6b", fontSize: 13, alignSelf: "center" }}>
+                <span style={{ color: "var(--danger)", fontSize: 13, alignSelf: "center" }}>
                   {(importMut.error as Error).message}
                 </span>
               )}
@@ -566,12 +566,12 @@ const td: React.CSSProperties = {
 };
 
 const errorBox: React.CSSProperties = {
-  background: "rgba(200,80,80,0.1)",
-  border: "1px solid #5a2a2a",
+  background: "rgba(240, 138, 138, 0.1)",
+  border: "1px solid var(--danger-border)",
   borderRadius: 8,
   padding: 10,
   fontSize: 12.5,
-  color: "#ffb3b3",
+  color: "var(--danger)",
   marginTop: 10,
   maxHeight: 160,
   overflowY: "auto",

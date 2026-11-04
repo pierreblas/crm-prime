@@ -173,7 +173,7 @@ const avatar: React.CSSProperties = {
   width: 30,
   height: 30,
   borderRadius: "50%",
-  color: "#eaf2ff",
+  color: "#ffffff",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",

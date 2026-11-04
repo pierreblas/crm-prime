@@ -1,142 +1,127 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-31T03:20:23.326Z",
+  "generatedAt": "2026-11-04T02:44:49.851Z",
   "title": "Design System: Driony",
   "extensions": {
     "colorMeta": {
-      "lime": {
+      "lemon": {
         "role": "primary",
-        "displayName": "Lima",
-        "canonical": "oklch(92.8% 0.230 124.0)",
+        "displayName": "Lemon Tonic",
+        "canonical": "oklch(96.3% 0.207 109.4)",
         "tonalRamp": [
-          "oklch(15.0% 0.127 124.0)",
-          "oklch(25.0% 0.173 124.0)",
-          "oklch(37.0% 0.228 124.0)",
-          "oklch(50.0% 0.230 124.0)",
-          "oklch(62.0% 0.230 124.0)",
-          "oklch(74.0% 0.177 124.0)",
-          "oklch(85.0% 0.127 124.0)",
-          "oklch(95.0% 0.081 124.0)"
+          "oklch(15.0% 0.114 109.4)",
+          "oklch(25.0% 0.155 109.4)",
+          "oklch(37.0% 0.205 109.4)",
+          "oklch(50.0% 0.207 109.4)",
+          "oklch(62.0% 0.207 109.4)",
+          "oklch(74.0% 0.160 109.4)",
+          "oklch(85.0% 0.114 109.4)",
+          "oklch(95.0% 0.073 109.4)"
         ]
       },
-      "lime-hover": {
+      "lemon-hover": {
         "role": "primary",
-        "displayName": "Lima Claro",
-        "canonical": "oklch(94.0% 0.204 121.6)",
+        "displayName": "Lemon Claro",
+        "canonical": "oklch(97.2% 0.171 109.2)",
         "tonalRamp": [
-          "oklch(15.0% 0.112 121.6)",
-          "oklch(25.0% 0.153 121.6)",
-          "oklch(37.0% 0.202 121.6)",
-          "oklch(50.0% 0.204 121.6)",
-          "oklch(62.0% 0.204 121.6)",
-          "oklch(74.0% 0.157 121.6)",
-          "oklch(85.0% 0.112 121.6)",
-          "oklch(95.0% 0.071 121.6)"
+          "oklch(15.0% 0.094 109.2)",
+          "oklch(25.0% 0.128 109.2)",
+          "oklch(37.0% 0.170 109.2)",
+          "oklch(50.0% 0.171 109.2)",
+          "oklch(62.0% 0.171 109.2)",
+          "oklch(74.0% 0.132 109.2)",
+          "oklch(85.0% 0.094 109.2)",
+          "oklch(95.0% 0.060 109.2)"
         ]
       },
-      "lime-press": {
+      "lemon-press": {
         "role": "primary",
-        "displayName": "Lima Hundido",
-        "canonical": "oklch(85.8% 0.213 124.0)",
+        "displayName": "Lemon Hundido",
+        "canonical": "oklch(88.5% 0.190 109.4)",
         "tonalRamp": [
-          "oklch(15.0% 0.117 124.0)",
-          "oklch(25.0% 0.160 124.0)",
-          "oklch(37.0% 0.211 124.0)",
-          "oklch(50.0% 0.213 124.0)",
-          "oklch(62.0% 0.213 124.0)",
-          "oklch(74.0% 0.164 124.0)",
-          "oklch(85.0% 0.117 124.0)",
-          "oklch(95.0% 0.075 124.0)"
+          "oklch(15.0% 0.105 109.4)",
+          "oklch(25.0% 0.143 109.4)",
+          "oklch(37.0% 0.188 109.4)",
+          "oklch(50.0% 0.190 109.4)",
+          "oklch(62.0% 0.190 109.4)",
+          "oklch(74.0% 0.147 109.4)",
+          "oklch(85.0% 0.105 109.4)",
+          "oklch(95.0% 0.067 109.4)"
         ]
       },
-      "lime-deep": {
+      "lemon-ink": {
         "role": "primary",
-        "displayName": "Lima Hondo",
-        "canonical": "oklch(83.1% 0.217 127.8)",
+        "displayName": "Tinta Noche",
+        "canonical": "oklch(16.4% 0.033 259.7)",
         "tonalRamp": [
-          "oklch(15.0% 0.119 127.8)",
-          "oklch(25.0% 0.162 127.8)",
-          "oklch(37.0% 0.214 127.8)",
-          "oklch(50.0% 0.217 127.8)",
-          "oklch(62.0% 0.217 127.8)",
-          "oklch(74.0% 0.167 127.8)",
-          "oklch(85.0% 0.119 127.8)",
-          "oklch(95.0% 0.076 127.8)"
+          "oklch(15.0% 0.018 259.7)",
+          "oklch(25.0% 0.024 259.7)",
+          "oklch(37.0% 0.032 259.7)",
+          "oklch(50.0% 0.033 259.7)",
+          "oklch(62.0% 0.033 259.7)",
+          "oklch(74.0% 0.025 259.7)",
+          "oklch(85.0% 0.018 259.7)",
+          "oklch(95.0% 0.011 259.7)"
         ]
       },
-      "lime-text": {
-        "role": "primary",
-        "displayName": "Lima Texto",
-        "canonical": "oklch(94.7% 0.173 121.3)",
-        "tonalRamp": [
-          "oklch(15.0% 0.095 121.3)",
-          "oklch(25.0% 0.130 121.3)",
-          "oklch(37.0% 0.171 121.3)",
-          "oklch(50.0% 0.173 121.3)",
-          "oklch(62.0% 0.173 121.3)",
-          "oklch(74.0% 0.133 121.3)",
-          "oklch(85.0% 0.095 121.3)",
-          "oklch(95.0% 0.060 121.3)"
-        ]
-      },
-      "lime-soft": {
-        "role": "primary",
-        "displayName": "Lima Tenue",
-        "canonical": "oklch(92.8% 0.230 124.0) / 10%",
-        "tonalRamp": [
-          "oklch(15.0% 0.127 124.0)",
-          "oklch(25.0% 0.173 124.0)",
-          "oklch(37.0% 0.228 124.0)",
-          "oklch(50.0% 0.230 124.0)",
-          "oklch(62.0% 0.230 124.0)",
-          "oklch(74.0% 0.177 124.0)",
-          "oklch(85.0% 0.127 124.0)",
-          "oklch(95.0% 0.081 124.0)"
-        ]
-      },
-      "lime-ink": {
-        "role": "primary",
-        "displayName": "Tinta Carbón",
-        "canonical": "oklch(16.2% 0.039 121.7)",
-        "tonalRamp": [
-          "oklch(15.0% 0.022 121.7)",
-          "oklch(25.0% 0.029 121.7)",
-          "oklch(37.0% 0.039 121.7)",
-          "oklch(50.0% 0.039 121.7)",
-          "oklch(62.0% 0.039 121.7)",
-          "oklch(74.0% 0.030 121.7)",
-          "oklch(85.0% 0.022 121.7)",
-          "oklch(95.0% 0.014 121.7)"
-        ]
-      },
-      "olive-text": {
-        "role": "primary",
-        "displayName": "Oliva Texto",
-        "canonical": "oklch(43.8% 0.111 125.8)",
-        "tonalRamp": [
-          "oklch(15.0% 0.061 125.8)",
-          "oklch(25.0% 0.083 125.8)",
-          "oklch(37.0% 0.110 125.8)",
-          "oklch(50.0% 0.111 125.8)",
-          "oklch(62.0% 0.111 125.8)",
-          "oklch(74.0% 0.086 125.8)",
-          "oklch(85.0% 0.061 125.8)",
-          "oklch(95.0% 0.039 125.8)"
-        ]
-      },
-      "chart-2": {
+      "super-sonic": {
         "role": "secondary",
-        "displayName": "Pizarra",
-        "canonical": "oklch(75.1% 0.035 252.5)",
+        "displayName": "Super Sonic",
+        "canonical": "oklch(54.5% 0.184 256.5)",
         "tonalRamp": [
-          "oklch(15.0% 0.019 252.5)",
-          "oklch(25.0% 0.026 252.5)",
-          "oklch(37.0% 0.034 252.5)",
-          "oklch(50.0% 0.035 252.5)",
-          "oklch(62.0% 0.035 252.5)",
-          "oklch(74.0% 0.027 252.5)",
-          "oklch(85.0% 0.019 252.5)",
-          "oklch(95.0% 0.012 252.5)"
+          "oklch(15.0% 0.101 256.5)",
+          "oklch(25.0% 0.138 256.5)",
+          "oklch(37.0% 0.182 256.5)",
+          "oklch(50.0% 0.184 256.5)",
+          "oklch(62.0% 0.184 256.5)",
+          "oklch(74.0% 0.142 256.5)",
+          "oklch(85.0% 0.101 256.5)",
+          "oklch(95.0% 0.065 256.5)"
+        ]
+      },
+      "blue-soft": {
+        "role": "secondary",
+        "displayName": "Azul Tenue",
+        "canonical": "oklch(54.5% 0.184 256.5) / 22%",
+        "tonalRamp": [
+          "oklch(15.0% 0.101 256.5)",
+          "oklch(25.0% 0.138 256.5)",
+          "oklch(37.0% 0.182 256.5)",
+          "oklch(50.0% 0.184 256.5)",
+          "oklch(62.0% 0.184 256.5)",
+          "oklch(74.0% 0.142 256.5)",
+          "oklch(85.0% 0.101 256.5)",
+          "oklch(95.0% 0.065 256.5)"
+        ]
+      },
+      "bubble-out": {
+        "role": "secondary",
+        "displayName": "Burbuja Saliente",
+        "canonical": "oklch(39.8% 0.134 257.1)",
+        "tonalRamp": [
+          "oklch(15.0% 0.074 257.1)",
+          "oklch(25.0% 0.101 257.1)",
+          "oklch(37.0% 0.133 257.1)",
+          "oklch(50.0% 0.134 257.1)",
+          "oklch(62.0% 0.134 257.1)",
+          "oklch(74.0% 0.103 257.1)",
+          "oklch(85.0% 0.074 257.1)",
+          "oklch(95.0% 0.047 257.1)"
+        ]
+      },
+      "sea-angel": {
+        "role": "secondary",
+        "displayName": "Sea Angel",
+        "canonical": "oklch(76.6% 0.036 217.2)",
+        "tonalRamp": [
+          "oklch(15.0% 0.020 217.2)",
+          "oklch(25.0% 0.027 217.2)",
+          "oklch(37.0% 0.036 217.2)",
+          "oklch(50.0% 0.036 217.2)",
+          "oklch(62.0% 0.036 217.2)",
+          "oklch(74.0% 0.028 217.2)",
+          "oklch(85.0% 0.020 217.2)",
+          "oklch(95.0% 0.013 217.2)"
         ]
       },
       "whatsapp": {
@@ -187,263 +172,278 @@
       "warning": {
         "role": "tertiary",
         "displayName": "Ámbar",
-        "canonical": "oklch(76.1% 0.117 70.9)",
+        "canonical": "oklch(80.8% 0.127 75.3)",
         "tonalRamp": [
-          "oklch(15.0% 0.064 70.9)",
-          "oklch(25.0% 0.088 70.9)",
-          "oklch(37.0% 0.116 70.9)",
-          "oklch(50.0% 0.117 70.9)",
-          "oklch(62.0% 0.117 70.9)",
-          "oklch(74.0% 0.090 70.9)",
-          "oklch(85.0% 0.064 70.9)",
-          "oklch(95.0% 0.041 70.9)"
+          "oklch(15.0% 0.070 75.3)",
+          "oklch(25.0% 0.096 75.3)",
+          "oklch(37.0% 0.126 75.3)",
+          "oklch(50.0% 0.127 75.3)",
+          "oklch(62.0% 0.127 75.3)",
+          "oklch(74.0% 0.098 75.3)",
+          "oklch(85.0% 0.070 75.3)",
+          "oklch(95.0% 0.045 75.3)"
         ]
       },
       "warning-soft": {
         "role": "tertiary",
         "displayName": "Ámbar Tenue",
-        "canonical": "oklch(76.1% 0.117 70.9) / 14%",
+        "canonical": "oklch(80.8% 0.127 75.3) / 14%",
         "tonalRamp": [
-          "oklch(15.0% 0.064 70.9)",
-          "oklch(25.0% 0.088 70.9)",
-          "oklch(37.0% 0.116 70.9)",
-          "oklch(50.0% 0.117 70.9)",
-          "oklch(62.0% 0.117 70.9)",
-          "oklch(74.0% 0.090 70.9)",
-          "oklch(85.0% 0.064 70.9)",
-          "oklch(95.0% 0.041 70.9)"
+          "oklch(15.0% 0.070 75.3)",
+          "oklch(25.0% 0.096 75.3)",
+          "oklch(37.0% 0.126 75.3)",
+          "oklch(50.0% 0.127 75.3)",
+          "oklch(62.0% 0.127 75.3)",
+          "oklch(74.0% 0.098 75.3)",
+          "oklch(85.0% 0.070 75.3)",
+          "oklch(95.0% 0.045 75.3)"
         ]
       },
       "danger": {
         "role": "tertiary",
         "displayName": "Rojo Suave",
-        "canonical": "oklch(72.3% 0.106 20.0)",
+        "canonical": "oklch(74.3% 0.125 20.5)",
         "tonalRamp": [
-          "oklch(15.0% 0.058 20.0)",
-          "oklch(25.0% 0.079 20.0)",
-          "oklch(37.0% 0.104 20.0)",
-          "oklch(50.0% 0.106 20.0)",
-          "oklch(62.0% 0.106 20.0)",
-          "oklch(74.0% 0.081 20.0)",
-          "oklch(85.0% 0.058 20.0)",
-          "oklch(95.0% 0.037 20.0)"
+          "oklch(15.0% 0.069 20.5)",
+          "oklch(25.0% 0.093 20.5)",
+          "oklch(37.0% 0.123 20.5)",
+          "oklch(50.0% 0.125 20.5)",
+          "oklch(62.0% 0.125 20.5)",
+          "oklch(74.0% 0.096 20.5)",
+          "oklch(85.0% 0.069 20.5)",
+          "oklch(95.0% 0.044 20.5)"
         ]
       },
       "danger-soft": {
         "role": "tertiary",
         "displayName": "Rojo Tenue",
-        "canonical": "oklch(72.3% 0.106 20.0) / 14%",
+        "canonical": "oklch(74.3% 0.125 20.5) / 14%",
         "tonalRamp": [
-          "oklch(15.0% 0.058 20.0)",
-          "oklch(25.0% 0.079 20.0)",
-          "oklch(37.0% 0.104 20.0)",
-          "oklch(50.0% 0.106 20.0)",
-          "oklch(62.0% 0.106 20.0)",
-          "oklch(74.0% 0.081 20.0)",
-          "oklch(85.0% 0.058 20.0)",
-          "oklch(95.0% 0.037 20.0)"
+          "oklch(15.0% 0.069 20.5)",
+          "oklch(25.0% 0.093 20.5)",
+          "oklch(37.0% 0.123 20.5)",
+          "oklch(50.0% 0.125 20.5)",
+          "oklch(62.0% 0.125 20.5)",
+          "oklch(74.0% 0.096 20.5)",
+          "oklch(85.0% 0.069 20.5)",
+          "oklch(95.0% 0.044 20.5)"
         ]
       },
       "bg": {
         "role": "neutral",
-        "displayName": "Carbón",
-        "canonical": "oklch(15.1% 0.005 219.6)",
+        "displayName": "Noche",
+        "canonical": "oklch(16.4% 0.033 259.7)",
         "tonalRamp": [
-          "oklch(15.0% 0.003 219.6)",
-          "oklch(25.0% 0.004 219.6)",
-          "oklch(37.0% 0.005 219.6)",
-          "oklch(50.0% 0.005 219.6)",
-          "oklch(62.0% 0.005 219.6)",
-          "oklch(74.0% 0.004 219.6)",
-          "oklch(85.0% 0.003 219.6)",
-          "oklch(95.0% 0.002 219.6)"
+          "oklch(15.0% 0.018 259.7)",
+          "oklch(25.0% 0.024 259.7)",
+          "oklch(37.0% 0.032 259.7)",
+          "oklch(50.0% 0.033 259.7)",
+          "oklch(62.0% 0.033 259.7)",
+          "oklch(74.0% 0.025 259.7)",
+          "oklch(85.0% 0.018 259.7)",
+          "oklch(95.0% 0.011 259.7)"
         ]
       },
       "panel": {
         "role": "neutral",
-        "displayName": "Cristal",
-        "canonical": "oklch(22.0% 0.010 173.2) / 62%",
+        "displayName": "Panel",
+        "canonical": "oklch(20.8% 0.038 257.2)",
         "tonalRamp": [
-          "oklch(15.0% 0.005 173.2)",
-          "oklch(25.0% 0.007 173.2)",
-          "oklch(37.0% 0.010 173.2)",
-          "oklch(50.0% 0.010 173.2)",
-          "oklch(62.0% 0.010 173.2)",
-          "oklch(74.0% 0.007 173.2)",
-          "oklch(85.0% 0.005 173.2)",
-          "oklch(95.0% 0.003 173.2)"
+          "oklch(15.0% 0.021 257.2)",
+          "oklch(25.0% 0.029 257.2)",
+          "oklch(37.0% 0.038 257.2)",
+          "oklch(50.0% 0.038 257.2)",
+          "oklch(62.0% 0.038 257.2)",
+          "oklch(74.0% 0.029 257.2)",
+          "oklch(85.0% 0.021 257.2)",
+          "oklch(95.0% 0.013 257.2)"
         ]
       },
       "panel-deep": {
         "role": "neutral",
-        "displayName": "Cristal Hondo",
-        "canonical": "oklch(16.8% 0.007 178.7) / 84%",
+        "displayName": "Panel Hondo",
+        "canonical": "oklch(19.1% 0.036 259.5) / 93%",
         "tonalRamp": [
-          "oklch(15.0% 0.004 178.7)",
-          "oklch(25.0% 0.005 178.7)",
-          "oklch(37.0% 0.007 178.7)",
-          "oklch(50.0% 0.007 178.7)",
-          "oklch(62.0% 0.007 178.7)",
-          "oklch(74.0% 0.005 178.7)",
-          "oklch(85.0% 0.004 178.7)",
-          "oklch(95.0% 0.002 178.7)"
+          "oklch(15.0% 0.020 259.5)",
+          "oklch(25.0% 0.027 259.5)",
+          "oklch(37.0% 0.036 259.5)",
+          "oklch(50.0% 0.036 259.5)",
+          "oklch(62.0% 0.036 259.5)",
+          "oklch(74.0% 0.028 259.5)",
+          "oklch(85.0% 0.020 259.5)",
+          "oklch(95.0% 0.013 259.5)"
         ]
       },
       "sidebar": {
         "role": "neutral",
         "displayName": "Barra Lateral",
-        "canonical": "oklch(14.6% 0.005 196.6) / 55%",
+        "canonical": "oklch(16.4% 0.033 259.7)",
         "tonalRamp": [
-          "oklch(15.0% 0.003 196.6)",
-          "oklch(25.0% 0.004 196.6)",
-          "oklch(37.0% 0.005 196.6)",
-          "oklch(50.0% 0.005 196.6)",
-          "oklch(62.0% 0.005 196.6)",
-          "oklch(74.0% 0.004 196.6)",
-          "oklch(85.0% 0.003 196.6)",
-          "oklch(95.0% 0.002 196.6)"
+          "oklch(15.0% 0.018 259.7)",
+          "oklch(25.0% 0.024 259.7)",
+          "oklch(37.0% 0.032 259.7)",
+          "oklch(50.0% 0.033 259.7)",
+          "oklch(62.0% 0.033 259.7)",
+          "oklch(74.0% 0.025 259.7)",
+          "oklch(85.0% 0.018 259.7)",
+          "oklch(95.0% 0.011 259.7)"
         ]
       },
       "field": {
         "role": "neutral",
         "displayName": "Campo",
-        "canonical": "oklch(11.1% 0.006 196.3) / 50%",
+        "canonical": "oklch(13.3% 0.025 256.7) / 60%",
         "tonalRamp": [
-          "oklch(15.0% 0.003 196.3)",
-          "oklch(25.0% 0.004 196.3)",
-          "oklch(37.0% 0.006 196.3)",
-          "oklch(50.0% 0.006 196.3)",
-          "oklch(62.0% 0.006 196.3)",
-          "oklch(74.0% 0.005 196.3)",
-          "oklch(85.0% 0.003 196.3)",
-          "oklch(95.0% 0.002 196.3)"
+          "oklch(15.0% 0.014 256.7)",
+          "oklch(25.0% 0.019 256.7)",
+          "oklch(37.0% 0.025 256.7)",
+          "oklch(50.0% 0.025 256.7)",
+          "oklch(62.0% 0.025 256.7)",
+          "oklch(74.0% 0.020 256.7)",
+          "oklch(85.0% 0.014 256.7)",
+          "oklch(95.0% 0.009 256.7)"
         ]
       },
       "surface": {
         "role": "neutral",
         "displayName": "Capa 1",
-        "canonical": "oklch(100.0% 0.000 89.9) / 4%",
+        "canonical": "oklch(76.6% 0.036 217.2) / 7%",
         "tonalRamp": [
-          "oklch(15.0% 0.000 89.9)",
-          "oklch(25.0% 0.000 89.9)",
-          "oklch(37.0% 0.000 89.9)",
-          "oklch(50.0% 0.000 89.9)",
-          "oklch(62.0% 0.000 89.9)",
-          "oklch(74.0% 0.000 89.9)",
-          "oklch(85.0% 0.000 89.9)",
-          "oklch(95.0% 0.000 89.9)"
+          "oklch(15.0% 0.020 217.2)",
+          "oklch(25.0% 0.027 217.2)",
+          "oklch(37.0% 0.036 217.2)",
+          "oklch(50.0% 0.036 217.2)",
+          "oklch(62.0% 0.036 217.2)",
+          "oklch(74.0% 0.028 217.2)",
+          "oklch(85.0% 0.020 217.2)",
+          "oklch(95.0% 0.013 217.2)"
         ]
       },
       "surface-2": {
         "role": "neutral",
         "displayName": "Capa 2",
-        "canonical": "oklch(100.0% 0.000 89.9) / 7%",
+        "canonical": "oklch(76.6% 0.036 217.2) / 12%",
         "tonalRamp": [
-          "oklch(15.0% 0.000 89.9)",
-          "oklch(25.0% 0.000 89.9)",
-          "oklch(37.0% 0.000 89.9)",
-          "oklch(50.0% 0.000 89.9)",
-          "oklch(62.0% 0.000 89.9)",
-          "oklch(74.0% 0.000 89.9)",
-          "oklch(85.0% 0.000 89.9)",
-          "oklch(95.0% 0.000 89.9)"
+          "oklch(15.0% 0.020 217.2)",
+          "oklch(25.0% 0.027 217.2)",
+          "oklch(37.0% 0.036 217.2)",
+          "oklch(50.0% 0.036 217.2)",
+          "oklch(62.0% 0.036 217.2)",
+          "oklch(74.0% 0.028 217.2)",
+          "oklch(85.0% 0.020 217.2)",
+          "oklch(95.0% 0.013 217.2)"
         ]
       },
       "surface-3": {
         "role": "neutral",
-        "displayName": "Capa Salvia",
-        "canonical": "oklch(88.8% 0.040 139.4) / 12%",
+        "displayName": "Capa 3",
+        "canonical": "oklch(76.6% 0.036 217.2) / 18%",
         "tonalRamp": [
-          "oklch(15.0% 0.022 139.4)",
-          "oklch(25.0% 0.030 139.4)",
-          "oklch(37.0% 0.040 139.4)",
-          "oklch(50.0% 0.040 139.4)",
-          "oklch(62.0% 0.040 139.4)",
-          "oklch(74.0% 0.031 139.4)",
-          "oklch(85.0% 0.022 139.4)",
-          "oklch(95.0% 0.014 139.4)"
+          "oklch(15.0% 0.020 217.2)",
+          "oklch(25.0% 0.027 217.2)",
+          "oklch(37.0% 0.036 217.2)",
+          "oklch(50.0% 0.036 217.2)",
+          "oklch(62.0% 0.036 217.2)",
+          "oklch(74.0% 0.028 217.2)",
+          "oklch(85.0% 0.020 217.2)",
+          "oklch(95.0% 0.013 217.2)"
+        ]
+      },
+      "bubble-in": {
+        "role": "neutral",
+        "displayName": "Burbuja Entrante",
+        "canonical": "oklch(26.6% 0.047 256.6)",
+        "tonalRamp": [
+          "oklch(15.0% 0.026 256.6)",
+          "oklch(25.0% 0.035 256.6)",
+          "oklch(37.0% 0.046 256.6)",
+          "oklch(50.0% 0.047 256.6)",
+          "oklch(62.0% 0.047 256.6)",
+          "oklch(74.0% 0.036 256.6)",
+          "oklch(85.0% 0.026 256.6)",
+          "oklch(95.0% 0.016 256.6)"
         ]
       },
       "border": {
         "role": "neutral",
         "displayName": "Borde",
-        "canonical": "oklch(88.8% 0.040 139.4) / 14%",
+        "canonical": "oklch(76.6% 0.036 217.2) / 16%",
         "tonalRamp": [
-          "oklch(15.0% 0.022 139.4)",
-          "oklch(25.0% 0.030 139.4)",
-          "oklch(37.0% 0.040 139.4)",
-          "oklch(50.0% 0.040 139.4)",
-          "oklch(62.0% 0.040 139.4)",
-          "oklch(74.0% 0.031 139.4)",
-          "oklch(85.0% 0.022 139.4)",
-          "oklch(95.0% 0.014 139.4)"
+          "oklch(15.0% 0.020 217.2)",
+          "oklch(25.0% 0.027 217.2)",
+          "oklch(37.0% 0.036 217.2)",
+          "oklch(50.0% 0.036 217.2)",
+          "oklch(62.0% 0.036 217.2)",
+          "oklch(74.0% 0.028 217.2)",
+          "oklch(85.0% 0.020 217.2)",
+          "oklch(95.0% 0.013 217.2)"
         ]
       },
       "border-strong": {
         "role": "neutral",
         "displayName": "Borde Fuerte",
-        "canonical": "oklch(88.8% 0.040 139.4) / 28%",
+        "canonical": "oklch(76.6% 0.036 217.2) / 34%",
         "tonalRamp": [
-          "oklch(15.0% 0.022 139.4)",
-          "oklch(25.0% 0.030 139.4)",
-          "oklch(37.0% 0.040 139.4)",
-          "oklch(50.0% 0.040 139.4)",
-          "oklch(62.0% 0.040 139.4)",
-          "oklch(74.0% 0.031 139.4)",
-          "oklch(85.0% 0.022 139.4)",
-          "oklch(95.0% 0.014 139.4)"
+          "oklch(15.0% 0.020 217.2)",
+          "oklch(25.0% 0.027 217.2)",
+          "oklch(37.0% 0.036 217.2)",
+          "oklch(50.0% 0.036 217.2)",
+          "oklch(62.0% 0.036 217.2)",
+          "oklch(74.0% 0.028 217.2)",
+          "oklch(85.0% 0.020 217.2)",
+          "oklch(95.0% 0.013 217.2)"
         ]
       },
       "ink": {
         "role": "neutral",
         "displayName": "Tinta",
-        "canonical": "oklch(96.3% 0.009 128.6)",
+        "canonical": "oklch(97.3% 0.006 223.5)",
         "tonalRamp": [
-          "oklch(15.0% 0.005 128.6)",
-          "oklch(25.0% 0.006 128.6)",
-          "oklch(37.0% 0.008 128.6)",
-          "oklch(50.0% 0.009 128.6)",
-          "oklch(62.0% 0.009 128.6)",
-          "oklch(74.0% 0.007 128.6)",
-          "oklch(85.0% 0.005 128.6)",
-          "oklch(95.0% 0.003 128.6)"
+          "oklch(15.0% 0.003 223.5)",
+          "oklch(25.0% 0.004 223.5)",
+          "oklch(37.0% 0.006 223.5)",
+          "oklch(50.0% 0.006 223.5)",
+          "oklch(62.0% 0.006 223.5)",
+          "oklch(74.0% 0.005 223.5)",
+          "oklch(85.0% 0.003 223.5)",
+          "oklch(95.0% 0.002 223.5)"
         ]
       },
       "muted": {
         "role": "neutral",
-        "displayName": "Tinta Apagada",
-        "canonical": "oklch(70.9% 0.025 137.3)",
+        "displayName": "Texto Secundario",
+        "canonical": "oklch(76.6% 0.036 217.2)",
         "tonalRamp": [
-          "oklch(15.0% 0.014 137.3)",
-          "oklch(25.0% 0.019 137.3)",
-          "oklch(37.0% 0.025 137.3)",
-          "oklch(50.0% 0.025 137.3)",
-          "oklch(62.0% 0.025 137.3)",
-          "oklch(74.0% 0.019 137.3)",
-          "oklch(85.0% 0.014 137.3)",
-          "oklch(95.0% 0.009 137.3)"
+          "oklch(15.0% 0.020 217.2)",
+          "oklch(25.0% 0.027 217.2)",
+          "oklch(37.0% 0.036 217.2)",
+          "oklch(50.0% 0.036 217.2)",
+          "oklch(62.0% 0.036 217.2)",
+          "oklch(74.0% 0.028 217.2)",
+          "oklch(85.0% 0.020 217.2)",
+          "oklch(95.0% 0.013 217.2)"
         ]
       },
       "placeholder": {
         "role": "neutral",
         "displayName": "Placeholder",
-        "canonical": "oklch(62.0% 0.026 137.3)",
+        "canonical": "oklch(70.5% 0.038 218.8)",
         "tonalRamp": [
-          "oklch(15.0% 0.014 137.3)",
-          "oklch(25.0% 0.019 137.3)",
-          "oklch(37.0% 0.025 137.3)",
-          "oklch(50.0% 0.026 137.3)",
-          "oklch(62.0% 0.026 137.3)",
-          "oklch(74.0% 0.020 137.3)",
-          "oklch(85.0% 0.014 137.3)",
-          "oklch(95.0% 0.009 137.3)"
+          "oklch(15.0% 0.021 218.8)",
+          "oklch(25.0% 0.029 218.8)",
+          "oklch(37.0% 0.038 218.8)",
+          "oklch(50.0% 0.038 218.8)",
+          "oklch(62.0% 0.038 218.8)",
+          "oklch(74.0% 0.029 218.8)",
+          "oklch(85.0% 0.021 218.8)",
+          "oklch(95.0% 0.013 218.8)"
         ]
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Solo el titular del hero de la landing. Space Grotesk 700, techo 4.5rem."
+        "purpose": "Solo el titular del hero de la landing. Bricolage Grotesque 700, techo 4.5rem."
       },
       "headline": {
         "displayName": "Headline",
@@ -455,7 +455,7 @@
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Texto general, mensajes y filas. Inter 14px; en la landing 17px/1.6."
+        "purpose": "Texto general, mensajes y filas. Hanken Grotesk 14px; en la landing 17px/1.6."
       },
       "label": {
         "displayName": "Label",
@@ -473,17 +473,17 @@
     "shadows": [
       {
         "name": "glass-line",
-        "value": "inset 0 1px 0 rgba(255,255,255,0.06)",
-        "purpose": "Línea de luz del borde superior de todo cristal."
+        "value": "inset 0 1px 0 rgba(255,255,255,0.05)",
+        "purpose": "Línea de luz del borde superior de las superficies."
       },
       {
         "name": "shadow-card",
-        "value": "inset 0 1px 0 rgba(255,255,255,0.06), 0 12px 32px -20px rgba(0,0,0,0.75)",
+        "value": "inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 32px -20px rgba(0,0,0,0.75)",
         "purpose": "Tarjetas en reposo: separa sin dibujar contorno."
       },
       {
         "name": "shadow-overlay",
-        "value": "inset 0 1px 0 rgba(255,255,255,0.06), 0 30px 70px -24px rgba(0,0,0,0.8)",
+        "value": "inset 0 1px 0 rgba(255,255,255,0.05), 0 30px 70px -24px rgba(0,0,0,0.8)",
         "purpose": "Menús, popovers y diálogos."
       },
       {
@@ -493,12 +493,12 @@
       },
       {
         "name": "glow-accent",
-        "value": "0 0 0 1px rgba(200,255,0,0.3), 0 10px 26px -12px rgba(200,255,0,0.45)",
+        "value": "0 0 0 1px rgba(254,253,20,0.3), 0 10px 26px -12px rgba(254,253,20,0.4)",
         "purpose": "Botón primario en reposo; crece en hover."
       },
       {
         "name": "focus-ring",
-        "value": "0 0 0 3px rgba(200,255,0,0.1), 0 0 22px -6px rgba(200,255,0,0.36)",
+        "value": "0 0 0 3px rgba(11,108,216,0.22), 0 0 22px -6px rgba(11,108,216,0.7)",
         "purpose": "Foco de campos."
       },
       {
@@ -531,7 +531,7 @@
       {
         "name": "marquee",
         "value": "40s linear infinite (translateX 0 → -50%)",
-        "purpose": "Banda lima de la landing; se pausa en hover y con prefers-reduced-motion."
+        "purpose": "Banda de la landing; se pausa en hover y con prefers-reduced-motion."
       }
     ],
     "breakpoints": [
@@ -554,9 +554,9 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "La acción principal de cada vista: lima plano con texto carbón, luz arriba y halo.",
+      "description": "La acción principal de cada vista: Lemon plano con Tinta Noche, luz arriba y halo.",
       "html": "<button class=\"ds-btn-primary\">Guardar</button>",
-      "css": ".ds-btn-primary { display:inline-flex; align-items:center; gap:7px; padding:9px 16px; border-radius:8px; border:1px solid transparent; font:600 13.5px/1.2 Inter, ui-sans-serif, system-ui, sans-serif; color:#0b1000; cursor:pointer; background-color:#c8ff00; background-image: linear-gradient(180deg, rgba(255,255,255,0.2), rgba(255,255,255,0) 55%); box-shadow: 0 0 0 1px rgba(200,255,0,0.3), 0 10px 26px -12px rgba(200,255,0,0.45); transition: box-shadow .13s ease, transform .07s ease, background-color .13s ease; } .ds-btn-primary:hover { background-color:#d6ff47; box-shadow: 0 0 0 1px rgba(200,255,0,0.5), 0 14px 32px -12px rgba(200,255,0,0.6); } .ds-btn-primary:active { transform: translateY(1px); background-color:#b4e600; background-image:none; box-shadow: 0 0 0 1px rgba(200,255,0,0.35); } .ds-btn-primary:focus-visible { outline: 2px solid var(--accent, #c8ff00); outline-offset: 2px; }"
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; gap:7px; padding:9px 16px; border-radius:8px; border:1px solid transparent; font:600 13.5px/1.2 \"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif; color:#060e1c; cursor:pointer; background-color:#fefd14; background-image: linear-gradient(180deg, rgba(255,255,255,0.2), rgba(255,255,255,0) 55%); box-shadow: 0 0 0 1px rgba(254,253,20,0.3), 0 10px 26px -12px rgba(254,253,20,0.4); transition: box-shadow .13s ease, transform .07s ease, background-color .13s ease; } .ds-btn-primary:hover { background-color:#ffff66; box-shadow: 0 0 0 1px rgba(254,253,20,0.5), 0 14px 32px -12px rgba(254,253,20,0.55); } .ds-btn-primary:active { transform: translateY(1px); background-color:#e3e210; background-image:none; box-shadow: 0 0 0 1px rgba(254,253,20,0.35); } .ds-btn-primary:focus-visible { outline: 2px solid var(--accent, #fefd14); outline-offset: 2px; }"
     },
     {
       "name": "Ghost Button",
@@ -564,31 +564,31 @@
       "refersTo": "button-ghost",
       "description": "Acciones secundarias: transparente con hairline; el hover rellena al 5%.",
       "html": "<button class=\"ds-btn-ghost\">Cancelar</button>",
-      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:8px; border:1px solid var(--border, rgba(205,225,200,0.14)); background:transparent; color:var(--text, #f1f4ee); font:500 13.5px/1.2 Inter, ui-sans-serif, system-ui, sans-serif; cursor:pointer; transition: background .13s ease, border-color .13s ease; } .ds-btn-ghost:hover { background: rgba(255,255,255,0.05); border-color: rgba(205,225,200,0.28); } .ds-btn-ghost:active { transform: translateY(1px); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--accent, #c8ff00); outline-offset: 2px; }"
+      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:8px; border:1px solid var(--border, rgba(154,185,194,0.14)); background:transparent; color:var(--text, #f2f7f9); font:500 13.5px/1.2 \"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif; cursor:pointer; transition: background .13s ease, border-color .13s ease; } .ds-btn-ghost:hover { background: rgba(255,255,255,0.05); border-color: rgba(154,185,194,0.28); } .ds-btn-ghost:active { transform: translateY(1px); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--accent, #fefd14); outline-offset: 2px; }"
     },
     {
       "name": "Soft Button",
       "kind": "button",
       "refersTo": "button-soft",
-      "description": "Acción destacada que no es la principal (Probar, Asistente): lima tenue con texto lima claro.",
+      "description": "Acción destacada que no es la principal (Copiloto, Probar, Asistente): Azul Tenue con texto Lemon.",
       "html": "<button class=\"ds-btn-soft\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3.5 13.6 8 18 9.6 13.6 11.2 12 15.7 10.4 11.2 6 9.6 10.4 8z\"/></svg> Asistente</button>",
-      "css": ".ds-btn-soft { display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:8px; border:1px solid rgba(200,255,0,0.21); background: rgba(200,255,0,0.1); color:var(--accent-text, #dcff70); font:600 13.5px/1.2 Inter, ui-sans-serif, system-ui, sans-serif; cursor:pointer; transition: background .13s ease, box-shadow .13s ease; } .ds-btn-soft:hover { background: rgba(200,255,0,0.14); box-shadow: 0 0 18px -6px rgba(200,255,0,0.36); } .ds-btn-soft:focus-visible { outline: 2px solid var(--accent, #c8ff00); outline-offset: 2px; }"
+      "css": ".ds-btn-soft { display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:8px; border:1px solid rgba(11,108,216,0.45); background: rgba(11,108,216,0.22); color:var(--accent-text, #fefd14); font:600 13.5px/1.2 \"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif; cursor:pointer; transition: background .13s ease, box-shadow .13s ease; } .ds-btn-soft:hover { background: rgba(11,108,216,0.32); box-shadow: 0 0 18px -6px rgba(11,108,216,0.7); } .ds-btn-soft:focus-visible { outline: 2px solid var(--accent, #fefd14); outline-offset: 2px; }"
     },
     {
       "name": "Field Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "El hueco donde se escribe: fondo hondo translúcido, sombra interior y foco lima.",
+      "description": "El hueco donde se escribe: fondo hondo translúcido, sombra interior y foco Lemon.",
       "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Buscar por nombre o teléfono\" />",
-      "css": ".ds-input { width:100%; box-sizing:border-box; padding:9px 11px; border-radius:8px; border:1px solid var(--border, rgba(205,225,200,0.14)); background:var(--field, rgba(3,5,5,0.5)); color:var(--text, #f1f4ee); font:400 14px/1.4 Inter, ui-sans-serif, system-ui, sans-serif; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); caret-color:var(--accent, #c8ff00); transition: border-color .12s ease, box-shadow .12s ease; } .ds-input::placeholder { color:#7f8a7b; } .ds-input:hover { border-color: rgba(205,225,200,0.28); } .ds-input:focus { outline:none; border-color:var(--accent, #c8ff00); box-shadow: 0 0 0 3px rgba(200,255,0,0.1), 0 0 22px -6px rgba(200,255,0,0.36), inset 0 1px 2px rgba(0,0,0,0.35); }"
+      "css": ".ds-input { width:100%; box-sizing:border-box; padding:9px 11px; border-radius:8px; border:1px solid var(--border, rgba(154,185,194,0.14)); background:var(--field, rgba(3,8,18,0.6)); color:var(--text, #f2f7f9); font:400 14px/1.4 \"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif; box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); caret-color:var(--accent, #fefd14); transition: border-color .12s ease, box-shadow .12s ease; } .ds-input::placeholder { color:#86a6b0; } .ds-input:hover { border-color: rgba(154,185,194,0.28); } .ds-input:focus { outline:none; border-color:var(--accent, #fefd14); box-shadow: 0 0 0 3px rgba(11,108,216,0.22), 0 0 22px -6px rgba(11,108,216,0.7), inset 0 1px 2px rgba(0,0,0,0.35); }"
     },
     {
-      "name": "Glass Card",
+      "name": "Card",
       "kind": "card",
       "refersTo": "card",
-      "description": "Tarjeta de cristal: translúcida, con línea de luz arriba y sombra larga. Sin desenfoque.",
+      "description": "Tarjeta: panel opaco con línea de luz arriba y sombra larga. Sin desenfoque.",
       "html": "<div class=\"ds-card\"><div class=\"ds-card__title\">Identidad</div><p class=\"ds-card__body\">Nombre del agente, número que atiende y si está activo.</p></div>",
-      "css": ".ds-card { background:var(--panel, rgba(22,28,26,0.62)); border:1px solid var(--border, rgba(205,225,200,0.14)); border-radius:12px; padding:18px; color:var(--text, #f1f4ee); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 12px 32px -20px rgba(0,0,0,0.75); font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-card__title { font: 700 16px/1.25 \"Space Grotesk\", Inter, sans-serif; letter-spacing:-0.01em; margin-bottom:6px; } .ds-card__body { margin:0; font-size:14px; line-height:1.5; color:var(--muted, #9aa596); }"
+      "css": ".ds-card { background:var(--panel, #0c1829); border:1px solid var(--border, rgba(154,185,194,0.14)); border-radius:12px; padding:18px; color:var(--text, #f2f7f9); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 32px -20px rgba(0,0,0,0.75); font-family: \"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif; } .ds-card__title { font: 700 16px/1.25 \"Bricolage Grotesque\", \"Hanken Grotesk\", sans-serif; letter-spacing:-0.01em; margin-bottom:6px; } .ds-card__body { margin:0; font-size:14px; line-height:1.5; color:var(--muted, #9ab9c2); }"
     },
     {
       "name": "Status Chip",
@@ -596,23 +596,23 @@
       "refersTo": "chip-positive",
       "description": "Estado positivo: verde tenue con texto Verde Vital; siempre con icono o palabra.",
       "html": "<span class=\"ds-chip ds-chip--positive\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m5 12 4.5 4.5L19 7\"/></svg> Entregado</span> <span class=\"ds-chip\">Interesado</span>",
-      "css": ".ds-chip { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; background: rgba(205,225,200,0.12); color:var(--text, #f1f4ee); font:500 11.5px/1.4 Inter, ui-sans-serif, system-ui, sans-serif; } .ds-chip svg { width:11px; height:11px; } .ds-chip--positive { background: rgba(126,226,168,0.14); color:#7ee2a8; }"
+      "css": ".ds-chip { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; background: rgba(154,185,194,0.12); color:var(--text, #f2f7f9); font:500 11.5px/1.4 \"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif; } .ds-chip svg { width:11px; height:11px; } .ds-chip--positive { background: rgba(126,226,168,0.14); color:#7ee2a8; }"
     },
     {
       "name": "Nav Item (active)",
       "kind": "nav",
       "refersTo": "nav-item-active",
-      "description": "Ítem del menú: tinte lima, línea de luz y barra indicadora de 3px con brillo.",
+      "description": "Ítem del menú: el activo es Lemon pleno con Tinta Noche.",
       "html": "<nav class=\"ds-nav\"><a class=\"ds-nav__item is-active\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 12h-6l-2 3h-4l-2-3H2\"/><path d=\"M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z\"/></svg> Bandeja</a><a class=\"ds-nav__item\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg> Contactos</a></nav>",
-      "css": ".ds-nav { display:flex; flex-direction:column; gap:2px; width:200px; padding:4px 10px; } .ds-nav__item { position:relative; display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:12px; color:var(--muted, #9aa596); text-decoration:none; font:500 14px/1.2 Inter, ui-sans-serif, system-ui, sans-serif; transition: background .12s ease, color .12s ease; } .ds-nav__item svg { width:18px; height:18px; } .ds-nav__item:hover { background: rgba(255,255,255,0.05); color:var(--text, #f1f4ee); } .ds-nav__item.is-active { background: linear-gradient(90deg, rgba(200,255,0,0.14), rgba(200,255,0,0.02)); color:#f6faef; box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(200,255,0,0.11); } .ds-nav__item.is-active::before { content:\"\"; position:absolute; left:-10px; top:8px; bottom:8px; width:3px; border-radius:0 3px 3px 0; background: linear-gradient(180deg, #c8ff00, #9fe000); box-shadow: 0 0 10px rgba(200,255,0,0.48); } .ds-nav__item:focus-visible { outline: 2px solid var(--accent, #c8ff00); outline-offset: 2px; }"
+      "css": ".ds-nav { display:flex; flex-direction:column; gap:2px; width:200px; padding:4px 10px; } .ds-nav__item { position:relative; display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:12px; color:var(--muted, #9ab9c2); text-decoration:none; font:500 14px/1.2 \"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif; transition: background .12s ease, color .12s ease; } .ds-nav__item svg { width:18px; height:18px; } .ds-nav__item:hover { background: rgba(255,255,255,0.05); color:var(--text, #f2f7f9); } .ds-nav__item.is-active { background: #fefd14; color:#060e1c; font-weight:600; } .ds-nav__item:focus-visible { outline: 2px solid var(--accent, #fefd14); outline-offset: 2px; }"
     },
     {
       "name": "Message Bubble (signature)",
       "kind": "custom",
       "refersTo": "bubble-out",
-      "description": "Saliente con lima muy bajo a la derecha; entrante en Capa 2 a la izquierda; estado con icono.",
+      "description": "Saliente en Super Sonic hondo a la derecha; entrante a la izquierda; estado con icono.",
       "html": "<div class=\"ds-thread\"><div class=\"ds-bub ds-bub--in\">Hola, ¿cuánto cuesta el plan Pro?</div><div class=\"ds-bub ds-bub--out\">El plan Pro cuesta 49 USD al mes e incluye 3 números. ¿Te lo activo?<span class=\"ds-bub__meta\">17:11 <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m2 12 4.5 4.5L15 8\"/><path d=\"m9 16.5 1.5 1.5L22 7\"/></svg></span></div></div>",
-      "css": ".ds-thread { display:flex; flex-direction:column; gap:8px; width:340px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-bub { max-width:82%; padding:9px 12px; border-radius:12px; font-size:14px; line-height:1.45; color:var(--text, #f1f4ee); } .ds-bub--in { align-self:flex-start; background: rgba(255,255,255,0.075); border-bottom-left-radius:4px; } .ds-bub--out { align-self:flex-end; background: linear-gradient(135deg, rgba(200,255,0,0.17), rgba(200,255,0,0.08)); border-bottom-right-radius:4px; } .ds-bub__meta { display:flex; justify-content:flex-end; align-items:center; gap:4px; margin-top:4px; font-size:11px; color:#7ee2a8; } .ds-bub__meta svg { width:13px; height:13px; }"
+      "css": ".ds-thread { display:flex; flex-direction:column; gap:8px; width:340px; font-family: \"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif; } .ds-bub { max-width:82%; padding:9px 12px; border-radius:12px; font-size:14px; line-height:1.45; color:var(--text, #f2f7f9); } .ds-bub--in { align-self:flex-start; background: #16263c; border-bottom-left-radius:4px; } .ds-bub--out { align-self:flex-end; background: #08448d; color:#ffffff; border-bottom-right-radius:4px; } .ds-bub__meta { display:flex; justify-content:flex-end; align-items:center; gap:4px; margin-top:4px; font-size:11px; color:#9ab9c2; } .ds-bub__meta svg { width:13px; height:13px; }"
     },
     {
       "name": "Segmented Control",
@@ -620,29 +620,44 @@
       "refersTo": "segmented",
       "description": "Filtros de la bandeja y pestañas de embudo: contenedor hundido, segmento activo en Capa 2.",
       "html": "<div class=\"ds-seg\"><button class=\"is-active\">Todas</button><button>Sin asignar</button><button>Mías</button></div>",
-      "css": ".ds-seg { display:inline-flex; padding:3px; gap:2px; border-radius:9px; background:var(--field, rgba(3,5,5,0.5)); border:1px solid var(--border, rgba(205,225,200,0.14)); box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); } .ds-seg button { padding:6px 12px; border-radius:7px; border:none; background:transparent; color:var(--muted, #9aa596); font:500 13px/1.2 Inter, ui-sans-serif, system-ui, sans-serif; cursor:pointer; transition: color .12s ease, background .12s ease; } .ds-seg button:hover { color:var(--text, #f1f4ee); } .ds-seg button.is-active { background: rgba(255,255,255,0.075); color:var(--text, #f1f4ee); font-weight:600; box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.35); } .ds-seg button:focus-visible { outline: 2px solid var(--accent, #c8ff00); outline-offset: 2px; }"
+      "css": ".ds-seg { display:inline-flex; padding:3px; gap:2px; border-radius:9px; background:var(--field, rgba(3,8,18,0.6)); border:1px solid var(--border, rgba(154,185,194,0.14)); box-shadow: inset 0 1px 2px rgba(0,0,0,0.35); } .ds-seg button { padding:6px 12px; border-radius:7px; border:none; background:transparent; color:var(--muted, #9ab9c2); font:500 13px/1.2 \"Hanken Grotesk\", ui-sans-serif, system-ui, sans-serif; cursor:pointer; transition: color .12s ease, background .12s ease; } .ds-seg button:hover { color:var(--text, #f2f7f9); } .ds-seg button.is-active { background: rgba(255,255,255,0.075); color:var(--text, #f2f7f9); font-weight:600; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 1px 2px rgba(0,0,0,0.35); } .ds-seg button:focus-visible { outline: 2px solid var(--accent, #fefd14); outline-offset: 2px; }"
     }
   ],
   "narrative": {
-    "northStar": "La Sala de Control, edición nocturna",
-    "overview": "Driony sigue siendo el puesto de mando del vendedor: una sala a oscuras donde toda la operación —conversaciones en vivo, oportunidades, campañas— está a la vista y bajo control. Lo que cambia en esta edición es la materia de la sala. El fondo es un carbón casi negro con un tinte verdoso mínimo (#090c0d) sobre el que respiran dos brillos muy bajos (lima arriba a la izquierda, verde a la derecha) y una rejilla técnica fina que asoma en la esquina y se desvanece. Los paneles ya no son placas opacas: son **cristal**. Dejan pasar el brillo del fondo y, cuando flotan sobre contenido que se mueve (menú, cabecera, cajones, diálogos), lo desenfocan. Las tarjetas son translúcidas pero nunca desenfocan; el cristal es estructural, no decorativo.\n\nLa luz de esta sala es el **Lima** (#c8ff00): el único acento de marca. Señala acción (botón primario lima con texto carbón), foco (anillo y resplandor de los campos), selección (ítem activo del menú, fila activa de la bandeja) y la voz del negocio en el chat (burbuja saliente, lima muy bajo). Es un color que grita: por eso aparece poco y siempre con texto **carbón** encima, nunca blanco. El **Verde WhatsApp** (#25d366) y el **Verde Vital** (#7ee2a8) no compiten: quedan reservados a lo que *es* WhatsApp (número conectado, «en vivo») y a los estados positivos (entregado, ganado, opt-in). El lima es amarillo verdoso y el verde vital es menta: se distinguen, pero nunca se ponen a competir lado a lado como dos series de un gráfico.\n\nEl sistema es **denso pero legible**: muchos hilos, tarjetas y métricas a la vez, empaquetados con jerarquía y aire suficiente. La energía viene del movimiento táctil (hover que aviva, pulsación que hunde, entradas cortas) y de los halos con sentido, no de más color. Rechaza explícitamente el **SaaS genérico de plantilla** (tarjetas clonadas, gris plano, «big number + label»), lo **colorido/infantil** (arcoíris y emojis por doquier) y lo **corporativo frío/anticuado** (azules rígidos, tablas de los 2000). Si una pantalla pudiera ser de cualquier otro SaaS, falló.",
+    "northStar": "La Sala de Control, en noche y neón",
+    "overview": "Driony es el puesto de mando del vendedor: una sala a oscuras donde toda la operación —conversaciones en vivo, oportunidades, campañas— está a la vista y bajo control. El fondo es **Noche** (#060e1c), un casi negro con el matiz del azul de la marca y un solo brillo muy bajo de Super Sonic arriba a la izquierda. Los paneles son planos y un punto más claros (#0c1829); lo estructural que flota sobre contenido que se mueve (cabecera, cajones, diálogos) es cristal y desenfoca lo de detrás.\n\nLa paleta sale de tres Pantone con oficios separados. **Lemon Tonic** (#fefd14) es la acción y la selección: botón primario, ítem activo del menú, enlaces, foco. **Super Sonic** (#0b6cd8) es el bloque, el gráfico y el tinte: la voz del negocio en el chat, las series de datos y el fondo de lo seleccionado. **Sea Angel** (#9ab9c2) es el texto secundario y los neutros. Juntos hacen el póster; por separado, cada uno significa siempre lo mismo.\n\nEl sistema es **denso pero legible**: muchos hilos, tarjetas y métricas a la vez, con jerarquía y aire suficiente. La energía viene del contraste entre esos tres colores y del movimiento táctil, no de más color. Rechaza el **SaaS genérico de plantilla**, lo **colorido/infantil** y lo **corporativo frío/anticuado**. Si una pantalla pudiera ser de cualquier otro SaaS, falló.",
     "keyCharacteristics": [
-      "Carbón con brillos de fondo muy bajos; los paneles son cristal que deja pasar la luz.",
-      "Un solo acento de marca, el Lima, con texto carbón encima y halo solo donde hay acción.",
+      "Noche casi plana; los paneles se separan por tono y un filete de Sea Angel.",
+      "Lemon para actuar, Super Sonic para llenar, Sea Angel para matizar.",
+      "Bloques de color pleno solo donde mandan: la fila de KPI del panel, la banda y el cierre de la landing.",
       "El verde es señal de WhatsApp y de estado positivo, nunca decoración.",
-      "Densidad con jerarquía; aire que respira, nunca apretado.",
-      "Dos familias con oficios separados: Space Grotesk titula, Inter trabaja.",
+      "Dos familias con oficios separados: Bricolage Grotesque titula, Hanken Grotesk trabaja.",
       "Estados siempre explícitos (color + icono o palabra), nunca solo color."
     ],
     "rules": [
       {
-        "name": "La Regla del Único Acento",
-        "body": "El Lima es el único color de marca. Aparece en ≤15% de cualquier pantalla: acción, foco, selección, voz del negocio. Si dos cosas lima compiten por atención, una de las dos no debería ser lima.",
+        "name": "La Regla de los Tres Oficios",
+        "body": "Lemon actúa, Super Sonic llena, Sea Angel matiza. Un color no hace el trabajo de otro. Si dos cosas Lemon compiten por atención, una de las dos no debería ser Lemon.",
         "section": "colors"
       },
       {
-        "name": "La Regla de la Tinta Carbón",
-        "body": "Sobre lima el texto va siempre en Tinta Carbón, nunca en blanco (1,1:1). Y sobre blanco el lima nunca es texto: ahí el acento de texto es el Oliva.",
+        "name": "La Regla de la Tinta Noche",
+        "body": "Sobre Lemon el texto va siempre en Tinta Noche, nunca en blanco (1,1:1).",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla del Tinte Azul",
+        "body": "Los tintes translúcidos son de Super Sonic o de Sea Angel. Lemon translúcido sobre Noche se vuelve oliva: ni tintes ni estados desactivados en amarillo. Un primario desactivado va en Capa 2 con texto Sea Angel.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla del Bloque Legible",
+        "body": "Dentro de un bloque de color pleno cada tono redefine sus tokens (`--text`, `--muted`, `--positive`, `--danger`) para que todo lea a 4,5:1. Sobre Sea Angel ni Lemon (1,9:1) ni Super Sonic (2,3:1) son texto: ahí escribe la tinta. Un verde sobre azul o un gris sobre amarillo no pasan.",
+        "section": "colors"
+      },
+      {
+        "name": "La Regla de la Tinta Automática",
+        "body": "Las etiquetas y fuentes llevan colores que elige el usuario: el texto encima lo decide `readableInk()` (`lib/readable-ink.ts`), nunca un color fijo.",
         "section": "colors"
       },
       {
@@ -652,17 +667,12 @@
       },
       {
         "name": "La Regla del Estado Doble",
-        "body": "Ningún estado se comunica solo con color. Entregado, ganado, perdido, pausado: siempre color **+** icono o palabra.",
-        "section": "colors"
-      },
-      {
-        "name": "La Regla de la Transparencia con Fondo",
-        "body": "Los colores translúcidos existen para dejar pasar el brillo del fondo. Nunca se apilan más de dos capas translúcidas: la tercera se vuelve barro.",
+        "body": "Ningún estado se comunica solo con color: siempre color **+** icono o palabra.",
         "section": "colors"
       },
       {
         "name": "La Regla de las Dos Familias",
-        "body": "Space Grotesk titula, Inter trabaja. Prohibida la display en botones, etiquetas, campos o datos; prohibida Inter en el h1 del hero.",
+        "body": "Bricolage Grotesque titula, Hanken Grotesk trabaja. Prohibida la display en botones, etiquetas, campos o datos; prohibida Hanken en el h1 del hero.",
         "section": "typography"
       },
       {
@@ -682,7 +692,7 @@
       },
       {
         "name": "La Regla del Halo con Sentido",
-        "body": "El resplandor lima solo aparece en la acción principal, en el foco y en la selección activa. Un halo en algo que no se puede pulsar miente.",
+        "body": "El resplandor Lemon solo aparece en la acción principal, en el foco y en la selección activa. Un halo en algo que no se puede pulsar miente.",
         "section": "elevation"
       },
       {
@@ -692,33 +702,36 @@
       }
     ],
     "dos": [
-      "**Do** usar el Lima (#c8ff00) solo para acción, foco, selección y la voz del negocio; ≤15% de la pantalla (La Regla del Único Acento), y siempre con Tinta Carbón encima (La Regla de la Tinta Carbón).",
-      "**Do** usar Pizarra (#9fb0c4) como segunda serie de cualquier gráfico.",
-      "**Do** reservar el verde (#25d366 / #7ee2a8) a lo que es WhatsApp y a los estados positivos (La Regla del Verde Reservado).",
-      "**Do** comunicar todo estado con color **+** icono o palabra (La Regla del Estado Doble).",
-      "**Do** separar superficies con transparencia y línea de luz; desenfocar solo lo estructural: menú, cabecera, cajones, diálogos, menús, avisos.",
+      "**Do** usar Lemon (#fefd14) para acción, foco y selección, siempre con Tinta Noche encima.",
+      "**Do** usar Super Sonic para bloques, datos y tintes, y Sea Angel para el texto secundario.",
+      "**Do** redefinir los tokens dentro de un bloque de color y medir el contraste (Regla del Bloque Legible).",
+      "**Do** pasar los colores que elige el usuario por `readableInk()`.",
+      "**Do** reservar el verde (#25d366 / #7ee2a8) a lo que es WhatsApp y a los estados positivos.",
+      "**Do** comunicar todo estado con color **+** icono o palabra.",
+      "**Do** desenfocar solo lo estructural: menú, cabecera, cajones, diálogos, menús, avisos.",
       "**Do** montar con portal cualquier cosa `position: fixed` que nazca dentro de un elemento con `backdrop-filter`.",
-      "**Do** dar respuesta táctil: hover que aviva, `:active` que hunde 1px, anillo de foco lima por `outline`.",
-      "**Do** titular con Space Grotesk y trabajar con Inter; jerarquía por tamaño y peso.",
-      "**Do** texto de cuerpo a ≥4.5:1 (Tinta #f1f4ee y Tinta Apagada #9aa596 sobre cristal); placeholders a #7f8a7b, nunca gris fantasma.",
-      "**Do** usar iconos SVG de línea (18px, trazo 1.75) para toda señal de interfaz; los emojis solo dentro del contenido de los mensajes.",
-      "**Do** respetar `prefers-reduced-motion`: toda animación tiene alternativa de crossfade o instantánea."
+      "**Do** dar respuesta táctil: hover que aviva, `:active` que hunde 1px, anillo de foco Lemon.",
+      "**Do** titular con Bricolage Grotesque y trabajar con Hanken Grotesk.",
+      "**Do** texto de cuerpo a ≥4.5:1; placeholders a #86a6b0, nunca gris fantasma.",
+      "**Do** usar iconos SVG de línea (18px, trazo 1.75); los emojis solo dentro de los mensajes.",
+      "**Do** respetar `prefers-reduced-motion`: toda animación tiene alternativa."
     ],
     "donts": [
-      "**Don't** caer en **SaaS genérico de plantilla**: rejillas de tarjetas idénticas, todo gris, el template «big number + label» de dashboard.",
-      "**Don't** volverlo **colorido/infantil**: arcoíris de colores ni emojis por todos lados; la energía va por movimiento y el acento, no por ruido.",
-      "**Don't** parecer **corporativo frío/anticuado**: azules corporativos rígidos ni tablas densas estilo software de los 2000.",
-      "**Don't** poner `backdrop-filter` en tarjetas ni usar el cristal como decoración (La Regla del Cristal Estructural).",
-      "**Don't** usar degradado en el texto de titulares ni en la marca; énfasis por peso, tamaño o un color plano (La Regla del Titular Sólido).",
-      "**Don't** repetir eyebrows en mayúsculas sobre cada sección; el overline vive solo en los grupos del nav (La Regla del Overline Confinado).",
-      "**Don't** usar `border-left`/`border-right` mayor de 1px como raya decorativa en tarjetas, avisos o listas. Las únicas rayas laterales son el indicador de selección de 3px del nav y de la fila activa de la bandeja, y la barra de la cita dentro de una burbuja del chat (la convención de WhatsApp para «respondiendo a»).",
-      "**Don't** parear `border: 1px solid` con `box-shadow` de blur ≥16px positivo en la misma tarjeta o botón (ghost-card); la sombra de tarjeta es larga y negativa o no es.",
+      "**Don't** caer en **SaaS genérico de plantilla**: rejillas de tarjetas idénticas o todo gris. La fila de KPI con color es la excepción y no se copia a otras pantallas.",
+      "**Don't** volverlo **colorido/infantil**: arcoíris de colores ni emojis por todos lados.",
+      "**Don't** parecer **corporativo frío/anticuado**: azules rígidos ni tablas de los 2000.",
+      "**Don't** usar Lemon translúcido ni en estados desactivados: sobre Noche es oliva.",
+      "**Don't** escribir en Lemon ni en Super Sonic sobre Sea Angel: no llegan a 3:1.",
+      "**Don't** poner texto blanco sobre Lemon, ni verde sobre azul, ni gris sobre amarillo.",
+      "**Don't** poner texto suelto sobre el estallido: lo que flota encima lleva superficie opaca.",
+      "**Don't** poner `backdrop-filter` en tarjetas ni usar el cristal como decoración.",
+      "**Don't** usar degradado en el texto de titulares ni en la marca.",
+      "**Don't** repetir eyebrows en mayúsculas sobre cada sección; el overline vive en el nav.",
+      "**Don't** usar `border-left`/`border-right` mayor de 1px como raya decorativa. Las únicas son el marcador de la fila activa de la bandeja y la cita dentro de una burbuja.",
+      "**Don't** parear `border: 1px solid` con `box-shadow` de blur ≥16px positivo en la misma tarjeta o botón (ghost-card).",
       "**Don't** redondear tarjetas o campos a 24/28/32px+. Techo: 12px en superficies, 14px en diálogos; pastilla solo en chips y en los botones de la landing.",
-      "**Don't** usar el verde en botones primarios, titulares o adornos, ni el lima en chips de estado positivo.",
-      "**Don't** poner texto blanco sobre lima, ni lima como texto sobre blanco.",
-      "**Don't** poner otro verde como segunda serie al lado del lima en un gráfico.",
-      "**Don't** apilar más de dos capas translúcidas (La Regla de la Transparencia con Fondo).",
-      "**Don't** animar propiedades de layout (`width`, `height`) salvo el pliegue del menú; las transiciones son de 120–250 ms y comunican estado, no decoran."
+      "**Don't** usar el verde en botones primarios, titulares o adornos.",
+      "**Don't** animar propiedades de layout salvo el pliegue del menú; las transiciones son de 120–250 ms y comunican estado, no decoran."
     ]
   }
 }

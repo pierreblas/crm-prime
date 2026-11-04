@@ -1,3 +1,4 @@
+import { Wordmark } from "@/components/BrandMark";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -68,8 +69,7 @@ export default async function RegisterPage({
       <div style={{ width: 360, maxWidth: "100%" }}>
         {/* La misma marca que en la landing: el visitante sabe que sigue en Driony. */}
         <Link href="/" style={brandLink} aria-label="Driony, inicio">
-          <span className="brand-mark" style={brandMark}>D</span>
-          <span className="brand-name">Driony</span>
+          <Wordmark size={20} />
         </Link>
         <form action={register} style={card}>
         <h1 style={{ marginTop: 0 }}>{t("auth.signUpTitle")}</h1>
@@ -80,7 +80,7 @@ export default async function RegisterPage({
           {t("auth.signUpReassure")}
         </p>
 
-        {error && <p style={{ color: "#ff6b6b" }}>{error}</p>}
+        {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
 
         <label style={label}>{t("auth.name")}</label>
         <input name="name" type="text" required placeholder={t("auth.namePlaceholder")} style={input} />
@@ -97,11 +97,11 @@ export default async function RegisterPage({
 
         <p style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 12, textAlign: "center", lineHeight: 1.5 }}>
           {t("auth.termsPrefix")}{" "}
-          <Link href="/terms" style={{ color: "var(--accent)" }}>
+          <Link href="/terms" style={{ color: "var(--accent-text)" }}>
             {t("auth.termsLink")}
           </Link>{" "}
           {t("auth.andThe")}{" "}
-          <Link href="/privacy" style={{ color: "var(--accent)" }}>
+          <Link href="/privacy" style={{ color: "var(--accent-text)" }}>
             {t("auth.privacyLink")}
           </Link>
           .
@@ -109,7 +109,7 @@ export default async function RegisterPage({
 
         <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 18, textAlign: "center" }}>
           {t("auth.haveAccount")}{" "}
-          <Link href="/login" style={{ color: "var(--accent)" }}>
+          <Link href="/login" style={{ color: "var(--accent-text)" }}>
             {t("auth.signIn")}
           </Link>
         </p>
@@ -128,16 +128,6 @@ const brandLink: React.CSSProperties = {
   fontWeight: 700,
   color: "var(--text)",
   textDecoration: "none",
-};
-
-const brandMark: React.CSSProperties = {
-  width: 30,
-  height: 30,
-  borderRadius: 9,
-  color: "var(--accent-ink)",
-  display: "grid",
-  placeItems: "center",
-  fontWeight: 800,
 };
 
 const card: React.CSSProperties = {
