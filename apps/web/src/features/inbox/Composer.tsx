@@ -1,5 +1,6 @@
 "use client";
 
+import { emptyMessageLabel } from "./emptyMessage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { MessageDto, QuickReplyDto, RewriteMode } from "@crm/shared";
@@ -231,7 +232,7 @@ export function Composer({
               {replyTo.direction === "OUTBOUND" ? t("inbox.you") : t("inbox.customer")}
             </div>
             <div style={quoteText}>
-              {replyTo.content || `[${replyTo.type.toLowerCase()}]`}
+              {replyTo.content || replyTo.note || emptyMessageLabel(replyTo.type, t)}
             </div>
           </div>
           <button

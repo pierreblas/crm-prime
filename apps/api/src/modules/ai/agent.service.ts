@@ -940,7 +940,7 @@ export class AgentService {
     // (transcripción o descripción), no como un «[audio]» mudo.
     const msgs: LlmMessage[] = rows.map((m) => ({
       role: m.direction === "INBOUND" ? "user" : "assistant",
-      content: MediaUnderstandingService.textOf(m) || `[${m.type.toLowerCase()}]`,
+      content: MediaUnderstandingService.historyTextOf(m),
     }));
     // La API exige que el primer mensaje sea del usuario.
     while (msgs.length && msgs[0]!.role === "assistant") msgs.shift();

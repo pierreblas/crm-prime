@@ -40,11 +40,17 @@
     "test:templatesend": "tsx --test test/template-send.test.ts",
     "test:interactive": "tsx --test test/interactive.test.ts",
     "test:history": "tsx --test test/history-webhook.test.ts",
+    "test:wacontent": "tsx --test test/whatsapp-message-content.test.ts",
     "test:flowtriggers": "tsx --test test/flow-triggers.test.ts",
     "test:wausers": "tsx --test test/wa-usernames.test.ts",
     "test:order": "tsx --test test/inbound-order.test.ts",
     "test:metaforms": "tsx --test test/meta-lead-forms.test.ts",
-    "test:admincopilot": "tsx --test test/admin-copilot.test.ts"
+    "test:admincopilot": "tsx --test test/admin-copilot.test.ts",
+    "test:implpricing": "tsx --test test/implementation-pricing.test.ts",
+    "test:implquotes": "tsx --test test/implementation-quotes.test.ts",
+    "test:platformguard": "tsx --test test/platform-guard.test.ts",
+    "test:impldb": "tsx --test test/implementation-db.test.ts",
+    "pretest:impldb": "node ../../scripts/setup-rls-test-db.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

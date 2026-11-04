@@ -8,10 +8,11 @@ import { toast } from "@/lib/toast";
 import { fetchPlatformAudit, fetchPlatformHealth, fetchPlatformOrgs, fetchPlatformOverview, updatePlatformOrg } from "@/lib/bff";
 import { OrgDrawer } from "./OrgDrawer";
 import { FeedbackPanel } from "./FeedbackPanel";
+import { ImplementationsPanel } from "./implementations/ImplementationsPanel";
 import { date, dateTime, describeAudit, expiry, money, orgAiCapUsd, relative, toCsv, trialTag } from "./platformFormat";
 
 type SortKey = "created" | "activity" | "messages" | "name" | "expiry";
-type Tab = "orgs" | "health" | "audit" | "feedback";
+type Tab = "orgs" | "impl" | "health" | "audit" | "feedback";
 type StateFilter = "all" | "active" | "suspended" | "paying" | "trial" | "expiring" | "quiet" | "problems" | "limit" | "overuse" | "ai" | "onboarding";
 
 const STATE_LABEL: Record<StateFilter, string> = {
@@ -218,6 +219,7 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
           {(
             [
               ["orgs", "Empresas"],
+              ["impl", "Implementaciones"],
               ["health", "Salud"],
               ["audit", "Diario"],
               ["feedback", "Feedback"],
@@ -452,13 +454,15 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
         </>
       )}
 
+      {tab === "impl" && <ImplementationsPanel onOpenOrg={setOpenOrg} />}
+
       {tab === "health" && <HealthPanel health={health.data} loading={health.isPending} error={health.isError} onOpen={setOpenOrg} />}
 
       {tab === "audit" && (
         <section className="pc-panel">
           <div className="pc-panel__head">
             <h2>Diario del operador</h2>
-            <span className="pc-muted" style={{ fontSize: 12.5 }}>Cambios de plan, suspensiones, vencimientos, notas y accesos «Entrar como».</span>
+            <span className="pc-muted" style={{ fontSize: 12.5 }}>Cambios de plan, suspensiones, vencimientos, notas, accesos «Entrar como» y cotizaciones de implementación.</span>
           </div>
           {audit.isPending && <div className="skeleton" style={{ height: 80 }} />}
           {audit.data && audit.data.length === 0 && <p className="pc-empty">Nada todavía.</p>}

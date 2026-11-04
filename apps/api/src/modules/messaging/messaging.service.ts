@@ -96,6 +96,8 @@ export interface InboundMessage {
   referral?: MetaReferral;
   /** waMessageId que el cliente citó al responder. */
   replyToWaMessageId?: string;
+  /** Lo que explica Driony si no hay texto escrito: va a `note`, no a `content`. */
+  note?: string;
   /** Identificador del botón pulsado (plantilla o mensaje interactivo). */
   buttonPayload?: string;
   /** Cuándo lo envió el cliente, según Meta (ms). */
@@ -111,6 +113,7 @@ const STALE_MS = 2 * 60 * 60 * 1000;
 
 /** Cómo se anuncia un mensaje sin texto en un aviso. */
 const PREVIEW_LABEL: Record<string, string> = {
+  TEXT: "Mensaje",
   IMAGE: "📷 Imagen",
   AUDIO: "🎤 Audio",
   VIDEO: "🎥 Video",
@@ -437,6 +440,7 @@ export class MessagingService {
         type: msg.type,
         author: MessageAuthor.CONTACT,
         content: text,
+        note: msg.note ?? null,
         mediaUrl: msg.mediaUrl,
         buttonPayload: msg.buttonPayload ?? null,
         ...(referral ? { referral: referral as unknown as Prisma.InputJsonObject } : {}),
@@ -461,7 +465,7 @@ export class MessagingService {
     this.notify(conversation.id, {
       inbound: {
         contactName: contact.name ?? contact.phone,
-        preview: (text ?? PREVIEW_LABEL[msg.type] ?? msg.type.toLowerCase()).slice(0, 120),
+        preview: (text ?? msg.note ?? PREVIEW_LABEL[msg.type] ?? msg.type.toLowerCase()).slice(0, 120),
       },
     });
     if (stale) {
@@ -574,6 +578,7 @@ export class MessagingService {
     waMessageId: string;
     type: MessageType;
     text?: string;
+    note?: string;
     channelPhoneNumberId?: string;
   }): Promise<void> {
     const existing = await this.prisma.message.findUnique({
@@ -642,6 +647,7 @@ export class MessagingService {
         type: echo.type,
         author: MessageAuthor.HUMAN,
         content: echo.text,
+        note: echo.note ?? null,
         status: MessageStatus.SENT,
       },
     });
@@ -689,20 +695,54 @@ export class MessagingService {
   }
 
   // ── Coexistencia: importar un mensaje del historial ────────────
+  /**
+   * Coexistencia: el negocio editó o borró desde el celular un mensaje ya
+   * enviado. Cambia el original y no toca la conversación: no es una respuesta.
+   * Lo borrado no se quita del CRM, solo se avisa: el equipo debe poder ver qué
+   * se le dijo al cliente. Si no lo tenemos, no hay nada que cambiar.
+   */
+  async handleEchoChange(change: "edit" | "revoke", originalWaMessageId: string, text?: string): Promise<void> {
+    const original = await this.prisma.message.findUnique({
+      where: { waMessageId: originalWaMessageId },
+      select: { id: true, conversationId: true },
+    });
+    if (!original) return;
+    await this.prisma.message.update({
+      where: { id: original.id },
+      data:
+        change === "revoke"
+          ? { note: "Eliminaste este mensaje desde el celular." }
+          : { note: "Editado desde el celular.", ...(text ? { content: text } : {}) },
+    });
+    this.notify(original.conversationId);
+  }
+
   async handleHistory(job: {
     customerWaId: string;
     fromCustomer: boolean;
     waMessageId: string;
     type: MessageType;
     text?: string;
+    note?: string;
     timestampMs: number;
     channelPhoneNumberId?: string;
   }): Promise<void> {
     const existing = await this.prisma.message.findUnique({
       where: { waMessageId: job.waMessageId },
-      select: { id: true },
+      select: { id: true, type: true, content: true },
     });
-    if (existing) return; // idempotencia
+    if (existing) {
+      // Meta manda primero un hueco por cada archivo del historial y, si es
+      // reciente, otro aviso con lo que era. Ese segundo completa el primero.
+      const wasEmpty = existing.type === MessageType.TEXT && !existing.content;
+      if (wasEmpty && (job.type !== MessageType.TEXT || job.text)) {
+        await this.prisma.message.update({
+          where: { id: existing.id },
+          data: { type: job.type, content: job.text ?? null, note: job.note ?? null },
+        });
+      }
+      return; // idempotencia
+    }
 
     // Primero el canal: el `phone_number_id` que trae Meta es lo único que
     // dice de qué organización es este mensaje. De él cuelga todo lo demás.
@@ -757,6 +797,7 @@ export class MessagingService {
         type: job.type,
         author: job.fromCustomer ? MessageAuthor.CONTACT : MessageAuthor.HUMAN,
         content: job.text,
+        note: job.note ?? null,
         status: MessageStatus.DELIVERED,
         createdAt: when, // conserva el orden histórico
       },
@@ -1250,7 +1291,7 @@ export class MessagingService {
         messages: {
           orderBy: { createdAt: "desc" },
           take: 1,
-          select: { direction: true, type: true, content: true, author: true, createdAt: true },
+          select: { direction: true, type: true, content: true, note: true, author: true, createdAt: true },
         },
       },
       take: 100,
@@ -1400,6 +1441,7 @@ export class MessagingService {
       direction: string;
       type: string;
       content: string | null;
+      note?: string | null;
       author: string;
       createdAt: Date;
     }[];
@@ -1421,7 +1463,7 @@ export class MessagingService {
             direction: last.direction as MessageDirection,
             type: last.type as MessageType,
             author: last.author as MessageAuthor,
-            text: last.content,
+            text: last.content ?? last.note ?? null,
             at: last.createdAt.toISOString(),
           }
         : null,
@@ -1466,6 +1508,8 @@ export class MessagingService {
       where: { conversationId },
       orderBy: { createdAt: "asc" },
       take: 200,
+      // Lo justo para pintar la cita, como en WhatsApp.
+      include: { replyTo: { select: { id: true, content: true, note: true, type: true, direction: true } } },
     });
     return rows.map((m) => this.toMessageDto(m));
   }
@@ -1489,9 +1533,11 @@ export class MessagingService {
     mediaUrl: string | null;
     mediaPurgedAt?: Date | null;
     transcript?: string | null;
+    note?: string | null;
     replyTo?: {
       id: string;
       content: string | null;
+      note?: string | null;
       type: MessageType;
       direction: MessageDirection;
     } | null;
@@ -1513,12 +1559,14 @@ export class MessagingService {
       mediaUrl: m.mediaUrl,
       mediaPurgedAt: m.mediaPurgedAt?.toISOString() ?? null,
       transcript: m.transcript ?? null,
+      note: m.note ?? null,
       buttons: interactive?.buttons?.length ? interactive.buttons : null,
       ad: adSummaryOf(m.referral),
       replyTo: m.replyTo
         ? {
             id: m.replyTo.id,
             content: m.replyTo.content,
+            note: m.replyTo.note ?? null,
             type: m.replyTo.type,
             direction: m.replyTo.direction,
           }

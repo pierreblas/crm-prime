@@ -70,6 +70,17 @@ export class MediaUnderstandingService {
   }
 
   /**
+   * Un mensaje tal como lo lee la IA en el historial: además de lo escrito, lo
+   * que explica Driony (el contacto que compartió, su pedido, lo que WhatsApp no
+   * entregó). Aparte de `textOf` a propósito: esta nota no es algo que dijo el
+   * cliente, y las palabras clave y los flujos no deben reaccionar a ella.
+   */
+  static historyTextOf(m: { type: string; content: string | null; transcript?: string | null; note?: string | null }): string {
+    if (m.note) return m.content || m.transcript ? `${MediaUnderstandingService.textOf(m)}\n(${m.note})` : m.note;
+    return MediaUnderstandingService.textOf(m) || "[mensaje sin contenido: WhatsApp no lo compartió]";
+  }
+
+  /**
    * El último entrante con un medio aún sin entender: lo transcribe o lo
    * describe y lo guarda. Se llama antes de que la IA responda, así la
    * respuesta ya lo tiene en cuenta.

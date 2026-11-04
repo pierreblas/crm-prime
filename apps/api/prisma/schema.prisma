@@ -198,6 +198,7 @@ model Organization {
   dealEvents           DealEvent[]
   lossReasons          LossReason[]
   feedback             Feedback[]
+  implementations      ImplementationAssessment[]
 
   @@map("organizations")
 }
@@ -722,6 +723,11 @@ model Message {
   // Lo que la IA entendió del medio: transcripción del audio o descripción de
   // la imagen/sticker. Null = sin procesar; "" = no se pudo.
   transcript     String?
+  // Lo que explica Driony de un mensaje sin texto escrito (contacto compartido,
+  // pedido, ubicación, formulario, o lo que WhatsApp no entregó). Nunca es algo
+  // que escribió el contacto: por eso no va en `content`, que es lo que leen los
+  // flujos y las palabras clave.
+  note           String?
   // Botones enviados (mensaje interactivo) o botón que pulsó el contacto.
   interactive    Json?
   buttonPayload  String?
@@ -1555,6 +1561,159 @@ model PlatformAuditLog {
   @@index([orgId, createdAt])
   @@index([createdAt])
   @@map("platform_audit_log")
+}
+
+// ── Cotizador interno de implementaciones (consola de plataforma) ──
+//
+// Son tablas del operador de Driony, no de una empresa: no llevan orgId como
+// dueño, no están en TENANT_MODELS ni tienen RLS, igual que platform_audit_log.
+// `orgId` es solo un enlace opcional al cliente si ya tiene cuenta, y se queda
+// en null si la empresa se borra: el historial de lo cotizado no se pierde.
+
+/// Diagnóstico de una implementación: el cliente, su negocio y la complejidad
+/// orientativa. De él salen las versiones de la cotización.
+model ImplementationAssessment {
+  id              String   @id @default(cuid())
+  /// COT-2026-0007. Se asigna con la primera cotización y lo comparten sus versiones.
+  quoteNumber     String?  @unique
+  title           String
+  clientName      String
+  clientContact   String   @default("")
+  orgId           String?
+  sector          String   @default("")
+  objective       String   @default("")
+  /// Correo del operador que lo creó.
+  ownerEmail      String
+  /// Formulario validado con assessmentScopeSchema (@crm/shared).
+  scope           Json
+  riskFlags       String[] @default([])
+  complexityScore Int      @default(0)
+  complexityBand  String   @default("low") // low | medium | high
+  archivedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  org    Organization?         @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  quotes ImplementationQuote[]
+
+  @@index([orgId])
+  @@index([updatedAt])
+  @@map("implementation_assessments")
+}
+
+/// Una versión de la cotización. Solo se edita en DRAFT; después, nueva
+/// versión. Al aprobar se congela todo en approvedSnapshot.
+model ImplementationQuote {
+  id                     String    @id @default(cuid())
+  assessmentId           String
+  version                Int       @default(1)
+  status                 String    @default("DRAFT") // ver QUOTE_STATUSES en @crm/shared
+  currency               String    @default("USD")
+  planKey                String?
+  /// Precio de lista del plan al cotizar, en centavos: PLANS puede cambiar después.
+  planPriceCentsSnapshot Int?
+  aiBillingMode          String    @default("UNDECIDED") // BYOK | MANAGED | UNDECIDED
+  overheadsCents         Int       @default(0)
+  contingencyBp          Int       @default(2000)
+  targetMarginBp         Int       @default(4000)
+  roundingCents          Int       @default(1000)
+  proposedPriceCents     Int?
+  diagnosisFeeCents      Int?
+  diagnosisCredited      Boolean   @default(false)
+  // Resultado del motor, guardado para listar sin recalcular y para el snapshot.
+  laborCents             Int       @default(0)
+  externalCents          Int       @default(0)
+  baseCostCents          Int       @default(0)
+  contingencyCents       Int       @default(0)
+  budgetedCostCents      Int       @default(0)
+  minimumPriceCents      Int       @default(0)
+  expectedMarginBp       Int?
+  belowMinimum           Boolean   @default(false)
+  // Textos de la propuesta.
+  deliverables           String    @default("")
+  assumptions            String    @default("")
+  exclusions             String    @default("")
+  clientRequirements     String    @default("")
+  timelineNote           String    @default("")
+  paymentTerms           String    @default("")
+  externalCostsNote      String    @default("")
+  taxNote                String    @default("")
+  supportNote            String    @default("")
+  validUntil             DateTime?
+  // Aprobación bajo mínimo: quién y por qué. Queda aunque luego se revise.
+  exceptionReason        String?
+  exceptionBy            String?
+  approvedSnapshot       Json?
+  approvedBy             String?
+  approvedAt             DateTime?
+  sentAt                 DateTime?
+  sentNote               String?
+  acceptedAt             DateTime?
+  rejectedAt             DateTime?
+  rejectedReason         String?
+  cancelledAt            DateTime?
+  supersededById         String?
+  createdBy              String
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  assessment ImplementationAssessment  @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  items      ImplementationQuoteItem[]
+  actuals    ImplementationActual[]
+
+  @@unique([assessmentId, version])
+  @@index([status, updatedAt])
+  @@map("implementation_quotes")
+}
+
+/// Horas y costos reales de una implementación aceptada: para comparar con lo
+/// presupuestado y afinar las próximas estimaciones.
+model ImplementationActual {
+  id              String   @id @default(cuid())
+  quoteId         String
+  category        String
+  description     String
+  hours           Decimal  @default(0) @db.Decimal(7, 2)
+  hourlyCostCents Int      @default(0)
+  costCents       Int      @default(0)
+  workedOn        DateTime @db.Date
+  note            String   @default("")
+  createdBy       String
+  createdAt       DateTime @default(now())
+
+  quote ImplementationQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId, workedOn])
+  @@map("implementation_actuals")
+}
+
+/// Ajustes del cotizador (tarifas, plantillas, referencias): una sola fila,
+/// JSON validado con pricingSettingsSchema. Sin fila valen los de código.
+model ImplementationPricingSettings {
+  id        String   @id
+  settings  Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  @@map("implementation_pricing_settings")
+}
+
+/// Partida de esfuerzo: horas × costo interno congelado, más costos directos.
+model ImplementationQuoteItem {
+  id              String  @id @default(cuid())
+  quoteId         String
+  category        String // ver QUOTE_ITEM_CATEGORIES en @crm/shared
+  description     String
+  hours           Decimal @default(0) @db.Decimal(7, 2)
+  hourlyCostCents Int     @default(0)
+  thirdPartyCents Int     @default(0)
+  otherCents      Int     @default(0)
+  sortOrder       Int     @default(0)
+
+  quote ImplementationQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId, sortOrder])
+  @@map("implementation_quote_items")
 }
 
 /// Lo que las empresas nos escriben desde el «?» del panel: errores, sugerencias y su opinión.

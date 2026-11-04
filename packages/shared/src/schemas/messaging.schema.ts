@@ -153,6 +153,8 @@ export const messageDtoSchema = z.object({
   mediaPurgedAt: z.string().nullable().optional(),
   /** Transcripción del audio o descripción de la imagen/sticker, si la IA ya lo leyó. */
   transcript: z.string().nullable().optional(),
+  /** Lo que explica Driony de un mensaje sin texto escrito; no lo escribió el contacto. */
+  note: z.string().nullable().optional(),
   reaction: z.string().nullable(),
   status: z.nativeEnum(MessageStatus),
   createdAt: z.string(),
@@ -165,6 +167,7 @@ export const messageDtoSchema = z.object({
     .object({
       id: z.string(),
       content: z.string().nullable(),
+      note: z.string().nullable().optional(),
       type: z.nativeEnum(MessageType),
       direction: z.nativeEnum(MessageDirection),
     })

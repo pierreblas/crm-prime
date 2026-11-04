@@ -77,10 +77,62 @@ export function describeAudit(e: PlatformAuditEntry): string {
       return `Añadió ${Number(d.conversations ?? 0).toLocaleString("es")} conversaciones extra${d.priceUsd === null || d.priceUsd === undefined ? " (regalo)" : ` (USD ${d.priceUsd})`}`;
     case "ai_pack_removed":
       return `Quitó un paquete de ${Number(d.conversations ?? 0).toLocaleString("es")} conversaciones extra (${Number(d.used ?? 0).toLocaleString("es")} gastadas)`;
+    // Cotizador de implementaciones.
+    case "assessment_created":
+      return `Creó el diagnóstico «${d.title ?? ""}» para ${d.clientName ?? "un cliente"}`;
+    case "quote_created":
+      return `Abrió la cotización ${quoteRef(d)}`;
+    case "quote_submitted":
+      return `Envió a revisión ${quoteRef(d)}${d.belowMinimum ? " (por debajo del mínimo)" : ""}`;
+    case "quote_reopened":
+      return `Devolvió a borrador ${quoteRef(d)}${d.reason ? `: ${d.reason}` : ""}`;
+    case "quote_approved":
+      return `Aprobó ${quoteRef(d)} por ${quoteMoney(d, "proposedCents")}`;
+    case "quote_exception_approved":
+      return `Aprobó ${quoteRef(d)} POR DEBAJO DEL MÍNIMO: ${quoteMoney(d, "proposedCents")} frente a ${quoteMoney(d, "minimumCents")}. Motivo: ${d.reason ?? "—"}`;
+    case "quote_sent":
+      return `Marcó como enviada ${quoteRef(d)}${d.note ? ` (${d.note})` : ""}`;
+    case "quote_accepted":
+      return `El cliente aceptó ${quoteRef(d)} por ${quoteMoney(d, "proposedCents")}`;
+    case "quote_rejected":
+      return `El cliente rechazó ${quoteRef(d)}: ${d.reason ?? "sin motivo"}`;
+    case "quote_cancelled":
+      return `Canceló ${quoteRef(d)}${d.reason ? `: ${d.reason}` : ""}`;
+    case "quote_revised":
+      return `Abrió la versión ${d.version ?? "?"} de ${d.number ?? "la cotización"}${d.reason ? `: ${d.reason}` : ""}`;
+    case "quote_actual_added":
+      return `Registró ${Number(d.hours ?? 0).toLocaleString("es")} h reales en ${quoteRef(d)}${Number(d.costCents) > 0 ? ` y ${quoteMoney({ ...d, currency: "USD" }, "costCents")} de costos` : ""}`;
+    case "quote_actual_removed":
+      return `Quitó un registro de ${Number(d.hours ?? 0).toLocaleString("es")} h reales de ${quoteRef(d)}`;
+    case "assessment_archived":
+      return `Archivó el diagnóstico «${d.title ?? ""}»${d.number ? ` (${d.number})` : ""}`;
+    case "assessment_restored":
+      return `Restauró el diagnóstico «${d.title ?? ""}»${d.number ? ` (${d.number})` : ""}`;
+    case "pricing_settings_changed": {
+      const changed = Array.isArray(d.changed) ? (d.changed as string[]) : [];
+      const names: Record<string, string> = {
+        currency: "moneda",
+        hourlyCostCents: "costo por hora",
+        contingencyBp: "contingencia",
+        targetMarginBp: "margen objetivo",
+        roundingCents: "redondeo",
+        validityDays: "vigencia",
+        diagnosisFeeCents: "diagnóstico pagado",
+        paymentTerms: "condiciones de pago",
+        rates: "tarifas",
+        templates: "plantillas",
+        referenceOffers: "ofertas de referencia",
+      };
+      return `Cambió los ajustes del cotizador: ${changed.map((k) => names[k] ?? k).join(", ") || "sin cambios"}`;
+    }
     default:
       return e.action;
   }
 }
+
+const quoteRef = (d: Record<string, unknown>) => `${d.number ?? "COT-?"} v${d.version ?? "?"}`;
+const quoteMoney = (d: Record<string, unknown>, key: string) =>
+  typeof d[key] === "number" ? `${d.currency ?? "USD"} ${((d[key] as number) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—";
 
 /** Filas → CSV con comillas, para abrir en Excel. */
 export function toCsv(rows: Record<string, unknown>[]): string {

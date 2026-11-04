@@ -1,3 +1,4 @@
+import { MediaUnderstandingService } from "./media-understanding.service";
 import {
   BadRequestException,
   Inject,
@@ -252,13 +253,13 @@ export class CopilotService {
       where: { conversationId },
       orderBy: { createdAt: "desc" },
       take,
-      select: { direction: true, author: true, content: true, type: true, createdAt: true },
+      select: { direction: true, author: true, content: true, note: true, type: true, createdAt: true },
     });
     return rows
       .reverse()
       .map((m) => {
         const who = m.direction === "INBOUND" ? "Cliente" : m.author === "AI" ? "IA" : "Equipo";
-        const body = m.content?.trim() || `[${m.type.toLowerCase()}]`;
+        const body = MediaUnderstandingService.historyTextOf(m);
         return `${who}: ${body}`;
       })
       .join("\n");

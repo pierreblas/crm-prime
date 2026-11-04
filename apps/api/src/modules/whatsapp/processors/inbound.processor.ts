@@ -91,8 +91,14 @@ export class InboundProcessor extends WorkerHost {
         waMessageId: data.waMessageId,
         type: data.type,
         text: data.text,
+        note: data.note,
         channelPhoneNumberId: data.channelPhoneNumberId,
       });
+      return;
+    }
+
+    if (data.kind === "echo_change") {
+      await this.messaging.handleEchoChange(data.change, data.originalWaMessageId, data.text);
       return;
     }
 
@@ -108,6 +114,7 @@ export class InboundProcessor extends WorkerHost {
         waMessageId: data.waMessageId,
         type: data.type,
         text: data.text,
+        note: data.note,
         timestampMs: data.timestampMs,
         channelPhoneNumberId: data.channelPhoneNumberId,
       });
@@ -148,6 +155,7 @@ export class InboundProcessor extends WorkerHost {
       waMessageId: data.waMessageId,
       type: data.type,
       text: data.text,
+      note: data.note,
       mediaUrl,
       channelPhoneNumberId: data.channelPhoneNumberId,
       // Anuncio Click-to-WhatsApp que originó la conversación.

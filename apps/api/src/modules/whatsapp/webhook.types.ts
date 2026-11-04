@@ -1,4 +1,5 @@
 import { explainWhatsappError, MessageStatus, MessageType, normalizePhone } from "@crm/shared";
+import { readMetaMessage, type MetaContent } from "./meta-message-content";
 
 // ── Payloads de los jobs de la cola inbound ──────────────────
 export interface InboundMessageJob {
@@ -13,6 +14,8 @@ export interface InboundMessageJob {
   waMessageId: string;
   type: MessageType;
   text?: string;
+  /** Lo que explica Driony si no hay texto escrito (ver meta-message-content). */
+  note?: string;
   mediaId?: string;
   /** Medio ya guardado en el almacén (simulador de desarrollo): no hay nada que descargar de Meta. */
   mediaUrl?: string;
@@ -46,6 +49,18 @@ export interface InboundEchoJob {
   waMessageId: string;
   type: MessageType;
   text?: string;
+  note?: string;
+  channelPhoneNumberId?: string;
+}
+
+// Coexistencia: el negocio editó o borró desde el celular un mensaje ya enviado.
+// No es un mensaje nuevo: cambia el original, y ni pausa la IA ni cuenta como respuesta.
+export interface InboundEchoChangeJob {
+  kind: "echo_change";
+  change: "edit" | "revoke";
+  originalWaMessageId: string;
+  /** El texto nuevo, si la edición lo trae. */
+  text?: string;
   channelPhoneNumberId?: string;
 }
 
@@ -65,6 +80,7 @@ export interface InboundHistoryJob {
   waMessageId: string;
   type: MessageType;
   text?: string;
+  note?: string;
   timestampMs: number;
   channelPhoneNumberId?: string;
 }
@@ -126,6 +142,7 @@ export type InboundJob = (
   | InboundMessageJob
   | InboundStatusJob
   | InboundEchoJob
+  | InboundEchoChangeJob
   | InboundReactionJob
   | InboundHistoryJob
   | InboundStateSyncJob
@@ -163,11 +180,10 @@ export interface MetaReferral {
   ref?: string; // campo nuevo de Meta, sin documentar
 }
 
-interface MetaMessage {
+interface MetaMessage extends MetaContent {
   from?: string;
   from_user_id?: string;
   id: string;
-  type: string;
   /** Segundos desde 1970, como texto. */
   timestamp?: string;
   /** Solo en mensajes que mandó el negocio (historial, ecos). */
@@ -177,23 +193,7 @@ interface MetaMessage {
   system?: { type?: string; body?: string; user_id?: string; previous_user_id?: string };
   /** Solo en mensajes del historial importado al conectar (coexistencia). */
   history_context?: { status?: string };
-  text?: { body: string };
-  image?: { id: string; caption?: string };
-  document?: { id: string; caption?: string; filename?: string };
-  audio?: { id: string; mime_type?: string; voice?: boolean };
-  video?: { id: string; caption?: string; mime_type?: string };
-  sticker?: { id: string; mime_type?: string; animated?: boolean };
   reaction?: { message_id: string; emoji?: string };
-  // Respuesta a un botón de plantilla.
-  button?: { text?: string; payload?: string };
-  // Respuesta a un mensaje interactivo (botones o lista).
-  interactive?: {
-    type?: string;
-    button_reply?: { id?: string; title?: string };
-    list_reply?: { id?: string; title?: string; description?: string };
-    /** Botón de respuesta de una tarjeta de carrusel (si Meta no lo manda como button_reply). */
-    quick_reply?: { id?: string; title?: string; payload?: string };
-  };
   referral?: MetaReferral;
   // El cliente respondió citando un mensaje nuestro.
   context?: { id?: string; from?: string };
@@ -205,27 +205,24 @@ interface MetaStatus {
   errors?: { code?: number; title?: string; message?: string; error_data?: { details?: string } }[];
 }
 // Echo de coexistencia: el negocio envió desde la app del celular.
-interface MetaMessageEcho {
+interface MetaMessageEcho extends MetaContent {
   to?: string;
   to_user_id?: string;
   from?: string;
   id: string;
-  type: string;
-  text?: { body: string };
-  image?: { id: string; caption?: string };
-  document?: { id: string; caption?: string };
+  reaction?: { message_id: string; emoji?: string };
+  /** Borró desde el celular un mensaje ya enviado. */
+  revoke?: { original_message_id?: string };
+  /** Editó desde el celular un mensaje ya enviado: `message` es el contenido nuevo. */
+  edit?: { original_message_id?: string; message?: MetaContent };
 }
 // Historial importado (coexistencia).
-interface MetaHistoryMessage {
+interface MetaHistoryMessage extends MetaContent {
   id: string;
   from?: string;
   from_user_id?: string;
   to?: string;
-  type: string;
   timestamp?: string;
-  text?: { body: string };
-  image?: { caption?: string };
-  document?: { caption?: string };
 }
 interface MetaHistory {
   // Sin número que compartir no viene `id`: el cliente va en `context.user_id`.
@@ -336,7 +333,7 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
               fromCustomer,
               waMessageId: m.id,
               type: TYPE_MAP[m.type] ?? MessageType.TEXT,
-              text: m.text?.body ?? m.image?.caption ?? m.video?.caption ?? m.document?.caption,
+              ...readMetaMessage(m, fromCustomer ? "customer" : "business"),
               timestampMs: m.timestamp ? Number(m.timestamp) * 1000 : Date.now(),
               channelPhoneNumberId,
             });
@@ -366,8 +363,7 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
         // El contacto pulsó un botón: de plantilla (button) o de un mensaje
         // interactivo (interactive). Se guarda como texto + identificador.
         const quick = m.interactive?.quick_reply;
-        const reply = m.interactive?.button_reply ?? m.interactive?.list_reply ?? (quick ? { id: quick.id ?? quick.payload, title: quick.title } : undefined);
-        const buttonText = m.button?.text ?? reply?.title;
+        const reply = m.interactive?.button_reply ?? m.interactive?.list_reply ?? (quick ? { id: quick.id ?? quick.payload } : undefined);
         const buttonPayload = m.button?.payload ?? reply?.id;
 
         // Su número o, si escribe con usuario de WhatsApp sin compartirlo, su
@@ -387,7 +383,7 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
           ...(username ? { username } : {}),
           waMessageId: m.id,
           type,
-          text: m.text?.body ?? buttonText ?? m.image?.caption ?? m.video?.caption ?? m.document?.caption,
+          ...readMetaMessage(m),
           mediaId: m.image?.id ?? m.document?.id ?? m.audio?.id ?? m.video?.id ?? m.sticker?.id,
           ...(buttonPayload ? { buttonPayload } : {}),
           channelPhoneNumberId,
@@ -414,6 +410,30 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
 
       // Coexistencia: mensajes enviados desde la app del celular.
       for (const e of value.message_echoes ?? []) {
+        // Editar o borrar cambia un mensaje que ya está; no abre uno nuevo.
+        if (e.type === "revoke" || e.type === "edit") {
+          const original = e.type === "revoke" ? e.revoke?.original_message_id : e.edit?.original_message_id;
+          if (original) {
+            const edited = e.edit?.message ? readMetaMessage(e.edit.message, "business").text : undefined;
+            jobs.push({
+              kind: "echo_change",
+              change: e.type,
+              originalWaMessageId: original,
+              ...(edited ? { text: edited } : {}),
+              channelPhoneNumberId,
+            });
+          }
+          continue;
+        }
+        if (e.type === "reaction" && e.reaction?.message_id) {
+          jobs.push({
+            kind: "reaction",
+            channelPhoneNumberId,
+            targetWaMessageId: e.reaction.message_id,
+            emoji: e.reaction.emoji ?? "",
+          });
+          continue;
+        }
         const to = e.to ?? e.to_user_id;
         if (!to) continue;
         jobs.push({
@@ -422,7 +442,7 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
           ...(e.to_user_id ? { toUserId: e.to_user_id } : {}),
           waMessageId: e.id,
           type: TYPE_MAP[e.type] ?? MessageType.TEXT,
-          text: e.text?.body ?? e.image?.caption ?? e.document?.caption,
+          ...readMetaMessage(e, "business"),
           channelPhoneNumberId,
         });
       }
@@ -433,14 +453,16 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
           const customer = thread.id ?? thread.context?.wa_id ?? thread.context?.user_id;
           if (!customer) continue;
           for (const m of thread.messages ?? []) {
+            if (m.type === "reaction") continue;
+            // Sin `from` es el cliente: el número del negocio siempre viene.
+            const fromCustomer = m.from ? m.from === customer : true;
             jobs.push({
               kind: "history",
               customerWaId: normalizePhone(customer),
-              // Sin `from` es el cliente: el número del negocio siempre viene.
-              fromCustomer: m.from ? m.from === customer : true,
+              fromCustomer,
               waMessageId: m.id,
               type: TYPE_MAP[m.type] ?? MessageType.TEXT,
-              text: m.text?.body ?? m.image?.caption ?? m.document?.caption,
+              ...readMetaMessage(m, fromCustomer ? "customer" : "business"),
               timestampMs: m.timestamp ? Number(m.timestamp) * 1000 : Date.now(),
               channelPhoneNumberId,
             });

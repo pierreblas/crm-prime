@@ -39,7 +39,7 @@ export function previewOf(c: ConversationDto, t: Translator): Preview {
   let body: string;
   switch (m.type) {
     case MessageType.TEXT:
-      body = (m.text ?? "").replace(/\s+/g, " ").trim();
+      body = (m.text ?? "").replace(/\s+/g, " ").trim() || t("inbox.previewOther");
       break;
     case MessageType.IMAGE:
       icon = "image";

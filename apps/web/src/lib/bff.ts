@@ -169,6 +169,17 @@ import type {
   CreateManualCallInput,
   UpdateCallInput,
   TwilioProvisionResult,
+  ImplementationAssessment,
+  ImplementationAssessmentRow,
+  ImplementationQuote,
+  CreateAssessmentInput,
+  UpdateAssessmentInput,
+  UpdateQuoteInput,
+  QuoteAction,
+  QuoteActionBody,
+  PricingSettings,
+  PricingSettingsDto,
+  ImplementationActualInput,
 } from "@crm/shared";
 
 // Fetchers del lado del cliente: llaman al BFF (mismo origen, cookie httpOnly).
@@ -2045,6 +2056,120 @@ export async function grantPlatformAiPack(id: string, input: GrantAiPackInput): 
 export async function removePlatformAiPack(id: string, packId: string): Promise<PlatformOrgDetail> {
   const res = await bffFetch(`/api/bff/platform/orgs/${id}/ai-packs/${packId}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo quitar el paquete"));
+  return res.json();
+}
+
+// ── Cotizador interno de implementaciones (consola) ─────────
+
+export async function fetchImplementations(search = "", archived = false): Promise<ImplementationAssessmentRow[]> {
+  const q = new URLSearchParams();
+  if (search) q.set("search", search);
+  if (archived) q.set("archived", "1");
+  const qs = q.toString();
+  const res = await bffFetch(`/api/bff/platform/implementations${qs ? `?${qs}` : ""}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar los diagnósticos"));
+  return res.json();
+}
+
+export async function fetchPricingSettings(): Promise<PricingSettingsDto> {
+  const res = await bffFetch("/api/bff/platform/implementations/settings");
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar los ajustes"));
+  return res.json();
+}
+
+export async function updatePricingSettings(input: PricingSettings): Promise<PricingSettingsDto> {
+  const res = await bffFetch("/api/bff/platform/implementations/settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron guardar los ajustes"));
+  return res.json();
+}
+
+export async function archiveImplementation(id: string, archived: boolean): Promise<ImplementationAssessment> {
+  const res = await bffFetch(`/api/bff/platform/implementations/${id}/archive`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ archived }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, archived ? "No se pudo archivar" : "No se pudo restaurar"));
+  return res.json();
+}
+
+export async function addImplementationActual(quoteId: string, input: ImplementationActualInput): Promise<ImplementationQuote> {
+  const res = await bffFetch(`/api/bff/platform/quotes/${quoteId}/actuals`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo registrar"));
+  return res.json();
+}
+
+export async function removeImplementationActual(quoteId: string, actualId: string): Promise<ImplementationQuote> {
+  const res = await bffFetch(`/api/bff/platform/quotes/${quoteId}/actuals/${actualId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo quitar el registro"));
+  return res.json();
+}
+
+export async function fetchImplementation(id: string): Promise<ImplementationAssessment> {
+  const res = await bffFetch(`/api/bff/platform/implementations/${id}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar el diagnóstico"));
+  return res.json();
+}
+
+export async function createImplementation(input: CreateAssessmentInput): Promise<ImplementationAssessment> {
+  const res = await bffFetch("/api/bff/platform/implementations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar el diagnóstico"));
+  return res.json();
+}
+
+export async function updateImplementation(id: string, input: UpdateAssessmentInput): Promise<ImplementationAssessment> {
+  const res = await bffFetch(`/api/bff/platform/implementations/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar el diagnóstico"));
+  return res.json();
+}
+
+/** Primera versión de la cotización de un diagnóstico. */
+export async function createImplementationQuote(assessmentId: string): Promise<ImplementationQuote> {
+  const res = await bffFetch(`/api/bff/platform/implementations/${assessmentId}/quotes`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo crear la cotización"));
+  return res.json();
+}
+
+export async function fetchImplementationQuote(id: string): Promise<ImplementationQuote> {
+  const res = await bffFetch(`/api/bff/platform/quotes/${id}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar la cotización"));
+  return res.json();
+}
+
+export async function updateImplementationQuote(id: string, input: UpdateQuoteInput): Promise<ImplementationQuote> {
+  const res = await bffFetch(`/api/bff/platform/quotes/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar la cotización"));
+  return res.json();
+}
+
+/** submit | reopen | approve | send | accept | reject | cancel | revise */
+export async function actOnImplementationQuote(id: string, action: QuoteAction, body: QuoteActionBody = {}): Promise<ImplementationQuote> {
+  const res = await bffFetch(`/api/bff/platform/quotes/${id}/${action}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo completar la acción"));
   return res.json();
 }
 

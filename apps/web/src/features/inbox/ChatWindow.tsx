@@ -1,5 +1,6 @@
 "use client";
 
+import { emptyMessageLabel } from "./emptyMessage";
 import { readableInk } from "@/lib/readable-ink";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -837,7 +838,7 @@ function MessageBubble({
                 : t("inbox.customer")}
             </div>
             <div style={quotedText}>
-              {m.replyTo.content || `[${m.replyTo.type.toLowerCase()}]`}
+              {m.replyTo.content || m.replyTo.note || emptyMessageLabel(m.replyTo.type, t)}
             </div>
           </div>
         )}
@@ -852,9 +853,15 @@ function MessageBubble({
         {m.content ? (
           <MessageText text={m.content} highlight={highlight} />
         ) : (
-          !m.mediaUrl && (
-            <div style={{ opacity: 0.6 }}>[{m.type.toLowerCase()}]</div>
+          !m.mediaUrl && !m.mediaPurgedAt && !m.note && (
+            <div style={noteText}>{emptyMessageLabel(m.type, t)}</div>
           )
+        )}
+        {/* Lo que explica Driony, distinto de lo que escribió el cliente. */}
+        {m.note && (
+          <div style={{ ...noteText, marginTop: m.content || m.mediaUrl ? 4 : 0 }}>
+            <MessageText text={m.note} highlight={highlight} />
+          </div>
         )}
         {m.buttons && (
           <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 6 }}>
@@ -1165,6 +1172,12 @@ const emptyThread: React.CSSProperties = {
 };
 
 // Cita dentro de la burbuja: barra de acento a la izquierda y texto apagado.
+const noteText: React.CSSProperties = {
+  color: "var(--muted)",
+  fontSize: 13,
+  lineHeight: 1.45,
+};
+
 const quotedBlock: React.CSSProperties = {
   borderLeft: "3px solid var(--accent)",
   paddingLeft: 8,

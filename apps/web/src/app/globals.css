@@ -4560,6 +4560,346 @@ code {
   line-height: 1.45;
 }
 
+/* Consola › Implementaciones (cotizador interno) */
+.pc-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px 14px;
+}
+.pc-form label,
+.pc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--muted);
+  min-width: 0;
+}
+.pc-form .full {
+  grid-column: 1 / -1;
+}
+.pc-input {
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.pc-input:disabled,
+.pc-notes:disabled,
+.pc-select:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.pc-check {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+.pc-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.pc-steps,
+.pc-head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pc-steps {
+  align-items: center;
+}
+.pc-head-row h2 {
+  margin: 0;
+  font-size: 17px;
+}
+.pc-items .pc-table {
+  min-width: 820px;
+}
+.pc-items td input,
+.pc-items td select {
+  min-width: 0;
+  width: 100%;
+}
+.pc-items td.n input {
+  width: 92px;
+  text-align: right;
+}
+.pc-alerts-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pc-alerts-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.pc-badge.is-draft {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.pc-badge.is-review {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.pc-badge.is-warn {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.pc-badge.is-muted {
+  background: var(--surface-3);
+  color: var(--muted);
+}
+.pc-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.pc-summary > div {
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.pc-summary span {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.pc-summary b {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.pc-summary > div.is-key {
+  border-color: rgba(11, 108, 216, 0.48);
+}
+.pc-summary > div.is-bad {
+  border-color: rgba(240, 138, 138, 0.5);
+}
+.pc-summary > div.is-bad b {
+  color: var(--danger);
+}
+.pc-doc {
+  max-width: 76ch;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.pc-doc h3 {
+  margin: 18px 0 6px;
+  font-size: 14px;
+}
+.pc-doc p {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+}
+.pc-doc table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.pc-doc td {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.pc-doc td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.pc-action-box {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong, var(--border));
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pc-ref {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pc-ref button.pc-chip {
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.pc-ref button.pc-chip:hover {
+  border-color: var(--border-strong, var(--border));
+  color: var(--accent-text);
+}
+
+/* Propuesta imprimible (consola › Implementaciones › Vista del cliente). Una
+   hoja blanca sobre el fondo de la consola; al imprimir, solo la hoja. */
+.proposal-page {
+  min-height: 100vh;
+  padding: 16px 16px 48px;
+}
+.proposal-toolbar {
+  max-width: 820px;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+}
+.proposal {
+  position: relative;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 48px 56px 40px;
+  background: #ffffff;
+  color: #14181f;
+  border-radius: 6px;
+  box-shadow: var(--shadow-card);
+  font-size: 14px;
+  line-height: 1.55;
+  overflow: hidden;
+}
+.proposal h1 {
+  margin: 28px 0 4px;
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.proposal h2 {
+  margin: 24px 0 6px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #4a5361;
+}
+.proposal p {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+}
+.proposal ul {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+.proposal-for {
+  color: #4a5361;
+}
+.proposal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #14181f;
+}
+.proposal-head .wordmark,
+.proposal-head svg {
+  color: #14181f;
+}
+.proposal-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 12.5px;
+  color: #4a5361;
+  text-align: right;
+}
+.proposal-meta b {
+  color: #14181f;
+}
+.proposal-cat {
+  color: #4a5361;
+  font-size: 12px;
+  margin-right: 4px;
+}
+.proposal-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 4px 0 10px;
+}
+.proposal-table td {
+  padding: 7px 0;
+  border-bottom: 1px solid #d9dee5;
+  vertical-align: top;
+}
+.proposal-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding-left: 16px;
+}
+.proposal-table tr.total td {
+  font-weight: 700;
+  border-bottom: 2px solid #14181f;
+}
+.proposal-table--aside td {
+  color: #4a5361;
+}
+.proposal-small {
+  font-size: 12px;
+  color: #4a5361;
+}
+.proposal-foot {
+  margin-top: 32px;
+  padding-top: 10px;
+  border-top: 1px solid #d9dee5;
+  font-size: 11.5px;
+  color: #6b7380;
+}
+.proposal-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 120px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: rgba(200, 40, 40, 0.1);
+  transform: rotate(-24deg);
+  pointer-events: none;
+  user-select: none;
+}
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .proposal-page {
+    padding: 0;
+  }
+  .proposal {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  @page {
+    margin: 18mm 16mm;
+  }
+}
+
 .plan-fairuse {
   color: var(--muted);
   font-size: 12.5px;
