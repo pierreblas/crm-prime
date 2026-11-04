@@ -4,7 +4,8 @@ Herramienta del operador de Driony para diagnosticar, estimar y cotizar la
 implementación de un cliente. Vive en la **consola de plataforma**
 (`admin.<dominio>` › pestaña «Implementaciones») y solo ahí: ninguna empresa
 lo ve, y nada de lo que hace toca los planes públicos, los cobros, la IA ni
-las oportunidades de los clientes.
+las oportunidades de los clientes. La única excepción es el CRM de la propia
+empresa de Driony, donde cada diagnóstico puede tener su oportunidad (§10).
 
 Origen: `DRIONY_COTIZADOR_IMPLEMENTACIONES_AGENT_HANDOFF.md` (v1.0, 04‑11‑2026).
 Este documento recoge la auditoría previa, las decisiones tomadas y lo que
@@ -49,14 +50,17 @@ paralela, IA ilimitada.
    `DEFAULT_PRICING_SETTINGS` (`@crm/shared`); lo guardado desde «Ajustes» los
    sustituye y cada cambio queda en el diario. No aparecen en la web pública.
 6. **Cliente en P0:** texto libre + enlace opcional a `Organization`. El enlace
-   a una oportunidad del CRM propio de Driony queda para P1.
+   a una oportunidad del CRM propio de Driony llegó después (§10): la empresa
+   propia es la organización de Driony dentro de la plataforma y se elige en
+   «Ajustes», no en código.
 
 ## 3. Modelo de datos
 
 ```
 implementation_assessments        diagnóstico (pasos 1–2)
   quoteNumber  COT-2026-0007      se asigna con la primera cotización; lo comparten las versiones
-  orgId?       → organizations    SET NULL
+  orgId?       → organizations    SET NULL (la empresa cliente, si ya tiene cuenta)
+  dealId?      → deals            SET NULL (su oportunidad en el CRM de la empresa propia, §10)
   scope JSONB                     validado con assessmentScopeSchema
   riskFlags TEXT[]                señales de riesgo marcadas a mano
   complexityScore / complexityBand   calculados en el servidor, nunca aceptados del cliente
@@ -76,7 +80,8 @@ implementation_actuals            horas y costos reales sobre la versión acepta
   quoteId · category · hours · hourlyCostCents (congelado) · costCents · workedOn DATE · note · createdBy
 
 implementation_pricing_settings   una fila (id = 'default') con settings JSONB validado
-                                  con pricingSettingsSchema, updatedBy, updatedAt (P1)
+                                  con pricingSettingsSchema, updatedBy, updatedAt (P1);
+                                  incluye crmOrgId y crmStageId (empresa propia y etapa de entrada, §10)
 ```
 
 Protecciones en la base (CHECK): estados y categorías válidos, margen en
@@ -143,6 +148,10 @@ GET    implementations/:id            ficha con versiones
 PATCH  implementations/:id            editar (parcial)
 POST   implementations/:id/archive    { archived: boolean }
 POST   implementations/:id/quotes     primera versión de la cotización
+GET    implementations/crm/pipelines?orgId=   embudos y etapas de una empresa (para elegir la etapa de entrada)
+GET    implementations/crm/search?q=  oportunidades abiertas y contactos de la empresa propia
+POST   implementations/:id/crm-link   { mode: "deal", dealId } | { mode: "contact", contactId } | { mode: "new", name, phone }
+DELETE implementations/:id/crm-link   quita el enlace; la oportunidad sigue en el CRM
 GET    quotes/:id                     cotización con pricing, items, actuals, actions y publicView
 PATCH  quotes/:id                     solo en DRAFT; las partidas, si vienen, reemplazan a todas
 POST   quotes/:id/actuals             horas y costos reales (solo ACCEPTED)
@@ -182,15 +191,16 @@ Tests (desde `apps/api`):
 
 ```bash
 npm run test:implpricing     # motor: ejemplo 800/590, redondeo, protecciones, complejidad, estados
-npm run test:implquotes      # servicio con base simulada: flujo, versiones, vista pública, ajustes, horas reales, archivado, aislamiento
+npm run test:implquotes      # servicio con base simulada: flujo, versiones, vista pública, ajustes, horas reales, archivado, aislamiento, CRM propio
 npm run test:impldb          # candado en Postgres (recrea crm_rls_test y prueba UPDATEs a mano)
 npm run test:platformguard   # el guard rechaza tokens de empresa y correos ajenos
 npm run test:rls             # recrea crm_rls_test con las migraciones nuevas
 ```
 
-Migraciones: `20261104120000_implementation_quotes` (P0) y
-`20261104150000_implementation_settings_actuals_guard` (P1). Idempotentes; en
-producción las aplica `entrypoint.sh` (`prisma migrate deploy`). En local se
+Migraciones: `20261104120000_implementation_quotes` (P0),
+`20261104150000_implementation_settings_actuals_guard` (P1) y
+`20261104180000_implementation_crm_link` (columna `dealId`, §10). Idempotentes;
+en producción las aplica `entrypoint.sh` (`prisma migrate deploy`). En local se
 aplicaron con `prisma db execute` + `migrate resolve --applied`. No alteran
 tablas existentes.
 
@@ -199,9 +209,14 @@ tablas existentes.
 0. **Ajustes** (una vez): tarifas por rol, costo por hora por defecto,
    contingencia, margen, redondeo, vigencia, diagnóstico pagado, condiciones de
    pago, plantillas (Esencial / Híbrida / Personalizada) y ofertas de
-   referencia. Cada guardado queda en el diario.
+   referencia. Y, en «CRM propio», la empresa de Driony y la etapa donde entran
+   las oportunidades nuevas (§10). Cada guardado queda en el diario.
 1. **Nuevo diagnóstico** (pasos 1–2): cliente, objetivo, alcance, cinco
    factores de complejidad, señales de riesgo. Se puede guardar y volver.
+   - **Enlazar con el CRM** (opcional, en la cabecera de la ficha): una
+     oportunidad abierta de la empresa propia, una nueva para un contacto que
+     ya existe, o contacto nuevo por teléfono. Desde ahí la oportunidad sigue a
+     la cotización sola (§10).
 2. **Abrir cotización** (paso 3): una plantilla añade sus partidas valoradas
    con su tarifa; luego se editan (horas, tarifa o costo/h a mano, terceros,
    otros). Gastos de entrega, contingencia y margen objetivo vienen de los
@@ -214,7 +229,8 @@ tablas existentes.
 4. **Enviar a revisión → Aprobar.** Bajo mínimo pide motivo; queda en el
    diario con el correo del operador.
 5. **Marcar como enviada** (se anota por dónde) → **Aceptada** / **Rechazada**
-   (con motivo). Si la vigencia pasa, se lee «Vencida».
+   (con motivo). Si la vigencia pasa, se lee «Vencida». Con enlace al CRM,
+   aceptar pasa la oportunidad a ganada y rechazar a perdida con el motivo.
 6. **Nueva versión** para cualquier cambio. La anterior no se toca.
 7. **Vista del cliente** y **Imprimir / PDF**: la hoja se abre en otra pestaña
    y se guarda como PDF desde el navegador. Sin aprobar lleva marca de
@@ -230,7 +246,6 @@ Nunca escribir claves ni contraseñas en notas, supuestos o entregables.
 ## 9. Pendiente
 
 **P1 · queda**
-- Enlace a una oportunidad del CRM de la empresa propia de Driony (hace falta decidir cuál es esa empresa).
 - Control de edición concurrente con `updatedAt` (dos pestañas editando el mismo borrador).
 - Panel por tipo de plantilla: cotizado → aceptado y margen real medio.
 
@@ -239,3 +254,50 @@ Nunca escribir claves ni contraseñas en notas, supuestos o entregables.
 - Estimación sugerida por histórico propio.
 - Envío por WhatsApp desde la empresa propia; aceptación electrónica.
 - Borrador de diagnóstico asistido por IA, con revisión humana. La IA nunca aprueba, descuenta ni confirma pagos.
+
+## 10. CRM propio: la oportunidad de Driony para cada diagnóstico
+
+La «empresa propia» es la organización de Driony dentro de la plataforma (en
+producción, la cuenta con la que Driony vende; en local, la que se elija). Se
+fija en «Ajustes › CRM propio» (`crmOrgId`) junto con la etapa de entrada de
+las oportunidades nuevas (`crmStageId`; vacío = primera etapa del embudo
+predeterminado). El servicio comprueba que la empresa existe y que la etapa es
+suya; sin empresa elegida, enlazar avisa y no toca nada.
+
+**Enlazar** (cabecera de la ficha → cajón «Enlazar con el CRM propio»):
+- una oportunidad abierta de la empresa propia (ni ganada, ni perdida, ni
+  descartada). Si ya la tiene otro diagnóstico, se dice cuál y no se deja;
+- una oportunidad nueva para un contacto que ya existe;
+- un contacto nuevo por teléfono (se normaliza a E.164; si el número ya existe
+  se reutiliza). El cajón prellena el teléfono que haya en el campo «Contacto».
+
+La oportunidad nueva se titula «cliente · proyecto», entra en la etapa de los
+ajustes y vale el precio propuesto de la última versión. Una existente sin
+valor toma ese precio; si ya tenía uno, se respeta.
+
+**Espejo, nunca al revés.** Lo que pasa con la cotización se refleja en la
+oportunidad; el CRM no cambia la cotización. En `act()`:
+
+| Acción | En la oportunidad |
+|---|---|
+| `approve`, `accept` | toma el precio propuesto como valor (y su moneda) |
+| `accept` | pasa a la primera etapa `isWon` de su embudo |
+| `reject` | pasa a la primera etapa `isLost` con `lostReason` = motivo |
+| `approve`, `send`, `accept`, `reject`, `cancel` | línea `quote` en su historial («COT-… v2 aceptada por el cliente · 1 200 USD») |
+| `submit`, `reopen`, `revise` | nada |
+
+Todo se escribe con `runInOrg(crmOrgId)` y `runAsActor("system:cotizador")`:
+el disparador `deal_history` firma así las líneas de creación, etapa y valor,
+y el panel de la empresa las muestra como «Cotizador de implementaciones». Se
+emiten `deal.stage_changed`, `deal.value_changed` y `pipeline.changed`, así
+que las automatizaciones de etapa de la empresa propia funcionan igual que
+con un movimiento a mano. El espejo es *best effort*: si falla, se anota en el
+registro de la API y la cotización sigue su curso.
+
+**Desvincular** solo quita `dealId`; la oportunidad y su historial se quedan.
+El diario del operador registra `crm_linked` (con `created: true|false`) y
+`crm_unlinked`. «Abrir en el CRM» lleva a
+`https://<slug>.<dominio>/pipeline?id=<embudo>&deal=<id>`.
+
+Lo que sigue sin existir: enviar la propuesta por WhatsApp desde esa empresa y
+mover la cotización desde el CRM (P2).

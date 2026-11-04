@@ -1,13 +1,14 @@
 /**
- * La «O» de Driony: los tres colores de la marca en franjas dentro de un círculo.
- * Son trazados sueltos, sin clipPath, para no repetir ids si sale varias veces.
+ * La «O» de Driony: una O de píxeles (anillo de doce bloques con el centro
+ * vacío) en lima, con la esquina de arriba a la derecha en cian, el color que
+ * mide. Es el mismo motivo que los píxeles de la landing y del menú. Trazados
+ * sueltos, sin clipPath, para no repetir ids si sale varias veces.
  */
 export function BrandMark({ size = 24, className }: { size?: number | string; className?: string }) {
   return (
     <svg className={className} width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <path d="M1.01 10.4A16 16 0 0 1 30.99 10.4Z" fill="#9ab9c2" />
-      <path d="M.62 11.6H31.38A16 16 0 0 1 31.38 20.4H.62A16 16 0 0 1 .62 11.6Z" fill="#fefd14" />
-      <path d="M1.01 21.6H30.99A16 16 0 0 1 1.01 21.6Z" fill="#0b6cd8" />
+      <path d="M0 0h24v8H0zM0 8h8v16H0zM24 8h8v16h-8zM0 24h32v8H0z" fill="#e2f80d" />
+      <path d="M24 0h8v8h-8z" fill="#00e5ff" />
     </svg>
   );
 }

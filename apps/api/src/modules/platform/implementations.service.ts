@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Prisma } from "@prisma/client";
 import {
   DEFAULT_PRICING_SETTINGS,
@@ -9,11 +10,17 @@ import {
   complexityScore,
   computePricing,
   effectiveQuoteStatus,
+  isValidPhone,
+  normalizePhone,
   pricingSettingsSchema,
   PricingInputError,
   type ActualsSummary,
   type AssessmentStage,
   type CreateAssessmentInput,
+  type CrmDealLink,
+  type CrmLinkInput,
+  type CrmPipeline,
+  type CrmSearchResult,
   type ImplementationActual,
   type ImplementationActualInput,
   type ImplementationAssessment,
@@ -33,8 +40,22 @@ import {
   type UpdateAssessmentInput,
   type UpdateQuoteInput,
 } from "@crm/shared";
+import { env } from "../../common/utils/env";
 import { PrismaService } from "../../infra/prisma/prisma.service";
-import { runUnscoped } from "../../infra/tenant/tenant.context";
+import { runAsActor } from "../../infra/tenant/actor";
+import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
+
+/** Autor de lo que el cotizador escribe en el CRM propio (historial de la oportunidad). */
+const CRM_ACTOR = "system:cotizador";
+
+/** Qué transiciones se anotan en la oportunidad, y con qué palabras. */
+const CRM_EVENT_LABEL: Partial<Record<QuoteAction, string>> = {
+  approve: "aprobada internamente",
+  send: "enviada al cliente",
+  accept: "aceptada por el cliente",
+  reject: "rechazada por el cliente",
+  cancel: "cancelada",
+};
 
 const QUOTE_INCLUDE = {
   items: { orderBy: { sortOrder: "asc" } },
@@ -68,12 +89,19 @@ const QUOTE_ACTIONS = Object.keys(QUOTE_TRANSITIONS) as QuoteAction[];
  *  - solo se edita en DRAFT; para cambiar algo aprobado se crea una versión;
  *  - aprobar por debajo del mínimo exige un motivo y queda en el diario;
  *  - al aprobar se congela todo en approvedSnapshot.
+ *
+ * La única excepción al «no toca oportunidades» es el CRM de la empresa propia
+ * de Driony (ajustes › crmOrgId): ahí, y solo ahí, el cotizador crea o enlaza
+ * una oportunidad por diagnóstico y la mantiene como espejo de la cotización.
  */
 @Injectable()
 export class ImplementationsService {
   private readonly log = new Logger("Cotizador");
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventEmitter2,
+  ) {}
 
   // ── Ajustes (tarifas, plantillas, referencias) ──────────────
 
@@ -100,6 +128,17 @@ export class ImplementationsService {
       }
     }
     return runUnscoped("cotizador: guardar ajustes", async () => {
+      // La empresa propia tiene que existir, y la etapa de entrada ser suya.
+      if (input.crmOrgId) {
+        const org = await this.prisma.organization.findUnique({ where: { id: input.crmOrgId }, select: { id: true } });
+        if (!org) throw new BadRequestException("La empresa propia elegida no existe");
+        if (input.crmStageId) {
+          const stage = await this.prisma.pipelineStage.findFirst({ where: { id: input.crmStageId, orgId: input.crmOrgId }, select: { id: true } });
+          if (!stage) throw new BadRequestException("La etapa de entrada no pertenece a la empresa propia");
+        }
+      } else if (input.crmStageId) {
+        input = { ...input, crmStageId: null };
+      }
       const before = (await this.settings()).settings;
       await this.prisma.implementationPricingSettings.upsert({
         where: { id: SETTINGS_ID },
@@ -107,7 +146,7 @@ export class ImplementationsService {
         update: { settings: input as Prisma.InputJsonValue, updatedBy: actor },
       });
       const changed = (Object.keys(input) as (keyof PricingSettings)[]).filter((k) => JSON.stringify(input[k]) !== JSON.stringify(before[k]));
-      const scalars = ["hourlyCostCents", "contingencyBp", "targetMarginBp", "roundingCents", "validityDays", "diagnosisFeeCents", "currency"] as const;
+      const scalars = ["hourlyCostCents", "contingencyBp", "targetMarginBp", "roundingCents", "validityDays", "diagnosisFeeCents", "currency", "crmOrgId", "crmStageId"] as const;
       await this.audit(actor, "pricing_settings_changed", null, {
         changed,
         from: Object.fromEntries(scalars.filter((k) => changed.includes(k)).map((k) => [k, before[k]])),
@@ -150,7 +189,8 @@ export class ImplementationsService {
         take: 500,
         include: ASSESSMENT_INCLUDE,
       });
-      return rows.map((r) => this.assessmentRow(r));
+      const crm = await this.crmLinks(rows.map((r) => r.dealId).filter((x): x is string => !!x));
+      return rows.map((r) => this.assessmentRow(r, r.dealId ? (crm.get(r.dealId) ?? null) : null));
     });
   }
 
@@ -345,19 +385,22 @@ export class ImplementationsService {
       const base = { assessmentId: q.assessmentId, quoteId: q.id, number: q.assessment.quoteNumber, version: q.version, from: status };
       const now = new Date();
 
+      if (action === "revise") return this.revise(q, status, actor, reason);
+
+      let row: QuoteRow;
       switch (action) {
         case "submit": {
           const pricing = this.priceOf(q);
           if (q.items.length === 0) throw new BadRequestException("Añade al menos una partida antes de enviar a revisión");
           if (!q.proposedPriceCents || q.proposedPriceCents <= 0) throw new BadRequestException("Fija el precio propuesto antes de enviar a revisión");
-          const row = await this.setStatus(q.id, "READY_FOR_REVIEW", {});
+          row = await this.setStatus(q.id, "READY_FOR_REVIEW", {});
           await this.audit(actor, "quote_submitted", q.assessment.orgId, { ...base, to: "READY_FOR_REVIEW", belowMinimum: pricing.belowMinimum });
-          return this.quoteDto(row);
+          break;
         }
         case "reopen": {
-          const row = await this.setStatus(q.id, "DRAFT", {});
+          row = await this.setStatus(q.id, "DRAFT", {});
           await this.audit(actor, "quote_reopened", q.assessment.orgId, { ...base, to: "DRAFT", reason });
-          return this.quoteDto(row);
+          break;
         }
         case "approve": {
           const pricing = this.priceOf(q);
@@ -370,7 +413,7 @@ export class ImplementationsService {
           }
           // Lo que se aprueba se congela tal cual, por si alguien edita la fila a mano después.
           const snapshot = this.quoteDto({ ...q, status: "APPROVED", approvedBy: actor, approvedAt: now });
-          const row = await this.setStatus(q.id, "APPROVED", {
+          row = await this.setStatus(q.id, "APPROVED", {
             approvedBy: actor,
             approvedAt: now,
             approvedSnapshot: snapshot as unknown as Prisma.InputJsonValue,
@@ -386,32 +429,33 @@ export class ImplementationsService {
             reason,
           });
           if (pricing.belowMinimum) this.log.warn(`${actor} aprobó ${base.number} v${q.version} por debajo del mínimo: ${reason}`);
-          return this.quoteDto(row);
+          break;
         }
         case "send": {
-          const row = await this.setStatus(q.id, "SENT", { sentAt: now, sentNote: note });
+          row = await this.setStatus(q.id, "SENT", { sentAt: now, sentNote: note });
           await this.audit(actor, "quote_sent", q.assessment.orgId, { ...base, to: "SENT", note });
-          return this.quoteDto(row);
+          break;
         }
         case "accept": {
-          const row = await this.setStatus(q.id, "ACCEPTED", { acceptedAt: now });
+          row = await this.setStatus(q.id, "ACCEPTED", { acceptedAt: now });
           await this.audit(actor, "quote_accepted", q.assessment.orgId, { ...base, to: "ACCEPTED", note, proposedCents: q.proposedPriceCents, currency: q.currency });
-          return this.quoteDto(row);
+          break;
         }
         case "reject": {
           if (!reason) throw new BadRequestException("Indica el motivo del rechazo: sirve para ajustar las próximas estimaciones");
-          const row = await this.setStatus(q.id, "REJECTED", { rejectedAt: now, rejectedReason: reason });
+          row = await this.setStatus(q.id, "REJECTED", { rejectedAt: now, rejectedReason: reason });
           await this.audit(actor, "quote_rejected", q.assessment.orgId, { ...base, to: "REJECTED", reason });
-          return this.quoteDto(row);
+          break;
         }
         case "cancel": {
-          const row = await this.setStatus(q.id, "CANCELLED", { cancelledAt: now });
+          row = await this.setStatus(q.id, "CANCELLED", { cancelledAt: now });
           await this.audit(actor, "quote_cancelled", q.assessment.orgId, { ...base, to: "CANCELLED", reason });
-          return this.quoteDto(row);
+          break;
         }
-        case "revise":
-          return this.revise(q, status, actor, reason);
       }
+      // La oportunidad del CRM propio (si la hay) refleja el cambio. Nunca lo bloquea.
+      await this.mirrorInCrm(q, action, reason);
+      return this.quoteDto(row);
     });
   }
 
@@ -542,6 +586,309 @@ export class ImplementationsService {
     });
   }
 
+  // ── CRM propio ──────────────────────────────────────────────
+
+  /** Embudos y etapas de una empresa, para elegir en Ajustes dónde entran las oportunidades nuevas. */
+  async crmPipelines(orgId: string): Promise<CrmPipeline[]> {
+    await runUnscoped("cotizador: comprobar empresa propia", () => this.assertOrg(orgId));
+    return runInOrg(orgId, async () => {
+      const rows = await this.prisma.pipeline.findMany({
+        where: { orgId },
+        orderBy: [{ isDefault: "desc" }, { order: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          isDefault: true,
+          stages: { orderBy: { order: "asc" }, select: { id: true, name: true, order: true, isWon: true, isLost: true } },
+        },
+      });
+      return rows.map((p) => ({ id: p.id, name: p.name, isDefault: p.isDefault, stages: p.stages }));
+    });
+  }
+
+  /** Oportunidades abiertas y contactos de la empresa propia que coinciden con el texto (sin texto: las más recientes). */
+  async crmSearch(q: string): Promise<CrmSearchResult> {
+    const own = await this.crmOrg();
+    const text = q.trim();
+    const digits = text.replace(/[^\d]/g, "");
+    return runInOrg(own.orgId, async () => {
+      const match: Prisma.DealWhereInput[] = text
+        ? [
+            { title: { contains: text, mode: "insensitive" } },
+            { contact: { name: { contains: text, mode: "insensitive" } } },
+            ...(digits.length >= 4 ? [{ contact: { phone: { contains: digits } } }] : []),
+          ]
+        : [];
+      const deals = await this.prisma.deal.findMany({
+        where: { orgId: own.orgId, discardedAt: null, stage: { isWon: false, isLost: false }, ...(match.length ? { OR: match } : {}) },
+        orderBy: { updatedAt: "desc" },
+        take: 12,
+        include: { stage: { select: { name: true, pipeline: { select: { name: true } } } }, contact: { select: { name: true, phone: true } } },
+      });
+      const linked = deals.length
+        ? await this.prisma.implementationAssessment.findMany({
+            where: { dealId: { in: deals.map((d) => d.id) } },
+            select: { dealId: true, quoteNumber: true, title: true },
+          })
+        : [];
+      const linkedTo = new Map(linked.map((l) => [l.dealId!, l.quoteNumber ?? `«${l.title}»`]));
+      const contacts = text
+        ? await this.prisma.contact.findMany({
+            where: {
+              orgId: own.orgId,
+              OR: [{ name: { contains: text, mode: "insensitive" } }, ...(digits.length >= 4 ? [{ phone: { contains: digits } }] : [])],
+            },
+            orderBy: { updatedAt: "desc" },
+            take: 12,
+            select: { id: true, name: true, phone: true, _count: { select: { deals: { where: { discardedAt: null, stage: { isWon: false, isLost: false } } } } } },
+          })
+        : [];
+      return {
+        deals: deals.map((d) => ({
+          id: d.id,
+          title: d.title,
+          pipelineName: d.stage.pipeline.name,
+          stageName: d.stage.name,
+          contactName: d.contact.name,
+          contactPhone: d.contact.phone,
+          valueCents: d.value === null ? null : Math.round(Number(d.value) * 100),
+          currency: d.currency,
+          linkedTo: linkedTo.get(d.id) ?? null,
+        })),
+        contacts: contacts.map((c) => ({ id: c.id, name: c.name, phone: c.phone, openDeals: c._count.deals })),
+      };
+    });
+  }
+
+  /**
+   * Enlaza el diagnóstico con una oportunidad del CRM propio: una existente, o
+   * una nueva para un contacto (existente o nuevo). La nueva entra en la etapa
+   * de los ajustes con el precio propuesto de la última versión como valor.
+   */
+  async linkCrm(id: string, input: CrmLinkInput, actor: string): Promise<ImplementationAssessment> {
+    return runUnscoped("cotizador: enlazar con el CRM propio", async () => {
+      const a = await this.assessmentOrThrow(id);
+      if (a.dealId) throw new BadRequestException("Este diagnóstico ya está enlazado a una oportunidad. Desvincúlalo primero.");
+      const own = await this.crmOrg();
+      const latest = a.quotes[0] ?? null;
+      const valueCents = latest?.proposedPriceCents ?? null;
+      const currency = latest?.currency ?? own.currency;
+      const number = a.quoteNumber ?? `«${a.title}»`;
+
+      const deal = await runInOrg(own.orgId, () =>
+        runAsActor(CRM_ACTOR, async () => {
+          if (input.mode === "deal") {
+            const existing = await this.prisma.deal.findFirst({
+              where: { id: input.dealId, orgId: own.orgId },
+              select: { id: true, contactId: true, value: true },
+            });
+            if (!existing) throw new BadRequestException("Esa oportunidad no es de la empresa propia o ya no existe");
+            const taken = await this.prisma.implementationAssessment.findFirst({ where: { dealId: existing.id }, select: { quoteNumber: true, title: true } });
+            if (taken) throw new BadRequestException(`Esa oportunidad ya está enlazada a ${taken.quoteNumber ?? `«${taken.title}»`}`);
+            // Sin valor propio, toma el de la cotización; si ya tenía uno, se respeta.
+            if (existing.value === null && valueCents) {
+              await this.prisma.deal.update({ where: { id: existing.id }, data: { value: valueCents / 100, currency } });
+              this.events.emit("deal.value_changed", { orgId: own.orgId, dealId: existing.id });
+            }
+            return { id: existing.id, created: false };
+          }
+          const contactId = input.mode === "contact" ? await this.ownContact(own.orgId, input.contactId) : await this.newContact(own.orgId, input.name, input.phone);
+          const stageId = await this.entryStage(own.orgId, own.stageId);
+          const created = await this.prisma.deal.create({
+            data: {
+              orgId: own.orgId,
+              contactId,
+              stageId,
+              title: `${a.clientName} · ${a.title}`.slice(0, 160),
+              value: valueCents === null ? null : valueCents / 100,
+              currency,
+            },
+            select: { id: true },
+          });
+          this.events.emit("deal.stage_changed", { orgId: own.orgId, dealId: created.id, contactId, stageId });
+          this.events.emit("pipeline.changed", { orgId: own.orgId, dealId: created.id });
+          return { id: created.id, created: true };
+        }),
+      );
+
+      await this.prisma.implementationAssessment.update({ where: { id }, data: { dealId: deal.id } });
+      await this.dealEvent(own.orgId, deal.id, {
+        label: deal.created ? "oportunidad creada desde el cotizador" : "enlazada al cotizador",
+        number,
+        version: latest?.version ?? null,
+        amountCents: valueCents,
+        currency,
+      });
+      await this.audit(actor, "crm_linked", a.orgId, { assessmentId: id, number: a.quoteNumber, title: a.title, dealId: deal.id, created: deal.created, crmOrgId: own.orgId });
+      return this.assessmentDto(await this.assessmentOrThrow(id));
+    });
+  }
+
+  /** Quita el enlace. La oportunidad sigue en el CRM tal cual. */
+  async unlinkCrm(id: string, actor: string): Promise<ImplementationAssessment> {
+    return runUnscoped("cotizador: desvincular del CRM propio", async () => {
+      const a = await this.assessmentOrThrow(id);
+      if (!a.dealId) return this.assessmentDto(a);
+      const dealId = a.dealId;
+      const row = await this.prisma.implementationAssessment.update({ where: { id }, data: { dealId: null }, include: ASSESSMENT_INCLUDE });
+      const own = await this.crmOrgOrNull();
+      if (own) {
+        await this.dealEvent(own.orgId, dealId, { label: "desvinculada del cotizador", number: a.quoteNumber ?? `«${a.title}»`, version: null, amountCents: null, currency: null }).catch((e: Error) =>
+          this.log.warn(`No se pudo anotar la desvinculación en la oportunidad ${dealId}: ${e.message}`),
+        );
+      }
+      await this.audit(actor, "crm_unlinked", a.orgId, { assessmentId: id, number: a.quoteNumber, title: a.title, dealId });
+      return this.assessmentDto(row);
+    });
+  }
+
+  /**
+   * Refleja en la oportunidad enlazada lo que acaba de pasar con la cotización:
+   * al aprobar o aceptar toma el valor propuesto; al aceptar pasa a ganada; al
+   * rechazar, a perdida con el motivo. Es un espejo, nunca un bloqueo: si algo
+   * falla se anota en el registro y la cotización sigue su curso.
+   */
+  private async mirrorInCrm(q: QuoteRow, action: QuoteAction, reason: string | null): Promise<void> {
+    const dealId = q.assessment.dealId;
+    if (!dealId) return;
+    const number = q.assessment.quoteNumber ?? "COT-?";
+    try {
+      const own = await this.crmOrgOrNull();
+      if (!own) return;
+      await runInOrg(own.orgId, () =>
+        runAsActor(CRM_ACTOR, async () => {
+          const deal = await this.prisma.deal.findFirst({
+            where: { id: dealId, orgId: own.orgId },
+            select: { id: true, contactId: true, value: true, currency: true, stage: { select: { pipelineId: true, isWon: true, isLost: true } } },
+          });
+          if (!deal) return;
+          const amount = q.proposedPriceCents;
+          if ((action === "approve" || action === "accept") && amount && (Math.round(Number(deal.value ?? 0) * 100) !== amount || deal.currency !== q.currency)) {
+            await this.prisma.deal.update({ where: { id: deal.id }, data: { value: amount / 100, currency: q.currency } });
+            this.events.emit("deal.value_changed", { orgId: own.orgId, dealId: deal.id });
+          }
+          const target = action === "accept" ? "won" : action === "reject" ? "lost" : null;
+          if (target && !(target === "won" ? deal.stage.isWon : deal.stage.isLost)) {
+            const stage = await this.prisma.pipelineStage.findFirst({
+              where: { pipelineId: deal.stage.pipelineId, ...(target === "won" ? { isWon: true } : { isLost: true }) },
+              orderBy: { order: "asc" },
+              select: { id: true },
+            });
+            if (stage) {
+              await this.prisma.deal.update({
+                where: { id: deal.id },
+                data: { stageId: stage.id, discardedAt: null, discardReason: null, ...(target === "lost" ? { lostReason: reason } : {}) },
+              });
+              this.events.emit("deal.stage_changed", { orgId: own.orgId, dealId: deal.id, contactId: deal.contactId, stageId: stage.id });
+            }
+          }
+          this.events.emit("pipeline.changed", { orgId: own.orgId, dealId: deal.id });
+          const label = CRM_EVENT_LABEL[action];
+          if (label) await this.dealEvent(own.orgId, deal.id, { label, number, version: q.version, amountCents: amount, currency: q.currency, ...(reason ? { reason } : {}) });
+        }),
+      );
+    } catch (e) {
+      this.log.warn(`No se pudo reflejar «${action}» de ${number} v${q.version} en el CRM propio: ${(e as Error).message}`);
+    }
+  }
+
+  /** La empresa propia de los ajustes, o un error claro si no está elegida. */
+  private async crmOrg(): Promise<{ orgId: string; slug: string; stageId: string | null; currency: PricingSettings["currency"] }> {
+    const own = await this.crmOrgOrNull();
+    if (!own) throw new BadRequestException("Elige primero la empresa propia en los ajustes del cotizador: ahí vive el CRM que recibe las oportunidades");
+    return own;
+  }
+
+  private async crmOrgOrNull(): Promise<{ orgId: string; slug: string; stageId: string | null; currency: PricingSettings["currency"] } | null> {
+    const s = (await this.settings()).settings;
+    if (!s.crmOrgId) return null;
+    const org = await this.prisma.organization.findUnique({ where: { id: s.crmOrgId }, select: { id: true, slug: true } });
+    if (!org) return null;
+    return { orgId: org.id, slug: org.slug, stageId: s.crmStageId, currency: s.currency };
+  }
+
+  /** Etapa donde entra una oportunidad nueva: la de los ajustes si sigue existiendo; si no, la primera del embudo predeterminado. */
+  private async entryStage(orgId: string, preferred: string | null): Promise<string> {
+    if (preferred) {
+      const s = await this.prisma.pipelineStage.findFirst({ where: { id: preferred, orgId }, select: { id: true } });
+      if (s) return s.id;
+    }
+    const pipeline = await this.prisma.pipeline.findFirst({ where: { orgId }, orderBy: [{ isDefault: "desc" }, { order: "asc" }], select: { id: true } });
+    const first = pipeline ? await this.prisma.pipelineStage.findFirst({ where: { pipelineId: pipeline.id }, orderBy: { order: "asc" }, select: { id: true } }) : null;
+    if (!first) throw new BadRequestException("La empresa propia no tiene un embudo con etapas");
+    return first.id;
+  }
+
+  private async ownContact(orgId: string, contactId: string): Promise<string> {
+    const c = await this.prisma.contact.findFirst({ where: { id: contactId, orgId }, select: { id: true } });
+    if (!c) throw new BadRequestException("Ese contacto no es de la empresa propia o ya no existe");
+    return c.id;
+  }
+
+  /** Contacto nuevo en la empresa propia; si el número ya existe, se reutiliza. */
+  private async newContact(orgId: string, name: string, phone: string): Promise<string> {
+    const normalized = normalizePhone(phone);
+    if (!isValidPhone(normalized)) throw new BadRequestException("Teléfono no válido: escríbelo con el código de país, por ejemplo +51 999 999 999");
+    const existing = await this.prisma.contact.findFirst({ where: { orgId, phone: normalized }, select: { id: true, name: true } });
+    if (existing) {
+      if (!existing.name && name.trim()) await this.prisma.contact.update({ where: { id: existing.id }, data: { name: name.trim() } });
+      return existing.id;
+    }
+    const created = await this.prisma.contact.create({
+      data: { orgId, phone: normalized, name: name.trim() || null, origin: "manual", originDetail: "cotizador" },
+      select: { id: true },
+    });
+    return created.id;
+  }
+
+  /** Una línea «quote» en el historial de la oportunidad (lo que el disparador de la base no ve). */
+  private async dealEvent(
+    orgId: string,
+    dealId: string,
+    meta: { label: string; number: string; version: number | null; amountCents: number | null; currency: string | null; reason?: string },
+  ): Promise<void> {
+    await this.prisma.dealEvent.create({ data: { orgId, dealId, kind: "quote", actor: CRM_ACTOR, meta } });
+  }
+
+  /** Las oportunidades enlazadas, resueltas de una vez para el listado y la ficha. */
+  private async crmLinks(dealIds: string[]): Promise<Map<string, CrmDealLink>> {
+    if (dealIds.length === 0) return new Map();
+    const rows = await this.prisma.deal.findMany({
+      where: { id: { in: dealIds } },
+      include: {
+        stage: { select: { name: true, isWon: true, isLost: true, pipeline: { select: { id: true, name: true } } } },
+        contact: { select: { name: true, phone: true } },
+        org: { select: { slug: true } },
+      },
+    });
+    return new Map(
+      rows.map((d) => [
+        d.id,
+        {
+          dealId: d.id,
+          title: d.title,
+          pipelineId: d.stage.pipeline.id,
+          pipelineName: d.stage.pipeline.name,
+          stageName: d.stage.name,
+          isWon: d.stage.isWon,
+          isLost: d.stage.isLost,
+          discarded: d.discardedAt !== null,
+          contactName: d.contact.name,
+          contactPhone: d.contact.phone,
+          valueCents: d.value === null ? null : Math.round(Number(d.value) * 100),
+          currency: d.currency,
+          url: `${this.orgUrl(d.org.slug)}/pipeline?id=${d.stage.pipeline.id}&deal=${d.id}`,
+        },
+      ]),
+    );
+  }
+
+  /** Igual que en PlatformService: el panel de una empresa por su subdominio. */
+  private orgUrl(slug: string): string {
+    const base = env("SAAS_BASE_DOMAIN") ?? "localhost:3000";
+    return `${base.startsWith("localhost") ? "http" : "https"}://${slug}.${base}`;
+  }
+
   // ── Ayudas ──────────────────────────────────────────────────
 
   private async assertOrg(orgId: string | null | undefined): Promise<void> {
@@ -653,7 +1000,7 @@ export class ImplementationsService {
     return map[latest.status];
   }
 
-  private assessmentRow(a: AssessmentRow): ImplementationAssessmentRow {
+  private assessmentRow(a: AssessmentRow, crm: CrmDealLink | null): ImplementationAssessmentRow {
     const now = new Date();
     const latest = a.quotes[0] ? this.summary(a.quotes[0], now) : null;
     return {
@@ -673,6 +1020,8 @@ export class ImplementationsService {
       complexityBand: a.complexityBand as ImplementationAssessmentRow["complexityBand"],
       stage: this.stageOf(latest),
       latestQuote: latest,
+      dealId: a.dealId ?? null,
+      crm,
       archivedAt: a.archivedAt?.toISOString() ?? null,
       createdAt: a.createdAt.toISOString(),
       updatedAt: a.updatedAt.toISOString(),
@@ -710,10 +1059,11 @@ export class ImplementationsService {
     };
   }
 
-  private assessmentDto(a: AssessmentRow): ImplementationAssessment {
+  private async assessmentDto(a: AssessmentRow): Promise<ImplementationAssessment> {
     const now = new Date();
+    const crm = a.dealId ? ((await this.crmLinks([a.dealId])).get(a.dealId) ?? null) : null;
     return {
-      ...this.assessmentRow(a),
+      ...this.assessmentRow(a, crm),
       scope: assessmentScopeSchema.parse(a.scope),
       quotes: a.quotes.map((q) => this.summary(q, now)),
     };

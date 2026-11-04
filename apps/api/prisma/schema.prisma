@@ -1050,6 +1050,8 @@ model Deal {
   automationRuns   StageAutomationRun[]
   events           DealEvent[]
   bookings         Booking[]
+  // Solo en la empresa propia de Driony: diagnósticos del cotizador enlazados.
+  implementationAssessments ImplementationAssessment[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -1589,14 +1591,19 @@ model ImplementationAssessment {
   riskFlags       String[] @default([])
   complexityScore Int      @default(0)
   complexityBand  String   @default("low") // low | medium | high
+  /// Oportunidad en el CRM de la empresa propia de Driony (la elegida en los
+  /// ajustes del cotizador). Si la oportunidad se borra, el enlace queda en null.
+  dealId          String?
   archivedAt      DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   org    Organization?         @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  deal   Deal?                 @relation(fields: [dealId], references: [id], onDelete: SetNull)
   quotes ImplementationQuote[]
 
   @@index([orgId])
+  @@index([dealId])
   @@index([updatedAt])
   @@map("implementation_assessments")
 }

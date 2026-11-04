@@ -57,7 +57,7 @@ export function badge(bg: string): CSSProperties {
 export const STATUS_COLOR: Record<string, string> = {
   DRAFT: "var(--surface-3)",
   SCHEDULED: "var(--warning)",
-  RUNNING: "#0b6cd8",
+  RUNNING: "#00e5ff",
   COMPLETED: "#0a6b42",
   CANCELLED: "#b3261e",
 };

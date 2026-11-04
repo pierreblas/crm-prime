@@ -2,34 +2,58 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { PLAN_KEYS, PLANS, TRIAL_AI_CONVERSATIONS, TRIAL_DAYS } from "@crm/shared";
+import { formatAiIncluded, formatPlanLimit, PLAN_KEYS, PLANS, TRIAL_AI_CONVERSATIONS, TRIAL_DAYS } from "@crm/shared";
 import "./landing.css";
-import { Arrow, Check, GITHUB, IconGit, LpThemeScript, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
+import { Arrow, Check, GITHUB, IconGit, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
 import { HeroChat } from "./HeroChat";
+import { LeadCalc } from "./LeadCalc";
+import { Sectors } from "./Sectors";
+
+// La página argumenta en este orden: el dolor con cifras del visitante, lo que
+// Driony hace, si sirve para su rubro, cuánto tarda, qué cambia, cuánto cuesta
+// y qué pasa si no le convence. Cada sección cierra una objeción.
 
 // Antes y después, emparejados: cada problema al lado de lo que lo resuelve.
 const COMPARE = [
-  ["Leads que esperan horas por una respuesta", "Respuesta en segundos, las 24 horas"],
-  ["Mensajes que se pierden entre vendedores", "Todo en una bandeja, con dueño claro"],
-  ["Responder uno por uno, todo el día", "La IA responde y califica por ti"],
-  ["Sin saber en qué quedó cada conversación", "Cada lead con su historial, etapa y notas"],
-  ["Leads que se enfrían sin que nadie lo note", "Cada conversación entra al embudo y se asigna sola"],
-  ["Comprobantes en foto que nadie revisa a tiempo", "La IA entiende la foto y pasa el chat a tu equipo"],
-  ["Anuncios que optimizan a clics, no a ventas", "Meta aprende de tus ventas reales y trae mejores leads"],
+  ["El lead escribe a las 9 de la noche y lo lees a las 9 de la mañana", "Respuesta en segundos, también de madrugada y en feriado"],
+  ["Cinco vendedores con cinco celulares y nadie sabe quién atiende a quién", "Una sola bandeja, cada chat con dueño y el tiempo que lleva esperando"],
+  ["«¿Precio?» cuarenta veces al día, a mano", "El agente cotiza desde tu catálogo, en la moneda del cliente"],
+  ["El comprobante llega en foto y se pierde entre los chats", "La IA lee la foto, registra el pago y avisa a tu equipo"],
+  ["Leads que se enfrían sin que nadie se dé cuenta", "Cada conversación entra al embudo y un flujo la retoma si pasan días"],
+  ["Anuncios que optimizan a clics y traen curiosos", "Meta aprende de tus ventas reales y trae gente que compra"],
+  ["Pagar por usuario y dudar antes de sumar a alguien", "Precio por empresa: invitas a tu equipo sin que suba la factura"],
 ];
 
 // Frases de la banda de color. Se pintan dos veces para que la marquesina
 // haga un bucle sin salto.
 const BAND_ITEMS = [
   `${TRIAL_DAYS} días de Pro gratis`,
-  "Tiempo real",
-  "Multi-número",
-  "IA incluida o tu propia clave",
+  "Sin tarjeta",
+  "Responde en segundos",
+  "Desde tu propio número",
   "Meta Business Partner",
-  "Anuncios que aprenden de tus ventas",
-  "Gasto bajo control",
+  "IA incluida en el plan",
+  "Precio por empresa, no por usuario",
+  "Lee fotos y comprobantes",
   "Código abierto",
-  "Agentes que venden 24/7",
+];
+
+const STEPS = [
+  {
+    when: "Hoy, sin tarjeta",
+    title: "Crea tu espacio y conecta tu número",
+    text: `Tu panel en tu-empresa.driony.com en dos minutos. Enlazas tu WhatsApp Business desde el panel con la ventana oficial de Meta, sin tocar código ni cambiar de número.`,
+  },
+  {
+    when: "En minutos",
+    title: "Entrena a tu agente",
+    text: "Le das tu catálogo, tu tono y tus reglas. Decides cuándo responde solo y cuándo pasa a una persona. Si no sabes por dónde empezar, el asistente redacta las instrucciones contigo.",
+  },
+  {
+    when: "Desde el primer chat",
+    title: "Él atiende, tú cierras",
+    text: "El agente responde, califica y agenda; cada lead entra al embudo con su etapa y su dueño. Tu equipo entra cuando hay que cerrar, y lo ve todo en la bandeja.",
+  },
 ];
 
 /** "100 en Gratis, 500 en Inicial, 2.000 en Pro y 6.000 en Empresa", del catálogo. */
@@ -38,34 +62,41 @@ function aiByPlan(): string {
   return `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}`;
 }
 
+/** Etiqueta corta de cada plan, encima del nombre. */
+const PLAN_TAG: Record<string, string> = { free: "Para probar", starter: "Para empezar", pro: "Más elegido", business: "Sin límites" };
+
 const FAQ = [
+  {
+    q: "¿De verdad no necesito tarjeta?",
+    a: `No. Al crear tu cuenta tienes ${TRIAL_DAYS} días del plan Pro completo, sin tarjeta: tres números, diez personas, difusiones, API y ${TRIAL_AI_CONVERSATIONS.toLocaleString("es")} conversaciones con IA para probar el agente en serio. Al terminar no se corta ni se borra nada: sigues en el plan Gratis (un número, dos personas y ${PLANS.free.aiConversations} conversaciones con IA al mes) con tus chats, contactos y agentes, y pasas a Inicial, Pro o Empresa cuando quieras.`,
+  },
   {
     q: "¿Necesito un número nuevo de WhatsApp?",
     a: `No. Conectas tu número de WhatsApp Business desde el panel, con la ventana oficial de Meta (Driony es Meta Business Partner). Si ya lo usas en la app del celular, desde el plan ${PLANS.starter.name} sigues usándolo a la vez (Coexistencia): lo que respondes en el celular y lo que responde Driony queda en el mismo chat.`,
   },
   {
+    q: "¿Y si mi equipo no es técnico?",
+    a: "No hace falta que lo sea. WhatsApp se conecta desde el panel con la ventana de Meta, el asistente redacta las instrucciones del agente contigo y los flujos se arman arrastrando bloques. Si te atascas, nos escribes y te responde quien hace el producto.",
+  },
+  {
     q: "¿Cuánto cuesta la inteligencia artificial?",
-    a: `Cada plan trae conversaciones con IA incluidas al mes (${aiByPlan()}), sin configurar nada; si un mes se te queda corto, sumas conversaciones extra. Si prefieres otro modelo o no tener cupo, conectas tu clave de OpenAI, Anthropic o cualquier API compatible y pagas a tu proveedor a su precio, sin recargo. Cada respuesta registra sus tokens y su coste, y puedes ponerle un tope mensual a cada agente.`,
+    a: `Va incluida: cada plan trae conversaciones con IA al mes (${aiByPlan()}), sin configurar nada. Si un mes se te queda corto, sumas conversaciones extra. Y si prefieres otro modelo o no tener cupo, conectas tu clave de OpenAI, Anthropic o cualquier API compatible y pagas a tu proveedor a su precio, sin recargo. Cada respuesta registra lo que costó y cada agente tiene su tope mensual.`,
   },
   {
-    q: "¿Cómo es la prueba gratis?",
-    a: `Al crear tu cuenta tienes ${TRIAL_DAYS} días del plan Pro completo, sin tarjeta: tres números, diez personas, difusiones, API y ${TRIAL_AI_CONVERSATIONS.toLocaleString("es")} conversaciones con IA para probar el agente. Al terminar no se corta nada: sigues en el plan Gratis (un número, dos personas y ${PLANS.free.aiConversations} conversaciones con IA al mes) con tus chats, contactos y agentes, y pasas a Inicial, Pro o Empresa cuando quieras.`,
-  },
-  {
-    q: "¿Cómo sé cuándo la IA pasó un chat a una persona?",
-    a: "En la bandeja: la conversación se marca «Pasado a humano» con el motivo, y el agente deja de responder solo hasta que alguien de tu equipo la atiende. Tú decides cuándo debe hacerlo: cuando no esté seguro, cuando el cliente lo pida o, por ejemplo, siempre que mande una imagen o un comprobante.",
+    q: "¿Cómo sé que la IA no va a decir una tontería a un cliente?",
+    a: "Responde solo con tu información: tu catálogo, tu base de conocimiento y los datos del contacto. Tú decides cuándo debe pasar el chat a una persona: cuando no esté segura, cuando el cliente lo pida o, por ejemplo, siempre que llegue un comprobante. Y puedes empezar en modo Copiloto: la IA sugiere la respuesta y tu equipo la aprueba antes de enviarla.",
   },
   {
     q: "¿La IA entiende audios, fotos y documentos?",
-    a: "Sí. Transcribe los audios y describe las imágenes y documentos con tu proveedor de IA, y usa eso para responder. Si no puede ver una imagen, lo dice y pasa el chat a tu equipo en vez de inventar.",
+    a: "Sí. Transcribe los audios y describe las imágenes y documentos, y usa eso para responder. Si no puede ver una imagen, lo dice y pasa el chat a tu equipo en vez de inventar.",
   },
   {
     q: "¿Mis anuncios de Meta se enteran de las ventas?",
-    a: "Sí. Activa las conversiones en Integraciones y elige en cada etapa del embudo qué evento se envía a Meta (lead interesado, lead calificado, compra con el valor de la venta, u otros). Solo se envían para chats que llegaron por un anuncio de Click to WhatsApp, y cada evento una sola vez por oportunidad.",
+    a: "Sí. Activas las conversiones en Integraciones y eliges en cada etapa del embudo qué evento se envía a Meta (lead interesado, lead calificado, compra con el valor de la venta). Solo se envían para chats que llegaron por un anuncio de Click to WhatsApp, y cada evento una sola vez por oportunidad.",
   },
   {
-    q: "¿Puedo instalarlo yo en mi servidor?",
-    a: "Sí. El código es abierto (AGPL-3.0) y se levanta con Docker Compose: base de datos, API y web. Tus datos se quedan en tu base y usas tu propia app de Meta y tus claves de IA.",
+    q: "¿Qué pasa con mis datos si un día me voy?",
+    a: "Son tuyos. El código es abierto y la nube y la instalación propia comparten el mismo esquema de datos: puedes llevarte Driony a tu propio servidor y seguir con tus chats, contactos y agentes. Si te vas del todo, nos lo pides y te entregamos una copia de tu base.",
   },
 ];
 
@@ -112,44 +143,48 @@ export function Landing() {
   }, []);
 
   return (
-    <div className="lp" id="lp-root" ref={rootRef} lang="es" suppressHydrationWarning>
-      <LpThemeScript />
+    <div className="lp" id="lp-root" ref={rootRef} lang="es">
       <a href="#contenido" className="lp-skip">
         Saltar al contenido
       </a>
       <MarketingHeader active={active} home />
 
-
       <main id="contenido">
-        {/* ── Hero: titular + el producto de verdad ── */}
+        {/* ── Hero: dos bloques, el lima con el argumento y el oscuro con el producto en vivo ── */}
         <section className="lp-hero">
           <div className="lp-wrap lp-hero__grid">
-            <div>
+            <div className="lp-hero__copy">
               <p className="lp-hero__kicker lp-anim" style={{ animationDelay: "0.02s" }}>
-                CRM para equipos que venden por WhatsApp
+                CRM de WhatsApp con agentes de IA
               </p>
               <h1 className="lp-anim" style={{ animationDelay: "0.08s" }}>
-                Convierte WhatsApp en tu mejor <span className="lp-hero__accent">vendedor</span>.
+                Atiende cada lead <span className="lp-hero__accent">en segundos</span>. También a las 11 de la noche.
               </h1>
               <p className="lp-hero__sub lp-anim" style={{ animationDelay: "0.16s" }}>
-                Agentes de IA que responden, califican y agendan a tus leads en
-                segundos, las 24 horas, desde tu propio número.
+                Driony pone un agente de IA en tu propio número: responde, cotiza, califica y agenda. Tu equipo solo entra a cerrar, y nada se pierde en un celular.
               </p>
               <div className="lp-hero__cta lp-anim" style={{ animationDelay: "0.24s" }}>
                 <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
                   Probar {TRIAL_DAYS} días gratis <Arrow />
                 </Link>
-                <a href="#como" className="lp-btn lp-btn--ghost lp-btn--lg">
-                  Ver cómo funciona
+                <a href="#costo" className="lp-btn lp-btn--ghost lp-btn--lg">
+                  Cuánto pierdes respondiendo tarde
                 </a>
               </div>
-              <div className="lp-hero__trust lp-anim" style={{ animationDelay: "0.32s" }}>
-                <Check />
-                <span>
-                  <b>{TRIAL_DAYS} días de Pro gratis, sin tarjeta.</b> Después sigues en el plan
-                  Gratis o eliges el tuyo. El agente de IA ya viene incluido.
-                </span>
-              </div>
+              <ul className="lp-hero__proofs lp-anim" style={{ animationDelay: "0.32s" }} aria-label="Lo que incluye la prueba">
+                <li>
+                  <Check /> Sin tarjeta
+                </li>
+                <li>
+                  <Check /> Listo en 2 minutos
+                </li>
+                <li>
+                  <Check /> IA incluida
+                </li>
+                <li>
+                  <Check /> Después sigues en el plan Gratis
+                </li>
+              </ul>
               <div className="lp-partner lp-anim" style={{ animationDelay: "0.4s" }} title="Driony forma parte del programa de partners de Meta">
                 <MetaMark />
                 <span>
@@ -159,7 +194,7 @@ export function Landing() {
               </div>
             </div>
 
-            <div className="lp-anim" style={{ animationDelay: "0.2s" }}>
+            <div className="lp-hero__demo lp-anim" style={{ animationDelay: "0.2s" }}>
               <HeroChat />
             </div>
           </div>
@@ -190,14 +225,30 @@ export function Landing() {
           </button>
         </section>
 
+        {/* ── El costo de responder tarde: la cuenta con las cifras del visitante ── */}
+        <section className="lp-section" id="costo">
+          <div className="lp-wrap">
+            <div className="lp-head lp-reveal">
+              <p className="lp-tag">[ 01 // Lo que pierdes ]</p>
+              <h2>El lead que esperó hasta mañana ya le compró a otro.</h2>
+              <p className="lp-lede">
+                Tus clientes escriben a las 9 de la noche, el domingo, en plena hora punta de tu equipo. Si la respuesta llega al día siguiente, ya decidieron. Haz la cuenta con tus números.
+              </p>
+            </div>
+            <div className="lp-reveal">
+              <LeadCalc />
+            </div>
+          </div>
+        </section>
+
         {/* ── Capacidades ── */}
         <section className="lp-section" id="capacidades">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <h2>Toda tu operación de ventas, en una sola pantalla.</h2>
+              <p className="lp-tag">[ 02 // Capacidades ]</p>
+              <h2>Todo lo que hace Driony mientras tú cierras.</h2>
               <p className="lp-lede">
-                Deja de saltar entre el celular, hojas de cálculo y notas sueltas.
-                Driony junta tus conversaciones, tu embudo y tu IA en un mismo lugar.
+                Deja de saltar entre el celular, hojas de cálculo y notas sueltas. Conversaciones, embudo e IA en una sola pantalla, con cada lead a la vista.
               </p>
             </div>
 
@@ -217,7 +268,7 @@ export function Landing() {
                   <b>Todos tus números, una bandeja.</b> En vivo, con dueño claro y el tiempo que lleva esperando cada cliente.
                 </p>
                 <p>
-                  <b>La IA a la vista.</b> Responde sola, te sugiere la respuesta o se aparta: lo eliges por conversación.
+                  <b>La IA a tu ritmo.</b> Responde sola, te sugiere la respuesta o se aparta: lo eliges por conversación.
                 </p>
                 <p>
                   <b>Nada se queda sin dueño.</b> Filtros de pendientes, sin asignar y míos, y avisos cuando alguien espera.
@@ -237,19 +288,16 @@ export function Landing() {
                     decoding="async"
                   />
                 </div>
-                <h3>Un agente de IA que atiende como tu mejor vendedor</h3>
+                <h3>Un vendedor de IA que conoce tu negocio como tú</h3>
                 <p>
-                  Responde con <b>tu</b> información: tu catálogo, tu base de
-                  conocimiento y los datos de cada contacto. Recuerda al cliente de una
-                  conversación a la siguiente, mueve la oportunidad de etapa y, cuando el
-                  caso lo pide, pasa el chat a tu equipo y lo deja claro en la bandeja.
+                  Responde con <b>tu</b> catálogo, <b>tu</b> base de conocimiento y los datos de cada contacto. Recuerda al cliente de una conversación a la siguiente, mueve la oportunidad de etapa y, cuando el caso lo pide, pasa el chat a tu equipo y lo deja claro en la bandeja. Nunca inventa un precio.
                 </p>
                 <div className="lp-mini">
                   <span className="lp-chip">Responde 24/7</span>
-                  <span className="lp-chip">Califica y agenda</span>
-                  <span className="lp-chip">Entiende fotos y comprobantes</span>
+                  <span className="lp-chip">Cotiza y agenda</span>
+                  <span className="lp-chip">Lee fotos y comprobantes</span>
                   <span className="lp-chip">Escribe como una persona</span>
-                  <span className="lp-chip">Pasa a una persona cuando toca</span>
+                  <span className="lp-chip">Pasa a alguien cuando toca</span>
                 </div>
               </article>
 
@@ -264,12 +312,9 @@ export function Landing() {
                     decoding="async"
                   />
                 </div>
-                <h3>Embudo con automatizaciones por etapa</h3>
+                <h3>Ningún lead se enfría sin que lo sepas</h3>
                 <p>
-                  Cada conversación nueva entra sola al embudo. En cada etapa decides qué
-                  pasa: un flujo al entrar, cuando el cliente escribe, cuando llega un
-                  webhook o si pasan días sin respuesta. Arrastras la oportunidad y no
-                  pierdes el seguimiento.
+                  Cada conversación nueva entra sola al embudo. En cada etapa decides qué pasa: un flujo al entrar, cuando el cliente escribe, cuando llega un webhook o si pasan días sin respuesta. Arrastras la oportunidad y el seguimiento se hace solo.
                 </p>
               </article>
 
@@ -284,22 +329,16 @@ export function Landing() {
                     decoding="async"
                   />
                 </div>
-                <h3>Flujos y respuestas sin código</h3>
+                <h3>Bienvenidas y menús sin programar</h3>
                 <p>
-                  Bienvenidas, menús y preguntas encadenadas con un editor de
-                  arrastrar, o dictados a la IA. Respuestas por palabra clave con
-                  versiones por país o por datos del contacto: los métodos de pago de
-                  Perú no son los de México.
+                  Flujos de arrastrar bloques, o dictados a la IA. Respuestas por palabra clave con versiones por país o por datos del contacto: los métodos de pago de Perú no son los de México.
                 </p>
               </article>
 
               <article className="lp-card lp-card--half lp-reveal">
-                <h3>Anuncios que aprenden de tus ventas</h3>
+                <h3>Tus anuncios aprenden de tus ventas, no de tus clics</h3>
                 <p>
-                  Si el cliente llegó por un anuncio de Click to WhatsApp, Driony le
-                  cuenta a Meta cuándo se volvió potencial y cuándo compró (Conversions
-                  API). Tus campañas optimizan hacia clientes reales, no hacia clics.
-                  Lo eliges etapa por etapa, y somos Meta Business Partner.
+                  Si el cliente llegó por un anuncio de Click to WhatsApp, Driony le cuenta a Meta cuándo se volvió potencial y cuándo compró (Conversions API). Tus campañas optimizan hacia clientes reales. Lo eliges etapa por etapa, y somos Meta Business Partner.
                 </p>
                 <div className="lp-trace" aria-hidden="true">
                   <div className="lp-trace__row">
@@ -320,11 +359,9 @@ export function Landing() {
               </article>
 
               <article className="lp-card lp-card--half lp-reveal">
-                <h3>Catálogo con precios en varias monedas</h3>
+                <h3>Cotiza solo, en soles, dólares o pesos</h3>
                 <p>
-                  Importa tus productos desde Excel con precios en soles, dólares o la
-                  moneda en la que vendas. El agente cotiza en la moneda del cliente y tú
-                  eliges qué campos de cada producto puede contar.
+                  Importa tus productos desde Excel con precios en la moneda en la que vendas. El agente cotiza en la moneda del cliente y tú eliges qué campos de cada producto puede contar.
                 </p>
                 <div className="lp-trace" aria-hidden="true">
                   <div className="lp-trace__row">
@@ -341,11 +378,8 @@ export function Landing() {
               </article>
 
               <article className="lp-card lp-card--third lp-reveal">
-                <h3>Difusiones y plantillas</h3>
-                <p>
-                  Envía campañas con plantillas aprobadas por Meta a la audiencia
-                  que elijas por etiquetas, y mide entregas y respuestas.
-                </p>
+                <h3>Vuelve a venderle a quien ya te compró</h3>
+                <p>Difusiones con plantillas aprobadas por Meta a la audiencia que elijas por etiquetas, y mides entregas y respuestas.</p>
                 <div className="lp-meter" aria-hidden="true">
                   <div className="lp-meter__head">
                     <span>«Promo de septiembre» · aprobada</span>
@@ -362,14 +396,9 @@ export function Landing() {
               </article>
 
               <article className="lp-card lp-card--two-thirds lp-reveal">
-                <h3>IA incluida, o tu modelo con tu clave</h3>
+                <h3>IA incluida en el plan, sin sorpresas en la factura</h3>
                 <p>
-                  Tu plan trae <b>conversaciones con IA incluidas</b> cada mes, sin
-                  configurar nada. Cuando quieras más, conectas OpenAI, Claude o
-                  cualquier API compatible con <b>tu</b> clave y eliges un modelo
-                  distinto <b>por agente</b>, sin cupo y sin recargo. Cada respuesta
-                  registra lo que costó y cada agente tiene su <b>tope</b> mensual: al
-                  llegar, la IA se detiene y la conversación pasa a tu equipo.
+                  Tu plan trae <b>conversaciones con IA incluidas</b> cada mes, sin claves ni configuración. Cuando quieras más, conectas OpenAI, Claude o cualquier API compatible con <b>tu</b> clave y eliges el modelo <b>por agente</b>, sin cupo y sin recargo. Cada respuesta registra lo que costó y cada agente tiene su <b>tope</b> mensual: al llegar, la IA se detiene y la conversación pasa a tu equipo.
                 </p>
                 <div className="lp-meter" aria-hidden="true">
                   <div className="lp-meter__head">
@@ -385,36 +414,48 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ── Cómo funciona: una secuencia real de tres pasos ── */}
+        {/* ── Para tu rubro: «¿y esto sirve para mi negocio?» ── */}
+        <section className="lp-section" id="rubros">
+          <div className="lp-wrap">
+            <div className="lp-head lp-reveal">
+              <p className="lp-tag">[ 03 // Tu rubro ]</p>
+              <h2>Sirve para tu negocio. Elige el tuyo y mira cómo atiende.</h2>
+              <p className="lp-lede">
+                El mismo agente, entrenado con lo tuyo: tus precios, tus horarios, tus reglas. Esto es lo que pasa en un chat real de cada rubro.
+              </p>
+            </div>
+            <div className="lp-reveal">
+              <Sectors />
+            </div>
+          </div>
+        </section>
+
+        {/* ── Cómo funciona: tres pasos, con lo que tardan ── */}
         <section className="lp-section" id="como">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <h2>De WhatsApp a venta en tres pasos.</h2>
-              <p className="lp-lede">
-                Sin migraciones eternas ni semanas de implementación. Conectas y empiezas.
-              </p>
+              <p className="lp-tag">[ 04 // Puesta en marcha ]</p>
+              <h2>Empiezas hoy, no en tres semanas.</h2>
+              <p className="lp-lede">Sin migraciones ni implementaciones eternas. Creas tu espacio, conectas tu número y el agente atiende el primer chat el mismo día.</p>
             </div>
             <ol className="lp-steps" style={{ listStyle: "none", margin: 0, padding: 0 }}>
-              <li className="lp-step lp-reveal">
-                <div className="lp-step__n" aria-hidden="true">1</div>
-                <h3>Conecta tu WhatsApp</h3>
-                <p>Enlaza tu número de WhatsApp Business desde el panel, en minutos y sin tocar código. Driony es Meta Business Partner: la conexión es la oficial de Meta.</p>
-              </li>
-              <li className="lp-step lp-reveal">
-                <div className="lp-step__n" aria-hidden="true">2</div>
-                <h3>Entrena tu agente</h3>
-                <p>
-                  Dale tu información, tu tono y tus reglas. Decide cuándo responde solo y
-                  cuándo pasa a una persona. Si no sabes por dónde empezar, el asistente
-                  redacta las instrucciones contigo.
-                </p>
-              </li>
-              <li className="lp-step lp-reveal">
-                <div className="lp-step__n" aria-hidden="true">3</div>
-                <h3>Empieza a vender</h3>
-                <p>El agente atiende y califica cada lead; tu equipo solo entra a cerrar. Y si el cliente llegó por un anuncio, Meta se entera de la venta.</p>
-              </li>
+              {STEPS.map((s, i) => (
+                <li className="lp-step lp-reveal" key={s.title}>
+                  <div className="lp-step__n" aria-hidden="true">
+                    {i + 1}
+                  </div>
+                  <span className="lp-step__when">{s.when}</span>
+                  <h3>{s.title}</h3>
+                  <p>{s.text}</p>
+                </li>
+              ))}
             </ol>
+            <div className="lp-inline-cta lp-reveal">
+              <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
+                Crear mi espacio gratis <Arrow />
+              </Link>
+              <span>{TRIAL_DAYS} días de Pro, sin tarjeta. Si no te convence, no pagas nada.</span>
+            </div>
           </div>
         </section>
 
@@ -422,7 +463,8 @@ export function Landing() {
         <section className="lp-section" id="porque">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <h2>La diferencia entre responder tarde y cerrar la venta.</h2>
+              <p className="lp-tag">[ 05 // Antes y después ]</p>
+              <h2>Lo que cambia desde la primera semana.</h2>
             </div>
             <div className="lp-vs lp-reveal" role="table" aria-label="WhatsApp a mano frente a Driony">
               <div className="lp-vs__row lp-vs__row--head" role="row">
@@ -445,94 +487,77 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ── Planes: open source / nube ── */}
+        {/* ── Planes: el precio a la vista, del catálogo compartido ── */}
         <section className="lp-section" id="planes">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <h2>Dos formas de tener Driony.</h2>
+              <p className="lp-tag">[ 06 // Planes ]</p>
+              <h2>Precio por empresa, no por usuario.</h2>
               <p className="lp-lede">
-                El mismo CRM, con el mismo código abierto en el núcleo. Elige si lo
-                instalas tú o si lo alojamos nosotros.
+                Todos empiezan igual: {TRIAL_DAYS} días de Pro gratis, sin tarjeta. Después sigues en Gratis o eliges el plan que te toca. Invitar a alguien de tu equipo no sube la factura.
               </p>
             </div>
-            <div className="lp-plans">
-              <article className="lp-plan lp-reveal">
-                <div className="lp-plan__tag">Código abierto · AGPL-3.0</div>
-                <h3>Instálalo en tu servidor</h3>
-                <p className="lp-plan__price">Gratis, para siempre</p>
-                <p>
-                  El CRM completo para una empresa, con tus datos en tu base y tus
-                  propias claves. Lo levantas con Docker en tu servidor y no dependes de
-                  nadie.
-                </p>
-                <div className="lp-plan__rows">
-                  {[
-                    "Código abierto en GitHub",
-                    "Una empresa, usuarios y números sin límite",
-                    "Se instala con Docker en tu propio servidor",
-                    "Tu app de Meta y tus claves de IA",
-                    "Bandeja, agentes, flujos y difusiones incluidos",
-                  ].map((t) => (
-                    <div className="lp-row" key={t}>
-                      <span className="lp-row__ic">
-                        <Check />
-                      </span>
-                      {t}
+            <div className="lp-plans lp-plans--snap lp-reveal">
+              {PLAN_KEYS.map((k) => {
+                const plan = PLANS[k];
+                const pro = k === "pro";
+                return (
+                  <article className={`lp-plan lp-plan--snap${pro ? " lp-plan--cloud" : ""}`} key={k} data-plan={k}>
+                    <div className="lp-plan__tag">{PLAN_TAG[k] ?? plan.name}</div>
+                    <h3>{plan.name}</h3>
+                    <p className="lp-price">
+                      USD {plan.priceUsd}
+                      <small>/mes</small>
+                    </p>
+                    <p>{plan.tagline}</p>
+                    <div className="lp-plan__rows">
+                      {(["numbers", "users"] as const).map((lim) => (
+                        <div className="lp-row" key={lim}>
+                          <span className="lp-row__ic">
+                            <Check />
+                          </span>
+                          {formatPlanLimit(lim, plan.limits[lim])}
+                        </div>
+                      ))}
+                      <div className="lp-row">
+                        <span className="lp-row__ic">
+                          <Check />
+                        </span>
+                        {formatAiIncluded(plan.aiConversations)}
+                      </div>
                     </div>
-                  ))}
-                </div>
-                <div className="lp-plan__cta">
-                  <a href={GITHUB} target="_blank" rel="noopener noreferrer" className="lp-btn lp-btn--ghost">
-                    <IconGit /> Ver en GitHub
-                  </a>
-                </div>
-              </article>
-
-              <article className="lp-plan lp-plan--cloud lp-reveal">
-                <div className="lp-plan__tag">Nube · gestionado por Driony</div>
-                <h3>Nosotros lo alojamos</h3>
-                <p className="lp-plan__price">{TRIAL_DAYS} días de Pro gratis, sin tarjeta</p>
-                <p>
-                  Tu espacio en <b>tu-empresa.driony.com</b> en dos minutos. Sin
-                  servidores ni actualizaciones que hacer, y con tus datos aislados de
-                  los de cualquier otra empresa. Empiezas con {TRIAL_DAYS} días del plan
-                  Pro completo; después sigues en Gratis, o pasas a Pro o Empresa cuando
-                  crezcas (<Link href="/precios">ver precios</Link>).
-                </p>
-                <div className="lp-plan__rows">
-                  {[
-                    "Alta inmediata con tu propio subdominio",
-                    "Conecta WhatsApp desde el panel",
-                    "Actualizaciones y copias de seguridad incluidas",
-                    "Aislamiento por empresa, también en la base de datos",
-                    "Conversiones de anuncios a Meta, como Meta Business Partner",
-                    "Soporte por correo de quien hace el producto",
-                  ].map((t) => (
-                    <div className="lp-row" key={t}>
-                      <span className="lp-row__ic">
-                        <Check />
-                      </span>
-                      {t}
-                    </div>
-                  ))}
-                </div>
-                <div className="lp-plan__cta">
-                  <Link href="/register" className="lp-btn lp-btn--primary">
-                    Probar {TRIAL_DAYS} días gratis <Arrow />
-                  </Link>
-                </div>
-              </article>
+                    {pro && (
+                      <div className="lp-plan__cta">
+                        <Link href="/register" className="lp-btn lp-btn--primary">
+                          Probar {TRIAL_DAYS} días gratis <Arrow />
+                        </Link>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
             </div>
             <p className="lp-plans__note lp-reveal">
-              ¿Empiezas con la versión de código abierto y luego quieres la nube, o al
-              revés? Es el mismo esquema de datos: se migra, no se rehace.{" "}
+              Los mensajes de WhatsApp los cobra Meta a tu cuenta, sin recargo nuestro. Sin permanencia: bajas o cancelas cuando quieras.{" "}
               <Link href="/precios" className="lp-plans__link">
                 Ver precios y límites de cada plan <Arrow />
               </Link>
             </p>
 
+            <div className="lp-oss lp-reveal">
+              <div>
+                <h3>¿Prefieres tu propio servidor?</h3>
+                <p>
+                  Driony es código abierto (AGPL-3.0). Lo instalas con Docker, sin planes ni límites, con tus datos en tu base y tus propias claves. Es el mismo esquema de datos que la nube: se migra, no se rehace.
+                </p>
+              </div>
+              <a href={GITHUB} target="_blank" rel="noopener noreferrer" className="lp-btn lp-btn--ghost">
+                <IconGit /> Ver en GitHub
+              </a>
+            </div>
+
             <div className="lp-faq lp-reveal">
-              <h3>Preguntas frecuentes</h3>
+              <h3>Lo que preguntan antes de empezar</h3>
               {FAQ.map((f) => (
                 <details key={f.q}>
                   <summary>{f.q}</summary>
@@ -546,11 +571,8 @@ export function Landing() {
         {/* ── Cierre: color de acción a todo ancho ── */}
         <section className="lp-cta-band">
           <div className="lp-wrap lp-cta-band__inner lp-reveal">
-            <h2>Pon a tu agente a vender hoy.</h2>
-            <p>
-              Conecta tu número, entrena tu IA y deja de perder leads en WhatsApp.
-              {" "}{TRIAL_DAYS} días de Pro gratis, sin tarjeta.
-            </p>
+            <h2>Tu próximo lead escribe esta noche. ¿Quién le responde?</h2>
+            <p>Conecta tu número, entrena tu agente y deja de perder ventas en WhatsApp. Hoy, en dos minutos.</p>
             <div className="lp-cta__row">
               <Link href="/register" className="lp-btn lp-btn--white lp-btn--lg">
                 Probar {TRIAL_DAYS} días gratis <Arrow />
@@ -559,6 +581,20 @@ export function Landing() {
                 Iniciar sesión
               </Link>
             </div>
+            <ul className="lp-cta-band__proof" aria-label="Sin riesgo">
+              <li>
+                <Check /> Sin tarjeta
+              </li>
+              <li>
+                <Check /> Sin permanencia
+              </li>
+              <li>
+                <Check /> Sigues en Gratis al terminar
+              </li>
+              <li>
+                <Check /> Tus datos son tuyos
+              </li>
+            </ul>
           </div>
         </section>
       </main>

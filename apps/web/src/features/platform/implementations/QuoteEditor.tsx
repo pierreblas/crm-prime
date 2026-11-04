@@ -267,7 +267,10 @@ export function QuoteEditor({
       return;
     }
     if (action === "accept") {
-      const ok = await confirmDialog({ message: `¿Registrar que el cliente aceptó ${quote.number} v${quote.version} por ${fmtMoney(quote.proposedPriceCents, quote.currency)}?`, confirmLabel: "Sí, aceptada" });
+      const ok = await confirmDialog({
+        message: `¿Registrar que el cliente aceptó ${quote.number} v${quote.version} por ${fmtMoney(quote.proposedPriceCents, quote.currency)}?${assessment.crm ? " La oportunidad del CRM propio pasa a ganada con ese valor." : ""}`,
+        confirmLabel: "Sí, aceptada",
+      });
       if (ok) act.mutate({ action });
       return;
     }
@@ -341,7 +344,7 @@ export function QuoteEditor({
                   <b style={{ color: "var(--warning)" }}>Precio por debajo del mínimo recomendado</b> ({fmtMoney(pricing?.proposedPriceCents ?? null, draft.currency)} frente a {fmtMoney(pricing?.minimumPriceCents ?? null, draft.currency)}). Aprobarlo es una excepción: escribe el motivo, queda en el diario con tu correo.
                 </>
               )}
-              {pending.action === "reject" && "¿Por qué la rechazó el cliente? Sirve para ajustar las próximas estimaciones."}
+              {pending.action === "reject" && `¿Por qué la rechazó el cliente? Sirve para ajustar las próximas estimaciones.${assessment.crm ? " La oportunidad del CRM propio pasa a perdida con ese motivo." : ""}`}
               {pending.action === "send" && "¿Por dónde se envió? (opcional: correo, WhatsApp, reunión…)"}
             </span>
             <textarea className="pc-notes" style={{ minHeight: 60 }} value={pending.text} maxLength={2000} onChange={(e) => setPending({ ...pending, text: e.target.value })} aria-label="Motivo" autoFocus />

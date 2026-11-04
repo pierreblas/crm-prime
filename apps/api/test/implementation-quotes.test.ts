@@ -70,6 +70,15 @@ const QUOTE_DEFAULTS = {
   supersededById: null,
 };
 
+/** El CRM de la empresa propia, cuando una prueba lo enciende. */
+interface FakeCrm {
+  pipelines: Row[];
+  stages: Row[];
+  contacts: Map<string, Row>;
+  deals: Map<string, Row>;
+  events: Row[];
+}
+
 /** Base en memoria con la parte de Prisma que usa el servicio. */
 class FakeDb {
   orgs = new Map<string, Row>([["org_1", { id: "org_1", name: "Acme", slug: "acme" }]]);
@@ -81,6 +90,12 @@ class FakeDb {
   audit: Row[] = [];
   seq = 0;
   numbers = 0;
+  /**
+   * Oportunidades, contactos y embudos SOLO existen cuando una prueba enciende
+   * el CRM propio; apagado, tocarlos lanza, y así las pruebas de cotizar siguen
+   * demostrando que no se tocan.
+   */
+  crm: FakeCrm | null = null;
 
   private assessmentWith(a: Row, include?: Row): Row {
     if (!include) return { ...a };
@@ -98,6 +113,34 @@ class FakeDb {
 
   client(): any {
     const self = this;
+    const crm = (): FakeCrm => {
+      if (!self.crm) throw new Error("El cotizador tocó el CRM sin que haya empresa propia");
+      return self.crm;
+    };
+    const stageOf = (id: string): Row => crm().stages.find((s) => s.id === id)!;
+    const isOpen = (d: Row) => !d.discardedAt && !stageOf(d.stageId).isWon && !stageOf(d.stageId).isLost;
+    const dealOut = (d: Row): Row => {
+      const stage = stageOf(d.stageId);
+      const pipeline = crm().pipelines.find((p) => p.id === stage.pipelineId)!;
+      const contact = crm().contacts.get(d.contactId)!;
+      return { ...d, stage: { ...stage, pipeline: { id: pipeline.id, name: pipeline.name } }, contact: { name: contact.name, phone: contact.phone }, org: { slug: self.orgs.get(d.orgId)?.slug } };
+    };
+    const dealMatches = (d: Row, where: Row): boolean => {
+      if (where.id !== undefined && (typeof where.id === "object" ? !where.id.in.includes(d.id) : d.id !== where.id)) return false;
+      if (where.orgId !== undefined && d.orgId !== where.orgId) return false;
+      if (where.discardedAt === null && d.discardedAt) return false;
+      if (where.stage && !isOpen(d)) return false;
+      if (where.OR) {
+        const c = crm().contacts.get(d.contactId)!;
+        return where.OR.some(
+          (o: Row) =>
+            (o.title && d.title.toLowerCase().includes(o.title.contains.toLowerCase())) ||
+            (o.contact?.name && (c.name ?? "").toLowerCase().includes(o.contact.name.contains.toLowerCase())) ||
+            (o.contact?.phone && c.phone.includes(o.contact.phone.contains)),
+        );
+      }
+      return true;
+    };
     const base: Row = {
       organization: { findUnique: async ({ where }: Row) => self.orgs.get(where.id) ?? null },
       platformAuditLog: {
@@ -106,11 +149,69 @@ class FakeDb {
           return data;
         },
       },
+      // ── CRM propio (solo encendido) ──
+      pipeline: {
+        findMany: async ({ where }: Row) => crm().pipelines.filter((p) => p.orgId === where.orgId).map((p) => ({ ...p, stages: crm().stages.filter((s) => s.pipelineId === p.id) })),
+        findFirst: async ({ where }: Row) => crm().pipelines.filter((p) => p.orgId === where.orgId).sort((a, b) => Number(b.isDefault) - Number(a.isDefault))[0] ?? null,
+      },
+      pipelineStage: {
+        findFirst: async ({ where }: Row) =>
+          crm()
+            .stages.filter(
+              (s) =>
+                (where.id === undefined || s.id === where.id) &&
+                (where.orgId === undefined || s.orgId === where.orgId) &&
+                (where.pipelineId === undefined || s.pipelineId === where.pipelineId) &&
+                (where.isWon === undefined || s.isWon === where.isWon) &&
+                (where.isLost === undefined || s.isLost === where.isLost),
+            )
+            .sort((a, b) => a.order - b.order)[0] ?? null,
+      },
+      contact: {
+        findFirst: async ({ where }: Row) =>
+          [...crm().contacts.values()].find((c) => (where.id === undefined || c.id === where.id) && (where.orgId === undefined || c.orgId === where.orgId) && (where.phone === undefined || c.phone === where.phone)) ?? null,
+        findMany: async ({ where }: Row) =>
+          [...crm().contacts.values()]
+            .filter((c) => c.orgId === where.orgId && where.OR.some((o: Row) => (o.name && (c.name ?? "").toLowerCase().includes(o.name.contains.toLowerCase())) || (o.phone && c.phone.includes(o.phone.contains))))
+            .map((c) => ({ ...c, _count: { deals: [...crm().deals.values()].filter((d) => d.contactId === c.id && isOpen(d)).length } })),
+        create: async ({ data }: Row) => {
+          const c = { id: `c${++self.seq}`, name: null, ...data };
+          crm().contacts.set(c.id, c);
+          return c;
+        },
+        update: async ({ where, data }: Row) => Object.assign(crm().contacts.get(where.id)!, data),
+      },
+      deal: {
+        findFirst: async ({ where }: Row) => {
+          const d = [...crm().deals.values()].find((x) => dealMatches(x, where));
+          return d ? dealOut(d) : null;
+        },
+        findMany: async ({ where }: Row) => [...crm().deals.values()].filter((x) => dealMatches(x, where)).map(dealOut),
+        create: async ({ data }: Row) => {
+          const d = { id: `d${++self.seq}`, value: null, discardedAt: null, lostReason: null, updatedAt: new Date(), ...data };
+          crm().deals.set(d.id, d);
+          crm().events.push({ dealId: d.id, kind: "created", actor: "trigger" }); // lo que haría el disparador de la base
+          return { id: d.id };
+        },
+        update: async ({ where, data }: Row) => Object.assign(crm().deals.get(where.id)!, data, { updatedAt: new Date() }),
+      },
+      dealEvent: {
+        create: async ({ data }: Row) => {
+          crm().events.push(data);
+          return data;
+        },
+      },
       implementationAssessment: {
-        findMany: async ({ where, include }: Row) =>
-          [...self.assessments.values()].filter((a) => (where?.archivedAt === null ? !a.archivedAt : !!a.archivedAt)).map((a) => self.assessmentWith(a, include)),
+        findMany: async ({ where, include }: Row) => {
+          if (where?.dealId?.in) return [...self.assessments.values()].filter((a) => where.dealId.in.includes(a.dealId)).map((a) => ({ ...a }));
+          return [...self.assessments.values()].filter((a) => (where?.archivedAt === null ? !a.archivedAt : !!a.archivedAt)).map((a) => self.assessmentWith(a, include));
+        },
+        findFirst: async ({ where }: Row) => {
+          const a = [...self.assessments.values()].find((x) => x.dealId === where.dealId);
+          return a ? { ...a } : null;
+        },
         create: async ({ data, include }: Row) => {
-          const a = { id: `a${++self.seq}`, quoteNumber: null, archivedAt: null, createdAt: new Date(), updatedAt: new Date(), ...data };
+          const a = { id: `a${++self.seq}`, quoteNumber: null, dealId: null, archivedAt: null, createdAt: new Date(), updatedAt: new Date(), ...data };
           self.assessments.set(a.id, a);
           return self.assessmentWith(a, include);
         },
@@ -198,13 +299,16 @@ class FakeDb {
 
 const ACTOR = "ops@driony.test";
 
+/** El emisor de eventos de Nest: aquí nadie escucha. */
+const events = () => ({ emit() {} }) as any;
+
 function scope(extra: Partial<Record<string, unknown>> = {}) {
   return shared.assessmentScopeSchema.parse({ complexity: { ...shared.DEFAULT_COMPLEXITY, numbers: "few", agents: "autopilot" }, ...extra });
 }
 
 async function setup() {
   const db = new FakeDb();
-  const svc = new ImplementationsService(db.client());
+  const svc = new ImplementationsService(db.client(), events());
   const a = await svc.create(
     shared.createAssessmentSchema.parse({ title: "Clínica Sonrisa", clientName: "Clínica Sonrisa SAC", orgId: "org_1", scope: scope(), riskFlags: ["no_meta_access"] }),
     ACTOR,
@@ -542,11 +646,153 @@ test("archivar saca el diagnóstico del listado y restaurar lo devuelve", async 
 
 test("un prospecto sin cuenta cotiza igual y su diario va sin empresa", async () => {
   const db = new FakeDb();
-  const svc = new ImplementationsService(db.client());
+  const svc = new ImplementationsService(db.client(), events());
   const a = await svc.create(shared.createAssessmentSchema.parse({ title: "Ferretería Lima", clientName: "Ferretería Lima", scope: scope() }), ACTOR);
   assert.equal(a.orgId, null);
   assert.equal(a.orgName, null);
   const q = await svc.createQuote(a.id, ACTOR);
   assert.match(q.number, /^COT-/);
   assert.ok(db.audit.every((e) => e.orgId === null));
+});
+
+// ── CRM propio: la oportunidad de Driony para cada diagnóstico ──
+
+function enableCrm(db: FakeDb) {
+  db.orgs.set("org_own", { id: "org_own", name: "Driony", slug: "driony" });
+  db.orgs.set("org_other", { id: "org_other", name: "Otra", slug: "otra" });
+  db.crm = {
+    pipelines: [
+      { id: "p1", orgId: "org_own", name: "Ventas", isDefault: true, order: 0 },
+      { id: "p_other", orgId: "org_other", name: "Otro", isDefault: true, order: 0 },
+    ],
+    stages: [
+      { id: "s1", orgId: "org_own", pipelineId: "p1", name: "Nuevo", order: 0, isWon: false, isLost: false },
+      { id: "s2", orgId: "org_own", pipelineId: "p1", name: "Contactado", order: 1, isWon: false, isLost: false },
+      { id: "sw", orgId: "org_own", pipelineId: "p1", name: "Ganado", order: 2, isWon: true, isLost: false },
+      { id: "sl", orgId: "org_own", pipelineId: "p1", name: "Perdido", order: 3, isWon: false, isLost: true },
+      { id: "so", orgId: "org_other", pipelineId: "p_other", name: "Nuevo", order: 0, isWon: false, isLost: false },
+    ],
+    contacts: new Map([
+      ["c1", { id: "c1", orgId: "org_own", name: "Ana Torres", phone: "+51911111111" }],
+      ["c_other", { id: "c_other", orgId: "org_other", name: "Otro", phone: "+51922222222" }],
+    ]),
+    deals: new Map([
+      ["d_ana", { id: "d_ana", orgId: "org_own", contactId: "c1", stageId: "s1", title: "Ana · web", value: null, currency: "USD", discardedAt: null, lostReason: null, updatedAt: new Date() }],
+      ["d_other", { id: "d_other", orgId: "org_other", contactId: "c_other", stageId: "so", title: "Ajena", value: null, currency: "USD", discardedAt: null, lostReason: null, updatedAt: new Date() }],
+    ]),
+    events: [],
+  };
+}
+
+/** Diagnóstico con cotización a 900 USD y la empresa propia elegida, entrando por «Contactado». */
+async function setupCrm() {
+  const { db, svc, a } = await setup();
+  enableCrm(db);
+  await svc.updateSettings({ ...shared.DEFAULT_PRICING_SETTINGS, crmOrgId: "org_own", crmStageId: "s2" }, ACTOR);
+  const q = await svc.createQuote(a.id, ACTOR);
+  await svc.updateQuote(q.id, { items: [{ category: "AGENT", description: "Agente", hours: 20, hourlyCostCents: 2000, thirdPartyCents: 0, otherCents: 0 }], proposedPriceCents: 90000 }, ACTOR);
+  return { db, svc, a, q };
+}
+
+test("sin empresa propia en los ajustes, enlazar avisa y no toca ninguna oportunidad", async () => {
+  const { svc, a } = await setup();
+  await assert.rejects(() => svc.linkCrm(a.id, { mode: "new", name: "Ana", phone: "+51 999 888 777" }, ACTOR), /Elige primero la empresa propia/);
+});
+
+test("los ajustes rechazan una empresa propia inexistente o una etapa de otra empresa", async () => {
+  const { db, svc } = await setup();
+  enableCrm(db);
+  await assert.rejects(() => svc.updateSettings({ ...shared.DEFAULT_PRICING_SETTINGS, crmOrgId: "org_x", crmStageId: null }, ACTOR), /no existe/);
+  await assert.rejects(() => svc.updateSettings({ ...shared.DEFAULT_PRICING_SETTINGS, crmOrgId: "org_own", crmStageId: "so" }, ACTOR), /no pertenece/);
+  const saved = await svc.updateSettings({ ...shared.DEFAULT_PRICING_SETTINGS, crmOrgId: null, crmStageId: "s2" }, ACTOR);
+  assert.equal(saved.settings.crmStageId, null, "sin empresa no hay etapa");
+  assert.deepEqual((await svc.crmPipelines("org_own")).map((p) => [p.name, p.stages.length]), [["Ventas", 4]]);
+});
+
+test("enlazar con contacto nuevo crea el contacto y la oportunidad en la etapa de los ajustes, con el precio propuesto", async () => {
+  const { db, svc, a } = await setupCrm();
+  const linked = await svc.linkCrm(a.id, { mode: "new", name: "Lucía Paredes", phone: "+51 999 888 777" }, ACTOR);
+  const crm = db.crm!;
+  const contact = [...crm.contacts.values()].find((c) => c.phone === "+51999888777");
+  assert.ok(contact, "el teléfono se normaliza a E.164");
+  assert.equal(contact!.orgId, "org_own");
+  assert.equal(contact!.originDetail, "cotizador");
+  assert.equal(crm.deals.size, 3);
+  const deal = crm.deals.get(linked.dealId!)!;
+  assert.equal(deal.orgId, "org_own");
+  assert.equal(deal.stageId, "s2");
+  assert.equal(deal.value, 900);
+  assert.equal(deal.currency, "USD");
+  assert.equal(deal.title, "Clínica Sonrisa SAC · Clínica Sonrisa");
+  assert.equal(linked.crm?.stageName, "Contactado");
+  assert.equal(linked.crm?.contactName, "Lucía Paredes");
+  assert.equal(linked.crm?.valueCents, 90000);
+  assert.match(linked.crm!.url, /driony\..*\/pipeline\?id=p1&deal=/);
+  assert.equal(db.audit.at(-1)!.action, "crm_linked");
+  assert.equal(db.audit.at(-1)!.details.created, true);
+  assert.deepEqual(crm.events.filter((e) => e.kind === "quote").map((e) => e.meta.label), ["oportunidad creada desde el cotizador"]);
+  // El listado también la resuelve.
+  assert.equal((await svc.list())[0]!.crm?.dealId, linked.dealId);
+  // Un segundo enlace no se permite sin desvincular.
+  await assert.rejects(() => svc.linkCrm(a.id, { mode: "contact", contactId: "c1" }, ACTOR), /ya está enlazado/);
+  // El mismo número otra vez reutiliza el contacto.
+  const b = await svc.create(shared.createAssessmentSchema.parse({ title: "Otra", clientName: "Otra SAC", scope: scope() }), ACTOR);
+  await svc.linkCrm(b.id, { mode: "new", name: "Lucía", phone: "+51999888777" }, ACTOR);
+  assert.equal([...crm.contacts.values()].filter((c) => c.phone === "+51999888777").length, 1);
+});
+
+test("aceptar pasa la oportunidad a ganada con el valor; rechazar, a perdida con el motivo; y todo queda en su historial", async () => {
+  const { db, svc, a, q } = await setupCrm();
+  await svc.linkCrm(a.id, { mode: "contact", contactId: "c1" }, ACTOR);
+  const dealId = (await svc.get(a.id)).dealId!;
+  const crm = db.crm!;
+  // Un cambio de precio en borrador no se refleja hasta aprobar.
+  await svc.updateQuote(q.id, { proposedPriceCents: 120000 }, ACTOR);
+  assert.equal(crm.deals.get(dealId)!.value, 900);
+  await svc.act(q.id, "submit", {}, ACTOR);
+  await svc.act(q.id, "approve", {}, ACTOR);
+  assert.equal(crm.deals.get(dealId)!.value, 1200, "al aprobar toma el precio aprobado");
+  assert.equal(crm.deals.get(dealId)!.stageId, "s2", "aprobar no mueve de etapa");
+  await svc.act(q.id, "send", { note: "correo" }, ACTOR);
+  await svc.act(q.id, "accept", {}, ACTOR);
+  assert.equal(crm.deals.get(dealId)!.stageId, "sw", "aceptada → ganada");
+  const labels = crm.events.filter((e) => e.dealId === dealId && e.kind === "quote").map((e) => e.meta.label);
+  assert.deepEqual(labels, ["oportunidad creada desde el cotizador", "aprobada internamente", "enviada al cliente", "aceptada por el cliente"]);
+  assert.ok(crm.events.filter((e) => e.kind === "quote").every((e) => e.actor === "system:cotizador"));
+
+  // Rechazo, sobre una oportunidad que ya existía sin valor.
+  const b = await svc.create(shared.createAssessmentSchema.parse({ title: "Bodega", clientName: "Bodega SAC", scope: scope() }), ACTOR);
+  const qb = await svc.createQuote(b.id, ACTOR);
+  await svc.updateQuote(qb.id, { items: [{ category: "AGENT", description: "Agente", hours: 5, hourlyCostCents: 2000, thirdPartyCents: 0, otherCents: 0 }], proposedPriceCents: 30000 }, ACTOR);
+  await svc.linkCrm(b.id, { mode: "deal", dealId: "d_ana" }, ACTOR);
+  assert.equal(crm.deals.get("d_ana")!.value, 300, "una oportunidad sin valor toma el propuesto al enlazar");
+  await svc.act(qb.id, "submit", {}, ACTOR);
+  await svc.act(qb.id, "approve", {}, ACTOR);
+  await svc.act(qb.id, "send", {}, ACTOR);
+  await svc.act(qb.id, "reject", { reason: "Eligieron otra agencia" }, ACTOR);
+  assert.equal(crm.deals.get("d_ana")!.stageId, "sl", "rechazada → perdida");
+  assert.equal(crm.deals.get("d_ana")!.lostReason, "Eligieron otra agencia");
+});
+
+test("una oportunidad ya enlazada o de otra empresa no se enlaza; desvincular la deja en el CRM", async () => {
+  const { db, svc, a } = await setupCrm();
+  await assert.rejects(() => svc.linkCrm(a.id, { mode: "deal", dealId: "d_other" }, ACTOR), /no es de la empresa propia/);
+  await assert.rejects(() => svc.linkCrm(a.id, { mode: "contact", contactId: "c_other" }, ACTOR), /no es de la empresa propia/);
+  await assert.rejects(() => svc.linkCrm(a.id, { mode: "new", name: "Sin país", phone: "999" }, ACTOR), /Teléfono no válido/);
+  await svc.linkCrm(a.id, { mode: "deal", dealId: "d_ana" }, ACTOR);
+  const b = await svc.create(shared.createAssessmentSchema.parse({ title: "Otra", clientName: "Otra SAC", scope: scope() }), ACTOR);
+  await assert.rejects(() => svc.linkCrm(b.id, { mode: "deal", dealId: "d_ana" }, ACTOR), /ya está enlazada a COT-/);
+  // La búsqueda lo dice.
+  const found = await svc.crmSearch("ana");
+  assert.deepEqual(found.deals.map((d) => [d.id, d.linkedTo !== null]), [["d_ana", true]]);
+  assert.deepEqual(found.contacts.map((c) => [c.id, c.openDeals]), [["c1", 1]]);
+  // Desvincular: la oportunidad sigue, con su historial.
+  const unlinked = await svc.unlinkCrm(a.id, ACTOR);
+  assert.equal(unlinked.dealId, null);
+  assert.equal(unlinked.crm, null);
+  assert.ok(db.crm!.deals.has("d_ana"));
+  assert.equal(db.crm!.events.at(-1)!.meta.label, "desvinculada del cotizador");
+  assert.equal(db.audit.at(-1)!.action, "crm_unlinked");
+  // Y ahora sí puede tomarla el otro diagnóstico.
+  await svc.linkCrm(b.id, { mode: "deal", dealId: "d_ana" }, ACTOR);
 });

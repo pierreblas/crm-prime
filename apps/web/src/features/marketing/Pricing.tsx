@@ -20,7 +20,7 @@ import {
   type PlanLimit,
 } from "@crm/shared";
 import "./landing.css";
-import { Arrow, Check, CONTACT, GITHUB, IconGit, LpThemeScript, MarketingFooter, MarketingHeader, Minus } from "./chrome";
+import { Arrow, Check, CONTACT, GITHUB, IconGit, MarketingFooter, MarketingHeader, Minus } from "./chrome";
 
 /** Lo que llevan todos los planes de la nube, también el gratis. */
 const INCLUDED = [
@@ -91,7 +91,6 @@ const FAQ = [
 export function Pricing() {
   return (
     <div className="lp" id="lp-root" lang="es" suppressHydrationWarning>
-      <LpThemeScript />
       <a href="#contenido" className="lp-skip">
         Saltar al contenido
       </a>

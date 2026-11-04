@@ -330,6 +330,13 @@ export const pricingSettingsSchema = z.object({
   rates: z.array(pricingRateSchema).max(20),
   templates: z.array(pricingTemplateSchema).max(10),
   referenceOffers: z.array(referenceOfferSchema).max(10),
+  /**
+   * Empresa propia de Driony dentro de la plataforma: su CRM recibe una
+   * oportunidad por cada diagnóstico que se enlaza. null = sin enlace al CRM.
+   */
+  crmOrgId: z.string().max(64).nullable().default(null),
+  /** Etapa donde entran las oportunidades nuevas; null = primera etapa del embudo predeterminado. */
+  crmStageId: z.string().max(64).nullable().default(null),
 });
 export type PricingSettings = z.infer<typeof pricingSettingsSchema>;
 
@@ -405,9 +412,80 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
     { key: "hibrida", name: "Híbrida (Copilot + Autopilot)", fromCents: 59000 },
     { key: "personalizada", name: "Personalizada (integraciones)", fromCents: 120000 },
   ],
+  crmOrgId: null,
+  crmStageId: null,
 };
 
 export const archiveAssessmentSchema = z.object({ archived: z.boolean() });
+
+// ── CRM propio: la oportunidad de Driony para cada diagnóstico ──
+//
+// La empresa propia se elige en los ajustes (crmOrgId). El cotizador crea o
+// enlaza ahí una oportunidad y la mantiene como espejo de la cotización: toma
+// el valor al aprobar o aceptar, pasa a ganada al aceptar y a perdida al
+// rechazar. Nunca al revés: el CRM no cambia la cotización.
+
+/** Un embudo de la empresa propia con sus etapas, para elegir dónde entran las oportunidades. */
+export const crmPipelineSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  isDefault: z.boolean(),
+  stages: z.array(z.object({ id: z.string(), name: z.string(), order: z.number(), isWon: z.boolean(), isLost: z.boolean() })),
+});
+export type CrmPipeline = z.infer<typeof crmPipelineSchema>;
+
+/** La oportunidad enlazada, tal como la ve la ficha del diagnóstico. */
+export const crmDealLinkSchema = z.object({
+  dealId: z.string(),
+  title: z.string(),
+  pipelineId: z.string(),
+  pipelineName: z.string(),
+  stageName: z.string(),
+  isWon: z.boolean(),
+  isLost: z.boolean(),
+  discarded: z.boolean(),
+  contactName: z.string().nullable(),
+  contactPhone: z.string(),
+  valueCents: z.number().nullable(),
+  currency: z.string(),
+  /** La tarjeta en el panel de la empresa propia. */
+  url: z.string(),
+});
+export type CrmDealLink = z.infer<typeof crmDealLinkSchema>;
+
+/** Lo que devuelve la búsqueda en el CRM propio al enlazar. */
+export const crmSearchResultSchema = z.object({
+  /** Oportunidades abiertas (ni ganadas, ni perdidas, ni descartadas). */
+  deals: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      pipelineName: z.string(),
+      stageName: z.string(),
+      contactName: z.string().nullable(),
+      contactPhone: z.string(),
+      valueCents: z.number().nullable(),
+      currency: z.string(),
+      /** Número del diagnóstico que ya la tiene enlazada; null si está libre. */
+      linkedTo: z.string().nullable(),
+    }),
+  ),
+  contacts: z.array(z.object({ id: z.string(), name: z.string().nullable(), phone: z.string(), openDeals: z.number() })),
+});
+export type CrmSearchResult = z.infer<typeof crmSearchResultSchema>;
+
+/** Enlazar: una oportunidad existente, o una nueva para un contacto existente o nuevo. */
+export const crmLinkInputSchema = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("deal"), dealId: z.string().min(1).max(64) }),
+  z.object({ mode: z.literal("contact"), contactId: z.string().min(1).max(64) }),
+  z.object({
+    mode: z.literal("new"),
+    name: text(160).min(1, "Falta el nombre del contacto"),
+    /** Con código de país; se normaliza a E.164 en el servidor. */
+    phone: z.string().trim().min(5, "Falta el teléfono").max(40),
+  }),
+]);
+export type CrmLinkInput = z.infer<typeof crmLinkInputSchema>;
 
 export const assessmentStageSchema = z.enum(["diagnosis", "quoting", "review", "approved", "sent", "accepted", "rejected", "expired", "cancelled"]);
 export type AssessmentStage = z.infer<typeof assessmentStageSchema>;
@@ -429,6 +507,10 @@ export const implementationAssessmentRowSchema = z.object({
   complexityBand: z.enum(["low", "medium", "high"]),
   stage: assessmentStageSchema,
   latestQuote: quoteSummarySchema.nullable(),
+  /** Oportunidad del CRM propio enlazada (su id, aunque ya no se encuentre). */
+  dealId: z.string().nullable(),
+  /** La oportunidad resuelta; null si no hay enlace o si ya no se encuentra. */
+  crm: crmDealLinkSchema.nullable(),
   archivedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

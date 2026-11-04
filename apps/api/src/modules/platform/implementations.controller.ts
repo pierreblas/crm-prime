@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Req, UseGuards } from "@nestjs/common";
 import type { Request } from "express";
 import {
   archiveAssessmentSchema,
   createAssessmentSchema,
+  crmLinkInputSchema,
   implementationActualInputSchema,
   pricingSettingsSchema,
   quoteActionBodySchema,
@@ -10,6 +11,9 @@ import {
   updateAssessmentSchema,
   updateQuoteSchema,
   type CreateAssessmentInput,
+  type CrmLinkInput,
+  type CrmPipeline,
+  type CrmSearchResult,
   type ImplementationActualInput,
   type ImplementationAssessment,
   type ImplementationAssessmentRow,
@@ -52,6 +56,32 @@ export class ImplementationsController {
   @Put("implementations/settings")
   updateSettings(@Body(new ZodValidationPipe(pricingSettingsSchema)) body: PricingSettings, @Req() req: Request): Promise<PricingSettingsDto> {
     return this.svc.updateSettings(body, this.actor(req));
+  }
+
+  // ── CRM propio ─────────────────────────────────────────────
+
+  /** Embudos y etapas de una empresa (para elegir la etapa de entrada en Ajustes). */
+  @Get("implementations/crm/pipelines")
+  crmPipelines(@Query("orgId") orgId?: string): Promise<CrmPipeline[]> {
+    if (!orgId) throw new BadRequestException("Falta la empresa");
+    return this.svc.crmPipelines(orgId);
+  }
+
+  /** Oportunidades abiertas y contactos de la empresa propia que coinciden con el texto. */
+  @Get("implementations/crm/search")
+  crmSearch(@Query("q") q?: string): Promise<CrmSearchResult> {
+    return this.svc.crmSearch(q ?? "");
+  }
+
+  @Post("implementations/:id/crm-link")
+  @HttpCode(200)
+  linkCrm(@Param("id") id: string, @Body(new ZodValidationPipe(crmLinkInputSchema)) body: CrmLinkInput, @Req() req: Request): Promise<ImplementationAssessment> {
+    return this.svc.linkCrm(id, body, this.actor(req));
+  }
+
+  @Delete("implementations/:id/crm-link")
+  unlinkCrm(@Param("id") id: string, @Req() req: Request): Promise<ImplementationAssessment> {
+    return this.svc.unlinkCrm(id, this.actor(req));
   }
 
   // ── Diagnósticos ───────────────────────────────────────────

@@ -594,6 +594,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     const SYSTEM: Record<string, string> = {
       "auto-discard": "Descarte automático",
       whatsapp: "Entrada desde WhatsApp",
+      cotizador: "Cotizador de implementaciones",
     };
     const actorOf = (a: string | null): DealEventDto["actor"] => {
       if (!a) return { kind: "unknown", label: "Sistema" };
@@ -621,6 +622,11 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
       } else if (r.kind === "booking") {
         // «Cita reservada: Corte · martes, 3 de noviembre, 10:30»
         detail = `${String(m.label ?? "Cita")}: ${String(m.service ?? "")} · ${String(m.when ?? "")}${m.reason ? ` (${String(m.reason)})` : ""}`;
+      } else if (r.kind === "quote") {
+        // «COT-2026-0007 v2 aceptada por el cliente · 1.200 USD» (solo en la empresa propia de Driony)
+        const version = m.version === null || m.version === undefined ? "" : ` v${String(m.version)}`;
+        const amount = typeof m.amountCents === "number" ? ` · ${money(m.amountCents / 100, m.currency)}` : "";
+        detail = `${String(m.number ?? "Cotización")}${version} ${String(m.label ?? "")}${amount}${m.reason ? ` (${String(m.reason)})` : ""}`;
       }
       return {
         id: r.id,

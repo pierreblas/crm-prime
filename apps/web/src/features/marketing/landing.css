@@ -1,35 +1,44 @@
-/* Landing pública — noche, Lemon Tonic y Super Sonic. La identidad la cargan el
-   titular en Lemon, el estallido de puntos en Super Sonic, la banda azul con
-   letra Lemon y el cierre a sangre en Lemon con tinta noche. Sea Angel es el
-   texto secundario. La variante clara (data-theme="light", al final del archivo)
-   es el póster: lienzo Sea Angel, donde ni el amarillo (1,9:1) ni el azul (2,3:1)
-   sirven como texto y escribe el azul noche.
-   Todo va scopeado bajo .lp para no filtrarse a la app. Las fuentes vienen
-   de globals.css (--font-display / --font-sans). */
+/* Landing pública — «Ácido»: lima sobre negro casi puro, bloques de color
+   pleno, píxeles como motivo, titulares condensados en mayúsculas y mono en
+   etiquetas y botones. La identidad la cargan el bloque lima del hero con tinta
+   noir, la banda lima, las tiles numeradas de capacidades y el cierre a sangre.
+   Un solo tema, oscuro a propósito. Todo va scopeado bajo .lp para no filtrarse
+   a la app. Las fuentes vienen de globals.css (--font-display / --font-sans /
+   --font-mono). */
 
 .lp {
-  --bg: #060e1c;
-  --surface: #0c1829;
-  --surface-2: #0a1424;
-  --border: rgba(154, 185, 194, 0.2);
-  --border-soft: rgba(154, 185, 194, 0.12);
-  --ink: #f2f7f9;
-  --ink-dim: #d6e4e9;
-  --muted: #9ab9c2;
-  --accent: #fefd14;
-  --accent-hover: #ffff66;
-  --accent-bright: #ffff66;
-  --accent-text: #fefd14;
-  --accent-ink: #060e1c;
-  --accent-soft: rgba(11, 108, 216, 0.24);
-  --accent-line: rgba(254, 253, 20, 0.32);
-  --invert-hover: #0f2240;
-  --positive: #fefd14;
-  --glass-line: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --bg: #08090b;
+  --surface: #0f1014;
+  --surface-2: #131419;
+  --border: rgba(233, 237, 242, 0.14);
+  --border-soft: rgba(233, 237, 242, 0.08);
+  --ink: #f2f4f6;
+  --ink-dim: #c9ced6;
+  --muted: #9aa3ad;
+  --accent: #e2f80d;
+  --accent-hover: #eefc4a;
+  --accent-bright: #e2f80d;
+  --accent-text: #e2f80d;
+  --accent-ink: #0a0b10;
+  --accent-soft: rgba(226, 248, 13, 0.08);
+  --accent-line: rgba(226, 248, 13, 0.45);
+  --invert-hover: #1c1e22;
+  --positive: #e2f80d;
+  /* Verde circuito: el segundo tono de los píxeles, como en la referencia. */
+  --green: #1f6b3b;
+  /* Cian: solo para lo que mide o está en marcha (la IA, los datos), nunca para actuar. */
+  --cyan: #00e5ff;
+  --cyan-soft: rgba(0, 229, 255, 0.1);
+  --cyan-line: rgba(0, 229, 255, 0.45);
+  --glass-line: 0 0 0 0 transparent;
+  /* Dentro de un bloque lima, la tinta y sus grises. */
+  --on-lemon: #0a0b10;
+  --on-lemon-dim: #1c2000;
+  --on-lemon-muted: #3d4300;
 
-  --r-sm: 8px;
-  --r-md: 12px;
-  --r-pill: 999px;
+  --r-sm: 0;
+  --r-md: 0;
+  --r-pill: 0;
   --maxw: 1140px;
   --nav-h: 66px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -43,10 +52,7 @@
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
-  /* Un brillo bajo de Super Sonic arriba a la izquierda. */
-  background:
-    radial-gradient(1000px 560px at 8% -6%, rgba(11, 108, 216, 0.26), transparent 62%),
-    var(--bg);
+  background: var(--bg);
 }
 
 .lp *,
@@ -56,8 +62,8 @@
 }
 
 .lp ::selection {
-  background: var(--lemon-tonic, #fefd14);
-  color: #07233f;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* ── Tipografía ─────────────────────────────────────────────── */
@@ -65,22 +71,26 @@
 .lp h2,
 .lp h3 {
   font-family: var(--font-display);
-  font-weight: 700;
-  line-height: 1.06;
-  letter-spacing: -0.025em;
+  font-weight: 800;
+  font-stretch: 82%;
+  text-transform: uppercase;
+  line-height: 0.96;
+  letter-spacing: -0.01em;
   margin: 0;
   text-wrap: balance;
 }
 .lp h1 {
-  font-size: clamp(2.4rem, 1.5rem + 3.6vw, 4rem);
+  font-size: clamp(2.5rem, 1.5rem + 3.8vw, 4.3rem);
 }
 .lp h2 {
-  font-size: clamp(1.8rem, 1.25rem + 2.4vw, 2.85rem);
+  font-size: clamp(1.9rem, 1.3rem + 2.6vw, 3.1rem);
 }
 .lp h3 {
-  font-size: clamp(1.15rem, 1rem + 0.6vw, 1.4rem);
-  letter-spacing: -0.015em;
-  line-height: 1.2;
+  font-size: clamp(1.2rem, 1.05rem + 0.6vw, 1.5rem);
+  font-weight: 700;
+  font-stretch: 88%;
+  letter-spacing: 0;
+  line-height: 1.04;
 }
 /* :where() deja la especificidad a cero: una clase sola (.lp-hero__sub,
    .lp-plans__note) puede fijar su propio margen. */
@@ -149,10 +159,12 @@
   gap: 9px;
   min-height: 44px;
   padding: 12px 22px;
-  border-radius: var(--r-pill);
-  font: inherit;
-  font-weight: 600;
-  font-size: 15px;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   line-height: 1.2;
   cursor: pointer;
   border: 1px solid transparent;
@@ -170,7 +182,7 @@
 .lp-btn--primary {
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 0 0 1px rgba(254, 253, 20, 0.35), 0 10px 26px -12px rgba(254, 253, 20, 0.45);
+  box-shadow: none;
 }
 .lp-btn--ghost {
   background: rgba(255, 255, 255, 0.03);
@@ -178,15 +190,15 @@
   border-color: var(--border);
 }
 .lp-btn--lg {
-  padding: 15px 28px;
-  font-size: 16px;
+  padding: 15px 26px;
+  font-size: 13.5px;
 }
 /* Sobre la banda de color el primario se invierte. .lp a pesa más que una
    clase sola, de ahí el selector compuesto. */
 .lp .lp-btn--white {
   background: var(--accent-ink);
   color: var(--accent);
-  box-shadow: 0 12px 30px -14px rgba(7, 35, 63, 0.6);
+  box-shadow: none;
 }
 .lp .lp-btn--outline {
   background: transparent;
@@ -198,7 +210,7 @@
   .lp-btn--primary:hover {
     background: var(--accent-hover);
     transform: translateY(-2px);
-    box-shadow: 0 0 0 1px rgba(254, 253, 20, 0.5), 0 14px 32px -12px rgba(254, 253, 20, 0.6);
+    box-shadow: 0 0 18px rgba(226, 248, 13, 0.35);
   }
   .lp-btn--ghost:hover {
     border-color: var(--accent-line);
@@ -222,9 +234,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(6, 14, 28, 0.8);
-  backdrop-filter: blur(16px) saturate(150%);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  background: rgba(8, 9, 11, 0.94);
   border-bottom: 1px solid transparent;
   transition: border-color 0.2s ease;
 }
@@ -252,7 +262,7 @@
   place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 9px;
+  border-radius: 0;
   background: var(--accent);
   color: var(--accent-ink);
 }
@@ -267,10 +277,13 @@
   align-items: center;
   min-height: 44px;
   color: var(--muted);
-  font-size: 14.5px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
   font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   padding: 0 11px;
-  border-radius: var(--r-sm);
+  border-radius: 0;
   transition: color 0.14s ease, background 0.14s ease;
 }
 .lp-nav__links a:hover,
@@ -291,10 +304,13 @@
   align-items: center;
   min-height: 44px;
   color: var(--ink);
-  font-size: 14.5px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   padding: 0 12px;
-  border-radius: var(--r-sm);
+  border-radius: 0;
 }
 .lp-nav__login:hover {
   background: rgba(255, 255, 255, 0.05);
@@ -303,7 +319,7 @@
   display: none;
   width: 44px;
   height: 44px;
-  border-radius: 10px;
+  border-radius: 0;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--ink);
@@ -326,9 +342,7 @@
   display: flex;
   flex-direction: column;
   padding: max(16px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
-  background: rgba(6, 14, 28, 0.98);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(8, 9, 11, 0.98);
   color: var(--ink);
   font-family: var(--font-sans);
   animation: lp-fade 0.18s var(--ease) both;
@@ -345,7 +359,7 @@
 .lp-menu__close {
   width: 44px;
   height: 44px;
-  border-radius: 10px;
+  border-radius: 0;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--ink);
@@ -386,78 +400,156 @@
 /* ── Hero ───────────────────────────────────────────────────── */
 .lp-hero {
   position: relative;
-  padding-top: clamp(40px, 6vw, 76px);
-  padding-bottom: clamp(48px, 6vw, 88px);
+  padding: 0;
 }
-/* Estallido de puntos en Super Sonic, detrás de la conversación. */
-.lp-hero::before {
+/* A sangre: la mitad izquierda de la ventana es lima y la derecha oscura, y la
+   rejilla de dentro parte en el mismo punto (50 %), así cada bloque sigue hasta
+   el borde y el texto queda alineado con la columna del nav. En columna
+   (≤900px) cada bloque lleva su propio fondo. */
+@media (min-width: 901px) {
+  .lp-hero {
+    background:
+      linear-gradient(90deg, var(--accent) 50%, transparent 50%),
+      radial-gradient(42% 90% at 82% 8%, rgba(31, 107, 59, 0.5), transparent 60%),
+      var(--surface-2);
+  }
+  .lp-hero__demo {
+    background: none;
+  }
+}
+/* Píxeles: el motivo de la referencia, lima y verde circuito. */
+.lp-pix,
+.lp-hero__demo::after,
+.lp-cta-band::before {
   content: "";
   position: absolute;
-  top: -9%;
-  left: 50%;
-  width: min(960px, 78vw);
-  aspect-ratio: 1;
+  width: 96px;
+  height: 96px;
   pointer-events: none;
-  background: url("/landing/estallido.webp") center / contain no-repeat;
-}
-@media (max-width: 1024px) {
-  .lp-hero::before {
-    top: auto;
-    bottom: -40px;
-    left: 18%;
-    width: max(620px, 110vw);
-  }
+  background:
+    linear-gradient(var(--accent), var(--accent)) 0 0 / 32px 32px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) 32px 32px / 32px 32px no-repeat,
+    linear-gradient(var(--green), var(--green)) 64px 0 / 32px 32px no-repeat,
+    linear-gradient(var(--green), var(--green)) 64px 64px / 32px 32px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) 32px 64px / 16px 16px no-repeat;
 }
 .lp-hero__grid {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: clamp(28px, 4vw, 56px);
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  align-items: stretch;
+}
+.lp-hero__copy {
+  background: var(--accent);
+  color: var(--on-lemon);
+  /* Sin relleno a la izquierda: el borde del contenido ya es el de la columna del nav. */
+  padding: clamp(28px, 3.2vw, 44px) clamp(22px, 3.4vw, 44px) clamp(28px, 3.2vw, 44px) 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.lp-hero__demo {
+  position: relative;
+  display: flex;
   align-items: center;
+  padding: clamp(18px, 2.6vw, 32px) 0 clamp(18px, 2.6vw, 32px) clamp(18px, 2.6vw, 32px);
+  background:
+    radial-gradient(120% 90% at 70% 10%, rgba(31, 107, 59, 0.5), transparent 58%),
+    var(--surface-2);
+  overflow: hidden;
+}
+.lp-hero__demo::after {
+  right: 18px;
+  bottom: 18px;
+  width: 64px;
+  height: 64px;
+  background-size: 21.3px 21.3px, 21.3px 21.3px, 21.3px 21.3px, 21.3px 21.3px, 10.6px 10.6px;
+  background-position: 0 0, 21.3px 21.3px, 42.6px 0, 42.6px 42.6px, 21.3px 42.6px;
+  opacity: 0.9;
+}
+.lp-hero__demo > * {
+  position: relative;
+  z-index: 1;
+  width: 100%;
 }
 .lp-hero__kicker {
-  color: var(--accent-text);
-  font-weight: 600;
-  font-size: 15px;
+  color: var(--on-lemon-muted);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   margin-bottom: 18px;
 }
 .lp-hero__accent {
-  color: var(--accent-bright);
+  color: var(--accent);
+  background: var(--on-lemon);
+  padding: 0 0.12em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  /* «en segundos» no se parte entre dos líneas. */
+  white-space: nowrap;
 }
 .lp-hero__sub {
-  margin-top: 20px;
-  color: var(--ink-dim);
+  margin-top: 16px;
+  color: var(--on-lemon-dim);
   font-size: clamp(1.05rem, 1rem + 0.45vw, 1.25rem);
-  max-width: 34ch;
+  max-width: 36ch;
+}
+.lp-hero__copy .lp-btn--primary {
+  background: var(--on-lemon);
+  color: var(--accent);
+}
+.lp-hero__copy .lp-btn--ghost {
+  background: transparent;
+  color: var(--on-lemon);
+  border-color: var(--on-lemon);
+}
+@media (hover: hover) {
+  .lp-hero__copy .lp-btn--primary:hover {
+    background: var(--invert-hover);
+    box-shadow: none;
+  }
+  .lp-hero__copy .lp-btn--ghost:hover {
+    background: rgba(10, 11, 16, 0.1);
+    border-color: var(--on-lemon);
+  }
 }
 .lp-hero__cta {
-  margin-top: 30px;
+  margin-top: 24px;
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
 }
-.lp-hero__trust {
-  margin-top: 22px;
+/* Lo que incluye la prueba, en cuatro piezas que se leen de un vistazo. */
+.lp-hero__proofs {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
   display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  color: var(--on-lemon-dim);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.4;
 }
-.lp-hero__trust svg {
+.lp-hero__proofs li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.lp-hero__proofs svg {
   flex-shrink: 0;
-  margin-top: 3px;
-  color: var(--positive);
-}
-.lp-hero__trust b {
-  color: var(--ink);
-  font-weight: 600;
+  color: var(--on-lemon);
 }
 
 /* Distintivo de partner de Meta: logo monocromo + texto, sin pretender ser el badge oficial. */
 .lp-partner {
-  margin-top: 18px;
+  margin-top: 14px;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -477,6 +569,16 @@
   display: block;
   color: var(--ink);
   font-weight: 600;
+}
+/* Dentro del bloque lima del hero el distintivo va en tinta. */
+.lp-hero__copy .lp-partner {
+  border-color: rgba(10, 11, 16, 0.4);
+  background: rgba(10, 11, 16, 0.08);
+  color: var(--on-lemon-muted);
+}
+.lp-hero__copy .lp-partner svg,
+.lp-hero__copy .lp-partner b {
+  color: var(--on-lemon);
 }
 .lp-partner__sub {
   display: block;
@@ -502,10 +604,10 @@
 /* Captura real del producto: sin borde, sombra larga hacia abajo. */
 .lp-shot {
   margin: 0;
-  border-radius: 14px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--surface-2);
-  box-shadow: 0 40px 90px -50px rgba(0, 0, 0, 0.9), var(--glass-line);
+  border: 1px solid var(--border);
 }
 .lp-shot img {
   display: block;
@@ -522,10 +624,9 @@
   align-items: stretch;
 }
 .lp-live__chat {
-  border-radius: 14px;
+  border-radius: 0;
   border: 1px solid var(--border);
-  background: var(--surface-2);
-  box-shadow: var(--glass-line), 0 40px 80px -48px rgba(0, 0, 0, 0.9);
+  background: var(--bg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -546,7 +647,7 @@
   height: 32px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: rgba(154, 185, 194, 0.16);
+  background: rgba(233, 237, 242, 0.16);
   color: var(--ink);
   font-size: 12px;
   font-weight: 700;
@@ -573,18 +674,21 @@
   gap: 6px;
   padding: 4px 10px;
   border-radius: var(--r-pill);
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  font-size: 12px;
-  font-weight: 600;
+  background: var(--cyan-soft);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
   white-space: nowrap;
 }
 .lp-live__mode i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--accent-bright);
-  box-shadow: 0 0 0 3px rgba(254, 253, 20, 0.2);
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
 }
 .lp-live__msgs {
   list-style: none;
@@ -605,18 +709,21 @@
 .lp-msg__bubble {
   max-width: 82%;
   padding: 9px 12px 7px;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 14px;
   line-height: 1.45;
   color: var(--ink);
 }
 .lp-msg--in .lp-msg__bubble {
   background: rgba(255, 255, 255, 0.07);
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 0;
 }
 .lp-msg--out .lp-msg__bubble {
-  background: rgba(11, 108, 216, 0.42);
-  border-bottom-right-radius: 4px;
+  background: var(--accent);
+  color: var(--on-lemon);
+}
+.lp-msg--out .lp-msg__meta {
+  color: var(--on-lemon-muted);
 }
 .lp-msg__file {
   display: flex;
@@ -624,7 +731,7 @@
   gap: 7px;
   margin-bottom: 6px;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 0;
   background: rgba(0, 0, 0, 0.25);
   color: var(--ink-dim);
   font-size: 12.5px;
@@ -641,9 +748,10 @@
 }
 .lp-msg__ai {
   padding: 0 6px;
-  border-radius: var(--r-pill);
-  background: rgba(254, 253, 20, 0.18);
-  color: var(--accent-text);
+  border-radius: 0;
+  background: var(--cyan);
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
   font-weight: 700;
   font-size: 10px;
   letter-spacing: 0.04em;
@@ -655,15 +763,14 @@
   display: inline-flex;
   gap: 4px;
   padding: 12px 14px;
-  border-radius: 12px;
-  border-bottom-right-radius: 4px;
-  background: rgba(254, 253, 20, 0.14);
+  border-radius: 0;
+  background: var(--accent);
 }
 .lp-msg__typing i {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
-  background: var(--accent-text);
+  border-radius: 0;
+  background: var(--on-lemon);
   animation: lp-dot 1s ease-in-out infinite;
 }
 .lp-msg__typing i:nth-child(2) {
@@ -688,7 +795,7 @@
   display: flex;
   flex-direction: column;
   padding: 14px;
-  border-radius: 14px;
+  border-radius: 0;
   border: 1px solid var(--border);
   background: var(--surface-2);
 }
@@ -742,16 +849,16 @@
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--bg);
-  border: 1px solid rgba(154, 185, 194, 0.3);
-  color: var(--positive);
+  border: 1px solid rgba(233, 237, 242, 0.3);
+  color: var(--cyan);
 }
 .lp-live__tick svg {
   width: 11px;
   height: 11px;
 }
 .lp-live__log li[data-last="true"] .lp-live__tick {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(254, 253, 20, 0.16);
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.18);
 }
 .lp-live__replay {
   margin-top: auto;
@@ -836,9 +943,11 @@
 .lp-band {
   position: relative;
   overflow: hidden;
-  padding-block: 16px;
-  color: #fefd14;
-  background: #0b6cd8;
+  padding-block: 14px;
+  color: var(--accent-ink);
+  background: var(--accent);
+  /* Una línea de negro entre el lima del hero y el de la banda. */
+  border-top: 2px solid var(--bg);
   box-shadow: none;
 }
 .lp-band__track {
@@ -863,17 +972,16 @@
   align-items: center;
   gap: 26px;
   padding-inline: 13px;
-  font-family: var(--font-display);
+  font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.06em;
+  font-size: 12.5px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 .lp-band__dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
   background: currentColor;
 }
 /* Fundido bajo el botón de pausa para que el texto no choque con él. */
@@ -885,7 +993,7 @@
   right: 0;
   width: 120px;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, #0b6cd8 70%);
+  background: linear-gradient(90deg, transparent, var(--accent) 70%);
 }
 .lp-band__pause {
   position: absolute;
@@ -895,10 +1003,9 @@
   z-index: 1;
   width: 44px;
   height: 44px;
-  border-radius: 50%;
   border: 1px solid currentColor;
-  background: #0b6cd8;
-  color: #fefd14;
+  background: var(--accent-ink);
+  color: var(--accent);
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -916,17 +1023,27 @@
 .lp-bento {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
+  gap: 12px;
+  counter-reset: tile;
 }
 .lp-card {
+  position: relative;
   border: 1px solid var(--border);
-  border-radius: var(--r-md);
+  border-radius: 0;
   background: var(--surface);
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  box-shadow: var(--glass-line);
+}
+/* El índice de la tile, como en la referencia: 01, 02, 03… */
+.lp-card::before {
+  counter-increment: tile;
+  content: "0" counter(tile);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--muted);
 }
 .lp-card--full {
   grid-column: span 6;
@@ -949,15 +1066,28 @@
   max-width: 60ch;
 }
 .lp-card--feature {
-  background:
-    radial-gradient(80% 120% at 100% 0%, rgba(254, 253, 20, 0.07), transparent 60%),
-    var(--surface);
+  --ink: var(--on-lemon);
+  --muted: var(--on-lemon-dim);
+  --border-soft: rgba(10, 11, 16, 0.25);
+  background: var(--accent);
+  color: var(--on-lemon);
+  border-color: var(--accent);
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   column-gap: 36px;
   row-gap: 14px;
   padding: 32px;
+}
+.lp-card--feature::before {
+  grid-column: 1;
+  grid-row: 1;
+  color: var(--on-lemon-muted);
+}
+.lp-card--feature .lp-chip {
+  border-color: rgba(10, 11, 16, 0.4);
+  background: rgba(10, 11, 16, 0.08);
+  color: var(--on-lemon-dim);
 }
 .lp-card--feature h3 {
   font-size: clamp(1.4rem, 1.1rem + 1.1vw, 1.9rem);
@@ -970,7 +1100,7 @@
 }
 .lp-card--feature .lp-card__media {
   grid-column: 2;
-  grid-row: 1 / span 3;
+  grid-row: 1 / span 4;
   margin: -6px -6px -6px 0;
   aspect-ratio: 4 / 3;
   align-self: start;
@@ -987,7 +1117,7 @@
 }
 .lp-card__media {
   margin: -8px -8px 6px;
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
   border: 1px solid var(--border-soft);
   background: var(--surface-2);
@@ -1012,8 +1142,11 @@
   flex-wrap: wrap;
 }
 .lp-chip {
-  font-size: 12.5px;
-  padding: 5px 11px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 5px 10px;
   border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border-soft);
@@ -1046,12 +1179,12 @@
   color: var(--ink);
 }
 .lp-trace__ev {
-  font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11.5px;
   padding: 2px 8px;
   border-radius: var(--r-pill);
-  background: rgba(154, 185, 194, 0.1);
-  color: var(--accent-text);
+  background: var(--cyan-soft);
+  color: var(--cyan);
   white-space: nowrap;
 }
 .lp-trace__ok {
@@ -1090,7 +1223,7 @@
 }
 .lp-meter__bar {
   height: 7px;
-  border-radius: 999px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.06);
   overflow: hidden;
 }
@@ -1098,7 +1231,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+  background: var(--cyan);
 }
 .lp-meter__foot {
   display: flex;
@@ -1136,12 +1269,12 @@
   width: 62px;
   height: 62px;
   margin-bottom: 22px;
-  border-radius: 50%;
+  border-radius: 0;
   border: 1px solid var(--accent-line);
   background: var(--bg);
-  font-family: var(--font-display);
+  font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 28px;
+  font-size: 22px;
   line-height: 1;
   color: var(--accent-bright);
 }
@@ -1150,12 +1283,362 @@
   border-color: var(--accent);
   color: var(--accent-ink);
 }
+.lp-step__when {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 3px 10px;
+  border-radius: 0;
+  border: 1px solid var(--cyan-line);
+  background: var(--cyan-soft);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
 .lp-step h3 {
   margin-bottom: 8px;
 }
 .lp-step p {
   color: var(--muted);
   font-size: 15px;
+}
+/* Acción al pie de los pasos: el botón y, al lado, lo que arriesga (nada). */
+.lp-inline-cta {
+  margin-top: clamp(32px, 4vw, 48px);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* ── El costo de responder tarde: la calculadora ───────────── */
+.lp-calc {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 16px;
+  align-items: stretch;
+}
+.lp-calc__form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--glass-line);
+}
+.lp-field label {
+  display: block;
+  color: var(--ink-dim);
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.lp-field__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+.lp-field__head output {
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--cyan);
+  font-variant-numeric: tabular-nums;
+}
+.lp-field--row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.lp-field--row label,
+.lp-field > label {
+  margin-bottom: 8px;
+}
+.lp-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(233, 237, 242, 0.3);
+  background: #0a0b10;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.lp-input:hover {
+  border-color: rgba(233, 237, 242, 0.5);
+}
+.lp-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+select.lp-input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa3ad' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+select.lp-input option {
+  background: var(--surface);
+  color: var(--ink);
+}
+.lp-range {
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.lp-range:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 4px;
+  border-radius: 0;
+}
+.lp-calc__out {
+  display: flex;
+  flex-direction: column;
+  padding: 28px;
+  --ink: var(--on-lemon);
+  --ink-dim: var(--on-lemon-dim);
+  --muted: var(--on-lemon-muted);
+  --accent-text: var(--on-lemon);
+  --border-soft: rgba(10, 11, 16, 0.22);
+  border-radius: 0;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--on-lemon);
+}
+.lp-calc__out .lp-btn--primary {
+  background: var(--on-lemon);
+  color: var(--accent);
+}
+.lp-calc__label {
+  color: var(--muted);
+  font-size: 14.5px;
+  font-weight: 500;
+}
+.lp-calc__big {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px 0 18px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 1.6rem + 2.4vw, 3.4rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--accent-text);
+  font-variant-numeric: tabular-nums;
+}
+.lp-calc__big small {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 16px;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+.lp-calc__facts {
+  list-style: none;
+  margin: 0 0 22px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.lp-calc__facts li {
+  padding: 10px 0;
+  border-top: 1px solid var(--border-soft);
+}
+.lp-calc__facts b {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.lp-calc__out .lp-btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+.lp-calc__note {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Para tu rubro: pestañas y un chat de muestra ──────────── */
+.lp-sec__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.lp-sec__tab {
+  min-height: 42px;
+  padding: 9px 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+}
+@media (hover: hover) {
+  .lp-sec__tab:hover {
+    color: var(--ink);
+    border-color: var(--accent-line);
+  }
+}
+.lp-sec__tab[aria-selected="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.lp-sec__panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  animation: lp-fade 0.25s var(--ease) both;
+}
+.lp-sec__copy {
+  display: flex;
+  flex-direction: column;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--glass-line);
+}
+.lp-sec__copy h3 {
+  font-size: clamp(1.3rem, 1.1rem + 0.9vw, 1.7rem);
+  line-height: 1.15;
+  margin-bottom: 18px;
+}
+.lp-sec__does {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.lp-sec__does li {
+  display: flex;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--border-soft);
+  color: var(--ink-dim);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.lp-sec__does svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--positive);
+}
+.lp-sec__chat {
+  list-style: none;
+  margin: 0;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  box-shadow: var(--glass-line);
+}
+
+/* ── Planes en la landing: la versión corta del catálogo ───── */
+/* Selector compuesto: .lp-plans (dos columnas) se declara más abajo y, a igual
+   especificidad, ganaría. */
+.lp-plans.lp-plans--snap {
+  grid-template-columns: repeat(4, 1fr);
+  align-items: stretch;
+  gap: 14px;
+}
+.lp-plan--snap {
+  padding: 24px 22px;
+  gap: 8px;
+}
+.lp-plan--snap h3 {
+  font-size: 1.3rem;
+}
+.lp-plan--snap .lp-price {
+  font-size: clamp(1.7rem, 1.4rem + 1vw, 2.2rem);
+}
+.lp-plan--snap > p {
+  font-size: 14.5px;
+}
+.lp-plan--snap .lp-row {
+  font-size: 14px;
+  padding: 9px 0;
+}
+.lp-oss {
+  margin-top: clamp(28px, 4vw, 44px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 24px 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.lp-oss > div {
+  flex: 1 1 420px;
+}
+.lp-oss h3 {
+  margin-bottom: 6px;
+}
+.lp-oss p {
+  color: var(--muted);
+  font-size: 15px;
+  max-width: 62ch;
+}
+
+/* Garantías bajo el cierre: cuatro piezas en tinta noche sobre Lemon. */
+.lp-cta-band__proof {
+  list-style: none;
+  margin: 26px 0 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.lp-cta-band__proof li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
 /* ── Por qué Driony (antes / después) ───────────────────────── */
@@ -1205,7 +1688,7 @@
 }
 .lp-vs__good,
 .lp-vs__row--head > span:last-child {
-  background: rgba(254, 253, 20, 0.06);
+  background: rgba(226, 248, 13, 0.06);
 }
 .lp-vs__good {
   color: var(--ink);
@@ -1250,14 +1733,28 @@
   box-shadow: var(--glass-line);
 }
 .lp-plan--cloud {
-  background:
-    radial-gradient(90% 100% at 100% 0%, rgba(254, 253, 20, 0.09), transparent 60%),
-    var(--surface);
-  border-color: var(--accent-line);
+  --ink: var(--on-lemon);
+  --ink-dim: var(--on-lemon-dim);
+  --muted: var(--on-lemon-muted);
+  --accent-text: var(--on-lemon);
+  --positive: var(--on-lemon);
+  --border-soft: rgba(10, 11, 16, 0.22);
+  --accent-soft: rgba(10, 11, 16, 0.1);
+  --accent-line: rgba(10, 11, 16, 0.4);
+  background: var(--accent);
+  color: var(--on-lemon);
+  border-color: var(--accent);
+}
+.lp-plan--cloud .lp-btn--primary {
+  background: var(--on-lemon);
+  color: var(--accent);
 }
 .lp-plan__tag {
   align-self: flex-start;
-  font-size: 12.5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   font-weight: 700;
   padding: 5px 11px;
   border-radius: var(--r-pill);
@@ -1553,17 +2050,18 @@
   background: var(--accent);
   box-shadow: none;
 }
-/* En el cierre el estallido asoma por la derecha (el azul sobre el amarillo). */
+/* En el cierre los píxeles van en tinta y verde circuito sobre el lima. */
 .lp-cta-band::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: -260px;
-  width: 760px;
-  aspect-ratio: 1;
-  transform: translateY(-50%);
-  pointer-events: none;
-  background: url("/landing/estallido.webp") center / contain no-repeat;
+  top: 28px;
+  right: 28px;
+  width: 128px;
+  height: 128px;
+  background:
+    linear-gradient(var(--accent-ink), var(--accent-ink)) 0 0 / 32px 32px no-repeat,
+    linear-gradient(var(--accent-ink), var(--accent-ink)) 32px 32px / 32px 32px no-repeat,
+    linear-gradient(var(--green), var(--green)) 96px 0 / 32px 32px no-repeat,
+    linear-gradient(var(--green), var(--green)) 64px 64px / 32px 32px no-repeat,
+    linear-gradient(var(--accent-ink), var(--accent-ink)) 96px 96px / 32px 32px no-repeat;
 }
 @media (max-width: 1100px) {
   .lp-cta-band::before {
@@ -1666,8 +2164,18 @@
     padding: 10px 16px;
     font-size: 14px;
   }
+  /* En columna los dos bloques van de borde a borde, con su propio relleno. */
+  .lp-hero .lp-wrap {
+    padding-inline: 0;
+  }
   .lp-hero__grid {
     grid-template-columns: 1fr;
+  }
+  .lp-hero__copy {
+    padding: 32px 22px 28px;
+  }
+  .lp-hero__demo {
+    padding: 18px 16px 70px;
   }
   .lp-hero__sub {
     max-width: 52ch;
@@ -1684,6 +2192,13 @@
   .lp-stage__notes {
     grid-template-columns: 1fr;
     gap: 14px;
+  }
+  .lp-calc,
+  .lp-sec__panel {
+    grid-template-columns: 1fr;
+  }
+  .lp-plans.lp-plans--snap {
+    grid-template-columns: repeat(2, 1fr);
   }
   /* Pasos en vertical: el riel baja por la izquierda. */
   .lp-steps {
@@ -1767,7 +2282,15 @@
   }
   .lp-nav__cta .lp-btn {
     padding: 9px 14px;
-    font-size: 13.5px;
+    font-size: 12px;
+  }
+  /* En el celular los botones largos en mono se parten y ocupan el ancho. */
+  .lp-hero__cta .lp-btn,
+  .lp-inline-cta .lp-btn,
+  .lp-cta__row .lp-btn {
+    white-space: normal;
+    text-align: center;
+    width: 100%;
   }
   .lp-bento {
     grid-template-columns: 1fr;
@@ -1792,6 +2315,23 @@
     font-size: 13px;
     gap: 18px;
   }
+  .lp-plans.lp-plans--snap {
+    grid-template-columns: 1fr;
+  }
+  .lp-calc__form,
+  .lp-calc__out,
+  .lp-sec__copy {
+    padding: 22px 20px;
+  }
+  .lp-field--row {
+    grid-template-columns: 1fr;
+  }
+  .lp-calc__out .lp-btn {
+    align-self: stretch;
+  }
+  .lp-oss {
+    padding: 22px 20px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1808,175 +2348,362 @@
   }
 }
 
-/* ══ El póster (tema predeterminado) ══════════════════════════
-   Lienzo Sea Angel plano, superficies en un Sea Angel casi blanco y tinta azul
-   noche. Super Sonic con letra Lemon en la acción, la banda y el cierre; Lemon
-   con tinta noche como marcador. Se quita con data-theme="dark" en .lp (selector
-   de la cabecera, ?tema=oscuro o lo que se eligió la última vez). */
-.lp[data-theme="light"] {
-  --bg: #9ab9c2;
-  --surface: #e8f0f3;
-  --surface-2: #dbe6ea;
-  --border: rgba(7, 35, 63, 0.18);
-  --border-soft: rgba(7, 35, 63, 0.11);
-  --ink: #07233f;
-  --ink-dim: #0f2f4c;
-  --muted: #2b4756;
-  --accent: #0b6cd8;
-  --accent-hover: #0a61c2;
-  --accent-bright: #0a3f82;
-  /* Sobre Sea Angel el azul de acción no llega a 3:1: como texto va este, hondo. */
-  --accent-text: #0a3f82;
-  --accent-ink: #fefd14;
-  --accent-soft: rgba(11, 108, 216, 0.12);
-  --accent-line: rgba(11, 108, 216, 0.5);
-  --invert-hover: #fdfd6b;
-  --positive: #064d30;
-  --glass-line: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  background: var(--bg);
-  color-scheme: light;
-}
-/* La palabra clave del titular: Lemon como marcador, con tinta noche (14,6:1). */
-.lp[data-theme="light"] .lp-hero__accent {
-  color: var(--ink);
-  background: #fefd14;
-  padding: 0 0.14em;
-  border-radius: 6px;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-}
-.lp[data-theme="light"] .lp-btn--ghost {
-  background: transparent;
-  border-color: rgba(7, 35, 63, 0.55);
-}
-.lp[data-theme="light"] .lp-nav__links a[aria-current="true"],
-.lp[data-theme="light"] .lp-nav__login:hover,
-.lp[data-theme="light"] .lp-foot__links a:hover,
-.lp[data-theme="light"] .lp-chip,
-.lp[data-theme="light"] .lp-plan__tag {
-  background: rgba(7, 35, 63, 0.07);
-}
-.lp[data-theme="light"] .lp-partner {
-  background: var(--surface);
-}
-.lp[data-theme="light"] .lp-meter__bar {
-  background: rgba(7, 35, 63, 0.1);
-}
-.lp[data-theme="light"] .lp-trace__ev {
-  background: var(--accent-soft);
-}
-.lp[data-theme="light"] .lp-vs__bad svg {
-  color: var(--muted);
-}
-.lp[data-theme="light"] .lp-vs {
-  background: var(--surface);
-}
-@media (min-width: 701px) {
-  .lp[data-theme="light"] .lp-vs__good,
-  .lp[data-theme="light"] .lp-vs__row--head > span:last-child {
-    background: rgba(254, 253, 20, 0.42);
-  }
-}
-/* Conversación del hero: el negocio habla en Lemon rebajado, como en la bandeja. */
-.lp[data-theme="light"] .lp-live__chat {
-  background: var(--surface);
-  box-shadow: 0 1px 2px rgba(7, 35, 63, 0.06), 0 8px 24px -16px rgba(7, 35, 63, 0.3);
-}
-.lp[data-theme="light"] .lp-msg--in .lp-msg__bubble {
-  background: #ffffff;
-}
-.lp[data-theme="light"] .lp-msg--out .lp-msg__bubble,
-.lp[data-theme="light"] .lp-msg__typing {
-  background: #f6f79c;
-}
-.lp[data-theme="light"] .lp-msg__file {
-  background: rgba(7, 35, 63, 0.08);
-}
-.lp[data-theme="light"] .lp-msg__ai {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-.lp[data-theme="light"] .lp-live__avatar {
-  background: rgba(7, 35, 63, 0.08);
-}
-.lp[data-theme="light"] .lp-live__tick {
-  border-color: rgba(7, 35, 63, 0.3);
-}
-.lp[data-theme="light"] .lp-live__log li[data-last="true"] .lp-live__tick {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(11, 108, 216, 0.22);
-}
-/* Cabecera y menú: Sea Angel esmerilado. */
-.lp[data-theme="light"] .lp-nav {
-  background: rgba(154, 185, 194, 0.86);
-}
-.lp-menu[data-theme="light"] {
-  background: rgba(154, 185, 194, 0.98);
-}
-/* Tarjetas: las separa el tono del lienzo; una sombra corta las asienta. */
-.lp[data-theme="light"] .lp-card,
-.lp[data-theme="light"] .lp-plan {
-  box-shadow: 0 1px 2px rgba(7, 35, 63, 0.06), 0 8px 24px -16px rgba(7, 35, 63, 0.28);
-}
-.lp[data-theme="light"] .lp-card--feature,
-.lp[data-theme="light"] .lp-plan--cloud {
+/* ══ Kit HUD (de la referencia de Stitch) ═══════════════════════════
+   Biseles en las esquinas, puntos hexagonales, crucetas «[ + ]», etiquetas
+   mono por sección, el primario con franja de peligro y sombra dura en cian,
+   y la consola de comparación. Va encima de los bloques lima, no en su lugar. */
+.lp {
+  --hud: #6a7d96;
+  --cut-sm: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  --cut-md: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  --cut-lg: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+  --hex: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  /* Rejilla de telemetría: puntos cian y una malla casi del color del fondo. */
   background:
-    radial-gradient(90% 100% at 100% 0%, rgba(11, 108, 216, 0.12), transparent 60%),
-    var(--surface);
-}
-/* Las capturas son del panel: marco fino y sombra suave. */
-.lp[data-theme="light"] .lp-shot {
-  background: var(--surface-2);
-  box-shadow: 0 0 0 1px rgba(7, 35, 63, 0.16), 0 30px 70px -38px rgba(7, 35, 63, 0.55);
-}
-.lp[data-theme="light"] .lp-btn--primary {
-  box-shadow: 0 0 0 1px rgba(11, 108, 216, 0.3), 0 10px 24px -12px rgba(11, 108, 216, 0.6);
+    radial-gradient(circle, rgba(0, 229, 255, 0.1) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(to right, rgba(21, 29, 42, 0.55) 1px, transparent 1px) 0 0 / 56px 56px,
+    linear-gradient(to bottom, rgba(21, 29, 42, 0.55) 1px, transparent 1px) 0 0 / 56px 56px,
+    var(--bg);
 }
 
-/* Selector de tema (sol / luna) */
-.lp-theme {
+/* Etiqueta de sección: punto hexagonal cian, texto mono y «>>>» en lima. */
+.lp-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.lp-tag::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: var(--cyan);
+  clip-path: var(--hex);
+}
+.lp-tag::after {
+  content: ">>>";
+  color: var(--accent);
+}
+
+/* Botones: bisel en todos; el primario (y el invertido del cierre) dibuja su
+   cara y su sombra dura en cian con pseudoelementos, porque un clip-path en el
+   propio botón se comería la sombra. La franja de peligro va en la cara. */
+.lp-btn {
+  position: relative;
+  isolation: isolate;
+}
+.lp-btn--ghost,
+.lp .lp-btn--outline,
+.lp-sec__tab,
+.lp-input,
+.lp-chip,
+.lp-plan__tag,
+.lp-step__when,
+.lp-live__replay,
+.lp-partner {
+  clip-path: var(--cut-sm);
+}
+.lp-btn--primary,
+.lp .lp-btn--white {
+  --face: var(--accent);
+  --face-hover: var(--accent-hover);
+  --stripe: var(--on-lemon);
+  background: transparent;
+  color: var(--accent-ink);
+  padding-left: 34px;
+  box-shadow: none;
+}
+.lp .lp-btn--white,
+.lp-hero__copy .lp-btn--primary,
+.lp-calc__out .lp-btn--primary,
+.lp-plan--cloud .lp-btn--primary {
+  --face: var(--on-lemon);
+  --face-hover: var(--invert-hover);
+  --stripe: var(--accent);
+  background: transparent;
+  color: var(--accent);
+}
+.lp-btn--primary::before,
+.lp-btn--primary::after,
+.lp .lp-btn--white::before,
+.lp .lp-btn--white::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: var(--cut-sm);
+}
+.lp-btn--primary::before,
+.lp .lp-btn--white::before {
+  background: var(--cyan);
+  transform: translate(4px, 4px);
+}
+.lp-btn--primary::after,
+.lp .lp-btn--white::after {
+  background: repeating-linear-gradient(-45deg, var(--stripe) 0 5px, var(--face) 5px 10px) 0 0 / 12px 100% no-repeat, var(--face);
+  transition: background-color 0.16s ease;
+}
+@media (hover: hover) {
+  .lp-btn--primary:hover,
+  .lp .lp-btn--white:hover,
+  .lp-hero__copy .lp-btn--primary:hover,
+  .lp-calc__out .lp-btn--primary:hover,
+  .lp-plan--cloud .lp-btn--primary:hover {
+    background: transparent;
+    box-shadow: none;
+    transform: translateY(-2px);
+  }
+  .lp-btn--primary:hover::after,
+  .lp .lp-btn--white:hover::after {
+    background-color: var(--face-hover);
+  }
+}
+.lp-btn--primary:active,
+.lp .lp-btn--white:active {
+  transform: translate(2px, 2px);
+}
+
+/* La palabra marcada del titular lleva la sombra dura en cian. */
+.lp-hero__accent {
+  box-shadow: 4px 4px 0 0 var(--cyan);
+}
+/* El rótulo del hero abre con un punto hexagonal en tinta. */
+.lp-hero__kicker::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 10px;
+  vertical-align: middle;
+  background: var(--on-lemon);
+  clip-path: var(--hex);
+}
+/* Líneas de barrido sobre la demo del hero, por debajo del contenido. */
+.lp-hero__demo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(rgba(7, 9, 13, 0) 50%, rgba(0, 0, 0, 0.35) 50%) 0 0 / 100% 3px;
+}
+/* La conversación del hero es una consola: barra blindada arriba y un punto que late. */
+.lp-live__chat {
+  position: relative;
+  clip-path: var(--cut-md);
+}
+.lp-live__chat::before {
+  content: "[ + ] Driony // Bandeja // En vivo";
+  display: block;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.lp-live__chat::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  clip-path: var(--hex);
+  animation: lp-blink 1.6s steps(1) infinite;
+}
+@keyframes lp-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* Nav: el enlace de la sección actual, como en la consola. */
+.lp-nav__links a[aria-current="true"] {
+  color: var(--accent);
+  background: var(--surface-2);
+  border: 1px solid rgba(226, 248, 13, 0.6);
+  clip-path: var(--cut-sm);
+  gap: 6px;
+}
+.lp-nav__links a[aria-current="true"]::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+}
+
+/* Paneles blindados: bisel, cruceta «[ + ]» arriba a la izquierda y punto
+   hexagonal arriba a la derecha. */
+.lp-card,
+.lp-calc__form,
+.lp-calc__out,
+.lp-sec__copy,
+.lp-sec__chat,
+.lp-plan,
+.lp-oss,
+.lp-vs,
+.lp-live__side,
+.lp-shot {
+  position: relative;
+  clip-path: var(--cut-md);
+}
+.lp-calc__form::before,
+.lp-calc__out::before,
+.lp-sec__copy::before,
+.lp-sec__chat::before,
+.lp-plan::before,
+.lp-oss::before,
+.lp-vs::before,
+.lp-live__side::before {
+  content: "[ + ]";
+  position: absolute;
+  top: 6px;
+  left: 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--hud);
+  pointer-events: none;
+}
+.lp-card::before {
+  content: "[ + ] 0" counter(tile);
+}
+.lp-card::after,
+.lp-calc__form::after,
+.lp-calc__out::after,
+.lp-sec__copy::after,
+.lp-plan::after,
+.lp-oss::after,
+.lp-vs::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  clip-path: var(--hex);
+  pointer-events: none;
+}
+.lp-card:nth-child(even)::after,
+.lp-sec__copy::after,
+.lp-calc__form::after {
+  background: var(--cyan);
+}
+/* Dentro de un bloque lima la cruceta va en tinta y el punto en cian. */
+.lp-card--feature::before,
+.lp-calc__out::before,
+.lp-plan--cloud::before {
+  color: var(--on-lemon-muted);
+}
+.lp-card--feature::after,
+.lp-calc__out::after,
+.lp-plan--cloud::after {
+  background: var(--cyan);
+}
+.lp-plan--cloud {
+  border: 2px solid var(--accent);
+}
+/* Los paneles con cruceta ganan sitio arriba. */
+.lp-sec__copy,
+.lp-calc__form,
+.lp-calc__out,
+.lp-plan,
+.lp-oss {
+  padding-top: 30px;
+}
+.lp-live__side {
+  padding-top: 28px;
+}
+/* En la cabecera el primario es compacto, pero deja sitio a la franja. */
+.lp-nav__cta .lp-btn--primary {
+  padding-left: 30px;
+}
+
+/* La banda: puntos hexagonales en vez de cuadrados. */
+.lp-band__dot {
+  width: 8px;
+  height: 8px;
+  clip-path: var(--hex);
+}
+
+/* Consola de comparación: filas biseladas, «X» en rojo para lo manual y «>»
+   en lima para Driony. */
+.lp-vs {
+  border-width: 2px;
+  clip-path: var(--cut-lg);
+  background: var(--surface);
+}
+.lp-vs__row--head > span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding-top: 26px;
+}
+.lp-vs__row--head > span:first-child {
+  color: var(--hud);
+}
+.lp-vs__row > span svg {
+  display: none;
+}
+.lp-vs__bad::before,
+.lp-vs__good::before {
+  flex-shrink: 0;
   display: inline-grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--ink-dim);
-  cursor: pointer;
-  transition: color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  margin-top: 1px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  clip-path: var(--cut-sm);
 }
-.lp-theme:hover {
-  color: var(--ink);
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
+.lp-vs__bad::before {
+  content: "X";
+  color: #ff3355;
+  background: rgba(255, 51, 85, 0.15);
 }
-.lp-theme:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 2px;
+.lp-vs__good::before {
+  content: ">";
+  color: var(--accent);
+  background: rgba(226, 248, 13, 0.15);
 }
-.lp-theme svg {
-  transition: transform 0.3s var(--ease);
+.lp-vs__good {
+  border-left: 1px solid var(--border-soft);
 }
-.lp-theme:hover svg {
-  transform: rotate(-18deg);
+
+/* El cierre lleva su cruceta de estación. */
+.lp-cta-band__inner::before {
+  content: "[ + ] Driony // Empieza hoy";
+  position: absolute;
+  top: -44px;
+  left: 24px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--on-lemon-muted);
 }
-.lp-menu .lp-theme {
-  width: auto;
-  height: 44px;
-  padding: 0 14px;
-  gap: 8px;
-  display: inline-flex;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 600;
+@media (max-width: 700px) {
+  .lp-vs__good {
+    border-left: 0;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lp-theme svg {
-    transition: none;
-  }
-  .lp-theme:hover svg {
-    transform: none;
+  .lp-live__chat::after {
+    animation: none;
   }
 }

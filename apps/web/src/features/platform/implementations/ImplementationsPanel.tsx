@@ -9,6 +9,7 @@ import { toast } from "@/lib/toast";
 import { archiveImplementation, createImplementationQuote, fetchImplementation, fetchImplementationQuote, fetchImplementations, fetchPricingSettings } from "@/lib/bff";
 import { date, relative } from "../platformFormat";
 import { AssessmentForm } from "./AssessmentForm";
+import { CrmLinkBar } from "./CrmLink";
 import { PricingSettingsPanel } from "./PricingSettingsPanel";
 import { QuoteEditor, type QuoteSection } from "./QuoteEditor";
 import { BAND_LABEL, BAND_TONE, RISK_LABEL, STAGE_LABEL, STAGE_TONE, STATUS_LABEL, STATUS_TONE, fmtMoney, fmtPct } from "./labels";
@@ -203,6 +204,11 @@ function Row({ r, onOpen, onOpenOrg }: { r: ImplementationAssessmentRow; onOpen:
                 </button>
               </>
             )}
+            {r.crm && (
+              <span title={`CRM propio: ${r.crm.title} · ${r.crm.pipelineName} › ${r.crm.stageName}`}>
+                {" · "}CRM: {r.crm.discarded ? "descartada" : r.crm.stageName}
+              </span>
+            )}
           </span>
         </div>
       </td>
@@ -354,6 +360,15 @@ function AssessmentDetail({
                 ))}
               </div>
             )}
+            <CrmLinkBar
+              a={d}
+              crmReady={!!settings.data?.settings.crmOrgId}
+              onChanged={(next) => {
+                qc.setQueryData(["platform", "impl", id], next);
+                void qc.invalidateQueries({ queryKey: ["platform", "impl", "list"] });
+                void qc.invalidateQueries({ queryKey: ["platform", "audit"] });
+              }}
+            />
           </section>
 
           <div className="pc-tabs">

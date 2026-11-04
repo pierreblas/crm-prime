@@ -171,6 +171,9 @@ import type {
   TwilioProvisionResult,
   ImplementationAssessment,
   ImplementationAssessmentRow,
+  CrmLinkInput,
+  CrmPipeline,
+  CrmSearchResult,
   ImplementationQuote,
   CreateAssessmentInput,
   UpdateAssessmentInput,
@@ -2084,6 +2087,36 @@ export async function updatePricingSettings(input: PricingSettings): Promise<Pri
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron guardar los ajustes"));
+  return res.json();
+}
+
+// CRM propio: la oportunidad de Driony para cada diagnóstico.
+
+export async function fetchCrmPipelines(orgId: string): Promise<CrmPipeline[]> {
+  const res = await bffFetch(`/api/bff/platform/implementations/crm/pipelines?orgId=${encodeURIComponent(orgId)}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar los embudos de la empresa propia"));
+  return res.json();
+}
+
+export async function searchCrm(q: string): Promise<CrmSearchResult> {
+  const res = await bffFetch(`/api/bff/platform/implementations/crm/search?q=${encodeURIComponent(q)}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo buscar en el CRM propio"));
+  return res.json();
+}
+
+export async function linkImplementationCrm(id: string, input: CrmLinkInput): Promise<ImplementationAssessment> {
+  const res = await bffFetch(`/api/bff/platform/implementations/${id}/crm-link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo enlazar con el CRM"));
+  return res.json();
+}
+
+export async function unlinkImplementationCrm(id: string): Promise<ImplementationAssessment> {
+  const res = await bffFetch(`/api/bff/platform/implementations/${id}/crm-link`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo desvincular"));
   return res.json();
 }
 

@@ -85,16 +85,16 @@
 .docs-nav__item {
   display: block;
   padding: 6px 10px;
-  border-radius: 7px;
+  border-radius: 0;
   color: var(--muted);
   font-size: 14px;
   text-decoration: none;
   border-left: 2px solid transparent;
-  border-radius: 0 7px 7px 0;
+  border-radius: 0;
 }
 .docs-nav__item:hover {
   color: var(--text);
-  background: rgba(154, 185, 194, 0.03);
+  background: rgba(142, 158, 175, 0.03);
   text-decoration: none;
 }
 .docs-nav__item.is-active {
@@ -174,9 +174,9 @@
 .docs-article blockquote {
   margin: 16px 0;
   padding: 10px 14px;
-  border: 1px solid rgba(11, 108, 216, 0.42);
+  border: 1px solid rgba(0, 229, 255, 0.42);
   background: var(--accent-soft);
-  border-radius: 8px;
+  border-radius: 0;
   color: var(--text);
 }
 .docs-article blockquote p {
@@ -188,8 +188,8 @@
 .docs-article pre {
   margin: 0 0 16px;
   padding: 14px 16px;
-  border-radius: 10px;
-  background: #0c1829;
+  border-radius: 0;
+  background: #12141f;
   border: 1px solid var(--border);
   overflow-x: auto;
   font-size: 13px;
@@ -206,7 +206,7 @@
   overflow-x: auto;
   margin: 0 0 16px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0;
 }
 .docs-article table {
   width: 100%;
@@ -251,7 +251,7 @@
   flex-direction: column;
   gap: 4px;
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: 0;
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
@@ -259,7 +259,7 @@
   transition: border-color 0.14s ease, transform 0.14s ease;
 }
 .docs-card:hover {
-  border-color: rgba(11, 108, 216, 0.54);
+  border-color: rgba(0, 229, 255, 0.54);
   transform: translateY(-2px);
   text-decoration: none;
 }
@@ -285,7 +285,7 @@
   text-decoration: none;
   color: var(--text);
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 0;
   border: 1px solid var(--border);
   max-width: 48%;
 }
@@ -298,7 +298,7 @@
   margin-left: auto;
 }
 .docs-pager__link:hover {
-  border-color: rgba(11, 108, 216, 0.54);
+  border-color: rgba(0, 229, 255, 0.54);
   text-decoration: none;
 }
 
@@ -316,7 +316,7 @@
     justify-content: space-between;
     width: 100%;
     padding: 10px 12px;
-    border-radius: 9px;
+    border-radius: 0;
     border: 1px solid var(--border);
     background: var(--panel);
     color: var(--text);
@@ -327,7 +327,7 @@
     display: none;
     margin-top: 8px;
     padding: 8px;
-    border-radius: 10px;
+    border-radius: 0;
     border: 1px solid var(--border);
     background: var(--panel);
   }

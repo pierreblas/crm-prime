@@ -108,6 +108,10 @@ export function describeAudit(e: PlatformAuditEntry): string {
       return `Archivó el diagnóstico «${d.title ?? ""}»${d.number ? ` (${d.number})` : ""}`;
     case "assessment_restored":
       return `Restauró el diagnóstico «${d.title ?? ""}»${d.number ? ` (${d.number})` : ""}`;
+    case "crm_linked":
+      return `${d.created ? "Creó una oportunidad en el CRM propio para" : "Enlazó una oportunidad del CRM propio con"} ${d.number ?? `«${d.title ?? ""}»`}`;
+    case "crm_unlinked":
+      return `Desvinculó ${d.number ?? `«${d.title ?? ""}»`} de su oportunidad del CRM propio`;
     case "pricing_settings_changed": {
       const changed = Array.isArray(d.changed) ? (d.changed as string[]) : [];
       const names: Record<string, string> = {
@@ -122,6 +126,8 @@ export function describeAudit(e: PlatformAuditEntry): string {
         rates: "tarifas",
         templates: "plantillas",
         referenceOffers: "ofertas de referencia",
+        crmOrgId: "empresa propia del CRM",
+        crmStageId: "etapa de entrada en el CRM",
       };
       return `Cambió los ajustes del cotizador: ${changed.map((k) => names[k] ?? k).join(", ") || "sin cambios"}`;
     }

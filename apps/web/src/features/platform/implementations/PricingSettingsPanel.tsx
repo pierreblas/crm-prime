@@ -15,7 +15,7 @@ import {
 } from "@crm/shared";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
-import { fetchPricingSettings, updatePricingSettings } from "@/lib/bff";
+import { fetchCrmPipelines, fetchPlatformOrgs, fetchPricingSettings, updatePricingSettings } from "@/lib/bff";
 import { dateTime } from "../platformFormat";
 import { CATEGORY_LABEL, fmtMoney } from "./labels";
 
@@ -32,6 +32,9 @@ interface Draft {
   rates: Array<{ key: string; name: string; hourly: string }>;
   templates: Array<{ key: string; name: string; description: string; items: Array<{ category: QuoteItemCategory; description: string; hours: string; rateKey: string }> }>;
   referenceOffers: Array<{ key: string; name: string; from: string }>;
+  /** Empresa propia del CRM y etapa de entrada; "" = sin elegir. */
+  crmOrgId: string;
+  crmStageId: string;
 }
 
 const amount = (c: number | null) => (c === null ? "" : String(c / 100));
@@ -57,6 +60,8 @@ function toDraft(s: PricingSettings): Draft {
     rates: s.rates.map((r) => ({ key: r.key, name: r.name, hourly: amount(r.hourlyCostCents) })),
     templates: s.templates.map((t) => ({ key: t.key, name: t.name, description: t.description, items: t.items.map((i) => ({ category: i.category, description: i.description, hours: String(i.hours), rateKey: i.rateKey ?? "" })) })),
     referenceOffers: s.referenceOffers.map((o) => ({ key: o.key, name: o.name, from: amount(o.fromCents) })),
+    crmOrgId: s.crmOrgId ?? "",
+    crmStageId: s.crmStageId ?? "",
   };
 }
 
@@ -109,6 +114,8 @@ function fromDraft(d: Draft): { settings: PricingSettings | null; errors: string
       if (!o.name.trim()) errors.push(`Oferta ${i + 1}: falta el nombre`);
       return { key: o.key, name: o.name.trim(), fromCents: cents(o.from, `Oferta ${o.name || i + 1}`) };
     }),
+    crmOrgId: d.crmOrgId || null,
+    crmStageId: d.crmOrgId ? d.crmStageId || null : null,
   };
   return { settings: errors.length ? null : settings, errors };
 }
@@ -128,6 +135,12 @@ export function PricingSettingsPanel() {
 
   const parsed = useMemo(() => (draft ? fromDraft(draft) : { settings: null, errors: [] }), [draft]);
   const dirty = useMemo(() => !!draft && !!q.data && JSON.stringify(parsed.settings) !== JSON.stringify(q.data.settings), [draft, q.data, parsed]);
+
+  // CRM propio: las empresas de la plataforma y, elegida una, sus embudos con etapas.
+  const orgs = useQuery({ queryKey: ["platform", "orgs", ""], queryFn: () => fetchPlatformOrgs(""), staleTime: 60_000 });
+  const crmOrgId = draft?.crmOrgId ?? "";
+  const pipelines = useQuery({ queryKey: ["platform", "impl", "crm-pipelines", crmOrgId], queryFn: () => fetchCrmPipelines(crmOrgId), enabled: !!crmOrgId });
+  const orgList = useMemo(() => [...(orgs.data ?? [])].sort((a, b) => a.name.localeCompare(b.name, "es")), [orgs.data]);
 
   const save = useMutation({
     mutationFn: (s: PricingSettings) => updatePricingSettings(s),
@@ -218,6 +231,45 @@ export function PricingSettingsPanel() {
             <input className="pc-input" value={d.paymentTerms} maxLength={2000} onChange={(e) => set("paymentTerms", e.target.value)} aria-label="Condiciones de pago por defecto" />
           </label>
         </div>
+      </section>
+
+      <section className="pc-panel" data-settings-crm>
+        <div className="pc-panel__head">
+          <h2>CRM propio</h2>
+          <span className="pc-muted" style={{ fontSize: 12.5 }}>
+            La empresa de Driony dentro de la plataforma. Cada diagnóstico se puede enlazar con una oportunidad de su CRM: toma el precio propuesto al aprobar o aceptar, pasa a ganada al aceptar y a perdida al rechazar.
+          </span>
+        </div>
+        <div className="pc-form">
+          <label>
+            Empresa propia
+            <select className="pc-input" value={d.crmOrgId} onChange={(e) => setDraft({ ...d, crmOrgId: e.target.value, crmStageId: "" })} aria-label="Empresa propia">
+              <option value="">Sin enlace al CRM</option>
+              {orgList.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name} · {o.slug}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Etapa de entrada de las oportunidades nuevas
+            <select className="pc-input" value={d.crmStageId} disabled={!d.crmOrgId || !pipelines.data} onChange={(e) => set("crmStageId", e.target.value)} aria-label="Etapa de entrada">
+              <option value="">Primera etapa del embudo predeterminado</option>
+              {(pipelines.data ?? []).flatMap((p) =>
+                p.stages
+                  .filter((s) => !s.isWon && !s.isLost)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {p.name} › {s.name}
+                    </option>
+                  )),
+              )}
+            </select>
+          </label>
+        </div>
+        {d.crmOrgId && pipelines.data && pipelines.data.length === 0 && <p className="pc-warn" style={{ marginTop: 8 }}>Esa empresa no tiene embudos: crea uno en su panel antes de enlazar.</p>}
+        {pipelines.isError && <p style={{ color: "var(--danger)", marginTop: 8 }}>{(pipelines.error as Error).message}</p>}
       </section>
 
       <div className="pc-grid2">

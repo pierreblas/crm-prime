@@ -176,7 +176,8 @@ export const dealDtoSchema = z.object({
 export type DealDto = z.infer<typeof dealDtoSchema>;
 
 // ── Historial de una oportunidad ────────────────────────────
-export const dealEventKinds = ["created", "stage", "owner", "discarded", "restored", "lost_reason", "value", "booking"] as const;
+// «quote»: lo que pasa con una cotización del cotizador de implementaciones enlazada a la oportunidad (solo en la empresa propia de Driony).
+export const dealEventKinds = ["created", "stage", "owner", "discarded", "restored", "lost_reason", "value", "booking", "quote"] as const;
 export type DealEventKind = (typeof dealEventKinds)[number];
 export const dealActorKinds = ["user", "ai", "flow", "system", "api", "unknown"] as const;
 export type DealActorKind = (typeof dealActorKinds)[number];
