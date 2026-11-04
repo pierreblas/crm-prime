@@ -517,6 +517,26 @@ export const en = {
     thanksReport: "The team reads every message. If it's an error, we'll look into it as soon as possible.",
     thanksOpinion: "Your opinion helps us decide what to improve next.",
   },
+  adminCopilot: {
+    open: "Copilot",
+    title: "Copilot",
+    intro: "Ask me how to set up Driony or why something isn't working. I check your account and the docs to answer.",
+    readOnly: "Read-only: it never changes anything in your account.",
+    tryWith: "Try",
+    ex1: "What do I still need to set up to start selling?",
+    ex2: "Were there any problems this week?",
+    ex3: "How do I connect Facebook lead forms?",
+    ex4: "How do I split chats between my sellers?",
+    placeholder: "Ask anything…",
+    hint: "Enter to send · Shift+Enter for a new line",
+    send: "Send",
+    thinking: "Checking your account…",
+    consulted: "Checked",
+    newChat: "New conversation",
+    close: "Close",
+    retry: "Retry",
+    simulated: "Simulated answer: no AI key is configured.",
+  },
 };
 
 export type Messages = typeof en;

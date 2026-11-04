@@ -238,8 +238,9 @@ export class MetaGraphClient {
 
   /**
    * Los formularios de la página. Meta puede negarlo según los permisos del
-   * token (pide pages_manage_ads): null entonces, sin error, y el CRM se
-   * queda con los formularios de los que ya llegó algún lead.
+   * token (pide pages_manage_ads, que las páginas conectadas antes de pedirlo
+   * no tienen hasta volver a conectarlas): null entonces, sin error, y el CRM
+   * se queda con los formularios de los que ya llegó algún lead.
    */
   async listForms(
     pageId: string,
@@ -251,7 +252,7 @@ export class MetaGraphClient {
         `${this.baseUrl}/${graphVersion}/${pageId}/leadgen_forms` +
           `?fields=id,name,status&limit=200&access_token=${encodeURIComponent(pageToken)}`,
       );
-      if (!res.ok) return null;
+      if (!res.ok) return this.denied(res, `listar los formularios de la página ${pageId}`);
       const data = (await res.json()) as { data?: { id: string; name?: string; status?: string }[] };
       return (data.data ?? []).map((f) => ({ id: f.id, name: f.name ?? f.id, status: f.status ?? null }));
     } catch {
@@ -269,12 +270,19 @@ export class MetaGraphClient {
       const res = await fetch(
         `${this.baseUrl}/${graphVersion}/${formId}?fields=questions&access_token=${encodeURIComponent(pageToken)}`,
       );
-      if (!res.ok) return null;
+      if (!res.ok) return this.denied(res, `leer las preguntas del formulario ${formId}`);
       const data = (await res.json()) as { questions?: { key?: string; label?: string }[] };
       return (data.questions ?? []).filter((q) => q.key).map((q) => ({ key: q.key!, label: q.label || q.key! }));
     } catch {
       return null;
     }
+  }
+
+  /** Deja en el log por qué Meta negó una lectura opcional (casi siempre, un permiso) y sigue sin ella. */
+  private async denied(res: Response, what: string): Promise<null> {
+    const data = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+    this.logger.warn(`Meta no deja ${what}: ${data?.error?.message ?? `HTTP ${res.status}`}`);
+    return null;
   }
 
   private async getJson<T>(url: string, what: string): Promise<T> {

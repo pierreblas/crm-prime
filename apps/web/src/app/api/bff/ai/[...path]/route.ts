@@ -1,10 +1,11 @@
 import { apiForward, relay } from "@/lib/api";
 
 /**
- * Copiloto: /api/bff/ai/status y /api/bff/ai/conversations/:id/{rewrite,summary,ask,memory}.
+ * Copiloto: /api/bff/ai/status, /api/bff/ai/admin-copilot y
+ * /api/bff/ai/conversations/:id/{rewrite,summary,ask,memory}.
  * Solo se reenvían esas rutas: el comodín no debe abrir el resto de /ai.
  */
-const ALLOWED = /^(status|usage|conversations\/[A-Za-z0-9_-]+\/(rewrite|summary|ask|memory))$/;
+const ALLOWED = /^(status|usage|admin-copilot|conversations\/[A-Za-z0-9_-]+\/(rewrite|summary|ask|memory))$/;
 
 type Ctx = { params: Promise<{ path: string[] }> };
 

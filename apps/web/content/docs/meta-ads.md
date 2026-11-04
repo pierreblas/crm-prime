@@ -45,7 +45,7 @@ Los formularios de clientes potenciales de Facebook e Instagram entran al CRM en
 
 Cada lead crea (o actualiza) el contacto con las respuestas del formulario. Si el cliente ya tiene una oportunidad en curso no se crea otra; si estaba ganada o perdida, se abre una nueva. Al entrar en la etapa corren sus automatizaciones y sus conversiones de Meta, como si la hubieras movido tú.
 
-La lista de formularios y sus preguntas las da Meta cuando los permisos de la página lo permiten. Si no, aparecen los formularios de los que ya llegó algún lead, con las preguntas de esos leads, y uno nuevo entra como indique la página hasta que lo configures.
+La lista de formularios y sus preguntas las da Meta con el permiso para administrar los anuncios de la página, que se pide al conectar. Si no lo diste, o conectaste la página antes de que Driony lo pidiera, aparecen solo los formularios de los que ya llegó algún lead, con las preguntas de esos leads; para ver todos desde ya, pulsa **Añadir páginas**, deja marcada la página y acepta todos los permisos. Un formulario nuevo entra como indique la página hasta que lo configures.
 
 Con cada lead se guardan el **formulario** y, si Meta los da con el permiso de tu página, el **anuncio** y la **campaña**. En **Ajustes › Canales › Formularios de Facebook** ves cada lead recibido y si se procesó bien.
 

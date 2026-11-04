@@ -25,6 +25,8 @@ import { AiSettingsController } from "./ai-settings.controller";
 import { CopilotController } from "./copilot.controller";
 import { AiUsageController } from "./ai-usage.controller";
 import { CopilotService } from "./copilot.service";
+import { AdminCopilotService } from "./admin-copilot.service";
+import { AdminCopilotTools } from "./admin-copilot.tools";
 import { BusinessSetupController } from "./business-setup.controller";
 import { BusinessSetupService } from "./business-setup.service";
 import { MessagingModule } from "../messaging/messaging.module";
@@ -62,6 +64,8 @@ import { OnboardingModule } from "../onboarding/onboarding.module";
     AiReplyProcessor,
     MediaUnderstandingService,
     CopilotService,
+    AdminCopilotService,
+    AdminCopilotTools,
     BusinessSetupService,
   ],
   exports: [MediaUnderstandingService],

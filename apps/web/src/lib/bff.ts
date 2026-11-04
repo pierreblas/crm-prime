@@ -28,6 +28,8 @@ import type {
   AiStatus,
   AnalyzeKnowledgeResult,
   ContactMemory,
+  AdminCopilotReply,
+  AdminCopilotRequest,
   CopilotAskInput,
   CopilotAskResult,
   CopilotRewriteInput,
@@ -2069,6 +2071,13 @@ export async function copilotRewrite(conversationId: string, input: CopilotRewri
 export async function copilotSummary(conversationId: string): Promise<CopilotSummary> {
   const res = await bffFetch(`/api/bff/ai/conversations/${conversationId}/summary`, { method: "POST" });
   if (!res.ok) throw new Error(await errorMessage(res, "La IA no pudo resumir la conversación"));
+  return res.json();
+}
+
+/** Copiloto del administrador (solo ADMIN): pregunta con el hilo entero. */
+export async function askAdminCopilot(input: AdminCopilotRequest): Promise<AdminCopilotReply> {
+  const res = await bffFetch("/api/bff/ai/admin-copilot", json(input));
+  if (!res.ok) throw new Error(await errorMessage(res, "El copiloto no pudo responder"));
   return res.json();
 }
 

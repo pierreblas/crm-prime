@@ -5,6 +5,20 @@ import { phoneField } from "./contact.schema.js";
 // El token de cada página NUNCA sale de la API: el navegador solo ve ids y
 // nombres.
 
+/**
+ * Permisos que se piden al conectar con Facebook: ver las páginas, administrar
+ * sus webhooks, descargar los leads y (pages_manage_ads) leer los formularios y
+ * sus preguntas antes de que llegue ningún lead.
+ */
+export const META_LEADS_SCOPES = [
+  "pages_show_list",
+  "pages_read_engagement",
+  "pages_manage_metadata",
+  "pages_manage_ads",
+  "leads_retrieval",
+  "ads_management",
+].join(",");
+
 /** Fuente automática de los leads de formularios cuando la página no elige otra. */
 export const META_FORM_SOURCE_NAME = "Formulario de Facebook";
 

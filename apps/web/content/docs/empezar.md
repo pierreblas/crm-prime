@@ -44,6 +44,15 @@ Los contactos que entran por WhatsApp reciben la fuente **WhatsApp** automática
 2. **Pon tu API key de IA** en Ajustes › Inteligencia Artificial (OpenAI, Anthropic o cualquier API compatible con OpenAI). Sin ella los agentes no responden — [Agentes de IA](/docs/agentes).
 3. **Revisa tu embudo** en Ajustes › Embudos y etapas y activa la entrada automática si quieres que cada conversación nueva aparezca como oportunidad — [Embudos](/docs/embudos).
 
+## El copiloto
+
+Si eres administrador, en la cabecera tienes **Copiloto**: un chat al que preguntarle cómo se configura algo («¿cómo conecto los formularios de Facebook?») o por qué algo no va («¿por qué no entró el lead de Juan?», «¿hubo algún problema esta semana?»).
+
+- Responde con esta documentación y mirando tu cuenta: números, agentes, equipo, embudos, formularios y los últimos errores.
+- **Solo consulta**: no cambia nada. Te dice los pasos y te enlaza la pantalla donde se hace.
+- La conversación sigue abierta mientras te mueves por el panel; «Nueva conversación» la empieza de cero.
+- Usa tu IA como el resto de Driony (tu clave o la IA incluida en tu plan) y su gasto aparece en Ajustes › Consumo de IA como «Copiloto del administrador».
+
 ## Idioma
 
 El selector de idioma está arriba a la derecha (Español / English). Afecta al panel; los mensajes que envías a tus clientes los escribes tú o tu agente en el idioma que quieras.

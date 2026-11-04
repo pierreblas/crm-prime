@@ -12,6 +12,7 @@ import { RealtimeProvider } from "./RealtimeProvider";
 import { CallProvider } from "@/features/calls/CallProvider";
 import { TourHost } from "@/features/onboarding/TourHost";
 import { AiQuotaNotice, AiUsageMeter } from "@/features/plans/AiUsageMeter";
+import { AdminCopilot } from "@/features/copilot/AdminCopilot";
 import { platformConsoleUrl } from "@/lib/org";
 import { getTranslator } from "@/i18n/server";
 import type { MessageKey } from "@/i18n/translate";
@@ -84,6 +85,7 @@ export async function AppShell({
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {role === "ADMIN" && <AdminCopilot />}
             <AiUsageMeter isAdmin={role === "ADMIN"} />
             <AlertsBell />
             <HelpMenu />

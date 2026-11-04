@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ConversationStatus,
@@ -170,14 +171,15 @@ export function Inbox() {
     setOpenConversation(selected?.id ?? null);
     return () => setOpenConversation(null);
   }, [selected?.id, setOpenConversation]);
-  // Llegar desde un aviso: /?c=<id> abre ese chat.
+  // Llegar desde un aviso o el copiloto: /?c=<id> abre ese chat (también
+  // estando ya en la bandeja).
+  const linkedChat = useSearchParams().get("c");
   useEffect(() => {
-    const c = new URLSearchParams(window.location.search).get("c");
-    if (!c) return;
-    setSelectedId(c);
+    if (!linkedChat) return;
+    setSelectedId(linkedChat);
     setMobilePane("chat");
     window.history.replaceState(null, "", window.location.pathname);
-  }, []);
+  }, [linkedChat]);
 
   function select(c: ConversationDto) {
     setSelectedId(c.id);

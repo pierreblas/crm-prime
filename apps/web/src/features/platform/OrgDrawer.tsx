@@ -13,6 +13,7 @@ const FEATURE_LABEL: Record<string, string> = {
   agent: "Agente",
   classify: "Clasificación",
   copilot: "Copiloto",
+  admin_copilot: "Copiloto del administrador",
   playground: "Playground",
   prompt_assistant: "Asistente de prompts",
   flow_assistant: "Asistente de flujos",

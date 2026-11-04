@@ -33,6 +33,8 @@ COPY --from=builder /repo/apps/api/dist ./apps/api/dist
 COPY --from=builder /repo/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /repo/apps/api/package.json ./apps/api/
 COPY --from=builder /repo/package.json ./
+# La documentación de la web: la lee el copiloto del administrador (admin-copilot.docs.ts).
+COPY apps/web/content/docs ./apps/web/content/docs
 
 # Script de arranque: migra la DB y luego inicia el servidor
 COPY apps/api/entrypoint.sh /entrypoint.sh

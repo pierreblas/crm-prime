@@ -65,6 +65,36 @@ export interface CopilotAskResult {
   answer: string;
 }
 
+// ── Copiloto del administrador ────────────────────────────────
+// Chat de ayuda de toda la app (solo ADMIN): explica Driony con la
+// documentación y mira la configuración de la cuenta para diagnosticar.
+// Solo lee: los cambios los hace el administrador con los pasos que le da.
+export const adminCopilotTurnSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().trim().min(1).max(8000),
+});
+export type AdminCopilotTurn = z.infer<typeof adminCopilotTurnSchema>;
+
+export const adminCopilotRequestSchema = z.object({
+  /** El hilo entero; el último turno es la pregunta. */
+  messages: z
+    .array(adminCopilotTurnSchema)
+    .min(1)
+    .max(40)
+    .refine((m) => m[m.length - 1]?.role === "user", "El último mensaje debe ser una pregunta"),
+  /** Pantalla desde la que pregunta (ruta y query), para entender «aquí». */
+  path: z.string().max(300).optional(),
+});
+export type AdminCopilotRequest = z.infer<typeof adminCopilotRequestSchema>;
+
+export interface AdminCopilotReply {
+  reply: string;
+  /** Lo que consultó para responder (documentos y datos de la cuenta), para mostrarlo. */
+  consulted: string[];
+  provider: string;
+  model: string;
+}
+
 // ── Memoria del cliente ───────────────────────────────────────
 export const contactMemorySchema = z.object({
   summary: z.string().nullable(),

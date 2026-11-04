@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { WaIcon, WhatsAppConnect } from "@/features/whatsapp/WhatsAppConnect";
 import { MetaLeadsSettings } from "./MetaLeadsSettings";
@@ -18,11 +19,22 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  */
 export function ChannelsSettings({ hub }: { hub: boolean }) {
   const [channel, setChannel] = useState<ChannelKey>("whatsapp");
-  // Enlaces directos: ?tab=metaLeads (el antiguo) o ?channel=facebook.
+  // Enlaces directos: ?tab=metaLeads (el antiguo) o ?channel=facebook|whatsapp.
+  const params = useSearchParams();
+  const wanted: ChannelKey | null =
+    params.get("channel") === "facebook" || params.get("tab") === "metaLeads"
+      ? "facebook"
+      : params.get("channel") === "whatsapp"
+        ? "whatsapp"
+        : null;
   useEffect(() => {
-    const q = new URLSearchParams(window.location.search);
-    if (q.get("channel") === "facebook" || q.get("tab") === "metaLeads") setChannel("facebook");
-  }, []);
+    if (wanted) setChannel(wanted);
+  }, [wanted]);
+
+  function pick(c: ChannelKey) {
+    setChannel(c);
+    window.history.replaceState(null, "", `${window.location.pathname}?tab=channels&channel=${c}`);
+  }
 
   const { data: numbers = [] } = useQuery({ queryKey: ["wa-channels"], queryFn: fetchWhatsappChannels });
   const { data: pages = [] } = useQuery({ queryKey: ["meta-pages"], queryFn: fetchMetaPages });
@@ -61,7 +73,7 @@ export function ChannelsSettings({ hub }: { hub: boolean }) {
           desc="Tus números de WhatsApp Business: bandeja, agente de IA y difusiones."
           status={waStatus}
           active={channel === "whatsapp"}
-          onClick={() => setChannel("whatsapp")}
+          onClick={() => pick("whatsapp")}
         />
         <ChannelTab
           kind="fb"
@@ -69,7 +81,7 @@ export function ChannelsSettings({ hub }: { hub: boolean }) {
           desc="Los leads de tus anuncios de Facebook e Instagram entran solos como contactos."
           status={fbStatus}
           active={channel === "facebook"}
-          onClick={() => setChannel("facebook")}
+          onClick={() => pick("facebook")}
         />
       </div>
       <p className="ch-soon">

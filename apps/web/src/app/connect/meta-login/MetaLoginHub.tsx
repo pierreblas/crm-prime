@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { META_LEADS_SCOPES } from "@crm/shared";
 
 const APP_ID = process.env.NEXT_PUBLIC_WHATSAPP_APP_ID ?? "";
 const GRAPH_VERSION = "v24.0";
-// Lo que Meta exige para leer formularios: ver las páginas, administrar sus
-// webhooks y descargar los leads. Igual que en Ajustes › Canales.
-const SCOPES = ["pages_show_list", "pages_read_engagement", "pages_manage_metadata", "leads_retrieval", "ads_management"].join(",");
+// Lo que Meta exige para leer formularios. Igual que en Ajustes › Canales.
+const SCOPES = META_LEADS_SCOPES;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {

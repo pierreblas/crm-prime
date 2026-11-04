@@ -12,7 +12,7 @@ import type {
   StageRef,
   TemplateDto,
 } from "@crm/shared";
-import { META_FORM_SOURCE_NAME, metaFieldAutoTarget, resolveFieldKeys } from "@crm/shared";
+import { META_FORM_SOURCE_NAME, META_LEADS_SCOPES, metaFieldAutoTarget, resolveFieldKeys } from "@crm/shared";
 import {
   connectMetaPages,
   convertMetaLead,
@@ -40,15 +40,8 @@ const APP_ID = process.env.NEXT_PUBLIC_WHATSAPP_APP_ID ?? "";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 const GRAPH_VERSION = "v24.0";
 
-// Lo que Meta exige para leer formularios: ver las páginas, administrar sus
-// webhooks y descargar los leads.
-const SCOPES = [
-  "pages_show_list",
-  "pages_read_engagement",
-  "pages_manage_metadata",
-  "leads_retrieval",
-  "ads_management",
-].join(",");
+// Lo que Meta exige para leer formularios (META_LEADS_SCOPES en @crm/shared).
+const SCOPES = META_LEADS_SCOPES;
 
 /** El dominio raíz de la plataforma: este subdominio sin su primera etiqueta (acme.driony.com → driony.com). */
 function rootOrigin(): string {
@@ -276,7 +269,8 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
           </li>
           <li>
             Los permisos <code>leads_retrieval</code>, <code>pages_show_list</code>,{" "}
-            <code>pages_read_engagement</code>, <code>pages_manage_metadata</code> y{" "}
+            <code>pages_read_engagement</code>, <code>pages_manage_metadata</code>,{" "}
+            <code>pages_manage_ads</code> (para listar los formularios) y{" "}
             <code>ads_management</code> necesitan pasar la revisión de Meta para
             usarse con páginas de otros. Con tu propia página y tu usuario
             administrador funciona sin revisión.
@@ -618,7 +612,7 @@ function PageForms({
         <p style={{ ...muted, fontSize: 13, margin: 0 }}>
           {data?.fromMeta
             ? "Esta página aún no tiene formularios de clientes potenciales."
-            : "Aparecerán aquí cuando llegue el primer lead de cada formulario. Mientras, entran como indica la página."}
+            : "Meta no deja leer los formularios de esta página con los permisos que diste. Pulsa «Añadir páginas», deja marcada esta página y acepta todos los permisos: saldrán todos, aunque aún no tengan leads. Mientras, sus leads entran como indica la página."}
         </p>
       )}
       {forms.length > 0 && (
@@ -676,7 +670,7 @@ function PageForms({
       )}
       {!isPending && data && !data.fromMeta && forms.length > 0 && (
         <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>
-          Meta no deja listar los formularios con los permisos actuales: aquí salen los que ya mandaron algún lead. Uno nuevo entra como indica la página.
+          Solo salen los que ya mandaron algún lead: Meta no deja leer la lista con los permisos que diste. Para ver los demás, pulsa «Añadir páginas», deja marcada esta página y acepta todos los permisos. Mientras, uno nuevo entra como indica la página.
         </p>
       )}
     </section>
@@ -813,7 +807,7 @@ function FormSettings({
         {isPending && <p style={{ ...muted, fontSize: 13, margin: 0 }}>Cargando preguntas…</p>}
         {!isPending && questions.length === 0 && (
           <p style={{ ...muted, fontSize: 13, margin: 0 }}>
-            Meta no deja leer las preguntas de este formulario: aparecerán aquí cuando llegue su primer lead. Mientras, cada respuesta se reparte sola por el nombre de la pregunta.
+            Meta no deja leer las preguntas de este formulario: aparecerán cuando llegue su primer lead, o antes si vuelves a conectar la página aceptando todos los permisos. Mientras, cada respuesta se reparte sola por el nombre de la pregunta.
           </p>
         )}
         {questions.length > 0 && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { NavIcon, type IconName } from "@/components/NavIcons";
 import { ChannelsSettings } from "./ChannelsSettings";
 import { TagsManager } from "./TagsManager";
@@ -50,13 +51,20 @@ const TABS: { key: TabKey; label: string; icon: IconName }[] = [
 export function SettingsManager({ hub = false }: { hub?: boolean }) {
   const [tab, setTab] = useState<TabKey>("tags");
 
-  // Enlaces directos a una pestaña (Primeros pasos manda a ?tab=ai). La antigua
+  // Enlaces directos a una pestaña (Primeros pasos manda a ?tab=ai; el
+  // copiloto, a cualquiera, también estando ya en Ajustes). La antigua
   // «Leads de Meta» vive ahora dentro de Canales.
+  const wanted = useSearchParams().get("tab");
   useEffect(() => {
-    const wanted = new URLSearchParams(window.location.search).get("tab");
     if (wanted === "metaLeads") setTab("channels");
     else if (wanted && TABS.some((t) => t.key === wanted)) setTab(wanted as TabKey);
-  }, []);
+  }, [wanted]);
+
+  // La pestaña queda en la URL: recargar no la pierde y el copiloto sabe dónde estás.
+  function pick(key: TabKey) {
+    setTab(key);
+    window.history.replaceState(null, "", `${window.location.pathname}?tab=${key}`);
+  }
 
   return (
     <div style={wrap} className="settings-wrap">
@@ -64,7 +72,7 @@ export function SettingsManager({ hub = false }: { hub?: boolean }) {
         {TABS.map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => pick(t.key)}
             style={tabBtn(tab === t.key)}
             aria-current={tab === t.key ? "page" : undefined}
           >
