@@ -1,4 +1,4 @@
-import type { AiFeature } from "@crm/shared";
+import type { OrgAiBillingMode, AiFeature } from "@crm/shared";
 // Tipos del adaptador de LLM — provider-agnósticos.
 // La lógica del agente (AgentService) depende solo de esto, nunca del SDK.
 
@@ -62,4 +62,8 @@ export interface LlmResponse {
   content: LlmContentBlock[]; // bloques de salida (text + tool_use)
   usage: { inputTokens: number; outputTokens: number };
   model: string;
+  /** Quién pagó la llamada, según la credencial que usó el adaptador. Lo copia el registro de consumo. */
+  billingMode: OrgAiBillingMode;
+  /** Id de la respuesta del proveedor, para no registrar dos veces el mismo consumo. */
+  requestId?: string | null;
 }

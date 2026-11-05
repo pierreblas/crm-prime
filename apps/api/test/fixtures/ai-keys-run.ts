@@ -27,6 +27,12 @@ const row = {
   anthropicModel: "claude-opus-4-8",
   // Un gateway de la empresa: con la IA de Driony no se le puede mandar su clave.
   openaiBaseUrl: "https://gateway.de-la-empresa.example/v1",
+  // La modalidad sigue a la clave, como deja la migración.
+  billingMode: propia ? "BYOK" : "MANAGED",
+  credentialStatus: propia ? "untested" : "unconfigured",
+  validatedAt: null,
+  rotatedAt: null,
+  updatedBy: null,
 };
 
 const prisma = {

@@ -5,15 +5,19 @@ import { NavIcon } from "@/components/NavIcons";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  orgAiBillingModeLabels,
+  aiCredentialStatusLabels,
+  aiSettingEventLabels,
   llmProviderLabels,
   llmProviderNames,
   suggestedModels,
   type AiConnectionTest,
+  type AiSettingEventDto,
   type AiSettingsDto,
   type ApiKeyState,
   type LlmProviderName,
 } from "@crm/shared";
-import { fetchAiSettings, testAiConnection, updateAiSettings } from "@/lib/bff";
+import { fetchAiSettingEvents, fetchAiSettings, testAiConnection, updateAiSettings } from "@/lib/bff";
 import { resetLabel } from "@/features/copilot/useAiStatus";
 import { toast } from "@/lib/toast";
 import { ghostBtn as ghostBase, primaryBtn, smBtn } from "@/components/ui";
@@ -63,6 +67,7 @@ export function AiSettings() {
       }),
     onSuccess: (fresh: AiSettingsDto) => {
       queryClient.setQueryData(["ai-settings"], fresh);
+      void queryClient.invalidateQueries({ queryKey: ["ai-settings-events"] });
       setTest(null);
       toast.success("Ajustes de IA guardados");
     },
@@ -71,7 +76,12 @@ export function AiSettings() {
 
   const check = useMutation({
     mutationFn: testAiConnection,
-    onSuccess: (r) => setTest(r),
+    onSuccess: (r) => {
+      setTest(r);
+      // La prueba deja huella: el estado de la clave y el historial cambian.
+      void queryClient.invalidateQueries({ queryKey: ["ai-settings"] });
+      void queryClient.invalidateQueries({ queryKey: ["ai-settings-events"] });
+    },
     onError: (e) => toast.error((e as Error).message),
   });
 
@@ -215,6 +225,17 @@ export function AiSettings() {
           </div>
         )}
 
+        {/* Modalidad, estado de la clave propia y quién tocó esto por última vez. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 11, fontSize: 12, color: "var(--muted)" }} data-ai-mode>
+          <span style={chip}>{orgAiBillingModeLabels[data.billingMode]}</span>
+          {data.credentialStatus !== "unconfigured" && (
+            <span style={chip}>Clave propia: {aiCredentialStatusLabels[data.credentialStatus]}</span>
+          )}
+          {data.validatedAt && <span>Probada el {fecha(data.validatedAt)}.</span>}
+          {data.rotatedAt && <span>Guardada el {fecha(data.rotatedAt)}.</span>}
+          {data.updatedBy && <span>Último cambio: {data.updatedBy.name}.</span>}
+        </div>
+
         {sinRespaldo && !included && data.activeProvider === "fake" && (
           <div style={{ ...testBox(false), borderColor: "var(--warning-border)", background: "rgba(240, 180, 90, 0.08)", color: "var(--warning)" }}>
             <strong>Para activar la IA necesitas una API key tuya.</strong> Crea una
@@ -295,8 +316,71 @@ export function AiSettings() {
         </button>
         {dirty && <span style={hint}>Hay cambios sin guardar.</span>}
       </div>
+
+      <History />
     </Panel>
   );
+}
+
+/**
+ * Quién cambió qué: claves guardadas, cambiadas o borradas (solo sus últimos
+ * caracteres), cambios de modalidad y pruebas de conexión.
+ */
+function History() {
+  const [open, setOpen] = useState(false);
+  const { data, isPending } = useQuery({
+    queryKey: ["ai-settings-events"],
+    queryFn: fetchAiSettingEvents,
+    enabled: open,
+  });
+  return (
+    <details style={card} open={open} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
+      <summary style={{ cursor: "pointer", fontSize: 14, fontWeight: 600 }}>Historial de cambios</summary>
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          {isPending ? (
+            <p style={hint}>Cargando…</p>
+          ) : !data?.length ? (
+            <p style={hint}>Todavía no hay cambios registrados.</p>
+          ) : (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
+              {data.map((e) => (
+                <li key={e.id} style={{ display: "flex", gap: 10, fontSize: 12.5, alignItems: "baseline", flexWrap: "wrap" }}>
+                  <span style={{ color: "var(--muted)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>{fecha(e.createdAt)}</span>
+                  <span>
+                    <strong>{aiSettingEventLabels[e.action] ?? e.action}</strong>
+                    {e.provider ? ` · ${e.provider === "openai" ? "OpenAI" : "Anthropic"}` : ""}
+                    {describe(e) ? ` · ${describe(e)}` : ""}
+                  </span>
+                  <span style={{ color: "var(--muted)" }}>{e.user ? e.user.name : "Sistema"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </details>
+  );
+}
+
+function describe(e: AiSettingEventDto): string {
+  const d = e.details;
+  if (e.action === "mode_changed") {
+    const from = d.from as keyof typeof orgAiBillingModeLabels;
+    const to = d.to as keyof typeof orgAiBillingModeLabels;
+    return `${orgAiBillingModeLabels[from] ?? from} → ${orgAiBillingModeLabels[to] ?? to}`;
+  }
+  if (typeof d.masked === "string") return d.masked;
+  if (e.action === "settings_changed") return Object.keys(d).join(", ");
+  if (e.action === "test_ok" || e.action === "test_failed") {
+    const parts = [d.model as string, d.included ? "IA de Driony" : null, d.error ? String(d.error).slice(0, 80) : null].filter(Boolean);
+    return parts.join(" · ");
+  }
+  return "";
+}
+
+function fecha(iso: string): string {
+  return new Date(iso).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" });
 }
 
 function ProviderCard({

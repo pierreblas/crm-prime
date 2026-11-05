@@ -8,6 +8,7 @@ import {
   type ReadFile,
   type StorageProvider,
 } from "../../infra/storage/storage.provider";
+import { AI_TIMEOUT_AUDIO_MS, AI_TIMEOUT_CHAT_MS, aiFetch } from "./ai-http";
 import { AiSettingsService } from "./ai-settings.service";
 import { outputLimit } from "./providers/openai-llm.provider";
 import { AiUsageService } from "./ai-usage.service";
@@ -164,11 +165,15 @@ export class MediaUnderstandingService {
     form.append("model", model);
     form.append("response_format", "json");
 
-    const res = await fetch(`${base}/audio/transcriptions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${creds.apiKey}` },
-      body: form,
-    });
+    const res = await aiFetch(
+      `${base}/audio/transcriptions`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${creds.apiKey}` },
+        body: form,
+      },
+      AI_TIMEOUT_AUDIO_MS,
+    );
     if (!res.ok) return this.fail("transcripción", res);
     const data = (await res.json()) as {
       text?: string;
@@ -180,6 +185,7 @@ export class MediaUnderstandingService {
       inputTokens: data.usage?.input_tokens ?? Math.round((data.usage?.seconds ?? 0) * 50),
       outputTokens: data.usage?.output_tokens ?? 0,
       conversationId,
+      billingMode: creds.billingMode,
     });
     const text = (data.text ?? "").trim();
     return text || "(audio sin voz reconocible)";
@@ -201,25 +207,30 @@ export class MediaUnderstandingService {
       // la visión va a un 4.1/5 salvo que la empresa ya use uno o lo fije el servidor.
       const model =
         env("AI_VISION_MODEL") ?? (/^(gpt-4\.1|gpt-5)/.test(active.model) ? active.model : "gpt-4.1-mini");
-      const res = await fetch(`${base}/chat/completions`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${active.apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          ...outputLimit(model, 200, "low"),
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: `data:${mime};base64,${b64}`, detail: "low" } },
-              ],
-            },
-          ],
-        }),
-      });
+      const res = await aiFetch(
+        `${base}/chat/completions`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${active.apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            ...outputLimit(model, 200, "low"),
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  { type: "image_url", image_url: { url: `data:${mime};base64,${b64}`, detail: "low" } },
+                ],
+              },
+            ],
+          }),
+        },
+        AI_TIMEOUT_CHAT_MS,
+      );
       if (!res.ok) return this.fail("visión", res);
       const data = (await res.json()) as {
+        id?: string;
         choices?: { message?: { content?: string } }[];
         usage?: { prompt_tokens?: number; completion_tokens?: number };
       };
@@ -229,35 +240,42 @@ export class MediaUnderstandingService {
         inputTokens: data.usage?.prompt_tokens ?? 0,
         outputTokens: data.usage?.completion_tokens ?? 0,
         conversationId,
+        billingMode: active.billingMode,
+        requestId: data.id ?? null,
       });
       return (data.choices?.[0]?.message?.content ?? "").trim();
     }
 
     if (active.provider === "anthropic" && active.apiKey) {
       const model = env("AI_VISION_MODEL") ?? (/^claude/.test(active.model) ? active.model : "claude-haiku-4-5");
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": active.apiKey,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
+      const res = await aiFetch(
+        "https://api.anthropic.com/v1/messages",
+        {
+          method: "POST",
+          headers: {
+            "x-api-key": active.apiKey,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 200,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "image", source: { type: "base64", media_type: mime, data: b64 } },
+                  { type: "text", text: prompt },
+                ],
+              },
+            ],
+          }),
         },
-        body: JSON.stringify({
-          model,
-          max_tokens: 200,
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "image", source: { type: "base64", media_type: mime, data: b64 } },
-                { type: "text", text: prompt },
-              ],
-            },
-          ],
-        }),
-      });
+        AI_TIMEOUT_CHAT_MS,
+      );
       if (!res.ok) return this.fail("visión", res);
       const data = (await res.json()) as {
+        id?: string;
         content?: { type: string; text?: string }[];
         usage?: { input_tokens?: number; output_tokens?: number };
       };
@@ -267,6 +285,8 @@ export class MediaUnderstandingService {
         inputTokens: data.usage?.input_tokens ?? 0,
         outputTokens: data.usage?.output_tokens ?? 0,
         conversationId,
+        billingMode: active.billingMode,
+        requestId: data.id ?? null,
       });
       return (data.content ?? [])
         .map((c) => c.text ?? "")

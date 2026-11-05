@@ -1,9 +1,14 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import {
   AI_INCLUDED_MODEL,
   includedAiCapUsd,
   effectivePlan,
+  type OrgAiBillingMode,
+  type AiCredentialStatus,
   type AiIncluded,
+  type AiSettingEventAction,
+  type AiSettingEventDto,
   type AiStatus,
   type AiSettingsDto,
   type ApiKeyState,
@@ -19,6 +24,7 @@ import {
   encryptSecret,
   maskSecret,
 } from "../../common/utils/secret-box";
+import { credentialStatusFromError, normalizeProviderBaseUrl } from "./ai-http";
 import { AiUsageService, nextMonthStart } from "./ai-usage.service";
 import { AiPacksService } from "./ai-packs.service";
 
@@ -33,11 +39,36 @@ export interface ResolvedCredentials {
    * ni otra URL base, que mandaría la clave de Driony a un servidor ajeno.
    */
   included?: boolean;
+  /**
+   * Quién paga esta llamada. Sale de la credencial elegida, nunca se infiere
+   * después: MANAGED con la clave de la plataforma, BYOK con la de la empresa.
+   * El registro de consumo lo copia tal cual.
+   */
+  billingMode: OrgAiBillingMode;
+  /** Lo que se sabe de la clave propia (solo cuando la credencial es suya). */
+  credentialStatus?: AiCredentialStatus;
 }
 
 interface KeySource {
   key: string | null;
   source: ApiKeyState["source"];
+}
+
+interface PendingEvent {
+  action: AiSettingEventAction;
+  provider: "openai" | "anthropic" | null;
+  details: Record<string, unknown>;
+}
+
+/** Resultado de «Probar conexión», para dejarlo en el historial y en el estado de la clave. */
+export interface ConnectionTestOutcome {
+  ok: boolean;
+  provider: string;
+  model: string;
+  latencyMs: number;
+  /** Se probó la IA de Driony, no la clave de la empresa: el estado de su clave no cambia. */
+  included: boolean;
+  error?: unknown;
 }
 
 /**
@@ -62,6 +93,17 @@ interface KeySource {
  * dólares alcanzado, la clave deja de prestarse salvo para indexar el
  * conocimiento: si no, los documentos nuevos quedarían indexados con el
  * simulado y la búsqueda no los encontraría al volver el cupo.
+ *
+ * Modalidad (`billingMode`): una por empresa, MANAGED o BYOK. Hoy sigue a la
+ * clave (guardar una pasa a BYOK, borrarla vuelve a MANAGED) y cada cambio
+ * queda en `ai_setting_events` con quién lo hizo. Una empresa BYOK sin clave
+ * utilizable (cifrado roto, clave borrada) NO vuelve sola a la IA de Driony:
+ * el agente para con «Falta la clave de IA» hasta que alguien decida.
+ *
+ * Facturación mixta, declarada: lo que solo OpenAI hace (audio, visión,
+ * embeddings) corre con la IA de Driony si la empresa no tiene clave de OpenAI
+ * aunque tenga la de Anthropic, dentro de su tope en dólares. Está escrito en
+ * la documentación de planes.
  *
  * Se cachea unos segundos para no golpear la BD en cada llamada al LLM;
  * al guardar desde Ajustes la caché se invalida al instante.
@@ -110,6 +152,7 @@ export class AiSettingsService {
     const own = this.resolveFrom(row, openai, anthropic);
     const included = await this.included();
     const active = own.apiKey || row.provider === "fake" ? own : this.includedCreds(included) ?? own;
+    const updatedBy = row.updatedBy ? await this.userRef(row.updatedBy) : null;
 
     return {
       provider: row.provider as LlmProviderName,
@@ -123,38 +166,167 @@ export class AiSettingsService {
       saas: tenancyMode === "multi",
       platformKeys: AiSettingsService.platformKeysShared(),
       included,
+      billingMode: modeOf(row),
+      credentialStatus: statusOf(row),
+      validatedAt: row.validatedAt?.toISOString() ?? null,
+      rotatedAt: row.rotatedAt?.toISOString() ?? null,
+      updatedBy,
     };
   }
 
-  async updateSettings(input: UpdateAiSettingsInput): Promise<AiSettingsDto> {
-    await this.load(); // garantiza que la fila existe
+  /**
+   * Guarda los ajustes y deja en el historial lo que cambió: clave guardada,
+   * cambiada o borrada (solo sus últimos caracteres), modalidad, proveedor,
+   * modelos y URL base. La modalidad sigue a la clave: con alguna clave
+   * guardada la empresa es BYOK; sin ninguna, MANAGED.
+   */
+  async updateSettings(input: UpdateAiSettingsInput, actorId?: string): Promise<AiSettingsDto> {
+    const before = await this.load(true);
     const data: Record<string, unknown> = {};
+    const events: PendingEvent[] = [];
 
-    if (input.provider !== undefined) data.provider = input.provider;
-    if (input.openaiModel !== undefined) data.openaiModel = input.openaiModel;
-    if (input.anthropicModel !== undefined) {
+    // Proveedor, modelos y URL base: un solo evento con lo que cambió.
+    const changed: Record<string, { from: unknown; to: unknown }> = {};
+    if (input.provider !== undefined && input.provider !== before.provider) {
+      data.provider = input.provider;
+      changed.provider = { from: before.provider, to: input.provider };
+    }
+    if (input.openaiModel !== undefined && input.openaiModel !== before.openaiModel) {
+      data.openaiModel = input.openaiModel;
+      changed.openaiModel = { from: before.openaiModel, to: input.openaiModel };
+    }
+    if (input.anthropicModel !== undefined && input.anthropicModel !== before.anthropicModel) {
       data.anthropicModel = input.anthropicModel;
+      changed.anthropicModel = { from: before.anthropicModel, to: input.anthropicModel };
     }
     if (input.openaiBaseUrl !== undefined) {
-      data.openaiBaseUrl = input.openaiBaseUrl?.trim() || null;
+      let url: string | null = null;
+      if (input.openaiBaseUrl?.trim()) {
+        try {
+          url = normalizeProviderBaseUrl(input.openaiBaseUrl);
+        } catch (e) {
+          throw new BadRequestException((e as Error).message);
+        }
+      }
+      if (url !== before.openaiBaseUrl) {
+        data.openaiBaseUrl = url;
+        changed.openaiBaseUrl = { from: hostOnly(before.openaiBaseUrl), to: hostOnly(url) };
+      }
     }
-    // Cadena vacía = borrar la key de la BD y volver a la del entorno.
-    if (input.openaiKey !== undefined) {
-      data.openaiKeyEnc = input.openaiKey.trim()
-        ? encryptSecret(input.openaiKey.trim())
-        : null;
+    if (Object.keys(changed).length) events.push({ action: "settings_changed", provider: null, details: changed });
+
+    // Claves: cadena vacía = borrar la key de la BD y volver a la del entorno.
+    let rotated = false;
+    for (const which of ["openai", "anthropic"] as const) {
+      const incoming = which === "openai" ? input.openaiKey : input.anthropicKey;
+      if (incoming === undefined) continue;
+      const column = which === "openai" ? "openaiKeyEnc" : "anthropicKeyEnc";
+      const next = incoming.trim() || null;
+      const prevEnc = before[column];
+      const prev = prevEnc ? decryptSecret(prevEnc) : null;
+      if (next) {
+        if (prevEnc && prev === next) continue; // la misma clave otra vez: nada que hacer
+        data[column] = encryptSecret(next);
+        rotated = true;
+        events.push({
+          action: prevEnc ? "key_rotated" : "key_set",
+          provider: which,
+          details: { masked: maskSecret(next) },
+        });
+      } else if (prevEnc) {
+        data[column] = null;
+        events.push({ action: "key_revoked", provider: which, details: { masked: prev ? maskSecret(prev) : null } });
+      }
     }
-    if (input.anthropicKey !== undefined) {
-      data.anthropicKeyEnc = input.anthropicKey.trim()
-        ? encryptSecret(input.anthropicKey.trim())
-        : null;
+
+    // La modalidad sigue a la clave, y el cambio queda escrito.
+    const keyAfter = (c: "openaiKeyEnc" | "anthropicKeyEnc") => (c in data ? data[c] : before[c]);
+    const hasKey = !!(keyAfter("openaiKeyEnc") || keyAfter("anthropicKeyEnc"));
+    const hadKey = !!(before.openaiKeyEnc || before.anthropicKeyEnc);
+    const modeBefore = modeOf(before);
+    const modeAfter: OrgAiBillingMode = hasKey ? "BYOK" : "MANAGED";
+    if (modeAfter !== modeBefore) {
+      data.billingMode = modeAfter;
+      events.push({
+        action: "mode_changed",
+        provider: null,
+        details: { from: modeBefore, to: modeAfter, reason: hasKey ? "key_set" : "key_revoked" },
+      });
+    }
+    if (rotated) {
+      data.credentialStatus = "untested";
+      data.rotatedAt = new Date();
+    } else if (hadKey && !hasKey) {
+      data.credentialStatus = "revoked";
     }
 
     const orgId = this.tenant.orgId();
-    await this.prisma.aiSetting.update({ where: { orgId }, data });
+    const ops: Prisma.PrismaPromise<unknown>[] = [];
+    if (Object.keys(data).length) {
+      if (actorId) data.updatedBy = actorId;
+      ops.push(this.prisma.aiSetting.update({ where: { orgId }, data }));
+    }
+    if (events.length) ops.push(this.eventsInsert(orgId, events, actorId));
+    if (ops.length) await this.prisma.$transaction(ops);
+
     this.cache.delete(orgId);
-    this.usage.invalidate(orgId);
+    this.includedCache.delete(orgId);
     return this.getSettings();
+  }
+
+  /**
+   * «Probar conexión» deja huella: el evento siempre y, si se probó la clave de
+   * la empresa, su estado (valid; o invalid/exhausted si el proveedor la
+   * rechazó o no tiene cuota). Un fallo de red no dice nada de la clave.
+   */
+  async recordTest(outcome: ConnectionTestOutcome, actorId?: string): Promise<void> {
+    const orgId = this.tenant.orgId();
+    const data: Record<string, unknown> = {};
+    if (!outcome.included && outcome.provider !== "fake") {
+      if (outcome.ok) {
+        data.credentialStatus = "valid";
+        data.validatedAt = new Date();
+      } else {
+        const status = credentialStatusFromError(outcome.error);
+        if (status) data.credentialStatus = status;
+      }
+    }
+    const errorText = outcome.error ? String((outcome.error as Error).message ?? outcome.error).slice(0, 200) : null;
+    const details: Record<string, unknown> = {
+      model: outcome.model,
+      latencyMs: outcome.latencyMs,
+      included: outcome.included,
+      ...(errorText ? { error: errorText } : {}),
+    };
+    const ops: Prisma.PrismaPromise<unknown>[] = [
+      this.eventsInsert(orgId, [{ action: outcome.ok ? "test_ok" : "test_failed", provider: providerOrNull(outcome.provider), details }], actorId),
+    ];
+    if (Object.keys(data).length) ops.unshift(this.prisma.aiSetting.update({ where: { orgId }, data }));
+    await this.prisma.$transaction(ops);
+    this.cache.delete(orgId);
+  }
+
+  /** Los últimos cambios de los ajustes de IA de la empresa, con quién los hizo. */
+  async events(limit = 30): Promise<AiSettingEventDto[]> {
+    const orgId = this.tenant.orgId();
+    const rows = await this.prisma.aiSettingEvent.findMany({
+      where: { orgId },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+    const ids = [...new Set(rows.map((r) => r.userId).filter((id): id is string => !!id))];
+    const users = ids.length
+      ? await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, email: true } })
+      : [];
+    const byId = new Map(users.map((u) => [u.id, { id: u.id, name: u.name || u.email }]));
+    return rows.map((r) => ({
+      id: r.id,
+      action: r.action as AiSettingEventAction,
+      provider: r.provider,
+      details: (r.details ?? {}) as Record<string, unknown>,
+      createdAt: r.createdAt.toISOString(),
+      user: r.userId ? byId.get(r.userId) ?? null : null,
+    }));
   }
 
   // ── Resolución para los adaptadores de LLM ──────────────────
@@ -165,8 +337,9 @@ export class AiSettingsService {
       this.keyFor("openai", row),
       this.keyFor("anthropic", row),
     );
-    // "Simulado" elegido a mano se respeta; si no, sin clave propia, la de Driony.
-    if (own.apiKey || row.provider === "fake") return own;
+    // "Simulado" elegido a mano se respeta. Una empresa BYOK sin clave utilizable
+    // tampoco cae en la de Driony: eso sería cambiarle la factura sin avisar.
+    if (own.apiKey || row.provider === "fake" || modeOf(row) === "BYOK") return own;
     return this.includedCreds(await this.included()) ?? own;
   }
 
@@ -181,7 +354,8 @@ export class AiSettingsService {
     const own = this.resolveFrom(row, openai, anthropic);
     const used = own.provider === "openai" ? openai : own.provider === "anthropic" ? anthropic : null;
     const included = await this.included();
-    const viaIncluded = !own.apiKey && row.provider !== "fake" ? this.includedCreds(included) : null;
+    const viaIncluded =
+      !own.apiKey && row.provider !== "fake" && modeOf(row) !== "BYOK" ? this.includedCreds(included) : null;
     const active = viaIncluded ?? own;
     return {
       ready: active.provider !== "fake" && !!active.apiKey,
@@ -199,35 +373,29 @@ export class AiSettingsService {
     opts: { purpose?: "embeddings" } = {},
   ): Promise<ResolvedCredentials> {
     const row = await this.load();
-    if (provider === "fake") {
-      return { provider: "fake", apiKey: null, model: "fake", baseUrl: null };
-    }
+    if (provider === "fake") return this.fakeCreds(row);
     if (provider === "openai") {
-      const key = this.keyFor("openai", row).key;
-      if (!key) {
-        const included = this.includedCreds(await this.included(), opts.purpose === "embeddings");
-        if (included) return included;
+      const openai = this.keyFor("openai", row);
+      if (!openai.key) {
+        // Facturación mixta, declarada: lo que solo OpenAI hace (audio, visión,
+        // embeddings) corre con la IA de Driony si la empresa no tiene clave de
+        // OpenAI, también cuando es BYOK con solo Anthropic. Una empresa BYOK sin
+        // ninguna clave no recibe nada: ahí sí sería un cambio de factura a escondidas.
+        const hasOtherKey = !!this.keyFor("anthropic", row).key;
+        if (modeOf(row) !== "BYOK" || hasOtherKey) {
+          const included = this.includedCreds(await this.included(), opts.purpose === "embeddings");
+          if (included) return included;
+        }
       }
-      return {
-        provider: "openai",
-        apiKey: key,
-        model: row.openaiModel,
-        baseUrl: row.openaiBaseUrl,
-      };
+      return this.ownCreds("openai", openai, row);
     }
-    return {
-      provider: "anthropic",
-      apiKey: this.keyFor("anthropic", row).key,
-      model: row.anthropicModel,
-      baseUrl: null,
-    };
+    return this.ownCreds("anthropic", this.keyFor("anthropic", row), row);
   }
 
   invalidate(): void {
     const orgId = this.tenant.orgId();
     this.cache.delete(orgId);
     this.includedCache.delete(orgId);
-    this.usage.invalidate(orgId);
   }
 
   /**
@@ -301,6 +469,7 @@ export class AiSettingsService {
       model: env("AI_INCLUDED_MODEL") ?? AI_INCLUDED_MODEL,
       baseUrl: null,
       included: true,
+      billingMode: "MANAGED",
     };
   }
 
@@ -312,44 +481,34 @@ export class AiSettingsService {
   ): ResolvedCredentials {
     const forced = row.provider as LlmProviderName;
 
-    if (forced === "openai") {
-      return {
-        provider: "openai",
-        apiKey: openai.key,
-        model: row.openaiModel,
-        baseUrl: row.openaiBaseUrl,
-      };
-    }
-    if (forced === "anthropic") {
-      return {
-        provider: "anthropic",
-        apiKey: anthropic.key,
-        model: row.anthropicModel,
-        baseUrl: null,
-      };
-    }
-    if (forced === "fake") {
-      return { provider: "fake", apiKey: null, model: "fake", baseUrl: null };
-    }
+    if (forced === "openai") return this.ownCreds("openai", openai, row);
+    if (forced === "anthropic") return this.ownCreds("anthropic", anthropic, row);
+    if (forced === "fake") return this.fakeCreds(row);
 
     // "auto": el primero que tenga credencial.
-    if (openai.key) {
-      return {
-        provider: "openai",
-        apiKey: openai.key,
-        model: row.openaiModel,
-        baseUrl: row.openaiBaseUrl,
-      };
-    }
-    if (anthropic.key) {
-      return {
-        provider: "anthropic",
-        apiKey: anthropic.key,
-        model: row.anthropicModel,
-        baseUrl: null,
-      };
-    }
-    return { provider: "fake", apiKey: null, model: "fake", baseUrl: null };
+    if (openai.key) return this.ownCreds("openai", openai, row);
+    if (anthropic.key) return this.ownCreds("anthropic", anthropic, row);
+    return this.fakeCreds(row);
+  }
+
+  /**
+   * La credencial de la propia empresa para un proveedor. Paga ella (BYOK)
+   * salvo que la clave sea la del .env de la plataforma en SaaS
+   * (AI_SHARED_KEYS): entonces la paga la plataforma, sin cupo.
+   */
+  private ownCreds(provider: "openai" | "anthropic", src: KeySource, row: SettingsRow): ResolvedCredentials {
+    return {
+      provider,
+      apiKey: src.key,
+      model: provider === "openai" ? row.openaiModel : row.anthropicModel,
+      baseUrl: provider === "openai" ? row.openaiBaseUrl : null,
+      billingMode: src.source === "env" && tenancyMode === "multi" ? "MANAGED" : src.source === "db" ? "BYOK" : modeOf(row),
+      credentialStatus: src.source === "db" ? statusOf(row) : undefined,
+    };
+  }
+
+  private fakeCreds(row: SettingsRow): ResolvedCredentials {
+    return { provider: "fake", apiKey: null, model: "fake", baseUrl: null, billingMode: modeOf(row), credentialStatus: statusOf(row) };
   }
 
   private keyFor(which: "openai" | "anthropic", row: SettingsRow): KeySource {
@@ -378,11 +537,29 @@ export class AiSettingsService {
     };
   }
 
-  private async load(): Promise<SettingsRow> {
+  private eventsInsert(orgId: string, events: PendingEvent[], actorId?: string): Prisma.PrismaPromise<unknown> {
+    return this.prisma.aiSettingEvent.createMany({
+      data: events.map((e) => ({
+        orgId,
+        userId: actorId ?? null,
+        action: e.action,
+        provider: e.provider,
+        details: e.details as Prisma.InputJsonValue,
+      })),
+    });
+  }
+
+  private async userRef(id: string): Promise<{ id: string; name: string } | null> {
+    const u = await this.prisma.user.findUnique({ where: { id }, select: { id: true, name: true, email: true } });
+    return u ? { id: u.id, name: u.name || u.email } : null;
+  }
+
+  /** La fila de ajustes; `fresh` salta la caché (para comparar antes de guardar). */
+  private async load(fresh = false): Promise<SettingsRow> {
     const orgId = this.tenant.orgId();
     const now = Date.now();
     const hit = this.cache.get(orgId);
-    if (hit && now - hit.at < AiSettingsService.TTL_MS) {
+    if (!fresh && hit && now - hit.at < AiSettingsService.TTL_MS) {
       return hit.row;
     }
     const row = await this.prisma.aiSetting.upsert({
@@ -402,4 +579,32 @@ type SettingsRow = {
   openaiModel: string;
   anthropicModel: string;
   openaiBaseUrl: string | null;
+  billingMode: string;
+  credentialStatus: string;
+  validatedAt: Date | null;
+  rotatedAt: Date | null;
+  updatedBy: string | null;
 };
+
+function modeOf(row: Pick<SettingsRow, "billingMode">): OrgAiBillingMode {
+  return row.billingMode === "BYOK" ? "BYOK" : "MANAGED";
+}
+
+function statusOf(row: Pick<SettingsRow, "credentialStatus">): AiCredentialStatus {
+  const s = row.credentialStatus as AiCredentialStatus | undefined;
+  return s && ["unconfigured", "untested", "valid", "invalid", "exhausted", "revoked"].includes(s) ? s : "unconfigured";
+}
+
+function providerOrNull(p: string): "openai" | "anthropic" | null {
+  return p === "openai" || p === "anthropic" ? p : null;
+}
+
+/** Para el historial: el host de una URL base, nunca la URL entera (podría llevar rutas con tokens). */
+function hostOnly(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).host;
+  } catch {
+    return "?";
+  }
+}

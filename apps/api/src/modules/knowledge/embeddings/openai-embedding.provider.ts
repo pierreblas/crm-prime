@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { AI_TIMEOUT_CHAT_MS, aiFetch } from "../../ai/ai-http";
 import { AiSettingsService } from "../../ai/ai-settings.service";
 import { EMBEDDING_DIM, type EmbeddingProvider } from "./embedding.provider";
 import { AiUsageService } from "../../ai/ai-usage.service";
@@ -31,16 +32,20 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embed(texts: string[]): Promise<number[][]> {
-    const { apiKey, baseUrl } = await this.settings.resolveFor("openai", { purpose: "embeddings" });
+    const { apiKey, baseUrl, billingMode } = await this.settings.resolveFor("openai", { purpose: "embeddings" });
     if (!apiKey) throw new Error("No hay clave de OpenAI configurada");
-    const url = `${(baseUrl || "https://api.openai.com/v1").replace(/\/$/, "")}/embeddings`;
+    const url = `${(baseUrl || "https://api.openai.com/v1").replace(/\/+$/, "")}/embeddings`;
     const out: number[][] = [];
     for (let i = 0; i < texts.length; i += BATCH) {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: MODEL, input: texts.slice(i, i + BATCH), dimensions: EMBEDDING_DIM }),
-      });
+      const res = await aiFetch(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ model: MODEL, input: texts.slice(i, i + BATCH), dimensions: EMBEDDING_DIM }),
+        },
+        AI_TIMEOUT_CHAT_MS,
+      );
       if (!res.ok) {
         const body = await res.text().catch(() => "");
         throw new Error(`OpenAI embeddings ${res.status}: ${body.slice(0, 200)}`);
@@ -49,7 +54,7 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
         data: { index: number; embedding: number[] }[];
         usage?: { prompt_tokens?: number };
       };
-      this.usage.record({ feature: "knowledge_index", model: MODEL, inputTokens: json.usage?.prompt_tokens ?? 0, outputTokens: 0 });
+      this.usage.record({ feature: "knowledge_index", model: MODEL, inputTokens: json.usage?.prompt_tokens ?? 0, outputTokens: 0, billingMode });
       const sorted = [...json.data].sort((a, b) => a.index - b.index);
       out.push(...sorted.map((d) => d.embedding));
     }

@@ -24,6 +24,7 @@
     "test:tickets": "tsx --test test/one-time-ticket.test.ts",
     "test:inbound": "tsx --test test/inbound-origin.test.ts",
     "test:aikeys": "tsx --test test/ai-keys.test.ts",
+    "test:aibilling": "tsx --test test/ai-billing-mode.test.ts",
     "test:intake": "tsx --test test/pipeline-intake.test.ts",
     "test:promptassist": "tsx --test test/prompt-assistant.test.ts",
     "test:money": "tsx --test test/money.test.ts",

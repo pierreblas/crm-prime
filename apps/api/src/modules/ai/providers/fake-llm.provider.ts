@@ -35,6 +35,8 @@ export class FakeLLMProvider implements LLMProvider {
       content: [{ type: "text", text: reply }],
       usage: { inputTokens: 120, outputTokens: 40 },
       model: "fake-llm",
+      // Nadie paga el simulado; el registro de consumo lo descarta por el modelo.
+      billingMode: "BYOK",
     };
   }
 

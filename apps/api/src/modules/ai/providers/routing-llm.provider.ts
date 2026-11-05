@@ -42,6 +42,9 @@ export class RoutingLLMProvider implements LLMProvider {
       inputTokens: res.usage.inputTokens,
       outputTokens: res.usage.outputTokens,
       conversationId: req.conversationId,
+      // Quién pagó lo dice el adaptador, que sabe qué credencial usó.
+      billingMode: res.billingMode,
+      requestId: res.requestId,
     });
     return res;
   }

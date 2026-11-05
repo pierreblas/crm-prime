@@ -1,7 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import Anthropic from "@anthropic-ai/sdk";
-import type { Classification } from "@crm/shared";
+import type { OrgAiBillingMode, Classification } from "@crm/shared";
 import { env } from "../../../common/utils/env";
+import { AI_TIMEOUT_CHAT_MS } from "../ai-http";
 import { AiSettingsService } from "../ai-settings.service";
 import type { LLMProvider } from "../llm.provider";
 import type {
@@ -38,7 +39,7 @@ export class AnthropicLLMProvider implements LLMProvider {
     private readonly usage: AiUsageService,
   ) {}
 
-  private async config(): Promise<{ client: Anthropic; model: string }> {
+  private async config(): Promise<{ client: Anthropic; model: string; billingMode: OrgAiBillingMode }> {
     const c = await this.settings.resolveFor("anthropic");
     if (!c.apiKey) {
       throw new Error(
@@ -46,8 +47,10 @@ export class AnthropicLLMProvider implements LLMProvider {
       );
     }
     return {
-      client: new Anthropic({ apiKey: c.apiKey }),
+      // Mismo tiempo máximo que el resto de proveedores: una llamada no se queda colgada.
+      client: new Anthropic({ apiKey: c.apiKey, timeout: AI_TIMEOUT_CHAT_MS }),
       model: c.model || env("ANTHROPIC_MODEL") || "claude-opus-4-8",
+      billingMode: c.billingMode,
     };
   }
 
@@ -115,6 +118,8 @@ export class AnthropicLLMProvider implements LLMProvider {
         outputTokens: msg.usage.output_tokens,
       },
       model: msg.model,
+      billingMode: cfg.billingMode,
+      requestId: msg.id ?? null,
     };
   }
 
@@ -155,6 +160,8 @@ export class AnthropicLLMProvider implements LLMProvider {
       model: msg.model,
       inputTokens: msg.usage.input_tokens,
       outputTokens: msg.usage.output_tokens,
+      billingMode: cfg.billingMode,
+      requestId: msg.id ?? null,
     });
     const block = msg.content.find((b) => b.type === "text");
     const raw = block && block.type === "text" ? block.text : "{}";

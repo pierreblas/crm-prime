@@ -194,6 +194,7 @@ model Organization {
   aiUsage              AiUsage[]
   aiPacks              AiPack[]
   aiPackUses           AiPackUse[]
+  aiSettingEvents      AiSettingEvent[]
   platformAudit        PlatformAuditLog[]
   dealEvents           DealEvent[]
   lossReasons          LossReason[]
@@ -217,12 +218,18 @@ model AiUsage {
   outputTokens   Int      @default(0)
   conversationId String?
   // De quién era la clave: own (la empresa o el servidor propio) | platform
-  // (la IA de Driony, que cuenta para el cupo del plan).
+  // (la IA de Driony, que cuenta para el cupo del plan). Se deriva de billingMode.
   source         String   @default("own")
+  // Quién pagó esta llamada, fijado desde las credenciales resueltas: MANAGED | BYOK.
+  // null = fila anterior a noviembre de 2026 (vale `source`).
+  billingMode    String?
+  // Id de la respuesta del proveedor: la misma respuesta no se registra dos veces.
+  requestId      String?
   createdAt      DateTime @default(now())
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
+  @@unique([orgId, requestId])
   @@index([orgId, createdAt])
   @@index([orgId, source, createdAt])
   @@map("ai_usage")
@@ -1331,12 +1338,39 @@ model AiSetting {
   anthropicModel String  @default("claude-opus-4-8")
   openaiBaseUrl  String? // para gateways compatibles con OpenAI
 
+  // Quién paga la IA: MANAGED (IA incluida de Driony) | BYOK (clave propia).
+  // Hoy sigue a la clave: guardar una pasa a BYOK, borrarla vuelve a MANAGED.
+  billingMode      String    @default("MANAGED")
+  // unconfigured | untested | valid | invalid | exhausted | revoked
+  credentialStatus String    @default("unconfigured")
+  validatedAt      DateTime? // última «Probar conexión» correcta con clave propia
+  rotatedAt        DateTime? // última vez que se guardó o cambió una clave
+  updatedBy        String? // userId de quien hizo el último cambio
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@map("ai_settings")
+}
+
+// Historial de los ajustes de IA: cada clave guardada, cambiada o borrada, cada
+// cambio de modalidad y cada prueba de conexión, con quién lo hizo. `details`
+// nunca lleva la clave (como mucho sus últimos caracteres).
+model AiSettingEvent {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String?
+  action    String // mode_changed | key_set | key_rotated | key_revoked | settings_changed | test_ok | test_failed | budget_changed
+  provider  String? // openai | anthropic
+  details   Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@map("ai_setting_events")
 }
 
 // ─────────────────────────────────────────────────────────────

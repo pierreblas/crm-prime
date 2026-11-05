@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
-import type { Classification } from "@crm/shared";
+import type { OrgAiBillingMode, Classification } from "@crm/shared";
 import { env } from "../../../common/utils/env";
+import { AI_TIMEOUT_CHAT_MS, aiFetch } from "../ai-http";
 import { AiSettingsService } from "../ai-settings.service";
 import type { LLMProvider } from "../llm.provider";
 import type {
@@ -25,6 +26,7 @@ interface OaiMessage {
   tool_call_id?: string;
 }
 interface OaiResponse {
+  id?: string;
   model: string;
   choices: {
     finish_reason: string;
@@ -59,6 +61,7 @@ export class OpenAILLMProvider implements LLMProvider {
     model: string;
     baseUrl: string;
     included: boolean;
+    billingMode: OrgAiBillingMode;
   }> {
     const c = await this.settings.resolveFor("openai");
     if (!c.apiKey) {
@@ -70,8 +73,9 @@ export class OpenAILLMProvider implements LLMProvider {
       apiKey: c.apiKey,
       model: c.model || env("OPENAI_MODEL") || "gpt-4o-mini",
       baseUrl:
-        c.baseUrl ?? env("OPENAI_BASE_URL") ?? "https://api.openai.com/v1",
+        (c.baseUrl ?? env("OPENAI_BASE_URL") ?? "https://api.openai.com/v1").replace(/\/+$/, ""),
       included: !!c.included,
+      billingMode: c.billingMode,
     };
   }
 
@@ -138,6 +142,8 @@ export class OpenAILLMProvider implements LLMProvider {
         outputTokens: data.usage?.completion_tokens ?? 0,
       },
       model: data.model ?? cfg.model,
+      billingMode: cfg.billingMode,
+      requestId: data.id ?? null,
     };
   }
 
@@ -188,6 +194,8 @@ export class OpenAILLMProvider implements LLMProvider {
         model: data.model ?? cfg.model,
         inputTokens: data.usage?.prompt_tokens ?? 0,
         outputTokens: data.usage?.completion_tokens ?? 0,
+        billingMode: cfg.billingMode,
+        requestId: data.id ?? null,
       });
       const raw = data.choices[0]?.message?.content ?? "{}";
       return { ...fallback, ...(JSON.parse(raw) as Partial<Classification>) };
@@ -205,19 +213,25 @@ export class OpenAILLMProvider implements LLMProvider {
     return fallback;
   }
 
+  // Siempre por aiFetch: host admitido y tiempo máximo, también para una URL
+  // base guardada antes de que existiera la lista.
   private async call<T>(
     path: string,
     body: unknown,
     cfg: { apiKey: string; baseUrl: string },
   ): Promise<T> {
-    const res = await fetch(`${cfg.baseUrl}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${cfg.apiKey}`,
+    const res = await aiFetch(
+      `${cfg.baseUrl}${path}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${cfg.apiKey}`,
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    });
+      AI_TIMEOUT_CHAT_MS,
+    );
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
       throw new Error(`OpenAI ${res.status}: ${detail.slice(0, 300)}`);

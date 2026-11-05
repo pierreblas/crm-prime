@@ -38,6 +38,7 @@ const TENANT_MODELS = new Set<string>([
   "AiUsage",
   "AiPack",
   "AiPackUse",
+  "AiSettingEvent",
   "ProductField",
   "Feedback",
   "DealEvent",

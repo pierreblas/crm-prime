@@ -5,12 +5,13 @@ import {
   AI_INCLUDED_MODEL,
   AI_PRICES_REVIEWED,
   estimateAiCost,
+  type OrgAiBillingMode,
   type AiFeature,
   type AiUsagePeriod,
   type AiUsageReport,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
-import { currentOrgId, tenancyMode } from "../../infra/tenant/tenant.context";
+import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { TenantService } from "../../infra/tenant/tenant.service";
 
 export interface UsageEvent {
@@ -19,6 +20,13 @@ export interface UsageEvent {
   inputTokens: number;
   outputTokens: number;
   conversationId?: string | null;
+  /**
+   * Quién pagó la llamada. Viene de las credenciales resueltas
+   * (`ResolvedCredentials.billingMode`), nunca se deduce aquí del modelo.
+   */
+  billingMode: OrgAiBillingMode;
+  /** Id de la respuesta del proveedor, si lo da: la misma respuesta no se registra dos veces. */
+  requestId?: string | null;
 }
 
 /** De quién era la clave: own (la empresa o el servidor propio) | platform (la de Driony). */
@@ -31,17 +39,14 @@ export type UsageSource = "own" | "platform";
  * la clasificación y los embeddings), así ninguna función nueva se queda sin
  * contar por olvido. El registro nunca bloquea ni hace fallar la llamada.
  *
- * Cada fila dice además de quién era la clave: en SaaS, una empresa sin clave
- * propia para ese proveedor gasta la de Driony, y eso es lo que cuenta para
- * el cupo de IA incluida del plan.
+ * Cada fila dice además quién pagó: la modalidad la fija quien resolvió la
+ * credencial (AiSettingsService) y aquí solo se copia; `source` se deriva de
+ * ella por compatibilidad con los informes. Lo que corrió con la clave de
+ * Driony (MANAGED) es lo que cuenta para el cupo de IA incluida del plan.
  */
 @Injectable()
 export class AiUsageService {
   private readonly logger = new Logger("AiUsage");
-  // Qué claves propias tiene cada empresa, para saber a quién cargar cada
-  // llamada sin leer la configuración en cada una. Ajustes la invalida al guardar.
-  private ownKeys = new Map<string, { openai: boolean; anthropic: boolean; at: number }>();
-  private static readonly TTL_MS = 15_000;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -51,26 +56,26 @@ export class AiUsageService {
   record(e: UsageEvent): void {
     const orgId = currentOrgId();
     if (!orgId || /^fake/i.test(e.model) || (e.inputTokens <= 0 && e.outputTokens <= 0)) return;
-    void this.sourceFor(orgId, e.model)
-      .then((source) =>
-        this.prisma.aiUsage.create({
-          data: {
-            orgId,
-            feature: e.feature,
-            model: e.model,
-            inputTokens: Math.max(0, Math.round(e.inputTokens)),
-            outputTokens: Math.max(0, Math.round(e.outputTokens)),
-            conversationId: e.conversationId ?? null,
-            source,
-          },
-        }),
-      )
-      .catch((err: Error) => this.logger.warn(`No se pudo registrar el consumo: ${err.message}`));
-  }
-
-  /** La empresa cambió sus claves: la próxima llamada se carga a quien toca. */
-  invalidate(orgId: string): void {
-    this.ownKeys.delete(orgId);
+    const source: UsageSource = e.billingMode === "MANAGED" ? "platform" : "own";
+    void this.prisma.aiUsage
+      .create({
+        data: {
+          orgId,
+          feature: e.feature,
+          model: e.model,
+          inputTokens: Math.max(0, Math.round(e.inputTokens)),
+          outputTokens: Math.max(0, Math.round(e.outputTokens)),
+          conversationId: e.conversationId ?? null,
+          source,
+          billingMode: e.billingMode,
+          requestId: e.requestId || null,
+        },
+      })
+      .catch((err: Error & { code?: string }) => {
+        // La misma respuesta ya estaba registrada (reintento): no se duplica el gasto.
+        if (err.code === "P2002") return;
+        this.logger.warn(`No se pudo registrar el consumo: ${err.message}`);
+      });
   }
 
   /**
@@ -118,24 +123,6 @@ export class AiUsageService {
       costUsd += estimateAiCost(r.model, input, output) ?? estimateAiCost(AI_INCLUDED_MODEL, input, output) ?? 0;
     }
     return { conversations: Number(convs[0]?.count ?? 0), costUsd };
-  }
-
-  // En instalación propia la clave del servidor es de la empresa. En SaaS, si
-  // la empresa no tiene clave propia para el proveedor del modelo, la llamada
-  // se hizo con la de Driony.
-  private async sourceFor(orgId: string, model: string): Promise<UsageSource> {
-    if (tenancyMode !== "multi") return "own";
-    const now = Date.now();
-    let keys = this.ownKeys.get(orgId);
-    if (!keys || now - keys.at > AiUsageService.TTL_MS) {
-      const row = await this.prisma.aiSetting.findUnique({
-        where: { orgId },
-        select: { openaiKeyEnc: true, anthropicKeyEnc: true },
-      });
-      keys = { openai: !!row?.openaiKeyEnc, anthropic: !!row?.anthropicKeyEnc, at: now };
-      this.ownKeys.set(orgId, keys);
-    }
-    return (/^claude/i.test(model) ? keys.anthropic : keys.openai) ? "own" : "platform";
   }
 
   async report(period: AiUsagePeriod): Promise<AiUsageReport> {

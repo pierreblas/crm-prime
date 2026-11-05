@@ -40,6 +40,24 @@ Al llegar al tope, el agente **termina las conversaciones que ya atendía** ese 
 
 Además del cupo hay un **tope de seguridad en dólares** que protege de bucles o abusos; en un uso normal no se alcanza. Si se alcanzara, la IA de Driony se pausa hasta el mes siguiente y los chats pasan a tu equipo. Las conversaciones extra suben ese tope.
 
+### Qué credencial usa cada función
+
+Una sola modalidad por empresa: **IA incluida** (sin clave propia) o **tu propia clave**. Guardar una clave en **Ajustes › Inteligencia Artificial** pasa a tu clave; borrarla vuelve a la incluida. Cada cambio queda en el historial de esa pantalla, con quién lo hizo. Se puede en todos los planes, Gratis incluido.
+
+| Función | Con la IA incluida | Con tu propia clave |
+|---|---|---|
+| Agente automático y seguimientos que redacta la IA | Clave de Driony con su modelo fijo; cada conversación atendida cuenta en el cupo | Tu clave y el modelo que elijas en cada agente; sin cupo |
+| Copiloto del chat, asistentes de redacción y de flujos, preguntas sin respuesta, memoria del cliente | Clave de Driony; no cuentan conversaciones, pero entran en el tope de seguridad | Tu clave |
+| Indexar y buscar en el conocimiento, transcribir audios, describir imágenes | Clave de OpenAI de Driony, dentro del tope de seguridad | Tu clave de **OpenAI**. Si solo tienes clave de Anthropic, estas tres funciones siguen usando la de Driony dentro de tu tope de seguridad: es la única mezcla entre las dos modalidades |
+
+En **Consumo de IA** lo que corrió con la clave de Driony aparece separado de lo que corrió con la tuya, siempre estimado a precio de lista.
+
+### Lo que ya estaba en cola
+
+Un mensaje que el agente tenía pendiente de responder, un seguimiento programado o una indexación en marcha usan la modalidad **vigente al ejecutarse**, no la de cuando se encolaron, y registran la que usaron. Si borras tu clave con trabajos en cola, esos trabajos corren con la IA incluida y cuentan en su cupo; si conectas una, corren con la tuya.
+
+Si tu empresa usa su propia clave y esa clave deja de funcionar (el proveedor la rechaza, se quedó sin cuota o Driony no puede leerla), **no** se vuelve solo a la IA incluida: el agente para con el motivo «Falta la clave de IA» hasta que la arregles o la borres a propósito desde Ajustes.
+
 ## Cómo se aplican los límites
 
 Los límites cuentan **al añadir**: al conectar otro número, crear otro usuario, o crear a mano un contacto o una oportunidad. Lo que ya tienes no se toca nunca, tampoco si bajas de plan. Si intentas pasarte, la pantalla te dice qué plan lo permite.

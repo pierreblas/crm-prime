@@ -95,6 +95,7 @@ import type {
   FlowAssistantReply,
   PromptAssistantRequest,
   PromptAssistantReply,
+  AiSettingEventDto,
   AiSettingsDto,
   UpdateAiSettingsInput,
   AiConnectionTest,
@@ -805,6 +806,13 @@ export async function testAiConnection(): Promise<AiConnectionTest> {
   if (!res.ok) {
     throw new Error(await errorMessage(res, "No se pudo probar la conexión"));
   }
+  return res.json();
+}
+
+/** Quién cambió qué en los ajustes de IA (claves, modalidad, pruebas), lo último primero. */
+export async function fetchAiSettingEvents(): Promise<AiSettingEventDto[]> {
+  const res = await bffFetch("/api/bff/ai-settings/events");
+  if (!res.ok) throw new Error("No se pudo cargar el historial de la IA");
   return res.json();
 }
 

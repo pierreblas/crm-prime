@@ -293,6 +293,67 @@ test("la IA incluida se cuenta con el rol restringido, por empresa y en la conso
   assert.ok(ficha.ai.some((r) => r.source === "platform") && ficha.ai.some((r) => r.source === "own"));
 });
 
+test("los ajustes de IA, su historial y el consumo quedan en su empresa con el rol restringido", async () => {
+  // Las claves cifradas, el historial de quién las tocó y el consumo son lo más
+  // sensible de una empresa: SQL crudo desde A no debe ver ni tocar lo de B.
+  process.env.APP_ENCRYPTION_KEY ??= "clave-de-prueba-para-cifrar-secretos";
+  const { AiSettingsService } = await import("../src/modules/ai/ai-settings.service");
+  const { encryptSecret } = await import("../src/common/utils/secret-box");
+
+  await ctx.runInOrg("o_a", () =>
+    prisma.aiSetting.upsert({
+      where: { orgId: "o_a" },
+      create: { orgId: "o_a", openaiKeyEnc: encryptSecret("sk-de-acme-1111"), billingMode: "BYOK", credentialStatus: "untested" },
+      update: {},
+    }),
+  );
+  await ctx.runInOrg("o_b", () =>
+    prisma.aiSetting.upsert({
+      where: { orgId: "o_b" },
+      create: { orgId: "o_b", anthropicKeyEnc: encryptSecret("sk-ant-globex-2222"), billingMode: "BYOK", credentialStatus: "untested" },
+      update: {},
+    }),
+  );
+  await ctx.runInOrg("o_b", () =>
+    prisma.aiSettingEvent.create({ data: { orgId: "o_b", action: "key_set", provider: "anthropic", details: { masked: "sk-…2222" } } }),
+  );
+
+  await ctx.runInOrg("o_a", async () => {
+    // Deliberadamente sin WHERE.
+    const ajustes: any[] = await prisma.$queryRawUnsafe(`SELECT "orgId" FROM ai_settings`);
+    assert.deepEqual(ajustes.map((r) => r.orgId), ["o_a"], "RLS: los ajustes (y las claves cifradas) de otra empresa no se ven");
+    const eventos: any[] = await prisma.$queryRawUnsafe(`SELECT "orgId" FROM ai_setting_events`);
+    assert.equal(eventos.length, 0, "el historial de B no se ve desde A");
+    const consumo: any[] = await prisma.$queryRawUnsafe(`SELECT DISTINCT "orgId" FROM ai_usage`);
+    assert.deepEqual(consumo.map((r) => r.orgId), ["o_a"]);
+    const paquetes: any[] = await prisma.$queryRawUnsafe(`SELECT DISTINCT "orgId" FROM ai_packs`);
+    assert.ok(paquetes.every((r) => r.orgId === "o_a"));
+
+    // Escribir en la otra empresa: el UPDATE no alcanza su fila y el INSERT se rechaza.
+    const tocadas = await prisma.$executeRawUnsafe(`UPDATE ai_settings SET "anthropicKeyEnc" = 'robada' WHERE "orgId" = 'o_b'`);
+    assert.equal(tocadas, 0);
+    await assert.rejects(
+      prisma.$executeRawUnsafe(`INSERT INTO ai_setting_events (id, "orgId", action) VALUES ('ev_x', 'o_b', 'key_set')`),
+      "RLS: no se puede escribir historial en otra empresa",
+    );
+  });
+  const deB = await ctx.runInOrg("o_b", () => prisma.aiSetting.findUnique({ where: { orgId: "o_b" }, select: { anthropicKeyEnc: true } }));
+  assert.notEqual(deB?.anthropicKeyEnc, "robada");
+
+  // El servicio real con el rol restringido: A guarda una clave y el evento cae en A, nunca en B.
+  const usage = { includedUsage: async () => ({ conversations: 0, costUsd: 0 }), countedThisMonth: async () => false };
+  const packs = { extra: async () => ({ remaining: 0, usedThisMonth: 0, nextExpiresAt: null }), consume: async () => false };
+  const svc = new AiSettingsService(prisma, { orgId: () => "o_a" } as any, usage as any, packs as any);
+  const dto = await ctx.runInOrg("o_a", () => svc.updateSettings({ anthropicKey: "sk-ant-de-acme-3333" }, "u_acme"));
+  assert.equal(dto.billingMode, "BYOK");
+  assert.equal(dto.credentialStatus, "untested");
+  assert.equal(dto.anthropicKey.masked?.endsWith("3333"), true);
+  const historial = await ctx.runInOrg("o_a", () => svc.events());
+  assert.ok(historial.some((e) => e.action === "key_set" && e.provider === "anthropic"), "el alta queda en el historial de A");
+  assert.ok(!JSON.stringify(historial).includes("sk-ant-de-acme-3333"), "la clave nunca va al historial");
+  assert.equal(await ctx.runInOrg("o_b", () => prisma.aiSettingEvent.count()), 1, "B sigue con su único evento");
+});
+
 test("el panel funciona con el rol restringido y solo cuenta lo de su empresa", async () => {
   // Son consultas SQL crudas: la capa de Prisma no las filtra, así que se
   // comprueba aquí que llevan el filtro de empresa y que RLS no las rompe.

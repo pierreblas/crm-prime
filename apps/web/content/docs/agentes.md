@@ -2,17 +2,17 @@
 
 Un agente es un asistente configurado por ti que atiende las conversaciones: responde con tu información, califica al cliente y actúa sobre el CRM. Puedes tener varios (uno por número, por ejemplo) y uno **por defecto** para lo que no tenga agente propio.
 
-## Tu API key
+## Quién paga la IA: la incluida en tu plan o tu propia clave
 
-Los agentes usan **tu** cuenta del proveedor de modelos. En **Ajustes › Inteligencia Artificial**:
+Tu plan trae **IA incluida** con un cupo de conversaciones al mes (ver [Planes](/docs/planes#ia-incluida-y-conversaciones-extra)): el agente, el copiloto y los asistentes funcionan sin que configures nada. Si prefieres elegir el modelo y no tener cupo, conecta **tu propia clave** en **Ajustes › Inteligencia Artificial**:
 
 - **OpenAI** o **Anthropic (Claude)**: pega tu API key y elige el modelo por defecto.
-- **Cualquier API compatible con OpenAI** (Groq, DeepSeek, OpenRouter, Ollama…): pon su URL base en el campo *URL base* de OpenAI, con la key y el modelo de ese servicio.
-- Pulsa **Probar conexión**: hace una llamada real y te dice si funciona.
+- **Cualquier API compatible con OpenAI** (Groq, DeepSeek, OpenRouter…): pon su URL base en el campo *URL base* de OpenAI, con la key y el modelo de ese servicio. En la nube de Driony solo se admiten proveedores conocidos por https; si usas otro, pídenos que lo añadamos. En una instalación propia vale cualquier dirección, también Ollama en tu red.
+- Pulsa **Probar conexión**: hace una llamada real, te dice si funciona y deja anotado el estado de tu clave (probada, rechazada, sin cuota).
 
-Las keys se guardan cifradas y solo las usa tu empresa. Cada respuesta se cobra en tu cuenta del proveedor.
+Una sola modalidad por empresa. Guardar una clave pasa tu empresa a **tu propia clave**; borrarla vuelve a la **IA incluida**. Cada cambio (clave guardada, cambiada o borrada, modalidad, pruebas) queda en el **historial** de esa pantalla, con quién lo hizo y cuándo. Las keys se guardan cifradas y solo las usa tu empresa; con tu clave, cada respuesta se cobra en tu cuenta del proveedor, a su precio de lista y sin recargo de Driony.
 
-**Sin clave no hay agente.** Si un chat está en autopilot y tu empresa no tiene clave, la IA no inventa una respuesta: el chat pasa a **Pendientes** con el motivo «Falta la clave de IA», y verás el aviso en Agentes y en el propio chat. Lo mismo con los toques de seguimiento que redacta la IA: se omiten hasta que haya clave.
+**Sin IA no hay agente.** Si tu empresa usa su propia clave y esa clave falta, el proveedor la rechaza o se quedó sin cuota, Driony **no** vuelve solo a la IA incluida (eso cambiaría tu factura sin avisarte): el chat en autopilot pasa a **Pendientes** con el motivo «Falta la clave de IA», lo ves en Agentes y en el propio chat, y los toques de seguimiento que redacta la IA se omiten hasta que la arregles o la borres a propósito. Con la IA incluida, lo mismo ocurre al agotarse el cupo o su tope de seguridad, hasta el día 1 del mes.
 
 ## Crear un agente
 
@@ -73,7 +73,7 @@ En Copilot las acciones quedan pendientes de aprobación; en Autopilot se aplica
 
 ## Copiloto, memoria y conocimiento que aprende
 
-Además del agente que responde solo, Driony ayuda a tu equipo dentro de cada conversación. **Todo funciona con tu propia clave** de OpenAI o Anthropic (Ajustes › Inteligencia Artificial): Driony no vende créditos ni cobra por la IA, pagas a tu proveedor al precio de su lista.
+Además del agente que responde solo, Driony ayuda a tu equipo dentro de cada conversación. Todo esto funciona con la **IA incluida** de tu plan (no gasta conversaciones del cupo, pero sí entra en su tope de seguridad) o, si la conectaste, con **tu propia clave** de OpenAI o Anthropic (Ajustes › Inteligencia Artificial): Driony no vende créditos ni pone margen sobre tu clave, pagas a tu proveedor al precio de su lista.
 
 **En el cuadro de mensaje**, el botón de la varita reescribe tu borrador: mejorar la redacción, más cordial, más formal, más corto, corregir ortografía, o traducir al idioma del cliente (lo detecta de sus mensajes), al inglés o al portugués. Si no te convence, **Deshacer** devuelve tu texto.
 
@@ -87,7 +87,7 @@ Además del agente que responde solo, Driony ayuda a tu equipo dentro de cada co
 
 - **Preguntas sin respuesta**: la IA lee las conversaciones de los últimos 30 días y detecta lo que tus clientes preguntan y tu conocimiento no cubre, con una respuesta propuesta a partir de cómo contestó tu equipo. La revisas, la apruebas y el agente la usa desde ese momento. Lo que descartas no vuelve a salir.
 - **Importar web**: pega la dirección de tu página de preguntas frecuentes o de envíos (y, si quieres, las del mismo sitio que enlaza). Volver a importarla la actualiza.
-- La búsqueda del conocimiento también usa tu clave de OpenAI. Si cambias de proveedor, Driony te avisa para **reindexar** los documentos.
+- Indexar y buscar en el conocimiento usa **OpenAI**: tu clave de OpenAI si la tienes; si no, también cuando tu clave es solo de Anthropic, la IA incluida de Driony dentro de su tope de seguridad (ver [qué credencial usa cada función](/docs/planes#que-credencial-usa-cada-funcion)). Si cambias de proveedor, Driony te avisa para **reindexar** los documentos.
 
 ## Qué sabe del catálogo y del contacto
 
@@ -106,7 +106,7 @@ Al hacerlo, el cliente recibe exactamente lo que la IA redactó («Gracias, una 
 
 Como la IA puede decirlo y olvidarse de llamar a la herramienta, para los comprobantes conviene además la opción **«Pasar siempre el chat cuando el cliente envía una imagen o un documento»** (*Cuándo te pasa el chat*): es determinista. La IA sigue contestando lo que le indicaste y el chat pasa a Pendiente en cuanto llega la imagen. Si la IA se retira sin haber escrito nada (reglas de escalado, cliente molesto, no sabe qué responder), el cliente recibe el aviso de *Cuándo te pasa el chat*.
 
-Las **imágenes** que manda el cliente se describen antes de responder (con la misma clave de IA del agente), así la IA sabe que es un comprobante, una foto del producto o una captura; los audios se transcriben. Hace falta una clave con visión: OpenAI o Anthropic (con OpenAI, la foto se describe con gpt-4.1-mini, que cobra una imagen a unos 400 tokens; gpt-4o-mini cobra la misma foto a casi 3.000). Si la clave viene de un proveedor intermedio que no la ofrece, la IA verá «[imagen]» sin descripción, lo dirá y pedirá al cliente que le cuente qué es; en el registro de la API aparece el aviso «El modelo de visión no vio…».
+Las **imágenes** que manda el cliente se describen antes de responder (con la misma IA del agente), así la IA sabe que es un comprobante, una foto del producto o una captura; los audios se transcriben. Hace falta IA con visión: la incluida de Driony, o tu clave de OpenAI o Anthropic (con OpenAI, la foto se describe con gpt-4.1-mini, que cobra una imagen a unos 400 tokens; gpt-4o-mini cobra la misma foto a casi 3.000). Si la clave viene de un proveedor intermedio que no la ofrece, la IA verá «[imagen]» sin descripción, lo dirá y pedirá al cliente que le cuente qué es; en el registro de la API aparece el aviso «El modelo de visión no vio…».
 
 ## Precios en varias monedas
 
@@ -132,8 +132,8 @@ El catálogo sirve para productos, servicios, talleres o lo que vendas. En **Pro
 
 Cuando un cliente manda un **audio**, Driony lo transcribe; una **imagen**, la describe (si es un comprobante, un pedido o una captura, saca los datos que se leen). Los **stickers** no se describen: el agente ve «[sticker]» y sigue la conversación, porque describirlos cuesta lo mismo que una foto y no aporta nada a la venta. Eso se guarda bajo el mensaje en la bandeja, con el icono de la IA, y el agente lo lee como parte de la conversación: responde a lo que dijo el audio o a lo que muestra la foto, en vez de ignorarlo.
 
-- La transcripción usa tu clave de **OpenAI**. Con solo Anthropic, los audios no se transcriben; las imágenes sí se describen con cualquiera de los dos.
-- Se cobra en tu cuenta del proveedor y aparece en **Consumo de IA** como «Audios e imágenes de clientes». Un audio de un minuto cuesta menos de un centavo de dólar.
+- La transcripción usa **OpenAI**: tu clave de OpenAI si la tienes; si no, la IA incluida de Driony, también cuando tu clave es solo de Anthropic (es la única mezcla entre las dos modalidades, cuenta en el tope de seguridad de la IA incluida y no en el cupo de conversaciones). Las imágenes se describen con cualquiera de los dos proveedores. En una instalación propia sin clave de OpenAI, los audios no se transcriben.
+- Con tu clave se cobra en tu cuenta del proveedor; en los dos casos aparece en **Consumo de IA** como «Audios e imágenes de clientes», separado según de quién era la clave. Un audio de un minuto cuesta menos de un centavo de dólar.
 - Los videos y documentos no se interpretan todavía; el agente ve que llegaron.
 
 ## Seguimientos
