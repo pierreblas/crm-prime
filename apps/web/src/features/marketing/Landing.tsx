@@ -28,6 +28,7 @@ const COMPARE = [
 // haga un bucle sin salto.
 const BAND_ITEMS = [
   `${TRIAL_DAYS} días de Pro gratis`,
+  "Agentic Relationship Management",
   "Sin tarjeta",
   "Responde en segundos",
   "Desde tu propio número",
@@ -65,7 +66,30 @@ function aiByPlan(): string {
 /** Etiqueta corta de cada plan, encima del nombre. */
 const PLAN_TAG: Record<string, string> = { free: "Para probar", starter: "Para empezar", pro: "Más elegido", business: "Sin límites" };
 
+// Las tres claves del término, en el orden de las letras.
+const ARM_KEYS = [
+  {
+    letter: "A",
+    title: "Agentes",
+    text: "Responden en segundos, cotizan desde tu catálogo, leen audios, fotos y comprobantes, agendan y pasan el chat a una persona cuando toca. Siempre desde tu propio número.",
+  },
+  {
+    letter: "R",
+    title: "Relación",
+    text: "Recuerdan al cliente de una conversación a la siguiente, lo mueven de etapa en el embudo y lo retoman si pasan días sin respuesta. Ningún chat se queda sin dueño.",
+  },
+  {
+    letter: "M",
+    title: "Mando",
+    text: "Tú decides cuándo el agente responde solo y cuándo solo sugiere, con qué IA trabaja (la incluida en tu plan o tu propia clave), cuánto puede gastar al mes y qué puede contar. Cada respuesta queda registrada.",
+  },
+];
+
 const FAQ = [
+  {
+    q: "¿Qué es ARM y en qué se diferencia de un CRM?",
+    a: "ARM es Agentic Relationship Management. En un CRM tu equipo registra lo que pasó con cada cliente y el software espera a que alguien lo abra. En un ARM la relación la trabajan agentes de IA: atienden, cotizan, mueven el embudo y retoman al que se enfrió, y tu equipo supervisa, corrige y cierra. Driony está construido así desde el inicio: la bandeja, el embudo, los flujos y los agentes son un solo sistema, en tu propio número de WhatsApp.",
+  },
   {
     q: "¿De verdad no necesito tarjeta?",
     a: `No. Al crear tu cuenta tienes ${TRIAL_DAYS} días del plan Pro completo, sin tarjeta: tres números, diez personas, difusiones, API y ${TRIAL_AI_CONVERSATIONS.toLocaleString("es")} conversaciones con IA para probar el agente en serio. Al terminar no se corta ni se borra nada: sigues en el plan Gratis (un número, dos personas y ${PLANS.free.aiConversations} conversaciones con IA al mes) con tus chats, contactos y agentes, y pasas a Inicial, Pro o Empresa cuando quieras.`,
@@ -154,14 +178,19 @@ export function Landing() {
         <section className="lp-hero">
           <div className="lp-wrap lp-hero__grid">
             <div className="lp-hero__copy">
+              {/* El rótulo tacha CRM y sella ARM: la categoría en un vistazo. */}
               <p className="lp-hero__kicker lp-anim" style={{ animationDelay: "0.02s" }}>
-                CRM de WhatsApp con agentes de IA
+                <span className="lp-arm" role="img" aria-label="De CRM a ARM">
+                  <s>CRM</s>
+                  <b>ARM</b>
+                </span>
+                <span>Agentic Relationship Management</span>
               </p>
               <h1 className="lp-anim" style={{ animationDelay: "0.08s" }}>
-                Atiende cada lead <span className="lp-hero__accent">en segundos</span>. También a las 11 de la noche.
+                Agentes de IA que <span className="lp-hero__accent">venden</span> por tu WhatsApp. Tú mandas.
               </h1>
               <p className="lp-hero__sub lp-anim" style={{ animationDelay: "0.16s" }}>
-                Driony pone un agente de IA en tu propio número: responde, cotiza, califica y agenda. Tu equipo solo entra a cerrar, y nada se pierde en un celular.
+                En tu propio número: responden en segundos, cotizan, leen comprobantes y retoman al que se enfrió, también a las 11 de la noche. Tu equipo supervisa y cierra.
               </p>
               <div className="lp-hero__cta lp-anim" style={{ animationDelay: "0.24s" }}>
                 <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
@@ -179,7 +208,7 @@ export function Landing() {
                   <Check /> Listo en 2 minutos
                 </li>
                 <li>
-                  <Check /> IA incluida
+                  <Check /> IA incluida o tu propia clave
                 </li>
                 <li>
                   <Check /> Después sigues en el plan Gratis
@@ -195,6 +224,9 @@ export function Landing() {
             </div>
 
             <div className="lp-hero__demo lp-anim" style={{ animationDelay: "0.2s" }}>
+              <span className="lp-hero__spine" aria-hidden="true">
+                Agentic Relationship Management // Driony // En vivo
+              </span>
               <HeroChat />
             </div>
           </div>
@@ -225,6 +257,36 @@ export function Landing() {
           </button>
         </section>
 
+        {/* ── Qué es ARM: el término en el que se basa todo, con sus tres claves ── */}
+        <section className="lp-section lp-arm-sec" id="arm">
+          <div className="lp-wrap">
+            <div className="lp-arm-def lp-reveal">
+              <div className="lp-arm-def__word" aria-hidden="true">
+                <span>ARM</span>
+                <span className="lp-arm-def__sub">Agentic // Relationship // Management</span>
+              </div>
+              <div className="lp-head">
+                <p className="lp-tag">[ 00 // Qué es ARM ]</p>
+                <h2>Un CRM guarda lo que pasó con el cliente. Un ARM pone agentes a atenderlo.</h2>
+                <p className="lp-lede">
+                  Agentic Relationship Management: la relación con cada cliente la trabajan agentes de IA desde tu propio WhatsApp, y tu equipo la supervisa. Driony está construido así: bandeja, embudo, flujos y agentes son un solo sistema.
+                </p>
+              </div>
+            </div>
+            <dl className="lp-arm-keys lp-reveal">
+              {ARM_KEYS.map((k) => (
+                <div className="lp-arm-key" key={k.letter}>
+                  <dt>
+                    <b aria-hidden="true">{k.letter}</b>
+                    {k.title}
+                  </dt>
+                  <dd>{k.text}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
         {/* ── El costo de responder tarde: la cuenta con las cifras del visitante ── */}
         <section className="lp-section" id="costo">
           <div className="lp-wrap">
@@ -248,7 +310,7 @@ export function Landing() {
               <p className="lp-tag">[ 02 // Capacidades ]</p>
               <h2>Todo lo que hace Driony mientras tú cierras.</h2>
               <p className="lp-lede">
-                Deja de saltar entre el celular, hojas de cálculo y notas sueltas. Conversaciones, embudo e IA en una sola pantalla, con cada lead a la vista.
+                Deja de saltar entre el celular, hojas de cálculo y notas sueltas. Conversaciones, embudo y agentes en una sola pantalla, con cada lead a la vista.
               </p>
             </div>
 
@@ -469,7 +531,7 @@ export function Landing() {
             <div className="lp-vs lp-reveal" role="table" aria-label="WhatsApp a mano frente a Driony">
               <div className="lp-vs__row lp-vs__row--head" role="row">
                 <span role="columnheader">WhatsApp a mano</span>
-                <span role="columnheader">Con Driony</span>
+                <span role="columnheader">ARM con Driony</span>
               </div>
               {COMPARE.map(([bad, good]) => (
                 <div className="lp-vs__row" role="row" key={bad}>
@@ -572,7 +634,7 @@ export function Landing() {
         <section className="lp-cta-band">
           <div className="lp-wrap lp-cta-band__inner lp-reveal">
             <h2>Tu próximo lead escribe esta noche. ¿Quién le responde?</h2>
-            <p>Conecta tu número, entrena tu agente y deja de perder ventas en WhatsApp. Hoy, en dos minutos.</p>
+            <p>Pon un agente en tu número, dale tu catálogo y tus reglas, y deja de perder ventas en WhatsApp. Hoy, en dos minutos.</p>
             <div className="lp-cta__row">
               <Link href="/register" className="lp-btn lp-btn--white lp-btn--lg">
                 Probar {TRIAL_DAYS} días gratis <Arrow />

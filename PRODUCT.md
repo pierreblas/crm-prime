@@ -36,6 +36,14 @@ celular y a la vez gestionar desde el CRM) y webhooks para recibir leads externo
 Éxito = el vendedor responde en segundos, ningún lead se enfría, y la IA resuelve
 lo repetitivo para que el humano cierre las ventas.
 
+**Posicionamiento (desde 2026-11-05): ARM, Agentic Relationship Management.**
+En un CRM el equipo registra lo que pasó con el cliente y el software espera a
+que alguien lo abra; en un ARM la relación la trabajan agentes de IA (atienden,
+cotizan, mueven el embudo, retoman al que se enfrió) y el equipo supervisa y
+cierra. Las tres claves que usa la landing: **A**gentes, **R**elación, **M**ando.
+En el texto corrido el producto se sigue llamando CRM cuando se habla de la
+herramienta (bandeja, embudo); ARM es la categoría y el argumento de venta.
+
 ## Brand Personality
 
 **Moderno, enérgico, vivo.** Voz directa y cercana, sin jerga corporativa; habla

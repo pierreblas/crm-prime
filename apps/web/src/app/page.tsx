@@ -9,13 +9,13 @@ import { currentOrgSlug } from "@/lib/org";
 // La raíz sirve la landing pública (en español) al visitante sin sesión del
 // dominio principal; la bandeja, ya dentro, pone su propio título en el cliente.
 export const metadata: Metadata = {
-  title: "Driony — Atiende cada lead de WhatsApp en segundos, las 24 horas",
+  title: "Driony — Agentes de IA que venden por tu WhatsApp. Tú mandas.",
   description:
-    "CRM para WhatsApp con un agente de IA en tu propio número: responde, cotiza, califica y agenda a tus leads en segundos, también de noche. 15 días de Pro gratis, sin tarjeta. Precio por empresa, no por usuario.",
+    "Driony es ARM (Agentic Relationship Management): agentes de IA en tu propio número de WhatsApp que responden en segundos, cotizan, leen comprobantes y retoman al que se enfrió, con tu equipo al mando. IA incluida en el plan o tu propia clave. 15 días de Pro gratis, sin tarjeta.",
   openGraph: {
-    title: "Driony — Atiende cada lead de WhatsApp en segundos, las 24 horas",
+    title: "Driony — Agentes de IA que venden por tu WhatsApp. Tú mandas.",
     description:
-      "Un agente de IA en tu WhatsApp que responde, cotiza, califica y agenda, también a las 11 de la noche. Bandeja en tiempo real, embudo y difusiones. 15 días de Pro gratis, sin tarjeta.",
+      "Agentes de IA que atienden, cotizan y cierran en tu WhatsApp, también a las 11 de la noche. Bandeja en tiempo real, embudo y difusiones. 15 días de Pro gratis, sin tarjeta.",
     type: "website",
     locale: "es_ES",
     images: [{ url: "/og.png", width: 1200, height: 630, alt: "Driony: convierte WhatsApp en tu mejor vendedor" }],

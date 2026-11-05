@@ -80,7 +80,7 @@
   text-wrap: balance;
 }
 .lp h1 {
-  font-size: clamp(2.5rem, 1.5rem + 3.8vw, 4.3rem);
+  font-size: clamp(2.6rem, 1.3rem + 4vw, 4.6rem);
 }
 .lp h2 {
   font-size: clamp(1.9rem, 1.3rem + 2.6vw, 3.1rem);
@@ -2706,4 +2706,274 @@ select.lp-input option {
   .lp-live__chat::after {
     animation: none;
   }
+}
+
+/* ══ Hero ARM y sección «Qué es ARM» ═══════════════════════════════
+   El rótulo del hero tacha CRM y sella ARM (la categoría en un vistazo), el
+   bloque lima lleva los píxeles en tinta abajo a la derecha y el bloque oscuro
+   un lomo vertical con el nombre completo. La sección 00 define el término:
+   las letras gigantes en lima y las tres claves A · R · M separadas por filete. */
+.lp-hero__copy {
+  position: relative;
+}
+.lp-hero__kicker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  margin-bottom: 18px;
+}
+.lp-hero__kicker::before {
+  margin-right: 0;
+}
+.lp-arm {
+  display: inline-flex;
+  align-items: stretch;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  line-height: 1;
+}
+.lp-arm s {
+  padding: 6px 8px;
+  border: 1px solid rgba(10, 11, 16, 0.45);
+  border-right: 0;
+  color: var(--on-lemon-muted);
+  text-decoration-color: var(--on-lemon);
+  text-decoration-thickness: 2px;
+}
+.lp-arm b {
+  padding: 6px 9px;
+  background: var(--on-lemon);
+  color: var(--accent);
+  box-shadow: 3px 3px 0 0 var(--cyan);
+}
+/* El sello cae sobre la página después de que suba el rótulo. */
+.lp-js .lp-arm b {
+  animation: lp-stamp 0.45s var(--ease) 0.5s backwards;
+}
+@keyframes lp-stamp {
+  from {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.lp-hero__sub {
+  max-width: 40ch;
+  font-size: clamp(1rem, 0.95rem + 0.4vw, 1.18rem);
+}
+/* Lomo del bloque oscuro: el nombre completo, en vertical, pegado a la costura. */
+.lp-hero__demo .lp-hero__spine {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 26px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--muted);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+@media (min-width: 901px) {
+  .lp-hero__demo .lp-hero__spine {
+    display: flex;
+  }
+  .lp-hero__demo {
+    padding-left: clamp(40px, 3.2vw, 46px);
+  }
+  /* El lomo le quita sitio a la consola: el registro cede un poco al chat. */
+  .lp-live {
+    grid-template-columns: minmax(0, 1fr) 184px;
+  }
+  .lp-hero__copy .lp-partner {
+    align-self: flex-start;
+  }
+}
+/* Con la consola más estrecha, la cabecera de la bandeja se acorta. */
+@media (min-width: 701px) and (max-width: 1100px) {
+  .lp-live__chat::before {
+    content: "[ + ] Bandeja // En vivo";
+  }
+}
+@media (min-width: 701px) and (max-width: 980px) {
+  .lp-live__chat::before {
+    content: "[ + ] En vivo";
+  }
+}
+/* Justo por encima del menú plegado no caben los siete enlaces: «Docs» sigue
+   en el pie y en el menú del celular. */
+@media (min-width: 901px) and (max-width: 980px) {
+  .lp-nav__links a[href="/docs"] {
+    display: none;
+  }
+}
+/* Píxeles en tinta y verde circuito, abajo a la derecha del bloque lima; solo
+   cuando el bloque tiene sitio de sobra (el distintivo de Meta ya no se estira). */
+@media (min-width: 1101px) {
+  .lp-hero__copy::after {
+    content: "";
+    position: absolute;
+    right: 28px;
+    bottom: 28px;
+    width: 96px;
+    height: 96px;
+    pointer-events: none;
+    background:
+      linear-gradient(var(--on-lemon), var(--on-lemon)) 0 0 / 32px 32px no-repeat,
+      linear-gradient(var(--on-lemon), var(--on-lemon)) 32px 32px / 32px 32px no-repeat,
+      linear-gradient(var(--green), var(--green)) 64px 0 / 32px 32px no-repeat,
+      linear-gradient(var(--green), var(--green)) 64px 64px / 32px 32px no-repeat,
+      linear-gradient(var(--on-lemon), var(--on-lemon)) 32px 64px / 16px 16px no-repeat;
+  }
+}
+
+/* Sección 00: las letras gigantes a la izquierda, la definición a la derecha. */
+.lp-arm-sec {
+  padding-top: clamp(56px, 7vw, 100px);
+}
+.lp-arm-def {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 64px);
+  align-items: center;
+}
+.lp-arm-def .lp-head {
+  margin-bottom: 0;
+}
+.lp-arm-def__word {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.lp-arm-def__word > span:first-child {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 82%;
+  font-size: clamp(5.5rem, 3rem + 11vw, 12rem);
+  line-height: 0.86;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+  text-shadow: 6px 6px 0 var(--cyan);
+}
+.lp-arm-def__sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.lp-arm-keys {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: clamp(36px, 5vw, 64px) 0 0;
+  border-top: 1px solid var(--border);
+}
+.lp-arm-key {
+  padding: 28px 28px 8px 0;
+}
+.lp-arm-key + .lp-arm-key {
+  padding-left: 28px;
+  border-left: 1px solid var(--border);
+}
+.lp-arm-key dt {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-stretch: 88%;
+  font-size: clamp(1.2rem, 1.05rem + 0.6vw, 1.5rem);
+  line-height: 1.04;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.lp-arm-key dt b {
+  font-size: 2.6em;
+  font-weight: 800;
+  font-stretch: 82%;
+  line-height: 0.9;
+  color: var(--accent);
+}
+.lp-arm-key dd {
+  margin: 14px 0 0;
+  max-width: 34ch;
+  color: var(--ink-dim);
+  font-size: 16px;
+  line-height: 1.55;
+}
+@media (max-width: 900px) {
+  .lp-arm-def {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .lp-arm-keys {
+    grid-template-columns: 1fr;
+  }
+  .lp-arm-key {
+    padding: 22px 0;
+  }
+  .lp-arm-key + .lp-arm-key {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
+/* Nav: con «Qué es ARM» hay siete enlaces; ninguno se parte en dos líneas y
+   entre 901 y 1200px se aprietan un punto. */
+.lp-nav__links a {
+  white-space: nowrap;
+  padding: 0 9px;
+}
+.lp-nav__links {
+  gap: 2px;
+}
+@media (min-width: 901px) and (max-width: 1200px) {
+  .lp-nav__inner {
+    gap: 12px;
+  }
+  .lp-nav__links {
+    margin-left: 4px;
+  }
+  .lp-nav__links a,
+  .lp-nav__login {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 0 7px;
+  }
+  .lp-nav__cta .lp-btn {
+    padding: 10px 14px 10px 26px;
+    font-size: 12px;
+  }
+}
+
+/* Pie: el nombre completo bajo la marca. */
+.lp-foot__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lp-foot__tag {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
 }

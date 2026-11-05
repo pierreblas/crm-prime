@@ -15,6 +15,7 @@ export const CONTACT = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "contacto@driony
 
 // Secciones de la landing: la etiqueta coincide con el título al que lleva.
 export const NAV = [
+  { id: "arm", label: "Qué es ARM" },
   { id: "capacidades", label: "Capacidades" },
   { id: "como", label: "Cómo funciona" },
   { id: "porque", label: "Por qué Driony" },
@@ -111,8 +112,11 @@ export function MarketingFooter({ home = false }: { home?: boolean }) {
   return (
     <footer className="lp-foot">
       <div className="lp-wrap lp-foot__inner">
-        <span className="lp-brand">
-          <Wordmark size={16} />
+        <span className="lp-foot__brand">
+          <span className="lp-brand">
+            <Wordmark size={16} />
+          </span>
+          <span className="lp-foot__tag">Agentic Relationship Management</span>
         </span>
         <nav className="lp-foot__links" aria-label="Pie de página">
           <a href={sectionHref("capacidades", home)}>Capacidades</a>

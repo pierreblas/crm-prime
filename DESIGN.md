@@ -468,12 +468,34 @@ lima a sangre con Tinta Noir, botón invertido y los píxeles en tinta arriba a 
 derecha.
 
 ### Hero (landing)
-Dos bloques pegados: el lima con el argumento (rótulo mono, titular condensado con
-la palabra clave marcada en tinta, botones invertidos, garantías en mono) y el
-oscuro con tinte Verde Circuito donde corre la conversación en vivo (chat y
-registro de lo que hace el CRM) con los píxeles abajo a la derecha. Se reproduce
-una vez al cargar y se repite con «Ver otra vez». El HTML del servidor trae el
-estado final, así que sin JS o con movimiento reducido se ve completa.
+Dos bloques pegados: el lima con el argumento y el oscuro con tinte Verde
+Circuito donde corre la conversación en vivo (chat y registro de lo que hace el
+CRM) con los píxeles abajo a la derecha. En el lima: el **rótulo ARM** (un punto
+hexagonal, «CRM» tachado en un marco de tinta y «ARM» sellado en tinta con texto
+lima y sombra dura cian, seguido de «Agentic Relationship Management» en mono),
+el titular condensado con la palabra clave marcada en tinta («venden»), el sub a
+40ch, los botones invertidos, las garantías en mono, el distintivo de Meta (ya no
+se estira) y, desde 1101px, los **píxeles en tinta y verde** abajo a la derecha.
+El bloque oscuro lleva un **lomo vertical** pegado a la costura (mono humo,
+«Agentic Relationship Management // Driony // En vivo», solo en escritorio) y la
+consola se estrecha un punto (el registro baja a 184px). El sello «ARM» cae con
+`lp-stamp` después de que suba el rótulo. La demo se reproduce una vez al cargar
+y se repite con «Ver otra vez». El HTML del servidor trae el estado final, así
+que sin JS o con movimiento reducido se ve completa.
+
+### Sección «00 // Qué es ARM» (landing)
+La primera sección tras la banda define el término en el que se basa el
+producto: a la izquierda las letras **ARM** gigantes (display 800, condensada,
+hasta 12rem, lima con sombra dura cian) y debajo «Agentic // Relationship //
+Management» en mono cian; a la derecha la etiqueta «[ 00 // Qué es ARM ]», el h2
+(«Un CRM guarda lo que pasó con el cliente. Un ARM pone agentes a atenderlo.») y
+el lede. Debajo, las tres claves **A · Agentes, R · Relación, M · Mando** en una
+fila separada por filetes (sin tarjetas): la letra grande en lima, el título
+condensado y el texto en Tinta tenue a 34ch. En columna (≤900px) se apilan con
+filete arriba. El «00» es deliberado: es la definición, no un paso más de la
+secuencia 01–06. ARM aparece además en el nav («Qué es ARM»), la banda, la
+cabecera de la comparativa («ARM con Driony»), la primera pregunta del FAQ, el
+pie (bajo la marca, en mono) y los metadatos de la portada.
 
 ### Tiles de capacidades (landing)
 Rejilla de seis columnas con tiles biseladas numeradas por CSS (`counter`,
