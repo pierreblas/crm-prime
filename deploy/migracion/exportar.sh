@@ -75,7 +75,10 @@ dc run --rm --no-deps --entrypoint sh -v "$OUT:/backup" api -c \
 # ── Estado del código: lo que este servidor corre y no está en git ──
 LOCALES=no
 if git rev-parse HEAD > /dev/null 2>&1; then
-  git status --short > "$OUT/git-status.txt"
+  # Las carpetas de exportación no son cambios del código: sin este filtro el
+  # aviso de abajo saltaría siempre.
+  base="$(basename "$OUT")"
+  git status --short | { grep -vE "^[?][?] (exportacion-[^/]*|corte|$base)/\$" || true; } > "$OUT/git-status.txt"
   git diff > "$OUT/git-local.diff"
   chmod 600 "$OUT/git-local.diff"
   if [ -s "$OUT/git-status.txt" ]; then

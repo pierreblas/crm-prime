@@ -80,11 +80,14 @@ ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw enable
 # El proyecto
 git clone https://github.com/jusiho/crm-prime.git ~/crm-prime
 cd ~/crm-prime && git checkout COMMIT-DEL-VIEJO   # en el viejo: git rev-parse HEAD
+git checkout origin/main -- deploy/migracion      # los scripts son más nuevos que ese commit
 ```
 
 **Mismo commit que el viejo.** La migración no se mezcla con un despliegue: si algo falla, tiene que quedar claro que es el servidor y no el código. Lo nuevo se despliega otro día. En el viejo mira también `git status`: si hay cambios locales sin subir, un clon limpio no los tendría (`exportar.sh` los guarda en `git-local.diff`). Fíjate sobre todo en el compose: el del repo conecta la aplicación con `DB_USER`, y si en producción usas el rol `crm_app` algo tiene que diferir.
 
 **Acceso entre servidores.** En el viejo: `ssh-keygen -t ed25519` y `ssh-copy-id usuario@IP-NUEVA`. Si el proveedor nuevo tiene firewall en su panel, abre ahí 22, 80 y 443 además de `ufw`.
+
+**El script en el viejo, sin `git pull`.** Los scripts existen desde el commit `c75032e` y producción puede ir por uno anterior. Un pull movería `HEAD` y ya no sabrías qué commit está corriendo. Anota el commit y copia solo el script desde tu PC, con `scp deploy/migracion/exportar.sh usuario@IP-VIEJA:~/exportar.sh`. En el viejo quítale los saltos de Windows con `sed -i 's/\r$//' ~/exportar.sh`. Se ejecuta desde la carpeta del proyecto, con `bash ~/exportar.sh`.
 
 Las variables, **desde el servidor viejo** (no desde el PC):
 
@@ -132,7 +135,7 @@ En el viejo, con la aplicación en marcha (no molesta):
 
 ```bash
 cd ~/crm-prime
-bash deploy/migracion/exportar.sh
+bash ~/exportar.sh
 # → exportacion-AAAAMMDD-HHMMSS/ con manifest.txt
 rsync -avz --progress exportacion-*/ usuario@IP-NUEVA:~/crm-prime/exportacion/
 ```
@@ -186,7 +189,7 @@ Un día antes: aviso a los clientes, imágenes construidas en el nuevo y un snap
 | Minuto | Dónde | Qué |
 |---|---|---|
 | 0 | viejo | `docker compose --env-file .env.production -f docker-compose.prod.yml stop api web` — los clientes ven error, Meta empieza a reintentar los webhooks, y ya nada escribe en la base vieja |
-| 1 | viejo | `bash deploy/migracion/exportar.sh corte` (la base y los medios de hace un minuto) |
+| 1 | viejo | `bash ~/exportar.sh corte` (la base y los medios de hace un minuto) |
 | 3 | viejo → nuevo | `rsync -avz corte/ usuario@IP-NUEVA:~/crm-prime/corte/` |
 | 5 | nuevo | `bash deploy/migracion/importar.sh corte/` (con Redis esta vez) |
 | 8 | nuevo | `docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build` y mirar `logs -f api`: «Aplicando migraciones…» → «Iniciando servidor» |
