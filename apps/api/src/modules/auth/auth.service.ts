@@ -224,10 +224,16 @@ export class AuthService {
   // ── Refresh con rotación + detección de reuso ──────────────
   async refresh(rawToken: string): Promise<AuthTokens> {
     const tokenHash = this.hash(rawToken);
-    const stored = await this.prisma.refreshToken.findUnique({
-      where: { tokenHash },
-      include: { session: { include: { user: true } } },
-    });
+    // El refresh llega sin empresa en contexto (solo trae la cookie), y `users`
+    // tiene RLS: con el rol restringido la sesión salía sin usuario y Prisma
+    // fallaba con «Field user is required». El token es la credencial; la
+    // empresa se conoce después, por el usuario que devuelve.
+    const stored = await runUnscoped("refresh: cargar sesión y usuario por token", () =>
+      this.prisma.refreshToken.findUnique({
+        where: { tokenHash },
+        include: { session: { include: { user: true } } },
+      }),
+    );
 
     if (!stored) throw new UnauthorizedException("Refresh token inválido");
 

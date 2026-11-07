@@ -1199,3 +1199,35 @@ test("conversaciones extra: se gastan una vez por conversación y mes, la que ve
     });
   }
 });
+
+test("renovar la sesión funciona con el rol restringido, sin empresa en contexto", async () => {
+  // El refresh llega solo con la cookie: no hay subdominio ni token de acceso
+  // que digan la empresa. El 2026-11-07 en producción, con crm_app, la sesión
+  // salía sin usuario («Field user is required») y la bandeja quedaba vacía al
+  // caducar el acceso. En desarrollo no se nota: el dueño se salta RLS.
+  process.env.JWT_ACCESS_SECRET ??= "secreto-de-prueba";
+  const { JwtService } = await import("@nestjs/jwt");
+  const { OrganizationService } = await import("../src/modules/organizations/organization.service");
+  const { AuthService } = await import("../src/modules/auth/auth.service");
+  const { TenantService } = await import("../src/infra/tenant/tenant.service");
+  const jwt = new JwtService({ secret: process.env.JWT_ACCESS_SECRET });
+  const orgs = new OrganizationService(prisma, jwt);
+  const auth = new AuthService(prisma, new TenantService(prisma), orgs, jwt);
+
+  const slug = `sesion-${Date.now()}`;
+  const email = `ana@${slug}.test`;
+  const password = "clave-larga-123";
+  await orgs.register({ companyName: "Sesión de prueba", slug, adminName: "Ana", adminEmail: email, password }, "127.0.0.1");
+
+  const first = await auth.login({ email, password, orgSlug: slug }, { platform: "WEB" });
+  assert.ok(first.refreshToken, "el login entrega un refresh");
+
+  // Sin contexto de empresa, como lo recibe el servidor.
+  const next = await auth.refresh(first.refreshToken);
+  assert.ok(next.accessToken, "el refresh emite un acceso nuevo");
+  assert.notEqual(next.refreshToken, first.refreshToken, "el refresh rota el token");
+  assert.equal(next.user.email, email);
+
+  // Y un token inventado sigue sin pasar.
+  await assert.rejects(auth.refresh("no-existe"), /inválido/);
+});
