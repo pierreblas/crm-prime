@@ -501,7 +501,11 @@ pie (bajo la marca, en mono) y los metadatos de la portada.
 Rejilla de seis columnas con tiles biseladas numeradas por CSS (`counter`,
 «[ + ] 01, 02…»), como en la referencia. La primera es lima pleno con la captura
 del producto y chips en tinta; el resto, Capa 1 con filete. Los h3 van
-condensados en mayúsculas.
+condensados en mayúsculas. Las tiles 02 y 03 son el **copiloto** en sus dos
+caras: en el chat (`.lp-suggest`: la respuesta sugerida sobre fondo negro, las
+acciones pendientes como chips y los botones mono Enviar/Editar/Descartar, el
+primero en lima) y para quien administra (`.lp-trace--qa`: una pregunta con
+marca «TÚ» y la respuesta con marca «IA» en cian).
 
 ### Kit HUD (landing y panel)
 Los elementos de la referencia de Stitch, pedidos por el usuario, encima de los

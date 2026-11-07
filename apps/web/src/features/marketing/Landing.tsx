@@ -18,6 +18,8 @@ const COMPARE = [
   ["El lead escribe a las 9 de la noche y lo lees a las 9 de la mañana", "Respuesta en segundos, también de madrugada y en feriado"],
   ["Cinco vendedores con cinco celulares y nadie sabe quién atiende a quién", "Una sola bandeja, cada chat con dueño y el tiempo que lleva esperando"],
   ["«¿Precio?» cuarenta veces al día, a mano", "El agente cotiza desde tu catálogo, en la moneda del cliente"],
+  ["Un vendedor nuevo tarda semanas en saber qué responder", "El copiloto le sugiere la respuesta y le resume al cliente en diez segundos"],
+  ["Algo falla y te enteras cuando un cliente se queja", "Le preguntas al copiloto «¿hubo algún problema esta semana?» y te dice qué y dónde"],
   ["El comprobante llega en foto y se pierde entre los chats", "La IA lee la foto, registra el pago y avisa a tu equipo"],
   ["Leads que se enfrían sin que nadie se dé cuenta", "Cada conversación entra al embudo y un flujo la retoma si pasan días"],
   ["Anuncios que optimizan a clics y traen curiosos", "Meta aprende de tus ventas reales y trae gente que compra"],
@@ -34,6 +36,7 @@ const BAND_ITEMS = [
   "Desde tu propio número",
   "Meta Business Partner",
   "IA incluida en el plan",
+  "La IA sugiere, tú apruebas",
   "Precio por empresa, no por usuario",
   "Lee fotos y comprobantes",
   "Código abierto",
@@ -53,7 +56,7 @@ const STEPS = [
   {
     when: "Desde el primer chat",
     title: "Él atiende, tú cierras",
-    text: "El agente responde, califica y agenda; cada lead entra al embudo con su etapa y su dueño. Tu equipo entra cuando hay que cerrar, y lo ve todo en la bandeja.",
+    text: "El agente responde, califica y agenda; cada lead entra al embudo con su etapa y su dueño. Tu equipo entra cuando hay que cerrar, y lo ve todo en la bandeja. Si prefieres ir con cuidado, arranca en Copiloto: la IA sugiere cada respuesta y tu equipo la envía.",
   },
 ];
 
@@ -81,7 +84,7 @@ const ARM_KEYS = [
   {
     letter: "M",
     title: "Mando",
-    text: "Tú decides cuándo el agente responde solo y cuándo solo sugiere, con qué IA trabaja (la incluida en tu plan o tu propia clave), cuánto puede gastar al mes y qué puede contar. Cada respuesta queda registrada.",
+    text: "Tú decides cuándo el agente responde solo y cuándo solo sugiere y tu equipo aprueba, con qué IA trabaja (la incluida en tu plan o tu propia clave), cuánto puede gastar al mes y qué puede contar. Cada respuesta queda registrada, y un copiloto te explica por qué pasó cada cosa.",
   },
 ];
 
@@ -100,7 +103,7 @@ const FAQ = [
   },
   {
     q: "¿Y si mi equipo no es técnico?",
-    a: "No hace falta que lo sea. WhatsApp se conecta desde el panel con la ventana de Meta, el asistente redacta las instrucciones del agente contigo y los flujos se arman arrastrando bloques. Si te atascas, nos escribes y te responde quien hace el producto.",
+    a: "No hace falta que lo sea. WhatsApp se conecta desde el panel con la ventana de Meta, el asistente redacta las instrucciones del agente contigo y los flujos se arman arrastrando bloques. Dentro del panel tienes un copiloto al que preguntarle cómo se configura algo o por qué no entró un lead: te da los pasos y el enlace a la pantalla. Si te atascas, nos escribes y te responde quien hace el producto.",
   },
   {
     q: "¿Cuánto cuesta la inteligencia artificial?",
@@ -360,6 +363,47 @@ export function Landing() {
                   <span className="lp-chip">Lee fotos y comprobantes</span>
                   <span className="lp-chip">Escribe como una persona</span>
                   <span className="lp-chip">Pasa a alguien cuando toca</span>
+                </div>
+              </article>
+
+              {/* El copiloto, en sus dos caras: en el chat (la IA sugiere, una persona
+                  aprueba) y en la cabecera del administrador (consulta, no cambia nada). */}
+              <article className="lp-card lp-card--half lp-reveal">
+                <h3>Copiloto en cada chat: la IA sugiere, tu equipo aprueba</h3>
+                <p>
+                  En modo Copiloto el agente redacta la respuesta y propone qué hacer con el lead; una persona la envía, la edita o la descarta, y hasta entonces no pasa nada. En el mismo chat te resume la conversación, responde «¿qué le ofrecimos?» con la ficha y el historial, mejora tu borrador y recuerda al cliente para la próxima vez.
+                </p>
+                <div className="lp-suggest" aria-hidden="true">
+                  <div className="lp-suggest__head">
+                    <span>Copiloto · respuesta sugerida</span>
+                    <span className="lp-trace__ev">IA</span>
+                  </div>
+                  <div className="lp-suggest__text">Hola, Marco. El curso cuesta S/ 199 y la próxima fecha es el lunes 3. ¿Te separo un cupo?</div>
+                  <div className="lp-suggest__acts">
+                    <span>Pendiente:</span>
+                    <span className="lp-chip">Etiqueta «interesado»</span>
+                    <span className="lp-chip">Etapa → Calificado</span>
+                  </div>
+                  <div className="lp-suggest__btns">
+                    <b>Enviar</b>
+                    <span>Editar</span>
+                    <span>Descartar</span>
+                  </div>
+                </div>
+              </article>
+
+              <article className="lp-card lp-card--half lp-reveal">
+                <h3>Y un copiloto para ti: pregúntale por qué algo no entró</h3>
+                <p>
+                  Si administras la cuenta, en la cabecera tienes un chat que lee la documentación y mira tu cuenta: números, agentes, equipo, embudos, formularios de Meta y los errores de los últimos días. Le preguntas cómo se configura algo o por qué no entró un lead y te responde con los pasos y el enlace a la pantalla. Solo consulta: no cambia nada sin ti.
+                </p>
+                <div className="lp-trace lp-trace--qa" aria-hidden="true">
+                  <div className="lp-trace__row lp-trace__q">
+                    <span>¿Por qué no entró el lead de Juan Ríos?</span>
+                  </div>
+                  <div className="lp-trace__row lp-trace__a">
+                    <span>Llegó el martes por tu formulario de Meta sin número de teléfono, por eso no se creó el contacto. Te dejo el enlace para revisarlo en Integraciones.</span>
+                  </div>
                 </div>
               </article>
 

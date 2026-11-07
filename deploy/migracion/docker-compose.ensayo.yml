@@ -1,0 +1,19 @@
+# Capa para el ENSAYO de la migración: la API arranca con los datos reales pero
+# sin poder resolver ningún nombre de internet. Así la copia de prueba no le
+# escribe a ningún cliente, no dispara los webhooks salientes de las empresas y
+# no gasta IA de nadie, sea cual sea el proveedor configurado.
+#
+# Cómo funciona: el DNS interno de Docker sigue resolviendo db y redis, y todo
+# lo demás lo reenvía a 192.0.2.1, una dirección reservada que nunca responde.
+# Una llamada a un nombre externo falla tras unos segundos; en la bandeja se ve
+# como «mensaje fallido», y en el ensayo es lo esperado. Solo quedaría fuera una
+# URL configurada con una IP literal.
+#
+#   docker compose --env-file .env.production -f docker-compose.prod.yml \
+#     -f deploy/migracion/docker-compose.ensayo.yml up -d --build
+#
+# NUNCA en el corte real: ahí se arranca solo con docker-compose.prod.yml.
+services:
+  api:
+    dns:
+      - 192.0.2.1
