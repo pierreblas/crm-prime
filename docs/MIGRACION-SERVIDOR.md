@@ -103,6 +103,17 @@ Si no recuerdas en qué carpeta está el proyecto en el viejo: `docker inspect c
 
 ### El proxy
 
+**Si el servidor nuevo ya tiene otro proyecto en los puertos 80 y 443** (nuestro caso: un Caddy ajeno), NPM escucha en otro puerto y Cloudflare le manda ahí solo el tráfico de Driony. El otro proyecto no se toca ni se reinicia.
+
+- En el compose de NPM: `"8443:443"` y `"127.0.0.1:8181:81"`. El panel se abre con un túnel: `ssh -L 8181:127.0.0.1:8181 root@IP-NUEVA`.
+- En Cloudflare, *Rules › Origin Rules*, deja guardada **sin activar** una regla con destino *Rewrite to port 8443* y esta expresión, añadiendo a la exclusión cualquier subdominio que siga en el servidor viejo:
+  ```
+  (http.host eq "driony.com") or (http.host wildcard "*.driony.com" and not http.host in {"gestor.driony.com" "_domainconnect.driony.com"})
+  ```
+  `gestor.driony.com` vive en otro servidor y no se migra. Pruébala antes del corte con una regla solo para `prueba-migracion.driony.com`: activar la general mientras el DNS apunta al viejo tumba producción, porque allí nada escucha en el 8443.
+- **Nunca conectes el proxy del otro proyecto a una red con los contenedores de Driony.** Compose registra los alias `web` y `api` en cada red: si ese proxy usa `web:3000` y queda en las dos redes, el tráfico del otro proyecto podría acabar en Driony.
+- La regla exige modo *Full* o *Full (strict)* y los registros con proxy: con *Flexible* o con la nube gris Driony no responde.
+
 **Opción A, Nginx Proxy Manager** (lo que usas hoy). Levántalo en el nuevo (su
 propio `docker-compose.yml` con los volúmenes `data` y `letsencrypt`), entra en
 `http://IP-NUEVA:81` y configura:
@@ -161,6 +172,12 @@ Para probarlo sin tocar el DNS, en tu PC apunta los nombres a la IP nueva
 IP-NUEVA  driony.com www.driony.com api.driony.com admin.driony.com  nombre-de-una-empresa.driony.com
 ```
 
+Con NPM en el 8443 el archivo hosts no sirve, porque no puede cambiar el puerto. Usa una ventana aparte de Chrome, que además no deja nada que limpiar:
+
+```
+chrome --user-data-dir=%TEMP%\ensayo-driony --disable-quic --host-resolver-rules="MAP driony.com:443 IP-NUEVA:8443, MAP *.driony.com:443 IP-NUEVA:8443"
+```
+
 Comprueba, con el certificado real ya puesto:
 
 - `https://driony.com` carga la landing; `https://api.driony.com/api/v1` responde (un 404 es correcto: esa ruta no existe, pero la petición llegó a la API).
@@ -193,7 +210,7 @@ Un día antes: aviso a los clientes, imágenes construidas en el nuevo y un snap
 | 3 | viejo → nuevo | `rsync -avz corte/ usuario@IP-NUEVA:~/crm-prime/corte/` |
 | 5 | nuevo | `bash deploy/migracion/importar.sh corte/` (con Redis esta vez) |
 | 8 | nuevo | `docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build` y mirar `logs -f api`: «Aplicando migraciones…» → «Iniciando servidor» |
-| 9 | Cloudflare | registros A de `driony.com`, `www`, `*`, `api` y `admin` → IP nueva, sin quitar el proxy. Los AAAA, si existen, se cambian o se borran. Modo SSL a *Full (strict)* si estaba en *Flexible*. Se aplica en segundos |
+| 9 | Cloudflare | registros A de `driony.com` y `*` → IP nueva, sin quitar el proxy. `www` es un CNAME que los sigue, y `api` y `admin` entran por `*`. Los AAAA, si existen, se cambian o se borran. No toques `gestor`. El modo SSL no puede ser *Flexible*: *Full*, *Full (strict)* o el automático en cualquiera de esos dos sirven. Si NPM va en el 8443, activa la Origin Rule justo después de cambiar los registros. Se aplica en segundos |
 | 10 | tu PC | sin líneas en el hosts: `https://driony.com`, entrar en una empresa, bandeja en vivo, `https://admin.driony.com` |
 | 12 | nuevo | `docker compose … logs api --since 5m \| grep -i webhook`: empiezan a llegar los webhooks que Meta reintentó; mandar un mensaje de prueba a un número conectado y verlo entrar |
 | 15 | viejo | **no apagues ni borres nada**: la pila queda parada (`stop`, no `down -v`) una semana por si hay que volver |
@@ -217,7 +234,7 @@ Lo que puede fallar y qué significa:
 Solo tiene sentido en la primera hora: lo que entró al nuevo en ese rato no
 vuelve al viejo.
 
-1. Cloudflare: los mismos registros → IP de Hostinger (segundos). Si cambiaste el modo SSL, devuélvelo.
+1. Cloudflare: desactiva la Origin Rule si la activaste y pon los mismos registros → IP de Hostinger (segundos). Si cambiaste el modo SSL, devuélvelo.
 2. Viejo: `docker compose --env-file .env.production -f docker-compose.prod.yml start api web`.
 3. Nuevo: `stop api web` para que no haya dos plataformas vivas con el mismo número.
 

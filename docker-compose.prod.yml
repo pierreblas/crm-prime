@@ -37,7 +37,11 @@ services:
       redis:
         condition: service_started
     environment:
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+      # La aplicación. Con DB_APP_USER/DB_APP_PASSWORD (rol crm_app, ver
+      # scripts/create-app-role.sql) RLS aísla de verdad; sin ellas, el dueño.
+      DATABASE_URL: postgresql://${DB_APP_USER:-${DB_USER}}:${DB_APP_PASSWORD:-${DB_PASSWORD}}@db:5432/${DB_NAME}?schema=public
+      # Las migraciones, siempre con el dueño de las tablas.
+      DATABASE_URL_MIGRATE: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
       API_PORT: 3001
       MEDIA_DIR: /data/media
       # ── Multi-empresa ──────────────────────────────────────

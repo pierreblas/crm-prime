@@ -79,7 +79,7 @@ const FAQ = [
   },
   {
     q: "¿Y las conversaciones de WhatsApp?",
-    a: "Las cobra Meta directamente a tu cuenta de WhatsApp Business, según su tarifa por país y tipo de conversación. Driony no añade nada por mensaje.",
+    a: "Las cobra Meta directamente a tu cuenta de WhatsApp Business, según su tarifa por país y tipo de mensaje, con un cupo mensual gratis por número. Driony no añade nada por mensaje ni te pide saldo: esa cuenta es entre tú y Meta.",
   },
   {
     q: "¿Puedo instalarlo en mi servidor en lugar de usar la nube?",

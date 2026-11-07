@@ -7,6 +7,7 @@ import "./landing.css";
 import { Arrow, Check, GITHUB, IconGit, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
 import { HeroChat } from "./HeroChat";
 import { LeadCalc } from "./LeadCalc";
+import { PlanPicker } from "./PlanPicker";
 import { Sectors } from "./Sectors";
 
 // La página argumenta en este orden: el dolor con cifras del visitante, lo que
@@ -38,6 +39,7 @@ const BAND_ITEMS = [
   "IA incluida en el plan",
   "La IA sugiere, tú apruebas",
   "Precio por empresa, no por usuario",
+  "Sin cobro por conversación ni por mensaje",
   "Lee fotos y comprobantes",
   "Código abierto",
 ];
@@ -108,6 +110,14 @@ const FAQ = [
   {
     q: "¿Cuánto cuesta la inteligencia artificial?",
     a: `Va incluida: cada plan trae conversaciones con IA al mes (${aiByPlan()}), sin configurar nada. Si un mes se te queda corto, sumas conversaciones extra. Y si prefieres otro modelo o no tener cupo, conectas tu clave de OpenAI, Anthropic o cualquier API compatible y pagas a tu proveedor a su precio, sin recargo. Cada respuesta registra lo que costó y cada agente tiene su tope mensual.`,
+  },
+  {
+    q: "¿Me cobran por conversación, por mensaje o por contacto?",
+    a: "No. Pagas tu plan, por empresa, y la factura de Driony no cambia porque un mes te escriban el doble. Nada de créditos, saldo ni recargas. Lo único que va aparte es lo que cobra Meta por los mensajes de WhatsApp: lo paga tu cuenta de WhatsApp Business directamente, con su cupo gratis por número cada mes y sin que Driony añada nada. Si tu negocio crece mucho de forma sostenida, te proponemos un plan mayor; nunca una sorpresa en la factura.",
+  },
+  {
+    q: "¿Puedo traer mis contactos de otra herramienta?",
+    a: "Sí. Importas tus contactos desde un archivo CSV o Excel en Contactos. Tu número de WhatsApp es el mismo, así que tus clientes no notan el cambio, y con Coexistencia sigues respondiendo desde el celular mientras tu equipo se acostumbra al panel.",
   },
   {
     q: "¿Cómo sé que la IA no va a decir una tontería a un cliente?",
@@ -208,13 +218,13 @@ export function Landing() {
                   <Check /> Sin tarjeta
                 </li>
                 <li>
+                  <Check /> Sin cobro por conversación
+                </li>
+                <li>
                   <Check /> Listo en 2 minutos
                 </li>
                 <li>
                   <Check /> IA incluida o tu propia clave
-                </li>
-                <li>
-                  <Check /> Después sigues en el plan Gratis
                 </li>
               </ul>
               <div className="lp-partner lp-anim" style={{ animationDelay: "0.4s" }} title="Driony forma parte del programa de partners de Meta">
@@ -598,10 +608,33 @@ export function Landing() {
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
               <p className="lp-tag">[ 06 // Planes ]</p>
-              <h2>Precio por empresa, no por usuario.</h2>
+              <h2>Precio por empresa. Nunca por conversación.</h2>
               <p className="lp-lede">
-                Todos empiezan igual: {TRIAL_DAYS} días de Pro gratis, sin tarjeta. Después sigues en Gratis o eliges el plan que te toca. Invitar a alguien de tu equipo no sube la factura.
+                Todos empiezan igual: {TRIAL_DAYS} días de Pro gratis, sin tarjeta. Después sigues en Gratis o eliges el plan que te toca. Invitar a alguien de tu equipo no sube la factura, y que te escriban más tampoco.
               </p>
+            </div>
+            <div className="lp-pay lp-reveal" role="list" aria-label="Qué pagas y qué no">
+              <div className="lp-pay__cell lp-pay__cell--yes" role="listitem">
+                <h3>Pagas</h3>
+                <p>
+                  <span className="lp-pay__big">Tu plan, por empresa</span>
+                  Una cifra al mes. Las personas, los contactos y los chats que entren no la mueven.
+                </p>
+              </div>
+              <div className="lp-pay__cell" role="listitem">
+                <h3>No pagas</h3>
+                <p>
+                  <span className="lp-pay__big">Por conversación. Por mensaje. Por contacto. Por usuario.</span>
+                  Sin créditos, sin saldo que recargar, sin «agente adicional».
+                </p>
+              </div>
+              <div className="lp-pay__cell" role="listitem">
+                <h3>Aparte, y no pasa por Driony</h3>
+                <p>
+                  <span className="lp-pay__big">Lo de Meta</span>
+                  Los mensajes de WhatsApp los cobra Meta a tu cuenta, con un cupo gratis al mes por número. Sin billetera intermedia ni recargo. La IA va en el plan; con tu clave, sin cupo.
+                </p>
+              </div>
             </div>
             <div className="lp-plans lp-plans--snap lp-reveal">
               {PLAN_KEYS.map((k) => {
@@ -643,8 +676,11 @@ export function Landing() {
                 );
               })}
             </div>
+            <div className="lp-reveal">
+              <PlanPicker />
+            </div>
             <p className="lp-plans__note lp-reveal">
-              Los mensajes de WhatsApp los cobra Meta a tu cuenta, sin recargo nuestro. Sin permanencia: bajas o cancelas cuando quieras.{" "}
+              Sin permanencia: bajas o cancelas cuando quieras, y tus datos siguen siendo tuyos.{" "}
               <Link href="/precios" className="lp-plans__link">
                 Ver precios y límites de cada plan <Arrow />
               </Link>

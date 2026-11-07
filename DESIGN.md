@@ -507,6 +507,17 @@ acciones pendientes como chips y los botones mono Enviar/Editar/Descartar, el
 primero en lima) y para quien administra (`.lp-trace--qa`: una pregunta con
 marca «TÚ» y la respuesta con marca «IA» en cian).
 
+### Planes (landing)
+La sección 06 responde al «cobro por conversación» de la competencia sin
+nombrarla. Arriba de las tarjetas, tres celdas con filete (`.lp-pay`): «Pagas»
+en lima pleno con la cifra en condensada mayúscula, «No pagas» y «Aparte, y no
+pasa por Driony» en Capa 1, con rótulo mono cian. Debajo de las tarjetas, el
+selector «Cuál me toca» (`.lp-picker`): formulario a la izquierda (rangos con
+`accent-color` lima y salida mono en lima) y resultado a la derecha en lima con
+bisel `--cut-md`, nombre del plan en condensada, precio en mono y hechos con
+prefijo `//`. El plan sale de `PLANS`: el bloque enseña que sumar gente no mueve
+la cifra, nunca una promesa escrita a mano.
+
 ### Kit HUD (landing y panel)
 Los elementos de la referencia de Stitch, pedidos por el usuario, encima de los
 bloques lima (nunca en su lugar):

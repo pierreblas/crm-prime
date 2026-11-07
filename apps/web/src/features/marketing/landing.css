@@ -2825,6 +2825,10 @@ select.lp-input option {
 /* Píxeles en tinta y verde circuito, abajo a la derecha del bloque lima; solo
    cuando el bloque tiene sitio de sobra (el distintivo de Meta ya no se estira). */
 @media (min-width: 1101px) {
+  /* Los píxeles ocupan la esquina: las pruebas envuelven antes de llegar. */
+  .lp-hero__proofs {
+    padding-right: 132px;
+  }
   .lp-hero__copy::after {
     content: "";
     position: absolute;
@@ -3067,4 +3071,183 @@ select.lp-input option {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+/* ── Lo que pagas y lo que no: la respuesta al «cobro por conversación» ── */
+.lp-pay {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin: 0 0 clamp(28px, 4vw, 44px);
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.lp-pay__cell {
+  padding: 22px 24px;
+  background: var(--surface);
+}
+.lp-pay__cell--yes {
+  background: var(--accent);
+  color: var(--on-lemon);
+}
+.lp-pay__cell h3 {
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.lp-pay__cell--yes h3 {
+  color: var(--on-lemon-muted);
+}
+.lp-pay__cell p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+.lp-pay__cell--yes p {
+  color: var(--on-lemon);
+}
+.lp-pay__cell p + p {
+  margin-top: 8px;
+}
+.lp-pay__big {
+  display: block;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(1.4rem, 1.1rem + 1vw, 1.9rem);
+  font-weight: 700;
+  line-height: 1.05;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+}
+@media (max-width: 860px) {
+  .lp-pay {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Cuál me toca: el plan sale del catálogo, no de una promesa ── */
+.lp-picker {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 1px;
+  margin-top: clamp(28px, 4vw, 44px);
+  border: 1px solid var(--border);
+  background: var(--border);
+}
+.lp-picker__form {
+  padding: 26px 28px;
+  background: var(--surface);
+  display: grid;
+  gap: 18px;
+}
+.lp-picker__form .lp-tag {
+  margin-bottom: 0;
+}
+.lp-picker__field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 14px;
+}
+.lp-picker__field > span {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  color: var(--ink-dim);
+}
+.lp-picker__field input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.lp-picker__field output {
+  min-width: 5.5ch;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--accent-text);
+}
+.lp-picker__field--select select {
+  grid-column: 1 / -1;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+.lp-picker__check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--ink-dim);
+}
+.lp-picker__check input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+.lp-picker__result {
+  padding: 26px 28px;
+  background: var(--accent);
+  color: var(--on-lemon);
+  clip-path: var(--cut-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lp-picker__kicker {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--on-lemon-muted);
+}
+.lp-picker__name {
+  margin: 0;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(2rem, 1.4rem + 2vw, 3rem);
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.lp-picker__price {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: clamp(1.1rem, 1rem + 0.5vw, 1.35rem);
+}
+.lp-picker__price small {
+  font-size: 0.75em;
+  color: var(--on-lemon-dim);
+  margin-left: 6px;
+}
+.lp-picker__facts {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--on-lemon-dim);
+}
+.lp-picker__facts li::before {
+  content: "//";
+  font-family: var(--font-mono);
+  margin-right: 8px;
+  color: var(--on-lemon-muted);
+}
+.lp-picker__result .lp-btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+@media (max-width: 760px) {
+  .lp-picker {
+    grid-template-columns: 1fr;
+  }
 }
