@@ -1,10 +1,13 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Prisma } from "@prisma/client";
+import { z } from "zod";
 import {
   DEFAULT_WEEKLY_HOURS,
   addDays,
   bookingSettingsSchema,
+  bookingTemplateVarSources,
+  type BookingTemplateVarSource,
   computeSlots,
   contactCurrency,
   formatBookingAt,
@@ -99,9 +102,22 @@ export class BookingsService {
             maxDays: row.maxDays,
             bookedStageId: row.bookedStageId,
             blackouts: parseDateRanges(row.blackouts),
+            confirmOnCreate: row.confirmOnCreate,
+            confirmTemplateId: row.confirmTemplateId,
+            confirmTemplateVars: parseVarSources(row.confirmTemplateVars),
+            reminderHoursBefore: row.reminderHoursBefore,
+            reminderTemplateId: row.reminderTemplateId,
+            reminderTemplateVars: parseVarSources(row.reminderTemplateVars),
           }
         : {}),
     });
+  }
+
+  /** Cuándo toca el recordatorio de una cita; null si no hay o si ya quedó atrás (cita para dentro de un rato). */
+  static reminderFor(startAt: Date, settings: Pick<BookingSettingsDto, "reminderHoursBefore">): Date | null {
+    if (!settings.reminderHoursBefore) return null;
+    const at = new Date(startAt.getTime() - settings.reminderHoursBefore * 3_600_000);
+    return at.getTime() > Date.now() ? at : null;
   }
 
   async updateSettings(input: UpdateBookingSettingsInput): Promise<BookingSettingsDto> {
@@ -109,7 +125,14 @@ export class BookingsService {
       const stage = await this.prisma.pipelineStage.findUnique({ where: { id: input.bookedStageId }, select: { id: true } });
       if (!stage) throw new BadRequestException("Esa etapa no existe");
     }
-    const next = { ...(await this.settings()), ...input };
+    for (const templateId of [input.confirmTemplateId, input.reminderTemplateId]) {
+      if (!templateId) continue;
+      const t = await this.prisma.template.findUnique({ where: { id: templateId }, select: { status: true } });
+      if (!t) throw new BadRequestException("Esa plantilla no existe");
+      if (t.status !== "APPROVED") throw new BadRequestException("Esa plantilla aún no está aprobada por Meta");
+    }
+    const current = await this.settings();
+    const next = { ...current, ...input };
     const data = {
       timezone: next.timezone,
       slotIntervalMin: next.slotIntervalMin,
@@ -117,9 +140,26 @@ export class BookingsService {
       maxDays: next.maxDays,
       bookedStageId: next.bookedStageId,
       blackouts: next.blackouts as Prisma.InputJsonValue,
+      confirmOnCreate: next.confirmOnCreate,
+      confirmTemplateId: next.confirmTemplateId,
+      confirmTemplateVars: next.confirmTemplateVars as Prisma.InputJsonValue,
+      reminderHoursBefore: next.reminderHoursBefore,
+      reminderTemplateId: next.reminderTemplateId,
+      reminderTemplateVars: next.reminderTemplateVars as Prisma.InputJsonValue,
     };
     const orgId = this.tenant.orgId();
     await this.prisma.bookingSettings.upsert({ where: { orgId }, create: { orgId, ...data }, update: data });
+    // Cambió la antelación del recordatorio: las citas futuras que aún no lo
+    // recibieron se reprograman con la nueva.
+    if (next.reminderHoursBefore !== current.reminderHoursBefore) {
+      const pending = await this.prisma.booking.findMany({
+        where: { status: "CONFIRMED", reminderSentAt: null, startAt: { gt: new Date() } },
+        select: { id: true, startAt: true },
+      });
+      for (const b of pending) {
+        await this.prisma.booking.update({ where: { id: b.id }, data: { reminderAt: BookingsService.reminderFor(b.startAt, next) } });
+      }
+    }
     return this.settings();
   }
 
@@ -457,6 +497,7 @@ export class BookingsService {
           source,
           note: input.note || null,
           createdById,
+          reminderAt: BookingsService.reminderFor(start, settings),
         },
         include: BOOKING_INCLUDE,
       })
@@ -493,6 +534,14 @@ export class BookingsService {
       timing = { startAt: start, endAt, blockEndAt: new Date(endAt.getTime() + service.bufferAfterMin * 60_000), userId: person.id };
     }
 
+    // Al mover la cita (o revivir una cancelada) el recordatorio se vuelve a
+    // calcular y se envía otra vez; al terminarla o cancelarla, ya no toca.
+    const reminder =
+      timing || input.status === "CONFIRMED"
+        ? { reminderAt: BookingsService.reminderFor(timing?.startAt ?? current.startAt, await this.settings()), reminderSentAt: null, confirmedByContactAt: null }
+        : input.status !== undefined
+          ? { reminderAt: null }
+          : {};
     const row = await this.prisma.booking
       .update({
         where: { id },
@@ -500,6 +549,7 @@ export class BookingsService {
           ...(timing ?? {}),
           ...(input.status !== undefined ? { status: input.status, ...(input.status === "CONFIRMED" ? { cancelledAt: null, cancelReason: null } : {}) } : {}),
           ...(input.note !== undefined ? { note: input.note || null } : {}),
+          ...reminder,
         },
         include: BOOKING_INCLUDE,
       })
@@ -522,12 +572,18 @@ export class BookingsService {
     if (current.status === "CANCELLED") throw new BadRequestException("Esa cita ya estaba cancelada");
     const row = await this.prisma.booking.update({
       where: { id },
-      data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: reason?.trim() || null },
+      data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: reason?.trim() || null, reminderAt: null },
       include: BOOKING_INCLUDE,
     });
     await this.logOnDeal(row, "cancelled", (await this.settings()).timezone);
     this.emit("booking.cancelled", row);
     return this.toDto(row);
+  }
+
+  /** El cliente respondió «Confirmar» al recordatorio. */
+  async confirmByContact(id: string): Promise<void> {
+    await this.prisma.booking.update({ where: { id }, data: { confirmedByContactAt: new Date() } });
+    this.changed(id);
   }
 
   // ── Para el agente de IA ────────────────────────────────────
@@ -752,6 +808,9 @@ export class BookingsService {
       conversationId: row.conversationId,
       serviceId: row.serviceId,
       startAt: row.startAt.toISOString(),
+      source: row.source,
+      // Quién lo hizo (user:…, api:…, ai): los avisos no repiten lo que el agente ya dijo en el chat.
+      actor: currentActor(),
       ...extra,
     });
     this.changed(row.id);
@@ -777,6 +836,15 @@ export class BookingsService {
       note: r.note,
       cancelReason: r.cancelReason,
       createdAt: r.createdAt.toISOString(),
+      reminderAt: r.reminderAt?.toISOString() ?? null,
+      reminderSentAt: r.reminderSentAt?.toISOString() ?? null,
+      confirmedByContactAt: r.confirmedByContactAt?.toISOString() ?? null,
     };
   }
+}
+
+/** Lo guardado en JSON para las variables de plantilla, ya validado. */
+function parseVarSources(raw: unknown): BookingTemplateVarSource[] {
+  const r = z.array(z.enum(bookingTemplateVarSources)).safeParse(raw);
+  return r.success ? r.data : [];
 }

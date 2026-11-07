@@ -815,6 +815,8 @@ model Template {
   campaigns Campaign[]
   messages  Message[]
   metaPages MetaPage[]
+  bookingConfirmFor  BookingSettings[] @relation("BookingConfirmTemplate")
+  bookingReminderFor BookingSettings[] @relation("BookingReminderTemplate")
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -1827,10 +1829,21 @@ model BookingSettings {
   bookedStageId   String?
   // Días cerrados de toda la empresa: [{ from, to }] en «AAAA-MM-DD».
   blackouts       Json?
+  // Avisos al cliente: confirmación al crear/mover (el agente de IA ya lo dice
+  // en el chat) y recordatorio X horas antes. Las plantillas, aprobadas por
+  // Meta, se llenan con datos de la cita (bookingTemplateVarSources).
+  confirmOnCreate     Boolean @default(true)
+  confirmTemplateId   String?
+  confirmTemplateVars Json?
+  reminderHoursBefore Int?    @default(24)
+  reminderTemplateId  String?
+  reminderTemplateVars Json?
   updatedAt       DateTime @updatedAt
 
-  org         Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  bookedStage PipelineStage? @relation(fields: [bookedStageId], references: [id], onDelete: SetNull)
+  org              Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  bookedStage      PipelineStage? @relation(fields: [bookedStageId], references: [id], onDelete: SetNull)
+  confirmTemplate  Template?      @relation("BookingConfirmTemplate", fields: [confirmTemplateId], references: [id], onDelete: SetNull)
+  reminderTemplate Template?      @relation("BookingReminderTemplate", fields: [reminderTemplateId], references: [id], onDelete: SetNull)
 
   @@map("booking_settings")
 }
@@ -1913,6 +1926,12 @@ model Booking {
   createdById    String?
   cancelledAt    DateTime?
   cancelReason   String?
+  // Recordatorio: cuándo toca (startAt − horas de los ajustes; null = no hay)
+  // y cuándo salió. Se recalcula al mover la cita y se anula al cancelarla.
+  reminderAt           DateTime?
+  reminderSentAt       DateTime?
+  // El cliente pulsó «Confirmar» en el recordatorio.
+  confirmedByContactAt DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -1927,5 +1946,6 @@ model Booking {
   @@index([orgId, startAt])
   @@index([userId, startAt])
   @@index([contactId, startAt])
+  @@index([reminderAt])
   @@map("bookings")
 }

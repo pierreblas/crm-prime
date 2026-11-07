@@ -21,6 +21,7 @@ import { AutopilotService } from "./autopilot.service";
 import { MediaUnderstandingService } from "./media-understanding.service";
 import { FlowEngineService } from "./flow-engine.service";
 import { StageAutomationsService } from "./stage-automations.service";
+import { BookingNotificationsService } from "../bookings/booking-notifications.service";
 
 // getDay(): 0=domingo … 6=sábado.
 
@@ -43,6 +44,7 @@ export class AutomationService {
     private readonly flows: FlowEngineService,
     private readonly stageAutomations: StageAutomationsService,
     private readonly media: MediaUnderstandingService,
+    private readonly bookingReplies: BookingNotificationsService,
   ) {}
 
   /**
@@ -153,6 +155,10 @@ export class AutomationService {
       // Un audio, una imagen o un sticker: primero entenderlos, para que las
       // palabras clave, los flujos y la IA trabajen con lo que dicen.
       await this.media.enrichLatest(conversationId);
+
+      // «Confirmar» o «Cancelar» tras un recordatorio de cita: se atiende aquí
+      // y nadie más contesta.
+      if (await this.bookingReplies.onInbound(conversationId, messageId)) return;
 
       // Prioridad máxima: si hay un flujo activo/disparado, lo maneja el motor.
       if (await this.flows.onInbound(conversationId, messageId)) return;

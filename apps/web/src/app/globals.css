@@ -6208,3 +6208,9 @@ button[style*="background:var(--accent)"]:focus-visible {
 .dash__kpi[data-tone="sea"]::after {
   background: var(--noir);
 }
+
+/* ── Agenda › Avisos al cliente ─────────────────────────────── */
+.agenda-check { display: flex; align-items: flex-start; gap: 10px; margin: 0; font-size: 14px; cursor: pointer; }
+.agenda-check input { margin-top: 3px; }
+.agenda-notice { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); background: var(--surface-2, transparent); }
+.agenda-notice__vars { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid var(--border); }

@@ -15,6 +15,9 @@ export const webhookEvents = [
   "deal.created",
   "deal.stage_changed",
   "conversation.escalated",
+  "booking.created",
+  "booking.rescheduled",
+  "booking.cancelled",
 ] as const;
 export type WebhookEvent = (typeof webhookEvents)[number];
 
@@ -25,6 +28,9 @@ export const webhookEventLabels: Record<WebhookEvent, string> = {
   "deal.created": "Se crea una oportunidad",
   "deal.stage_changed": "Una oportunidad cambia de etapa",
   "conversation.escalated": "La IA escala a un humano",
+  "booking.created": "Se reserva una cita",
+  "booking.rescheduled": "Se mueve una cita",
+  "booking.cancelled": "Se cancela una cita",
 };
 
 export const webhookSubscriptionSchema = z.object({

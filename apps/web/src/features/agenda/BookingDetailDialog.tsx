@@ -126,6 +126,20 @@ export function BookingDetailDialog({
                 <dd>{booking.cancelReason}</dd>
               </>
             )}
+            {booking.status === "CONFIRMED" && (booking.reminderSentAt || booking.reminderAt) && (
+              <>
+                <dt>
+                  <NavIcon name="clock" size={14} />
+                  Recordatorio
+                </dt>
+                <dd>
+                  {booking.reminderSentAt
+                    ? `Enviado el ${dayLabel(dateIn(booking.reminderSentAt, tz), today)} a las ${timeIn(booking.reminderSentAt, tz)}`
+                    : `Sale el ${dayLabel(dateIn(booking.reminderAt!, tz), today)} a las ${timeIn(booking.reminderAt!, tz)}`}
+                  {booking.confirmedByContactAt && <span className="agenda-muted"> · el cliente confirmó</span>}
+                </dd>
+              </>
+            )}
           </dl>
 
           {booking.status === "CONFIRMED" && past && (

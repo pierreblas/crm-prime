@@ -31,7 +31,7 @@ export interface TriggerMeta {
   group: TriggerGroup;
 }
 
-export const TRIGGER_GROUPS = ["Conversación", "Contacto y embudo", "Leads", "Llamadas"] as const;
+export const TRIGGER_GROUPS = ["Conversación", "Contacto y embudo", "Leads", "Agenda", "Llamadas"] as const;
 export type TriggerGroup = (typeof TRIGGER_GROUPS)[number];
 
 // Cuándo puede arrancar un flujo. El orden es el del selector.
@@ -49,6 +49,8 @@ export const TRIGGER_META: TriggerMeta[] = [
   { type: "conversation_closed", label: "Se cierra la conversación", short: "al cerrar", hint: "Cuando tu equipo cierra la conversación. Ideal para una encuesta o una despedida.", icon: "check", needs: null, group: "Conversación" },
   { type: "no_reply", label: "El cliente no responde", short: "sin respuesta", hint: "Cuando pasan estas horas sin que el cliente conteste a tu último mensaje. Se dispara una vez por silencio.", icon: "hourglass", needs: "hours", group: "Conversación" },
   { type: "missed_call", label: "Llamada perdida", short: "llamada perdida", hint: "Cuando alguien llama al número de la empresa (Twilio) y nadie contesta. Ideal para escribirle por WhatsApp.", icon: "phone", needs: null, group: "Llamadas" },
+  { type: "booking_created", label: "Se le reserva una cita", short: "cita reservada", hint: "Cuando se le reserva una cita: desde la agenda, por el agente de IA o por el enlace de reservas. Los avisos de confirmación y recordatorio de Ajustes › Agenda salen igual; esto es para lo demás (indicaciones, cómo llegar, qué traer). Fuera de las 24 h usa «Enviar plantilla».", icon: "calendar", needs: null, group: "Agenda" },
+  { type: "booking_cancelled", label: "Se cancela su cita", short: "cita cancelada", hint: "Cuando se cancela su cita, la cancele el equipo, el agente de IA o el propio cliente desde el recordatorio. Por ejemplo, para ofrecerle otra hora.", icon: "calendar", needs: null, group: "Agenda" },
 ];
 
 export const TRIGGER_BY_TYPE: Record<string, TriggerMeta> = Object.fromEntries(TRIGGER_META.map((t) => [t.type, t]));

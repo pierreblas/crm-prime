@@ -71,7 +71,7 @@ const FAQ = [
   },
   {
     q: "¿Hay límite de mensajes o de almacenamiento?",
-    a: `No vendemos gigas ni cobramos por mensaje. Cada plan está pensado para un número de contactos activos al mes (quien envía o recibe un mensaje ese mes, difusiones aparte); es orientativo, los picos son normales y nada se corta. Si lo superas de forma sostenida, te propondremos el plan que te corresponde. Lo único que caduca son los adjuntos (fotos, audios, documentos): se guardan ${RETENTION_BY_PLAN}; el texto de la conversación se conserva siempre.`,
+    a: `No vendemos gigas ni cobramos por mensaje: escribe y recibe lo que haga falta, y que te escriban más no cambia la cifra. Si tu negocio crece mucho de forma sostenida, te propondremos el plan que te corresponde; nunca una sorpresa en la factura. Lo único que caduca son los adjuntos (fotos, audios, documentos): se guardan ${RETENTION_BY_PLAN}; el texto de la conversación se conserva siempre.`,
   },
   {
     q: "¿La inteligencia artificial está incluida en el precio?",
@@ -262,7 +262,9 @@ function PlanCard({ plan, highlight }: { plan: PlanDef; highlight: boolean }) {
   const free = plan.priceUsd === 0;
   // El plan de la prueba se empieza igual que el gratis: creando la cuenta.
   const trial = plan.key === TRIAL_PLAN;
-  const LIMITS: PlanLimit[] = ["numbers", "users", "contacts", "deals", "activeContacts"];
+  // «Contactos activos al mes» ya no se enseña: es un umbral interno de uso
+  // razonable (lo ve la consola), no algo que el cliente compra ni que se corta.
+  const LIMITS: PlanLimit[] = ["numbers", "users", "contacts", "deals"];
   return (
     <article className={`lp-plan${highlight ? " lp-plan--cloud" : ""}`} data-plan={plan.key}>
       <div className="lp-plan__tag">{TAG[plan.key] ?? plan.name}</div>
@@ -274,7 +276,7 @@ function PlanCard({ plan, highlight }: { plan: PlanDef; highlight: boolean }) {
       <p>{plan.tagline}</p>
       <div className="lp-plan__rows">
         {LIMITS.map((k) => (
-          <div className="lp-row" key={k} title={k === "activeContacts" ? "Orientativo: no corta nada. Quien envía o recibe un mensaje en el mes, difusiones aparte." : undefined}>
+          <div className="lp-row" key={k}>
             <span className="lp-row__ic">
               <Check />
             </span>

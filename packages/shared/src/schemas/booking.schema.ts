@@ -50,6 +50,26 @@ export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
 export const bookingSources = ["ai", "manual", "api", "link"] as const;
 export type BookingSource = (typeof bookingSources)[number];
 
+// ── Avisos al cliente ───────────────────────────────────────
+/**
+ * Con qué se llena cada hueco ({{1}}, {{2}}…) de la plantilla de confirmación
+ * o de recordatorio. Son datos de la cita, no del envío: así la misma
+ * plantilla sirve para todas las citas.
+ */
+export const bookingTemplateVarSources = ["contact_name", "date", "time", "datetime", "service", "staff", "business"] as const;
+export type BookingTemplateVarSource = (typeof bookingTemplateVarSources)[number];
+export const BOOKING_TEMPLATE_VAR_LABEL: Record<BookingTemplateVarSource, string> = {
+  contact_name: "Nombre del cliente",
+  date: "Fecha de la cita (lunes 3 de marzo)",
+  time: "Hora de la cita (10:00)",
+  datetime: "Fecha y hora (lunes 3 de marzo, 10:00)",
+  service: "Servicio",
+  staff: "Quién atiende",
+  business: "Nombre del negocio",
+};
+/** Horas antes de la cita a las que se puede mandar el recordatorio. */
+export const REMINDER_HOURS_OPTIONS = [1, 2, 3, 6, 12, 24, 48, 72] as const;
+
 // ── Reglas de la empresa ────────────────────────────────────
 export const bookingSettingsSchema = z.object({
   timezone: z.string().refine(isValidTimezone, "Zona horaria desconocida").default("America/Lima"),
@@ -63,6 +83,19 @@ export const bookingSettingsSchema = z.object({
   bookedStageId: z.string().nullable().default(null),
   /** Días cerrados de toda la empresa. */
   blackouts: z.array(dateRangeSchema).max(60).default([]),
+  /**
+   * WhatsApp al cliente cuando el equipo crea o mueve una cita. Cuando reserva
+   * el agente de IA no hace falta: ya se lo dice en el chat.
+   */
+  confirmOnCreate: z.boolean().default(true),
+  /** Plantilla aprobada para confirmar fuera de la ventana de 24 h (null = solo texto, si la ventana está abierta). */
+  confirmTemplateId: z.string().nullable().default(null),
+  confirmTemplateVars: z.array(z.enum(bookingTemplateVarSources)).max(10).default([]),
+  /** Horas antes de la cita para el recordatorio (null = sin recordatorio). */
+  reminderHoursBefore: z.number().int().min(1).max(14 * 24).nullable().default(24),
+  /** Plantilla aprobada del recordatorio: casi siempre llega fuera de la ventana. */
+  reminderTemplateId: z.string().nullable().default(null),
+  reminderTemplateVars: z.array(z.enum(bookingTemplateVarSources)).max(10).default([]),
 });
 export type BookingSettingsDto = z.infer<typeof bookingSettingsSchema>;
 export const updateBookingSettingsSchema = bookingSettingsSchema.partial();
@@ -128,6 +161,11 @@ export interface BookingDto {
   note: string | null;
   cancelReason: string | null;
   createdAt: string;
+  /** Cuándo toca el recordatorio (null = sin recordatorio) y cuándo salió. */
+  reminderAt: string | null;
+  reminderSentAt: string | null;
+  /** El cliente pulsó «Confirmar» en el recordatorio. */
+  confirmedByContactAt: string | null;
 }
 
 export const createBookingSchema = z.object({

@@ -3,7 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { BookingServiceDto, BookingSettingsDto, DateRange } from "@crm/shared";
+import {
+  BOOKING_TEMPLATE_VAR_LABEL,
+  REMINDER_HOURS_OPTIONS,
+  bookingTemplateVarSources,
+  templateVarCount,
+  type BookingServiceDto,
+  type BookingSettingsDto,
+  type BookingTemplateVarSource,
+  type DateRange,
+  type TemplateDto,
+} from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
@@ -14,6 +24,7 @@ import {
   fetchBookingSettings,
   fetchStaffSchedules,
   fetchStages,
+  fetchTemplates,
   saveBookingSettings,
   updateBookingService,
 } from "@/lib/bff";
@@ -79,6 +90,7 @@ export function AgendaSettings() {
       <ServicesSection services={services} />
       <SchedulesSection />
       {settings && <RulesSection settings={settings} />}
+      {settings && <NoticesSection settings={settings} />}
     </div>
   );
 }
@@ -420,5 +432,178 @@ function RulesSection({ settings }: { settings: BookingSettingsDto }) {
         </button>
       </div>
     </section>
+  );
+}
+
+// ── Avisos al cliente ─────────────────────────────────────────
+/** Con qué se llena cada hueco si la empresa no lo cambia: lo que suele ir en un aviso de cita. */
+const DEFAULT_VARS: BookingTemplateVarSource[] = ["contact_name", "service", "datetime", "staff", "business"];
+
+function hoursLabel(h: number): string {
+  if (h % 24 === 0) return h === 24 ? "1 día" : `${h / 24} días`;
+  return h === 1 ? "1 hora" : `${h} horas`;
+}
+
+/**
+ * Confirmación y recordatorio por WhatsApp. Dentro de las 24 h desde el último
+ * mensaje del cliente va en texto (y el recordatorio con botones); fuera, con
+ * una plantilla aprobada por Meta llenada con datos de la cita.
+ */
+function NoticesSection({ settings }: { settings: BookingSettingsDto }) {
+  const qc = useQueryClient();
+  const { data: templates } = useQuery({ queryKey: ["templates"], queryFn: fetchTemplates });
+  const [form, setForm] = useState(settings);
+  useEffect(() => setForm(settings), [settings]);
+  const set = <K extends keyof BookingSettingsDto>(k: K, v: BookingSettingsDto[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const approved = useMemo(() => (templates ?? []).filter((t) => t.status === "APPROVED"), [templates]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      saveBookingSettings({
+        confirmOnCreate: form.confirmOnCreate,
+        confirmTemplateId: form.confirmTemplateId,
+        confirmTemplateVars: form.confirmTemplateVars,
+        reminderHoursBefore: form.reminderHoursBefore,
+        reminderTemplateId: form.reminderTemplateId,
+        reminderTemplateVars: form.reminderTemplateVars,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["bookings"] });
+      toast.success("Avisos guardados");
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  return (
+    <section className="agenda-card" aria-labelledby="agenda-notices">
+      <header className="agenda-card__head">
+        <h3 id="agenda-notices">Avisos al cliente por WhatsApp</h3>
+      </header>
+      <p className="agenda-muted agenda-hint" style={{ marginTop: 0 }}>
+        Si el cliente escribió en las últimas 24 horas, el aviso va como texto, sin costo, y el recordatorio lleva botones
+        «Confirmar» y «Cancelar» que actúan sobre la cita. Pasadas las 24 horas hace falta una plantilla aprobada por Meta, que
+        Meta cobra según su tarifa. Cuando reserva el agente de IA, la confirmación ya va en el chat.
+      </p>
+
+      <label className="agenda-check">
+        <input type="checkbox" checked={form.confirmOnCreate} onChange={(e) => set("confirmOnCreate", e.target.checked)} />
+        <span>Confirmar por WhatsApp cuando el equipo crea o mueve una cita</span>
+      </label>
+      {form.confirmOnCreate && (
+        <TemplatePicker
+          label="Plantilla de confirmación (fuera de las 24 h)"
+          templates={approved}
+          templateId={form.confirmTemplateId}
+          vars={form.confirmTemplateVars}
+          onChange={(id, vars) => setForm((f) => ({ ...f, confirmTemplateId: id, confirmTemplateVars: vars }))}
+        />
+      )}
+
+      <div className="agenda-form-row">
+        <label className="agenda-field">
+          <span className="label">Recordatorio</span>
+          <select
+            className="field field-sm"
+            value={form.reminderHoursBefore ?? 0}
+            onChange={(e) => set("reminderHoursBefore", Number(e.target.value) || null)}
+          >
+            <option value={0}>Sin recordatorio</option>
+            {(REMINDER_HOURS_OPTIONS as readonly number[]).map((h) => (
+              <option key={h} value={h}>
+                {hoursLabel(h)} antes
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {form.reminderHoursBefore && (
+        <TemplatePicker
+          label="Plantilla del recordatorio (fuera de las 24 h)"
+          templates={approved}
+          templateId={form.reminderTemplateId}
+          vars={form.reminderTemplateVars}
+          onChange={(id, vars) => setForm((f) => ({ ...f, reminderTemplateId: id, reminderTemplateVars: vars }))}
+        />
+      )}
+      {approved.length === 0 && (
+        <p className="agenda-muted agenda-hint">
+          Todavía no tienes plantillas aprobadas. Créalas en{" "}
+          <Link href="/difusiones" className="cp-link">
+            Difusiones › Plantillas
+          </Link>
+          : una de categoría «Utilidad» con el texto del aviso y, si quieres, los botones «Confirmar» y «Cancelar».
+        </p>
+      )}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button type="button" className="btn btn-primary btn-sm" disabled={save.isPending} onClick={() => save.mutate()}>
+          {save.isPending ? "Guardando…" : "Guardar avisos"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** Elegir una plantilla aprobada y decir con qué dato de la cita se llena cada hueco. */
+function TemplatePicker({
+  label,
+  templates,
+  templateId,
+  vars,
+  onChange,
+}: {
+  label: string;
+  templates: TemplateDto[];
+  templateId: string | null;
+  vars: BookingTemplateVarSource[];
+  onChange: (templateId: string | null, vars: BookingTemplateVarSource[]) => void;
+}) {
+  const template = templates.find((t) => t.id === templateId) ?? null;
+  const count = template ? templateVarCount(template.body) : 0;
+  const pick = (id: string | null) => {
+    const next = templates.find((t) => t.id === id) ?? null;
+    const n = next ? templateVarCount(next.body) : 0;
+    onChange(id, Array.from({ length: n }, (_, i) => vars[i] ?? DEFAULT_VARS[i] ?? "datetime"));
+  };
+  const setVar = (i: number, value: BookingTemplateVarSource) =>
+    onChange(templateId, Array.from({ length: count }, (_, j) => (j === i ? value : (vars[j] ?? "datetime"))));
+  return (
+    <div className="agenda-notice">
+      <label className="agenda-field">
+        <span className="label">{label}</span>
+        <select className="field field-sm" value={templateId ?? ""} onChange={(e) => pick(e.target.value || null)}>
+          <option value="">Sin plantilla: solo dentro de las 24 h</option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name} · {t.language}
+            </option>
+          ))}
+        </select>
+      </label>
+      {template && (
+        <div className="agenda-notice__vars">
+          <p className="agenda-muted" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+            {template.body}
+          </p>
+          {count === 0 ? (
+            <p className="agenda-muted agenda-hint">Sin variables: se envía tal cual.</p>
+          ) : (
+            <div className="agenda-form-row">
+              {Array.from({ length: count }, (_, i) => (
+                <label key={i} className="agenda-field">
+                  <span className="label">{`{{${i + 1}}}`}</span>
+                  <select className="field field-sm" value={vars[i] ?? "datetime"} onChange={(e) => setVar(i, e.target.value as BookingTemplateVarSource)}>
+                    {bookingTemplateVarSources.map((s) => (
+                      <option key={s} value={s}>
+                        {BOOKING_TEMPLATE_VAR_LABEL[s]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

@@ -174,6 +174,11 @@ export class FlowEngineService {
     await this.onContactEvent(contactId, "missed_call", () => true);
   }
 
+  /** Se le reservó o canceló una cita (a mano, por la IA o por el enlace). */
+  async onBooking(contactId: string, type: "booking_created" | "booking_cancelled"): Promise<void> {
+    await this.onContactEvent(contactId, type, () => true);
+  }
+
   async onClosed(conversationId: string): Promise<void> {
     const convo = await this.prisma.conversation.findUnique({
       where: { id: conversationId },

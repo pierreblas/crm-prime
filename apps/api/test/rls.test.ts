@@ -902,6 +902,7 @@ test("el clic en un botón sigue el flujo: el primer «Hola» no se toma como re
     engine,
     { onInbound: async () => false } as any,
     { enrichLatest: async () => undefined } as any,
+    { onInbound: async () => false } as any,
   );
   const node = (id: string, type: string, data: object) => ({ id, type, position: { x: 0, y: 0 }, data });
   const edge = (source: string, target: string, sourceHandle?: string) => ({ id: `${source}-${target}`, source, target, ...(sourceHandle ? { sourceHandle } : {}) });
@@ -1230,4 +1231,135 @@ test("renovar la sesión funciona con el rol restringido, sin empresa en context
 
   // Y un token inventado sigue sin pasar.
   await assert.rejects(auth.refresh("no-existe"), /inválido/);
+});
+
+test("los avisos de cita salen con el rol restringido: confirmación, recordatorio con botones y respuesta del cliente", async () => {
+  const { BookingsService } = await import("../src/modules/bookings/bookings.service");
+  const { BookingNotificationsService } = await import("../src/modules/bookings/booking-notifications.service");
+  const { addDays, utcToZoned, zonedToUtc } = await import("@crm/shared");
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_bn_${suf}`;
+  await ctx.runUnscoped("prueba: empresa de avisos", () =>
+    prisma.organization.create({ data: { id: orgId, slug: `bn-${suf}`, name: "Clínica Avisos" } }),
+  );
+  const emitted: { name: string; payload: any }[] = [];
+  const events = { emit: (name: string, payload: unknown) => emitted.push({ name, payload }) } as any;
+  const svc = new BookingsService(prisma, { orgId: () => orgId } as any, events);
+  const sent: { kind: string; text: string; buttons?: string[]; templateId?: string; values?: string[] }[] = [];
+  const messaging = {
+    queueOutbound: async (input: any) => void sent.push({ kind: "text", text: input.text }),
+    queueInteractive: async (input: any) => void sent.push({ kind: "buttons", text: input.body, buttons: input.buttons.map((b: any) => b.id) }),
+    sendTemplateMessage: async (input: any) =>
+      void sent.push({ kind: "template", text: "", templateId: input.templateId, values: input.fill.body.map((v: any) => v.value) }),
+  } as any;
+  const webhooks: string[] = [];
+  const notif = new BookingNotificationsService(prisma, messaging, { emit: async (e: string) => void webhooks.push(e) } as any, svc, events);
+  const lastEvent = (name: string) => emitted.filter((e) => e.name === name).at(-1)!.payload;
+  const LIMA = "America/Lima";
+  const allDay = { from: "08:00", to: "20:00" };
+  const everyDay = Object.fromEntries(["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => [d, [allDay]]));
+
+  await ctx.runInOrg(orgId, async () => {
+    const ana = await prisma.user.create({ data: { orgId, email: `ana-${suf}@prueba.test`, passwordHash: "x", name: "Ana" } });
+    const contact = await prisma.contact.create({ data: { orgId, phone: `+51993${suf}`, name: "Rosa" } });
+    // El cliente escribió hace poco: la ventana de 24 h está abierta.
+    const conv = await prisma.conversation.create({
+      data: { orgId, contactId: contact.id, status: "OPEN", windowExpiresAt: new Date(Date.now() + 3_600_000) },
+    });
+    await svc.updateSettings({ timezone: LIMA, minNoticeMin: 0, reminderHoursBefore: 24 });
+    await svc.saveSchedule(ana.id, { hours: everyDay as any, blackouts: [], acceptsBookings: true });
+    const service = await svc.createService({ name: "Limpieza dental", durationMin: 30, bufferAfterMin: 0, staffIds: [ana.id], isActive: true });
+    const day = addDays(utcToZoned(new Date(), LIMA).date, 2);
+    const at10 = zonedToUtc(day, "10:00", LIMA);
+
+    // 1 · El equipo crea la cita: el recordatorio queda a 24 h y la confirmación sale en texto.
+    const b = await svc.create({ contactId: contact.id, serviceId: service.id, startAt: at10.toISOString(), conversationId: conv.id }, "manual", ana.id);
+    assert.equal(b.reminderAt, new Date(at10.getTime() - 24 * 3_600_000).toISOString());
+    await notif.onCreated(lastEvent("booking.created"));
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].kind, "text");
+    assert.match(sent[0].text, /Rosa.*Limpieza dental.*10:00.*Ana/s);
+    assert.deepEqual(webhooks, ["booking.created"]);
+
+    // 2 · Si la reservó el agente de IA, no se repite: ya lo dijo en el chat.
+    await notif.onCreated({ ...lastEvent("booking.created"), actor: "ai" });
+    assert.equal(webhooks.length, 2, "el webhook sí sale aunque reserve el agente");
+    assert.equal(sent.length, 1);
+
+    // 3 · Vence el recordatorio: sale con botones y no se vuelve a mandar.
+    await prisma.booking.update({ where: { id: b.id }, data: { reminderAt: new Date(Date.now() - 1000) } });
+    assert.equal(await notif.sweep(), 1);
+    assert.equal(sent[1].kind, "buttons");
+    assert.deepEqual(sent[1].buttons, ["booking_confirm", "booking_cancel"]);
+    assert.match(sent[1].text, /Te recordamos tu cita de Limpieza dental/);
+    assert.equal(await notif.sweep(), 0);
+    assert.ok((await prisma.booking.findUnique({ where: { id: b.id } })).reminderSentAt, "queda marcada como enviada");
+
+    // 4 · El cliente pulsa «Confirmar»: la cita queda confirmada por él y se le contesta.
+    const inbound = (content: string, buttonPayload?: string) =>
+      prisma.message.create({ data: { orgId, conversationId: conv.id, direction: "INBOUND", type: "TEXT", author: "CONTACT", content, buttonPayload } });
+    const m1 = await inbound("Confirmar", "booking_confirm");
+    assert.equal(await notif.onInbound(conv.id, m1.id), true);
+    assert.ok((await prisma.booking.findUnique({ where: { id: b.id } })).confirmedByContactAt);
+    assert.match(sent[2].text, /queda confirmada/);
+
+    // 5 · Un «hola» no es respuesta al recordatorio: lo atiende quien toque (flujo, agente…).
+    const m2 = await inbound("hola");
+    assert.equal(await notif.onInbound(conv.id, m2.id), false);
+    assert.equal(sent.length, 3);
+
+    // 6 · «cancelar» escrito, sin tilde ni botón: cancela, avisa y sale el webhook.
+    const m3 = await inbound("CANCELAR");
+    assert.equal(await notif.onInbound(conv.id, m3.id), true);
+    const cancelled = await prisma.booking.findUnique({ where: { id: b.id } });
+    assert.equal(cancelled.status, "CANCELLED");
+    assert.equal(cancelled.reminderAt, null);
+    assert.match(cancelled.cancelReason, /recordatorio/);
+    assert.match(sent[3].text, /cancelamos tu cita/);
+    await notif.onCancelled(lastEvent("booking.cancelled"));
+    assert.equal(webhooks.at(-1), "booking.cancelled");
+
+    // 7 · Ventana cerrada y sin plantilla: no sale nada y no rompe.
+    await prisma.conversation.update({ where: { id: conv.id }, data: { windowExpiresAt: new Date(Date.now() - 1000) } });
+    const b2 = await svc.create({ contactId: contact.id, serviceId: service.id, startAt: zonedToUtc(day, "12:00", LIMA).toISOString(), conversationId: conv.id }, "manual", ana.id);
+    await notif.onCreated(lastEvent("booking.created"));
+    assert.equal(sent.length, 4);
+
+    // 8 · Con plantilla aprobada: sale la plantilla, llenada con los datos de la cita en el orden elegido.
+    const tpl = await prisma.template.create({
+      data: { orgId, name: `cita_${suf}`, language: "es", category: "UTILITY", status: "APPROVED", body: "Hola {{1}}, tu cita de {{2}} es el {{3}}." },
+    });
+    await svc.updateSettings({ confirmTemplateId: tpl.id, confirmTemplateVars: ["contact_name", "service", "datetime"] });
+    await notif.onRescheduled({ ...lastEvent("booking.created"), bookingId: b2.id, previousStartAt: at10.toISOString() });
+    assert.equal(sent[4].kind, "template");
+    assert.equal(sent[4].templateId, tpl.id);
+    assert.deepEqual(sent[4].values?.slice(0, 2), ["Rosa", "Limpieza dental"]);
+    assert.match(sent[4].values![2]!, /12:00/);
+    assert.equal(webhooks.at(-1), "booking.rescheduled");
+
+    // 9 · Una plantilla sin aprobar no se puede elegir.
+    const pending = await prisma.template.create({ data: { orgId, name: `cita_p_${suf}`, language: "es", category: "UTILITY", status: "PENDING", body: "Hola" } });
+    await assert.rejects(svc.updateSettings({ reminderTemplateId: pending.id }), /aprobada/);
+
+    // 10 · Cambiar la antelación reprograma las citas que aún no recibieron su recordatorio.
+    await svc.updateSettings({ reminderHoursBefore: 2 });
+    const moved = await prisma.booking.findUnique({ where: { id: b2.id } });
+    assert.equal(moved.reminderAt.toISOString(), new Date(Date.parse(b2.startAt) - 2 * 3_600_000).toISOString());
+  }).finally(() =>
+    ctx.runUnscoped("prueba: limpiar la empresa de avisos", async () => {
+      await prisma.message.deleteMany({ where: { orgId } });
+      await prisma.booking.deleteMany({ where: { orgId } });
+      await prisma.bookingSettings.deleteMany({ where: { orgId } });
+      await prisma.template.deleteMany({ where: { orgId } });
+      await prisma.conversation.deleteMany({ where: { orgId } });
+      await prisma.dealEvent.deleteMany({ where: { orgId } });
+      await prisma.deal.deleteMany({ where: { orgId } });
+      await prisma.bookingServiceStaff.deleteMany({ where: { orgId } });
+      await prisma.bookingService.deleteMany({ where: { orgId } });
+      await prisma.staffSchedule.deleteMany({ where: { orgId } });
+      await prisma.contact.deleteMany({ where: { orgId } });
+      await prisma.user.deleteMany({ where: { orgId } });
+      await prisma.organization.delete({ where: { id: orgId } });
+    }),
+  );
 });

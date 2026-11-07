@@ -200,6 +200,8 @@ export const flowTriggerTypes = [
   "inbound_message", // cada mensaje del cliente, con una pausa mínima entre disparos
   "tag_removed", // se le quita una etiqueta
   "owner_changed", // cambia el responsable de su oportunidad
+  "booking_created", // se le reserva una cita (a mano, por la IA o por el enlace)
+  "booking_cancelled", // se cancela su cita
   "manual", // no arranca solo: lo ejecutan las automatizaciones de etapa (o alguien a mano)
 ] as const;
 export type FlowTriggerType = (typeof flowTriggerTypes)[number];
@@ -241,6 +243,8 @@ export const DELAYABLE_TRIGGERS = [
   "meta_lead",
   "lead_webhook",
   "missed_call",
+  "booking_created",
+  "booking_cancelled",
 ] as const;
 
 /**

@@ -46,13 +46,13 @@ Enlace de reservas por lead,enlaces,should,yes,no,Token firmado con contactId / 
 Insertar el enlace desde el composer del chat,enlaces,should,yes,no,
 Enlace como variable en plantillas y flujos,enlaces,should,yes,no,
 Desactivar la página de reservas,enlaces,could,yes,no,
-Confirmación al cliente por plantilla de WhatsApp,avisos,must,yes,partial,Plantillas y aprobación de Meta ya existen; faltan variables de cita en variableSources
-Recordatorio 24 h antes,avisos,must,yes,partial,Barrido por minuto de follow-up.service.ts; falta el disparador relativo a la cita
-Recordatorio con hora configurable,avisos,should,no,no,Kommo solo 24 h: Driony puede ir por delante
-Botones Confirmar / Reprogramar / Cancelar que actúan sobre la cita,avisos,must,yes,partial,El button_reply entrante ya se lee (webhook.types.ts)
+Confirmación al cliente por plantilla de WhatsApp,avisos,must,yes,yes,Texto dentro de las 24 h; plantilla aprobada fuera (Ajustes › Agenda › Avisos). No se repite si reservó el agente
+Recordatorio 24 h antes,avisos,must,yes,yes,Barrido por minuto (booking-notifications.service.ts); reminderAt en la cita
+Recordatorio con hora configurable,avisos,should,no,yes,1 h a 3 días antes; al cambiarlo se reprograman las citas pendientes
+Botones Confirmar / Reprogramar / Cancelar que actúan sobre la cita,avisos,must,yes,partial,Confirmar y Cancelar sí (botón o texto); Reprogramar lo atiende el agente
 Plantilla prellenada y enviada a aprobación desde ajustes de reservas,avisos,should,yes,partial,template.service.ts + meta-template.client.ts
 Aviso interno al responsable (nueva cita / antes de empezar),avisos,should,yes,partial,Tiempo real sí; push y email no
-Avisos con flujo propio (disparadores de cita),avisos,should,yes,no,Nuevos flowTriggerTypes booking_created / booking_cancelled
+Avisos con flujo propio (disparadores de cita),avisos,should,yes,yes,flowTriggerTypes booking_created / booking_cancelled
 El agente consulta horarios libres,ia,must,yes,yes,Nueva herramienta de lectura check_availability (tools.registry.ts)
 El agente reserva tras confirmar con el cliente,ia,must,yes,yes,Acción book_appointment con aprobación en copiloto (agent-actions.service.ts)
 El agente reprograma y cancela,ia,must,yes,yes,
