@@ -35,15 +35,19 @@ export class KnowledgeService implements OnModuleInit {
     @Inject(EMBEDDING_PROVIDER) private readonly embedder: EmbeddingProvider,
   ) {}
 
-  // Asegura el índice vectorial (Prisma no lo expresa en el schema).
+  // El índice vectorial lo crea la migración 20261107160000_knowledge_hnsw_index
+  // (Prisma no lo expresa en el schema). La aplicación entra sin privilegios de
+  // dueño, así que aquí no se crea nada: solo se comprueba y se avisa.
   async onModuleInit(): Promise<void> {
     try {
-      await this.prisma.$executeRawUnsafe(
-        `CREATE INDEX IF NOT EXISTS knowledge_chunks_embedding_hnsw
-         ON knowledge_chunks USING hnsw (embedding vector_cosine_ops)`,
-      );
+      const rows = await this.prisma.$queryRaw<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM pg_indexes
+         WHERE tablename = 'knowledge_chunks' AND indexname = 'knowledge_chunks_embedding_hnsw'`;
+      if (!rows[0]?.n) {
+        this.logger.warn("Falta el índice HNSW de knowledge_chunks: faltan migraciones por aplicar.");
+      }
     } catch (e) {
-      this.logger.warn(`No se pudo crear el índice HNSW: ${(e as Error).message}`);
+      this.logger.warn(`No se pudo comprobar el índice HNSW: ${(e as Error).message}`);
     }
   }
 
