@@ -59,7 +59,7 @@ export class MetaLeadsController {
     @Body(new ZodValidationPipe(connectMetaPagesSchema))
     body: ConnectMetaPagesInput,
   ) {
-    return this.pages.connect(body.sessionId, body.pageIds);
+    return this.pages.connect(body.sessionId, body.pageIds, body.enable);
   }
 
   @Patch("pages/:id")

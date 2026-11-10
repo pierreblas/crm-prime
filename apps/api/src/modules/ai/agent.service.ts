@@ -86,6 +86,7 @@ export class AgentService {
       contactFields: contactFieldDefs,
       referral: conversation.referral,
       bookings: await this.bookingContext(config?.enabledTools ?? [], conversation.contact.id),
+      channel: conversation.channelKind,
     });
     const messages = await this.buildHistory(conversationId);
     // Las acciones necesitan los valores reales (etiquetas, etapas, vendedores)
@@ -806,7 +807,7 @@ export class AgentService {
     contact: { name: string | null; phone: string; currency?: string | null; aiMemory?: unknown; metadata?: unknown },
     enabledTools: string[] = [],
     splitReplies = false,
-    extra: { catalogFields?: string[]; contactFields?: { key: string; label: string }[]; referral?: unknown; bookings?: string } = {},
+    extra: { catalogFields?: string[]; contactFields?: { key: string; label: string }[]; referral?: unknown; bookings?: string; channel?: string } = {},
   ): { system: string; systemDynamic: string } {
     const country = countryFromPhone(contact.phone);
     const memory = memoryText(contact.aiMemory);
@@ -840,6 +841,10 @@ export class AgentService {
       "Eres un asistente de atención al cliente por WhatsApp. Responde en español, breve y cordial. Redacta una posible respuesta para que un agente humano la revise antes de enviarla. Si no estás seguro o el caso lo amerita, usa la herramienta handoff_to_human.";
     const system = [
       fill(base ?? fallback),
+      // Messenger e Instagram: que no hable de WhatsApp ni de plantillas.
+      extra.channel && extra.channel !== "whatsapp"
+        ? `\n\nEsta conversación es por ${extra.channel === "instagram" ? "Instagram (mensaje directo)" : extra.channel === "tiktok" ? "TikTok (mensaje directo)" : "Messenger (la página de Facebook)"}, no por WhatsApp: no menciones WhatsApp ni plantillas, y no pidas el teléfono salvo que haga falta para atenderle.${extra.channel === "tiktok" ? " En TikTok los enlaces no se pueden pulsar y solo se envían texto e imágenes: pon los datos en el propio mensaje." : ""}`
+        : "",
       extra.catalogFields?.length
         ? `\n\nCada producto del catálogo puede incluir además estos datos: ${extra.catalogFields.join(", ")}. Vienen en search_products (campo «details»): consúltalos y cítalos cuando el cliente pregunte por ellos; nunca inventes su contenido.`
         : "",
@@ -895,6 +900,7 @@ export class AgentService {
     const config = await this.bots.resolveForConversation(conversation);
     const system = this.buildSystemParts(config?.systemPrompt, conversation.contact, [], false, {
       referral: conversation.referral,
+      channel: conversation.channelKind,
     });
     const history = await this.buildHistory(conversationId);
     const ask =

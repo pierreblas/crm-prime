@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
 import { NavIcon } from "@/components/NavIcons";
-import { contactCurrency, CURRENCIES, formatMoney, isWaUserId, phoneLabel } from "@crm/shared";
+import { contactCurrency, CURRENCIES, formatMoney, isDialable, phoneLabel } from "@crm/shared";
 import type { DealDto, PipelineDto, PipelineSummaryDto, PipelineView, StageDto } from "@crm/shared";
 import {
   createDeal,
@@ -1010,7 +1010,7 @@ function DealDetail({
               <EstadoChat deal={deal} style={{ marginTop: 3 }} />
             </div>
             {/* Con usuario de WhatsApp y sin número no hay a dónde llamar. */}
-            {!isWaUserId(deal.contact.phone) && (
+            {isDialable(deal.contact.phone) && (
               <button
                 type="button"
                 style={{ ...ghostBtn, ...smBtn }}

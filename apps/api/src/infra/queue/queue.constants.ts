@@ -6,3 +6,6 @@ export const QUEUE_AI_REPLY = "ai-reply"; // turno del autopilot tras esperar a 
 export const QUEUE_FLOW = "wa-flow"; // reanudación de flujos tras un "Esperar"
 export const QUEUE_WEBHOOK = "outgoing-webhook"; // avisos a sistemas externos
 export const QUEUE_META_LEADS = "meta-leads"; // leads de formularios de Meta
+export const QUEUE_META_MESSAGING = "meta-messaging"; // mensajes de Messenger e Instagram (páginas de Facebook)
+export const QUEUE_TIKTOK = "tiktok-messaging"; // mensajes directos de TikTok
+export const QUEUE_PRODUCT_SYNC = "product-sync"; // lectura de catálogos conectados (WooCommerce, Shopify, hojas)

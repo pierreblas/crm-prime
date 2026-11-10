@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import type { ConversationsQuery, UnreadCount } from "@crm/shared";
@@ -19,7 +20,11 @@ import {
   parseUtms,
   phoneVariants,
   isWaUserId,
+  isSocialId,
+  socialUserId,
+  humanAgentOpen,
   utmsFromUrl,
+  type ChannelKind,
   type AdReferral,
   type Utms,
   type AiMode,
@@ -56,6 +61,8 @@ import { TemplateFillService } from "../campaigns/template-fill.service";
 import { PipelineService } from "../pipeline/pipeline.service";
 import { PermissionsService } from "../permissions/permissions.service";
 import { fuenteAutomatica } from "../sources/fuente-automatica";
+import { MetaMessagingClient, type GenericElement, type PageCreds, type SocialMediaKind } from "./meta-messaging.client";
+import { TikTokClient } from "./tiktok.client";
 import { i18n } from "../../i18n/i18n";
 
 // Aplana el payload de Meta a nuestra forma, en camelCase y con nulls
@@ -102,6 +109,34 @@ export interface InboundMessage {
   buttonPayload?: string;
   /** Cuándo lo envió el cliente, según Meta (ms). */
   timestampMs?: number;
+  /**
+   * Messenger o Instagram: la conversación cuelga de la página de Facebook, no
+   * de un número, y `from` es «FB.<id>» o «IG.<id>» (ver isSocialId).
+   */
+  social?: SocialChannelRef;
+}
+
+/**
+ * El canal social por el que entra un mensaje: la página de Facebook (Messenger
+ * o Instagram) o la cuenta de TikTok. Lo rellena el worker de cada webhook.
+ */
+export interface SocialChannelRef {
+  kind: "messenger" | "instagram" | "tiktok";
+  /** Página de Facebook (Messenger / Instagram). */
+  metaPageId?: string;
+  /** Cuenta de TikTok, y el id de la conversación en TikTok (hace falta para responder). */
+  tiktokAccountId?: string;
+  externalId?: string;
+  /** Desde cuándo el canal recibe mensajes: lo anterior es pasado (ver STALE_MS). */
+  since: Date | null;
+  /** Cómo se llama el canal en la ficha del contacto: la página, o «@usuario». */
+  label: string;
+  /** Embudo elegido para ese canal (null = el predeterminado). */
+  pipelineId: string | null;
+  /** Fuente elegida para ese canal (null = la automática de su vía). */
+  sourceId: string | null;
+  /** Ventana para responder libre; sin indicar, las 24 h de Meta. TikTok da 48 h. */
+  windowMs?: number;
 }
 
 /**
@@ -210,6 +245,9 @@ export class MessagingService {
     private readonly fills: TemplateFillService,
     private readonly pipeline: PipelineService,
     private readonly perms: PermissionsService,
+    // Messenger e Instagram. Opcional para que las pruebas construyan el servicio sin él.
+    @Optional() private readonly meta?: MetaMessagingClient,
+    @Optional() private readonly tiktok?: TikTokClient,
   ) {}
 
   /** Un mensaje nuestro salió: los flujos «el cliente no responde» cuentan desde aquí. */
@@ -266,9 +304,10 @@ export class MessagingService {
 
     // Primero el canal: el `phone_number_id` que trae Meta es lo único que
     // dice de qué organización es este mensaje. De él cuelga todo lo demás.
-    const channel = msg.channelPhoneNumberId
-      ? await this.connection.resolveChannel(msg.channelPhoneNumberId)
-      : null;
+    // Messenger / Instagram: la página ya viene resuelta (el worker abrió su empresa).
+    const social = msg.social ?? null;
+    const channel =
+      !social && msg.channelPhoneNumberId ? await this.connection.resolveChannel(msg.channelPhoneNumberId) : null;
     const channelId = channel?.id ?? null;
     const orgId = channel?.orgId ?? this.tenant.orgId();
 
@@ -278,7 +317,9 @@ export class MessagingService {
     // contesta solo (ver STALE_MS).
     const sentAt = msg.timestampMs && msg.timestampMs < now.getTime() ? new Date(msg.timestampMs) : now;
     const stale =
-      now.getTime() - sentAt.getTime() > STALE_MS || (!!channel?.connectedAt && sentAt < channel.connectedAt);
+      now.getTime() - sentAt.getTime() > STALE_MS ||
+      (!!channel?.connectedAt && sentAt < channel.connectedAt) ||
+      (!!social?.since && sentAt < social.since);
 
     // ── Atribución de marketing ────────────────────────────────
     // Los utm_* pueden venir por dos vías: los "parámetros de URL" del
@@ -298,21 +339,22 @@ export class MessagingService {
     // Las fuentes son de la empresa (Ajustes › Fuentes), pero un contacto que
     // entra por WhatsApp tiene que decir de dónde vino sin que nadie lo
     // etiquete a mano.
-    const sourceId = await fuenteAutomatica(
-      this.prisma,
-      orgId,
-      referral ? "ad" : "whatsapp",
-    );
+    // La fuente que la empresa eligió para el canal; si no eligió, la automática de su vía.
+    const sourceId = social
+      ? (social.sourceId ?? (await fuenteAutomatica(this.prisma, orgId, social.kind)))
+      : referral
+        ? await fuenteAutomatica(this.prisma, orgId, "ad")
+        : (channel?.sourceId ?? (await fuenteAutomatica(this.prisma, orgId, "whatsapp")));
 
     // Quién es: por su número o, si escribe con usuario de WhatsApp sin
     // compartirlo, por su identificador (el mismo contacto de siempre si ya
     // lo conocíamos por cualquiera de los dos).
-    const phone = await this.contactPhone(orgId, msg.from, msg.waUserId);
+    const phone = social ? msg.from : await this.contactPhone(orgId, msg.from, msg.waUserId);
 
     // El mismo móvil puede estar guardado en otra forma (un lead del
     // formulario con «+52…» y su WhatsApp con «+521…»): es la misma persona.
     // Se queda la forma de WhatsApp, que es a la que se le puede escribir.
-    await this.adoptPhoneVariant(orgId, phone);
+    if (!social) await this.adoptPhoneVariant(orgId, phone);
 
     const contact = await this.prisma.contact.upsert({
       where: { orgId_phone: { orgId, phone } },
@@ -322,14 +364,15 @@ export class MessagingService {
         name: msg.name,
         waUserId: msg.waUserId ?? null,
         waUsername: msg.username ?? null,
+        fbPsid: social?.kind === "messenger" ? socialUserId(msg.from) : null,
+        igsid: social?.kind === "instagram" ? socialUserId(msg.from) : null,
+        ttUserId: social?.kind === "tiktok" ? socialUserId(msg.from) : null,
         lastMessageAt: now,
         optIn: !optOut,
         // El origen solo se fija al crear: si el contacto ya existía,
         // conserva la vía por la que entró originalmente.
-        origin: referral ? "ad" : "whatsapp",
-        originDetail: referral
-          ? adReferralLabel(referral)
-          : (msg.channelPhoneNumberId ?? null),
+        origin: social ? social.kind : referral ? "ad" : "whatsapp",
+        originDetail: social ? social.label : referral ? adReferralLabel(referral) : (msg.channelPhoneNumberId ?? null),
         sourceId,
         ...(hasUtms ? { metadata: utms as Prisma.InputJsonObject } : {}),
       },
@@ -346,7 +389,7 @@ export class MessagingService {
     // tiene ninguna y entró por WhatsApp. Una fuente puesta a mano se respeta.
     if (
       !contact.sourceId &&
-      (contact.origin === "whatsapp" || contact.origin === "ad")
+      (contact.origin === "whatsapp" || contact.origin === "ad" || contact.origin === "messenger" || contact.origin === "instagram")
     ) {
       await this.prisma.contact.update({
         where: { id: contact.id },
@@ -365,7 +408,7 @@ export class MessagingService {
       orderBy: { createdAt: "desc" },
     });
     // La ventana de 24 h cuenta desde que escribió el cliente, no desde que llegó.
-    const windowExpiresAt = new Date(sentAt.getTime() + WINDOW_MS);
+    const windowExpiresAt = new Date(sentAt.getTime() + (social?.windowMs ?? WINDOW_MS));
     const isNewConversation = !open;
     // Tras cerrar, el siguiente mensaje abre otra conversación: hereda el modo
     // de la IA de la anterior (si estaba en Autopilot, sigue en Autopilot).
@@ -390,6 +433,9 @@ export class MessagingService {
             unreadCount: { increment: 1 },
             // Fija el canal si aún no lo tenía (conversaciones previas).
             ...(channelId && !open.channelId ? { channelId } : {}),
+            ...(social && !open.metaPageId && !open.tiktokAccountId
+              ? { metaPageId: social.metaPageId ?? null, tiktokAccountId: social.tiktokAccountId ?? null, externalId: social.externalId ?? null, channelKind: social.kind }
+              : {}),
             // Volvió por un anuncio con el chat abierto: Meta manda el referral
             // en este mensaje y es el clic que cuenta para las conversiones.
             ...(referral ? { referral: referral as unknown as Prisma.InputJsonObject } : {}),
@@ -400,6 +446,10 @@ export class MessagingService {
             orgId,
             contactId: contact.id,
             channelId,
+            channelKind: social?.kind ?? "whatsapp",
+            metaPageId: social?.metaPageId ?? null,
+            tiktokAccountId: social?.tiktokAccountId ?? null,
+            externalId: social?.externalId ?? null,
             status: "OPEN",
             windowExpiresAt,
             lastMessageAt: now,
@@ -418,7 +468,7 @@ export class MessagingService {
     // y la conversación queda asignada al mismo vendedor.
     if (!stale) {
       await this.pipeline
-        .intakeFromWhatsapp(contact.id, channelId, conversation.id)
+        .intakeFromWhatsapp(contact.id, channelId, conversation.id, social?.pipelineId ?? null)
         .catch((e: Error) => this.logger.warn(`Entrada al embudo falló: ${e.message}`));
     }
 
@@ -460,6 +510,7 @@ export class MessagingService {
       conversationId: conversation.id,
       message: { type: msg.type, text: text ?? null },
       isNewConversation,
+      channel: social?.kind ?? "whatsapp",
     });
     // Con quién y qué dijo: la app avisa esté donde esté la persona.
     this.notify(conversation.id, {
@@ -606,7 +657,7 @@ export class MessagingService {
         lastMessageAt: now,
         origin: "whatsapp",
         originDetail: echo.channelPhoneNumberId ?? null,
-        sourceId: await fuenteAutomatica(this.prisma, orgId, "whatsapp"),
+        sourceId: channel?.sourceId ?? (await fuenteAutomatica(this.prisma, orgId, "whatsapp")),
       },
       update: { lastMessageAt: now },
     });
@@ -657,6 +708,127 @@ export class MessagingService {
     this.notify(conversation.id);
   }
 
+  // ── Messenger / Instagram: ecos, leídos y borrados ─────────────
+  /**
+   * El negocio contestó desde otra herramienta (la bandeja de Meta, la app de
+   * Instagram). Igual que el eco de coexistencia: queda como saliente humano y
+   * pausa la IA. Lo que mandó Driony también vuelve como eco, con el mismo mid,
+   * y se reconoce por idempotencia.
+   */
+  async handleSocialEcho(echo: {
+    social: SocialChannelRef;
+    to: string;
+    mid: string;
+    type: MessageType;
+    text?: string;
+    note?: string;
+    mediaUrl?: string;
+  }): Promise<void> {
+    const existing = await this.prisma.message.findUnique({ where: { waMessageId: echo.mid }, select: { id: true } });
+    if (existing) return;
+    const orgId = this.tenant.orgId();
+    const now = new Date();
+    const contact = await this.prisma.contact.upsert({
+      where: { orgId_phone: { orgId, phone: echo.to } },
+      create: {
+        orgId,
+        phone: echo.to,
+        fbPsid: echo.social.kind === "messenger" ? socialUserId(echo.to) : null,
+        igsid: echo.social.kind === "instagram" ? socialUserId(echo.to) : null,
+        ttUserId: echo.social.kind === "tiktok" ? socialUserId(echo.to) : null,
+        lastMessageAt: now,
+        origin: echo.social.kind,
+        originDetail: echo.social.label,
+        sourceId: echo.social.sourceId ?? (await fuenteAutomatica(this.prisma, orgId, echo.social.kind)),
+      },
+      update: { lastMessageAt: now },
+    });
+    const open = await this.prisma.conversation.findFirst({
+      where: { contactId: contact.id, status: { not: "CLOSED" } },
+      orderBy: { createdAt: "desc" },
+    });
+    const paused = { aiPausedUntil: new Date(now.getTime() + this.humanPauseMs) };
+    const conversation = open
+      ? await this.prisma.conversation.update({
+          where: { id: open.id },
+          data: {
+            lastMessageAt: now,
+            awaitingReply: false,
+            ...paused,
+            ...(!open.metaPageId && !open.tiktokAccountId
+              ? { metaPageId: echo.social.metaPageId ?? null, tiktokAccountId: echo.social.tiktokAccountId ?? null, externalId: echo.social.externalId ?? null, channelKind: echo.social.kind }
+              : {}),
+          },
+        })
+      : await this.prisma.conversation.create({
+          data: {
+            orgId,
+            contactId: contact.id,
+            channelKind: echo.social.kind,
+            metaPageId: echo.social.metaPageId ?? null,
+            tiktokAccountId: echo.social.tiktokAccountId ?? null,
+            externalId: echo.social.externalId ?? null,
+            status: "OPEN",
+            lastMessageAt: now,
+            awaitingReply: false,
+            ...paused,
+          },
+        });
+    const saved = await this.prisma.message.create({
+      data: {
+        orgId,
+        conversationId: conversation.id,
+        waMessageId: echo.mid,
+        direction: MessageDirection.OUTBOUND,
+        type: echo.type,
+        author: MessageAuthor.HUMAN,
+        content: echo.text,
+        note: echo.note ?? null,
+        mediaUrl: echo.mediaUrl,
+        status: MessageStatus.SENT,
+      },
+    });
+    this.outboundSent(orgId, conversation.id, saved.id, MessageAuthor.HUMAN);
+    this.logger.log(`→ (desde ${echo.social.label}) ${echo.to}: "${echo.text ?? echo.type}"`);
+    this.notify(conversation.id);
+  }
+
+  /** El cliente borró un mensaje (Messenger/Instagram): se marca, no se quita. */
+  async markDeletedByContact(mid: string): Promise<void> {
+    const m = await this.prisma.message.findUnique({ where: { waMessageId: mid }, select: { id: true, conversationId: true } });
+    if (!m) return;
+    await this.prisma.message.update({ where: { id: m.id }, data: { note: "El cliente eliminó este mensaje." } });
+    this.notify(m.conversationId);
+  }
+
+  /**
+   * Messenger avisa «leído hasta tal hora» (watermark) e Instagram «leído este
+   * mensaje»; «entregado», igual. Se aplica a los salientes del contacto sin
+   * retroceder estados (como handleStatus).
+   */
+  async markReadUpTo(contactPhone: string, untilMs: number, mid?: string): Promise<void> {
+    await this.advanceStatus(contactPhone, MessageStatus.READ, mid ? [mid] : [], untilMs);
+  }
+
+  async markDeliveredUpTo(contactPhone: string, mids: string[], untilMs?: number): Promise<void> {
+    await this.advanceStatus(contactPhone, MessageStatus.DELIVERED, mids, untilMs);
+  }
+
+  private async advanceStatus(contactPhone: string, status: MessageStatus, mids: string[], untilMs?: number): Promise<void> {
+    const below = status === MessageStatus.READ ? [MessageStatus.SENT, MessageStatus.DELIVERED] : [MessageStatus.SENT];
+    const or: Prisma.MessageWhereInput[] = [];
+    if (mids.length) or.push({ waMessageId: { in: mids } });
+    if (untilMs) or.push({ createdAt: { lte: new Date(untilMs) } });
+    if (!or.length) return;
+    const rows = await this.prisma.message.findMany({
+      where: { direction: MessageDirection.OUTBOUND, status: { in: below }, conversation: { contact: { phone: contactPhone } }, OR: or },
+      select: { id: true, conversationId: true },
+    });
+    if (!rows.length) return;
+    await this.prisma.message.updateMany({ where: { id: { in: rows.map((r) => r.id) } }, data: { status } });
+    for (const id of new Set(rows.map((r) => r.conversationId))) this.notify(id);
+  }
+
   // ── Reacción entrante (emoji sobre un mensaje) ─────────────────
   async handleReaction(targetWaMessageId: string, emoji: string): Promise<void> {
     const msg = await this.prisma.message.findUnique({
@@ -675,16 +847,24 @@ export class MessagingService {
   async reactToMessage(messageId: string, emoji: string): Promise<MessageDto> {
     const message = await this.prisma.message.findUnique({
       where: { id: messageId },
-      include: { conversation: { include: { contact: true, channel: true } } },
+      include: { conversation: { include: { contact: true, channel: true, metaPage: true, tiktokAccount: true } } },
     });
     if (!message) throw new NotFoundException("Mensaje no encontrado");
     if (message.waMessageId) {
-      await this.wa.sendReaction(
-        message.conversation.contact.phone,
-        message.waMessageId,
-        emoji,
-        message.conversation.channel?.phoneNumberId,
-      );
+      if (message.conversation.channelKind === "tiktok") {
+        throw new BadRequestException("TikTok no admite reacciones desde la API.");
+      }
+      if (message.conversation.channelKind !== "whatsapp") {
+        const { creds, to } = this.socialTarget(message.conversation);
+        await this.meta!.react(creds, to, message.waMessageId, emoji || null);
+      } else {
+        await this.wa.sendReaction(
+          message.conversation.contact.phone,
+          message.waMessageId,
+          emoji,
+          message.conversation.channel?.phoneNumberId,
+        );
+      }
     }
     const updated = await this.prisma.message.update({
       where: { id: messageId },
@@ -980,12 +1160,15 @@ export class MessagingService {
     const [conversation, template] = await Promise.all([
       this.prisma.conversation.findUnique({
         where: { id: input.conversationId },
-        include: { contact: true, channel: true },
+        include: { contact: true, channel: true, metaPage: true, tiktokAccount: true },
       }),
       this.prisma.template.findUnique({ where: { id: input.templateId } }),
     ]);
     if (!conversation) throw new NotFoundException("Conversación no encontrada");
     if (!template) throw new NotFoundException("Plantilla no encontrada");
+    if (conversation.channelKind !== "whatsapp") {
+      throw new BadRequestException("Las plantillas son de WhatsApp. En Messenger e Instagram escribe un mensaje normal.");
+    }
     if (template.status !== "APPROVED") {
       throw new BadRequestException(
         "La plantilla no está aprobada por Meta, así que no se puede enviar.",
@@ -1072,11 +1255,25 @@ export class MessagingService {
       !!conversation.windowExpiresAt &&
       conversation.windowExpiresAt > new Date();
 
-    // Regla 3: fuera de ventana solo se permiten plantillas aprobadas.
-    if (!windowOpen && input.type === MessageType.TEXT) {
-      throw new BadRequestException(
-        "Fuera de la ventana de 24h: solo se pueden enviar plantillas aprobadas.",
-      );
+    // Regla 3: fuera de ventana, WhatsApp solo admite plantillas aprobadas.
+    // Messenger e Instagram no tienen plantillas, pero dejan responder como
+    // agente humano hasta 7 días después del último mensaje del cliente.
+    if (!windowOpen) {
+      if (conversation.channelKind === "whatsapp") {
+        if (input.type === MessageType.TEXT) {
+          throw new BadRequestException(
+            "Fuera de la ventana de 24h: solo se pueden enviar plantillas aprobadas.",
+          );
+        }
+      } else if (conversation.channelKind === "tiktok") {
+        throw new BadRequestException(
+          "Pasaron más de 48 h desde el último mensaje del cliente: TikTok no permite escribirle hasta que vuelva a escribir.",
+        );
+      } else if (!humanAgentOpen(conversation.windowExpiresAt)) {
+        throw new BadRequestException(
+          "Pasaron más de 7 días desde el último mensaje del cliente: Messenger e Instagram no permiten escribirle hasta que vuelva a escribir.",
+        );
+      }
     }
 
     const message = await this.prisma.message.create({
@@ -1170,7 +1367,7 @@ export class MessagingService {
       .update({
         where: { id },
         data: { aiMode: mode, aiPausedUntil: null },
-        include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true },
+        include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true, metaPage: true, tiktokAccount: true },
       })
       .catch(() => {
         throw new NotFoundException("Conversación no encontrada");
@@ -1184,13 +1381,25 @@ export class MessagingService {
     const message = await this.prisma.message.findUnique({
       where: { id: messageId },
       include: {
-        conversation: { include: { contact: true, channel: true } },
+        conversation: { include: { contact: true, channel: true, metaPage: true, tiktokAccount: true } },
         // El waMessageId del citado es lo que Meta necesita en `context`.
         replyTo: { select: { waMessageId: true } },
       },
     });
     if (!message) return;
     if (message.status === MessageStatus.SENT) return; // ya enviado (reintento)
+
+    // Messenger / Instagram: por la página de Facebook, no por la Cloud API.
+    if (message.conversation.channelKind !== "whatsapp") {
+      const sent = message.conversation.channelKind === "tiktok" ? await this.sendTikTok(message) : await this.sendSocial(message);
+      await this.prisma.message.update({
+        where: { id: message.id },
+        data: { waMessageId: sent.mid, status: MessageStatus.SENT },
+      });
+      this.outboundSent(message.orgId, message.conversationId, message.id, message.author);
+      this.notify(message.conversationId);
+      return;
+    }
 
     const to = message.conversation.contact.phone;
     // Responder por el mismo número (canal) por el que entró la conversación.
@@ -1214,6 +1423,161 @@ export class MessagingService {
     });
     this.outboundSent(message.orgId, message.conversationId, message.id, message.author);
     this.notify(message.conversationId);
+  }
+
+  // ── Messenger / Instagram: envío por la página de Facebook ──────
+  /** Token de la página y destinatario (PSID / IGSID) de una conversación social. */
+  private socialTarget(convo: {
+    channelKind: string;
+    contact: { phone: string; fbPsid: string | null; igsid: string | null };
+    metaPage: { pageId: string; accessToken: string } | null;
+  }): { creds: PageCreds; to: string } {
+    if (!this.meta) throw new Error("La mensajería de Meta no está disponible en este servidor");
+    const kind = convo.channelKind as "messenger" | "instagram";
+    if (!convo.metaPage) throw new Error("La página de Facebook de esta conversación ya no está conectada");
+    const to =
+      (kind === "instagram" ? convo.contact.igsid : convo.contact.fbPsid) ??
+      (isSocialId(convo.contact.phone) ? socialUserId(convo.contact.phone) : null);
+    if (!to) throw new Error("Este contacto no tiene identificador de Messenger ni de Instagram");
+    return { creds: { pageId: convo.metaPage.pageId, accessToken: convo.metaPage.accessToken, platform: kind }, to };
+  }
+
+  /**
+   * Dentro de las 24 h va como respuesta; fuera, con la etiqueta de agente
+   * humano (hasta 7 días). Los botones y las listas son respuestas rápidas, el
+   * carrusel una plantilla genérica, y un archivo nuestro se sube antes porque
+   * no es público. Messenger e Instagram no llevan pie de foto: el texto va
+   * detrás, en otro mensaje.
+   */
+  private async sendSocial(message: {
+    type: MessageType;
+    content: string | null;
+    mediaUrl: string | null;
+    interactive: unknown;
+    replyTo: { waMessageId: string | null } | null;
+    conversation: {
+      channelKind: string;
+      windowExpiresAt: Date | null;
+      contact: { phone: string; fbPsid: string | null; igsid: string | null };
+      metaPage: { pageId: string; accessToken: string } | null;
+    };
+  }): Promise<{ mid: string }> {
+    const { creds, to } = this.socialTarget(message.conversation);
+    const meta = this.meta!;
+    const windowOpen = !!message.conversation.windowExpiresAt && message.conversation.windowExpiresAt > new Date();
+    const opts = { humanAgent: !windowOpen, replyToMid: message.replyTo?.waMessageId ?? undefined };
+    const body = message.content ?? "";
+    const i = message.interactive as StoredInteractive | null;
+
+    if (i?.carousel) {
+      const elements: GenericElement[] = i.carousel.cards.map((c) => ({
+        title: (c.body ?? c.button.title).slice(0, 80) || c.button.title,
+        // Solo una URL pública sirve de imagen: un archivo del CRM no lo es.
+        imageUrl: c.kind === "IMAGE" && !parseStorageRef(c.mediaUrl) ? c.mediaUrl : undefined,
+        buttons: [
+          c.button.url
+            ? { type: "web_url" as const, title: c.button.title, url: c.button.url }
+            : { type: "postback" as const, title: c.button.title, payload: c.id },
+        ],
+      }));
+      if (body.trim()) await meta.sendText(creds, to, body, opts);
+      return meta.sendGenericTemplate(creds, to, elements, opts);
+    }
+    if (i?.list || i?.buttons?.length) {
+      const options = i.list
+        ? i.list.rows.map((r) => ({ title: r.title, payload: r.id }))
+        : (i.buttons ?? []).map((b) => ({ title: b.title, payload: b.id }));
+      const text = [i.header, body, i.footer].filter((t): t is string => !!t?.trim()).join("\n\n");
+      return meta.sendText(creds, to, text, { ...opts, quickReplies: options });
+    }
+    if (message.type === MessageType.TEXT) return meta.sendText(creds, to, body, opts);
+
+    const kind: SocialMediaKind =
+      message.type === MessageType.IMAGE || message.type === MessageType.STICKER
+        ? "image"
+        : message.type === MessageType.VIDEO
+          ? "video"
+          : message.type === MessageType.AUDIO
+            ? "audio"
+            : "file";
+    const storageId = parseStorageRef(message.mediaUrl);
+    let ref: { url: string } | { attachmentId: string };
+    if (storageId) {
+      const file = await this.storage.read(storageId);
+      if (!file) throw new Error("El archivo ya no está disponible en el almacenamiento");
+      ref = { attachmentId: await meta.uploadMedia(creds, kind, file.buffer, file.mimeType, file.fileName ?? storageId) };
+    } else {
+      ref = { url: message.mediaUrl ?? "" };
+    }
+    const sent = await meta.sendMedia(creds, to, kind, ref, opts);
+    if (body.trim()) await meta.sendText(creds, to, body, { humanAgent: opts.humanAgent });
+    return sent;
+  }
+
+  /**
+   * TikTok: solo texto e imagen (JPG/PNG, 3 MB), dentro de las 48 h desde el
+   * último mensaje del cliente. Los botones y las listas van numerados en el
+   * texto, porque TikTok no tiene respuestas rápidas; un pie de foto va detrás
+   * de la imagen, en otro mensaje.
+   */
+  private async sendTikTok(message: {
+    type: MessageType;
+    content: string | null;
+    mediaUrl: string | null;
+    interactive: unknown;
+    replyTo: { waMessageId: string | null } | null;
+    conversation: {
+      externalId: string | null;
+      tiktokAccount: { id: string; businessId: string; accessToken: string; refreshToken: string; tokenExpiresAt: Date; refreshExpiresAt: Date } | null;
+    };
+  }): Promise<{ mid: string }> {
+    if (!this.tiktok) throw new Error("La mensajería de TikTok no está disponible en este servidor");
+    const acc = message.conversation.tiktokAccount;
+    if (!acc) throw new Error("La cuenta de TikTok de esta conversación ya no está conectada");
+    const thread = message.conversation.externalId;
+    if (!thread) throw new Error("Esta conversación no tiene identificador de TikTok");
+    const creds = { businessId: acc.businessId, accessToken: await this.tiktok.validToken(acc) };
+    const replyTo = message.replyTo?.waMessageId ?? undefined;
+    const body = message.content ?? "";
+    const i = message.interactive as StoredInteractive | null;
+
+    if (i?.buttons?.length || i?.list || i?.carousel) {
+      const options = i.list
+        ? i.list.rows.map((r) => r.title)
+        : i.carousel
+          ? i.carousel.cards.map((c) => c.body ?? c.button.title)
+          : (i.buttons ?? []).map((b) => b.title);
+      const text = [i.header, body, ...options.map((t, k) => `${k + 1}) ${t}`), i.footer].filter((t): t is string => !!t?.trim()).join("\n");
+      const r = await this.tiktok.sendText(creds, thread, text, replyTo);
+      return { mid: r.messageId };
+    }
+    if (message.type === MessageType.TEXT) {
+      const r = await this.tiktok.sendText(creds, thread, body, replyTo);
+      return { mid: r.messageId };
+    }
+    if (message.type !== MessageType.IMAGE && message.type !== MessageType.STICKER) {
+      throw new Error("TikTok solo admite texto e imágenes (JPG o PNG de hasta 3 MB).");
+    }
+    const storageId = parseStorageRef(message.mediaUrl);
+    let buffer: Buffer;
+    let mimeType: string;
+    let filename: string;
+    if (storageId) {
+      const file = await this.storage.read(storageId);
+      if (!file) throw new Error("El archivo ya no está disponible en el almacenamiento");
+      buffer = file.buffer;
+      mimeType = file.mimeType;
+      filename = file.fileName ?? storageId;
+    } else {
+      const res = await fetch(message.mediaUrl ?? "");
+      if (!res.ok) throw new Error("No se pudo leer la imagen para enviarla a TikTok");
+      buffer = Buffer.from(await res.arrayBuffer());
+      mimeType = (res.headers.get("content-type") ?? "image/jpeg").split(";")[0]!.trim();
+      filename = "imagen";
+    }
+    const sent = await this.tiktok.sendImage(creds, thread, buffer, mimeType, filename, replyTo);
+    if (body.trim()) await this.tiktok.sendText(creds, thread, body);
+    return { mid: sent.messageId };
   }
 
   async markFailed(messageId: string, reason: string): Promise<void> {
@@ -1287,6 +1651,8 @@ export class MessagingService {
         contact: { include: { tags: { include: { tag: true } }, source: true } },
         assignedAgent: true,
         channel: true,
+        metaPage: true,
+        tiktokAccount: true,
         // El último mensaje, para la vista previa de la fila.
         messages: {
           orderBy: { createdAt: "desc" },
@@ -1305,7 +1671,7 @@ export class MessagingService {
       .update({
         where: { id },
         data: { unreadCount: 0, lastReadAt: new Date() },
-        include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true },
+        include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true, metaPage: true, tiktokAccount: true },
       })
       .catch(() => {
         throw new NotFoundException("Conversación no encontrada");
@@ -1327,7 +1693,7 @@ export class MessagingService {
       .update({
         where: { id },
         data: { assignedAgentId: agentId },
-        include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true },
+        include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true, metaPage: true, tiktokAccount: true },
       })
       .catch(() => {
         throw new NotFoundException("Conversación no encontrada");
@@ -1349,7 +1715,7 @@ export class MessagingService {
           // Un chat cerrado no recibe seguimientos.
           ...(status === "CLOSED" ? { followUpDueAt: null } : {}),
         },
-        include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true },
+        include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true, metaPage: true, tiktokAccount: true },
       })
       .catch(() => {
         throw new NotFoundException("Conversación no encontrada");
@@ -1368,7 +1734,7 @@ export class MessagingService {
       .update({
         where: { id },
         data: { followUpStep: FOLLOW_UP_CANCELLED, followUpDueAt: null },
-        include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true },
+        include: { contact: { include: { tags: { include: { tag: true } }, source: true } }, assignedAgent: true, channel: true, metaPage: true, tiktokAccount: true },
       })
       .catch(() => {
         throw new NotFoundException("Conversación no encontrada");
@@ -1436,6 +1802,9 @@ export class MessagingService {
       label: string | null;
       displayPhoneNumber: string | null;
     } | null;
+    channelKind?: string;
+    metaPage?: { id: string; name: string; instagramUsername: string | null } | null;
+    tiktokAccount?: { id: string; username: string | null; displayName: string | null } | null;
     // Solo el listado lo trae (take: 1); el resto de llamadas no lo necesita.
     messages?: {
       direction: string;
@@ -1490,10 +1859,25 @@ export class MessagingService {
       channel: c.channel
         ? {
             id: c.channel.id,
+            kind: "whatsapp",
             label: c.channel.label,
             displayPhoneNumber: c.channel.displayPhoneNumber,
           }
-        : null,
+        : c.metaPage && c.channelKind && c.channelKind !== "whatsapp"
+          ? {
+              id: c.metaPage.id,
+              kind: c.channelKind as ChannelKind,
+              label: c.channelKind === "instagram" ? `@${c.metaPage.instagramUsername ?? c.metaPage.name}` : c.metaPage.name,
+              displayPhoneNumber: null,
+            }
+          : c.tiktokAccount && c.channelKind === "tiktok"
+            ? {
+                id: c.tiktokAccount.id,
+                kind: "tiktok",
+                label: c.tiktokAccount.username ? `@${c.tiktokAccount.username}` : (c.tiktokAccount.displayName ?? "TikTok"),
+                displayPhoneNumber: null,
+              }
+            : null,
       aiMode: c.aiMode as AiMode,
       aiPaused: !!c.aiPausedUntil && c.aiPausedUntil > now,
       awaitingReply: c.awaitingReply,

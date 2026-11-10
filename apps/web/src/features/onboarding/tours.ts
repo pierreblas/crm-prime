@@ -193,6 +193,12 @@ export const TOURS: TourDef[] = [
         placement: "bottom",
       },
       {
+        target: "[data-tour=products-connect]",
+        title: "Conecta tu tienda",
+        body: "¿Vendes en WooCommerce o Shopify, o llevas el catálogo en una hoja de Google? Conéctalo y Driony lo lee solo cada hora: precios, fotos, stock y variantes.",
+        placement: "bottom",
+      },
+      {
         target: "[data-tour=products-grid]",
         title: "Todo en tarjetas",
         body: "Pulsa una tarjeta para editarla. Los productos inactivos siguen aquí, pero el agente no los ofrece.",

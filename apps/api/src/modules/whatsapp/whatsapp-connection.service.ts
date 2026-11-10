@@ -15,6 +15,7 @@ import type {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
+import { fuenteAutomatica } from "../sources/fuente-automatica";
 import { runUnscoped, tenancyMode } from "../../infra/tenant/tenant.context";
 import { IntegrationSettingsService } from "../integrations/integration-settings.service";
 import { PlansService } from "../plans/plans.service";
@@ -182,12 +183,12 @@ export class WhatsappConnectionService {
 
   async resolveChannel(
     phoneNumberId: string,
-  ): Promise<{ id: string; orgId: string; connectedAt: Date } | null> {
+  ): Promise<{ id: string; orgId: string; connectedAt: Date; sourceId: string | null } | null> {
     // Agujero 2/4: esta consulta produce el orgId, así que no puede usarlo.
     return runUnscoped("webhook: resolver empresa por phone_number_id", () =>
       this.prisma.whatsappConnection.findUnique({
         where: { phoneNumberId },
-        select: { id: true, orgId: true, connectedAt: true },
+        select: { id: true, orgId: true, connectedAt: true, sourceId: true },
       }),
     );
   }
@@ -204,11 +205,16 @@ export class WhatsappConnectionService {
       const p = await this.prisma.pipeline.findUnique({ where: { id: input.pipelineId }, select: { id: true } });
       if (!p) throw new BadRequestException("Embudo no encontrado");
     }
+    if (input.sourceId) {
+      const s = await this.prisma.source.findUnique({ where: { id: input.sourceId }, select: { id: true } });
+      if (!s) throw new BadRequestException("Fuente no encontrada");
+    }
     await this.prisma.whatsappConnection.update({
       where: { id },
       data: {
         ...(input.label !== undefined ? { label: input.label?.trim() || null } : {}),
         ...(input.pipelineId !== undefined ? { pipelineId: input.pipelineId } : {}),
+        ...(input.sourceId !== undefined ? { sourceId: input.sourceId } : {}),
       },
     });
     if (input.botId !== undefined) {
@@ -242,6 +248,7 @@ export class WhatsappConnectionService {
       connectedAt: c.connectedAt.toISOString(),
       pipelineId: c.pipelineId,
       bot: c.bot ? { id: c.bot.id, name: c.bot.name } : null,
+      sourceId: c.sourceId,
     }));
 
     // El número del .env aparece como canal extra si no está ya en la BD.
@@ -257,6 +264,7 @@ export class WhatsappConnectionService {
         statusReason: null,
         pipelineId: null,
         bot: null,
+        sourceId: null,
         id: "env",
         phoneNumberId: envPhone,
         displayPhoneNumber: null,
@@ -390,6 +398,15 @@ export class WhatsappConnectionService {
       throw e;
     });
     this.logger.log(`WhatsApp conectado (${mode}) ${phoneNumberId}`);
+
+    // Las fuentes de este canal existen desde ya: se ven en Ajustes › Fuentes y
+    // se pueden repartir entre vendedores antes del primer mensaje.
+    {
+      const orgId = this.tenant.orgId();
+      await Promise.all([fuenteAutomatica(this.prisma, orgId, "whatsapp"), fuenteAutomatica(this.prisma, orgId, "ad")]).catch(
+        (e: Error) => this.logger.warn(`No se pudieron crear las fuentes automáticas: ${e.message}`),
+      );
+    }
 
     // Sin suscribir la app a la WABA, Meta no entrega los webhooks de ese número.
     if (input.wabaId) {

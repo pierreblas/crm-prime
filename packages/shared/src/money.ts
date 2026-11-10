@@ -11,7 +11,7 @@
  * precios explícitos por moneda, porque el precio real en otro país suele ser
  * un número redondo decidido por el negocio, no USD × cambio del día.
  */
-import { isWaUserId } from "./phone.js";
+import { isSocialId, isWaUserId } from "./phone.js";
 
 export interface CurrencyInfo {
   code: string;
@@ -97,6 +97,8 @@ export function dialCodeOf(code: string): string | null {
 }
 
 export function countryFromPhone(phone: string | null | undefined): CountryInfo | null {
+  // Cliente de Messenger o Instagram: no se sabe de qué país es.
+  if (isSocialId(phone)) return null;
   // Usuario de WhatsApp sin número: su identificador empieza por el país («PE.…»).
   if (isWaUserId(phone)) return COUNTRIES.find((c) => c.code === phone!.slice(0, 2)) ?? null;
   const digits = (phone ?? "").replace(/\D/g, "");

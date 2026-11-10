@@ -93,7 +93,7 @@ export class BotService {
    * Quién atiende una conversación: el agente del embudo donde está su
    * oportunidad abierta; si no tiene, el del número; si no, el predeterminado.
    */
-  async resolveForConversation(convo: { channelId: string | null; contactId: string }) {
+  async resolveForConversation(convo: { channelId: string | null; contactId: string; channelKind?: string; metaPageId?: string | null; tiktokAccountId?: string | null }) {
     const deal = await this.prisma.deal.findFirst({
       where: { contactId: convo.contactId, discardedAt: null },
       orderBy: { updatedAt: "desc" },
@@ -101,6 +101,22 @@ export class BotService {
     });
     const own = deal?.stage.pipeline.bot;
     if (own?.isActive) return own;
+    // TikTok: el agente elegido para la cuenta.
+    if (convo.tiktokAccountId && convo.channelKind === "tiktok") {
+      const acc = await this.prisma.tikTokAccount.findUnique({ where: { id: convo.tiktokAccountId }, select: { bot: true } });
+      if (acc?.bot?.isActive) return acc.bot;
+      return this.prisma.agentConfig.findFirst({ where: { isDefault: true, isActive: true } });
+    }
+    // Messenger / Instagram: el agente elegido para ese canal de la página.
+    if (convo.metaPageId && convo.channelKind && convo.channelKind !== "whatsapp") {
+      const page = await this.prisma.metaPage.findUnique({
+        where: { id: convo.metaPageId },
+        select: { messengerBot: true, instagramBot: true },
+      });
+      const bot = convo.channelKind === "instagram" ? page?.instagramBot : page?.messengerBot;
+      if (bot?.isActive) return bot;
+      return this.prisma.agentConfig.findFirst({ where: { isDefault: true, isActive: true } });
+    }
     return this.resolveForChannel(convo.channelId);
   }
 

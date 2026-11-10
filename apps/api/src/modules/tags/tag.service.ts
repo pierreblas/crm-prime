@@ -68,6 +68,7 @@ export class TagService {
     id: string;
     name: string;
     color: string | null;
+    waLabelId?: string | null;
     _count: { contacts: number };
   }): TagDto {
     return {
@@ -75,6 +76,7 @@ export class TagService {
       name: t.name,
       color: t.color,
       contactCount: t._count.contacts,
+      waLabel: !!t.waLabelId,
     };
   }
 }

@@ -4928,28 +4928,93 @@ code {
 /* ══ Ajustes › Canales ════════════════════════════════════════
    Un selector con los canales que existen (marca, qué hace y su estado),
    los que vienen como una línea discreta, y debajo el panel del canal. */
-.ch-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.ch-picker { display: flex; flex-wrap: wrap; gap: 8px; }
 .ch-tab {
-  display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; row-gap: 3px; align-items: start;
-  padding: 14px 16px; border-radius: 0; border: 1px solid var(--border); background: var(--panel);
+  flex: 1 1 128px; min-width: 0;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; row-gap: 1px; align-items: center;
+  padding: 9px 10px; border-radius: 0; border: 1px solid var(--border); background: var(--panel);
   color: var(--text); font: inherit; text-align: left; cursor: pointer;
   transition: border-color .14s ease, background .14s ease;
 }
 .ch-tab:hover { border-color: var(--border-strong); }
 .ch-tab[aria-selected="true"] { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 8%, var(--panel)); }
 .ch-tab:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
-.ch-tab__mark { grid-row: 1 / span 3; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 0; color: #fff; }
+.ch-tab__mark { grid-row: 1 / span 2; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 0; color: #fff; }
 .ch-tab__mark.is-wa { background: #1fa855; }
 .ch-tab__mark.is-fb { background: #1877f2; }
-.ch-tab__name { font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+.ch-tab__mark.is-ms { background: #0084ff; }
+.ch-tab__mark.is-ig { background: linear-gradient(135deg, #f58529, #dd2a7b 55%, #8134af); }
+.ch-tab__mark.is-tt { background: #161823; border: 1px solid var(--border); }
+.ch-tab__name { font-size: 14px; font-weight: 700; line-height: 1.3; }
 .ch-tab__desc { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
-.ch-status { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12.5px; font-weight: 600; }
+.ch-status { display: inline-flex; align-items: center; gap: 6px; margin-top: 0; font-size: 12px; font-weight: 600; line-height: 1.3; min-width: 0; }
+.ch-tab .ch-status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; }
 .ch-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 .ch-status.is-ok { color: var(--positive); }
 .ch-status.is-warn { color: var(--warning); }
 .ch-status.is-muted { color: var(--muted); }
 .ch-soon { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0; font-size: 12.5px; color: var(--muted); }
 .ch-soon span { padding: 2px 9px; border-radius: 0; border: 1px dashed var(--border); }
+
+/* ══ Ajustes › Fuentes ════════════════════════════════════════
+   Dos listas: las de los canales (con la marca de su vía y qué las alimenta) y
+   las de la empresa. Filas planas; el nombre se edita al pulsar el lápiz. */
+.src-section { display: flex; flex-direction: column; gap: 8px; }
+.src-section__head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 2px; }
+.src-section__head h4 { margin: 0; font-size: 15px; }
+.src-section__head p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 72ch; }
+.src-empty { margin: 0; padding: 12px 14px; border: 1px dashed var(--border); color: var(--muted); font-size: 13.5px; }
+.src-new { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); background: var(--panel); }
+.src-new .field { flex: 1; }
+.src-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 12px; align-items: center;
+  padding: 10px 12px; border: 1px solid var(--border); background: var(--panel);
+}
+.src-swatch { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); background: none; cursor: pointer; flex-shrink: 0; }
+.src-swatch::-webkit-color-swatch-wrapper { padding: 2px; }
+.src-swatch::-webkit-color-swatch { border: none; }
+.src-row__main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.src-row__name { font-size: 14.5px; }
+.src-row__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; color: var(--muted); font-size: 12.5px; }
+.src-kind { display: inline-flex; align-items: center; gap: 5px; color: var(--text); font-weight: 600; }
+.src-chip { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+.src-row__actions { display: flex; align-items: center; gap: 6px; }
+.src-lock { display: inline-grid; place-items: center; width: 30px; height: 30px; color: var(--muted); }
+.cp-iconbtn.is-danger { color: var(--danger); border-color: var(--danger-border); }
+@media (max-width: 600px) {
+  .src-row { grid-template-columns: auto minmax(0, 1fr); row-gap: 8px; }
+  .src-row__actions { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
+/* ══ Ajustes › Etiquetas ══════════════════════════════════════
+   La etiqueta se ve como en la bandeja (su chip), con una paleta de ocho
+   colores y el selector libre al final. Reutiliza las filas de Fuentes. */
+.tag-chip { display: inline-flex; align-items: center; align-self: flex-start; max-width: 100%; padding: 3px 11px; border-radius: 999px; font-size: 13px; font-weight: 600; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag-new { flex-direction: column; align-items: stretch; gap: 8px; }
+.tag-new__row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tag-new__row .field { flex: 1 1 220px; min-width: 0; }
+.tag-new__preview { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.tag-row { grid-template-columns: minmax(0, 1fr) auto; }
+.tag-row.is-editing { align-items: start; }
+@media (max-width: 600px) {
+  .tag-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .tag-row .src-row__actions { grid-column: auto; }
+}
+.tag-edit { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tag-edit .field { flex: 1 1 200px; min-width: 0; }
+.swatches { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.swatch-btn {
+  position: relative; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); transition: transform .1s ease, border-color .1s ease;
+}
+.swatch-btn:hover { transform: scale(1.08); }
+.swatch-btn.is-on { border-color: var(--text); }
+.swatch-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.swatch-btn--custom { display: grid; place-items: center; background: var(--surface-2); color: var(--muted); border-color: var(--border); }
+.swatch-btn--custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+@media (max-width: 600px) {
+  .tag-new__row .btn { flex: 1 1 100%; }
+}
 
 /* Panel de un canal */
 .ch-panel { display: flex; flex-direction: column; gap: 14px; }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavIcon } from "@/components/NavIcons";
 import { confirmDialog } from "@/lib/confirm";
@@ -19,10 +20,12 @@ import {
   deleteProduct,
   fetchProductFields,
   fetchProducts,
+  fetchProductSources,
   updateProduct,
 } from "@/lib/bff";
 import { dangerBtn, ghostBtn, input, label, primaryBtn, smBtn } from "@/components/ui";
 import { ImportProductsDialog } from "./ImportProductsDialog";
+import { ProductSourceMark, ProductSourcesDialog } from "./ProductSourcesDialog";
 import { ProductFieldInput, ProductFieldsDialog } from "./ProductFieldsDialog";
 
 // Al pegar una imagen es fácil olvidar el esquema ("midominio.com/foto.jpg").
@@ -42,6 +45,17 @@ export function ProductsManager() {
   const [editing, setEditing] = useState<ProductDto | "new" | null>(null);
   const [importing, setImporting] = useState(false);
   const [fieldsOpen, setFieldsOpen] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  // La vuelta desde Mercado Libre: ?stores=mercadolibre&connected=1 o &error=… (el API redirige aquí).
+  const params = useSearchParams();
+  useEffect(() => {
+    if (params.get("stores") !== "mercadolibre") return;
+    const error = params.get("error");
+    if (error) toast.error(`Mercado Libre: ${error}`);
+    else if (params.get("connected")) toast.success("Mercado Libre conectado. Leyendo tus publicaciones…");
+    setSourcesOpen(true);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [params]);
   const { data: fields = [] } = useQuery({ queryKey: ["product-fields"], queryFn: fetchProductFields });
 
   const { data: products, isPending, isError } = useQuery({
@@ -49,6 +63,25 @@ export function ProductsManager() {
     queryFn: () => fetchProducts(search),
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["products"] });
+
+  // Tiendas conectadas: mientras alguna lee su catálogo se consulta seguido y,
+  // al terminar, se refrescan los productos y los campos que haya creado.
+  const { data: sources = [], isPending: sourcesPending } = useQuery({
+    queryKey: ["product-sources"],
+    queryFn: fetchProductSources,
+    refetchInterval: (q) => (q.state.data?.some((s) => s.status === "running") ? 2500 : false),
+  });
+  const reading = sources.filter((s) => s.status === "running").length;
+  const sourceErrors = sources.filter((s) => s.status === "error").length;
+  const wasReading = useRef(false);
+  useEffect(() => {
+    if (wasReading.current && reading === 0) {
+      refresh();
+      queryClient.invalidateQueries({ queryKey: ["product-fields"] });
+    }
+    wasReading.current = reading > 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reading]);
 
   const list = (products ?? []).filter((p) =>
     filter === "all" ? true : filter === "active" ? p.isActive : !p.isActive,
@@ -85,6 +118,11 @@ export function ProductsManager() {
         <button onClick={() => setFieldsOpen(true)} style={ghostBtn} title="Los datos que guardas de cada producto, servicio o taller">
           <NavIcon name="tag" size={15} /> Campos{fields.length > 0 ? ` · ${fields.length}` : ""}
         </button>
+        <button onClick={() => setSourcesOpen(true)} style={ghostBtn} data-tour="products-connect" title="Conectar WooCommerce, Shopify, Mercado Libre o una hoja de Google">
+          <NavIcon name="store" size={15} /> Tiendas{sources.length > 0 ? ` · ${sources.length}` : ""}
+          {reading > 0 && <span style={{ fontSize: 12, color: "var(--muted)" }}>leyendo…</span>}
+          {sourceErrors > 0 && <span style={errorDot} title={`${sourceErrors} con error`} />}
+        </button>
         <button onClick={() => setImporting(true)} style={ghostBtn} data-tour="products-import">
           <NavIcon name="file" size={15} /> Importar
         </button>
@@ -94,6 +132,7 @@ export function ProductsManager() {
       </div>
 
       {fieldsOpen && <ProductFieldsDialog fields={fields} onClose={() => setFieldsOpen(false)} />}
+      {sourcesOpen && <ProductSourcesDialog sources={sources} loading={sourcesPending} onClose={() => setSourcesOpen(false)} />}
 
       {importing && (
         <ImportProductsDialog
@@ -136,7 +175,7 @@ export function ProductsManager() {
           <span>
             {search || filter !== "all"
               ? "Prueba con otro nombre o SKU."
-              : "Crea el primero o importa tu catálogo desde Excel o CSV. El agente de IA los usa para dar precios."}
+              : "Crea el primero, importa tu catálogo desde Excel o CSV, o conecta tu tienda. El agente de IA los usa para dar precios."}
           </span>
         </div>
       )}
@@ -170,6 +209,7 @@ function ProductCard({ product: p, fields, onOpen }: { product: ProductDto; fiel
           </span>
         )}
         {!p.isActive && <span style={inactiveBadge}>Inactivo</span>}
+        {p.source && <ProductSourceMark kind={p.source.kind} name={p.source.name} style={sourceBadge} />}
       </div>
       <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
         <strong style={cardTitle}>{p.name}</strong>
@@ -328,6 +368,16 @@ function ProductDrawer({
             save.mutate();
           }}
         >
+          {product?.source && (
+            <div style={syncNotice}>
+              <ProductSourceMark kind={product.source.kind} name={product.source.name} />
+              <span>
+                Viene de <strong>{product.source.name}</strong>. Nombre, SKU, precio, imagen, descripción y estado se actualizan desde allí en cada
+                lectura: si los cambias aquí, se perderán. Tus campos y los precios en otras monedas sí se conservan.
+              </span>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
             <div style={previewBox}>
               {preview && !previewBroken ? (
@@ -591,6 +641,29 @@ const inactiveBadge: React.CSSProperties = {
   borderRadius: 999,
   background: "var(--panel-2)",
   border: "1px solid var(--border)",
+  color: "var(--muted)",
+};
+
+const sourceBadge: React.CSSProperties = { position: "absolute", bottom: 8, left: 8 };
+
+const errorDot: React.CSSProperties = {
+  width: 8,
+  height: 8,
+  borderRadius: "50%",
+  background: "var(--danger)",
+  display: "inline-block",
+};
+
+const syncNotice: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  alignItems: "flex-start",
+  padding: "10px 12px",
+  borderRadius: 10,
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
+  fontSize: 12.5,
+  lineHeight: 1.45,
   color: "var(--muted)",
 };
 

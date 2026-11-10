@@ -9,6 +9,9 @@ export const contactOrigins = [
   "manual",
   "import",
   "call", // llamada telefónica entrante
+  "messenger", // escribió a la página de Facebook
+  "instagram", // escribió por Instagram
+  "tiktok", // escribió por TikTok
 ] as const;
 export type ContactOrigin = (typeof contactOrigins)[number];
 
@@ -19,6 +22,9 @@ export const contactOriginLabels: Record<ContactOrigin, string> = {
   manual: "Alta manual",
   import: "Importado",
   call: "Llamada",
+  messenger: "Messenger",
+  instagram: "Instagram",
+  tiktok: "TikTok",
 };
 
 // Teléfono normalizado a E.164 en la propia validación: da igual que llegue

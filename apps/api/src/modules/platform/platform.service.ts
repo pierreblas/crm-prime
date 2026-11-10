@@ -32,6 +32,9 @@ import {
   QUEUE_FLOW,
   QUEUE_INBOUND,
   QUEUE_META_LEADS,
+  QUEUE_META_MESSAGING,
+  QUEUE_TIKTOK,
+  QUEUE_PRODUCT_SYNC,
   QUEUE_OUTBOUND,
   QUEUE_WEBHOOK,
 } from "../../infra/queue/queue.constants";
@@ -64,6 +67,10 @@ export class PlatformService {
     @InjectQueue(QUEUE_META_LEADS) private readonly qMetaLeads: Queue,
     @InjectQueue(QUEUE_AI_REPLY) private readonly qAiReply: Queue,
     @InjectQueue(QUEUE_WEBHOOK) private readonly qWebhook: Queue,
+    // Al final: las pruebas construyen el servicio por posición.
+    @InjectQueue(QUEUE_META_MESSAGING) private readonly qMetaMessaging: Queue,
+    @InjectQueue(QUEUE_TIKTOK) private readonly qTikTok: Queue,
+    @InjectQueue(QUEUE_PRODUCT_SYNC) private readonly qProductSync: Queue,
   ) {}
 
   private base(): { base: string; protocolo: string } {
@@ -528,6 +535,9 @@ export class PlatformService {
       ["Flujos", this.qFlow],
       ["Difusiones", this.qCampaign],
       ["Leads de Meta", this.qMetaLeads],
+      ["Mensajes de Meta", this.qMetaMessaging],
+      ["Mensajes de TikTok", this.qTikTok],
+      ["Catálogos conectados", this.qProductSync],
       ["Webhooks salientes", this.qWebhook],
     ];
     const queueStats = await Promise.all(

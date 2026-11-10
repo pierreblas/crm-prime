@@ -40,6 +40,7 @@ const TENANT_MODELS = new Set<string>([
   "AiPackUse",
   "AiSettingEvent",
   "ProductField",
+  "ProductSource",
   "Feedback",
   "DealEvent",
   "LossReason",
@@ -48,6 +49,7 @@ const TENANT_MODELS = new Set<string>([
   "BookingServiceStaff",
   "StaffSchedule",
   "Booking",
+  "TikTokAccount",
 ]);
 
 /**

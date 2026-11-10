@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { META_LEADS_SCOPES } from "@crm/shared";
+import { META_LEADS_SCOPES, META_MESSAGING_SCOPES } from "@crm/shared";
 
 const APP_ID = process.env.NEXT_PUBLIC_WHATSAPP_APP_ID ?? "";
 const GRAPH_VERSION = "v24.0";
@@ -19,7 +19,9 @@ declare global {
 type Estado = { tipo: "cargando" } | { tipo: "listo" } | { tipo: "esperando" } | { tipo: "hecho" } | { tipo: "error"; mensaje: string };
 
 /** Carga el SDK, hace el login con el clic de la persona y devuelve el código al panel que abrió la ventana. */
-export function MetaLoginHub({ origin }: { origin: string }) {
+export function MetaLoginHub({ origin, scopes = "leads" }: { origin: string; scopes?: "leads" | "messaging" }) {
+  // Formularios: lo de siempre. Messenger / Instagram: además la mensajería de la página.
+  const SCOPES = scopes === "messaging" ? META_MESSAGING_SCOPES : META_LEADS_SCOPES;
   const [estado, setEstado] = useState<Estado>({ tipo: "cargando" });
 
   useEffect(() => {

@@ -1,40 +1,34 @@
 "use client";
 
-import { readableInk } from "@/lib/readable-ink";
+import Link from "next/link";
 import { NavIcon } from "@/components/NavIcons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type {
-  SourceDto,
-} from "@crm/shared";
-import {
-  createSource,
-  createStage,
-  deleteSource,
-  deleteStage,
-  fetchSources,
-  reorderStages,
-  updateSource,
-} from "@/lib/bff";
+import { SOURCE_KIND_LABEL, type SourceDto, type SourceKind } from "@crm/shared";
+import { createSource, deleteSource, fetchSources, updateSource } from "@/lib/bff";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
 import { CustomFieldsEditor } from "@/features/contacts/CustomFieldsEditor";
+import { ChannelMark } from "@/features/inbox/ChannelMark";
+
+const DEFAULT_COLOR = "#2c4b7a";
 
 // ── Fuentes ──────────────────────────────────────────────────
+/**
+ * Dos listas: las fuentes que crean los canales (una por vía de entrada; se
+ * renombran, no se borran, y cada canal puede apuntar a otra desde Canales) y
+ * las que crea la empresa para lo que no entra solo.
+ */
 export function SourcesSettings() {
   const queryClient = useQueryClient();
-  const { data: sources = [], isPending } = useQuery({
-    queryKey: ["sources"],
-    queryFn: fetchSources,
-  });
+  const { data: sources = [], isPending } = useQuery({ queryKey: ["sources"], queryFn: fetchSources });
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["sources"] });
     queryClient.invalidateQueries({ queryKey: ["sellers"] });
   };
 
   const [name, setName] = useState("");
-  const [color, setColor] = useState("#2c4b7a");
-
+  const [color, setColor] = useState(DEFAULT_COLOR);
   const create = useMutation({
     mutationFn: () => createSource({ name: name.trim(), color }),
     onSuccess: () => {
@@ -44,40 +38,76 @@ export function SourcesSettings() {
     onError: (e) => toast.error((e as Error).message),
   });
 
+  const automatic = sources.filter((s) => s.kind);
+  const own = sources.filter((s) => !s.kind);
+
   return (
     <Panel
-      title="Fuentes de leads"
-      subtitle="El origen de tus contactos (Facebook Ads, Instagram, Web, Referido…). Cada fuente se asigna a los vendedores que la atienden."
+      title="Fuentes"
+      subtitle="De dónde viene cada contacto. Sirven para repartir el trabajo (cada vendedor ve los contactos de las fuentes que atiende) y para filtrar la bandeja, los contactos y las difusiones."
     >
-      <div style={{ ...card, display: "flex", gap: 8, alignItems: "center" }}>
-        <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={swatch} title="Color" />
-        <input
-          style={input}
-          value={name}
-          placeholder="Nueva fuente (ej. Facebook Ads)"
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && name.trim() && create.mutate()}
-        />
-        <button onClick={() => create.mutate()} disabled={!name.trim() || create.isPending} style={primaryBtn}>
-          Añadir
-        </button>
-      </div>
-      {isPending && <p style={muted}>Cargando…</p>}
-      {sources.map((s) => (
-        <SourceRow key={s.id} source={s} onChanged={refresh} />
-      ))}
+      <section className="src-section" aria-labelledby="src-auto">
+        <header className="src-section__head">
+          <h4 id="src-auto">De tus canales</h4>
+          <p>
+            Se crean solas al conectar un canal y reciben a quien escribe por él. Puedes cambiarles el nombre y el color. Para que un
+            número o una página use otra fuente, elígela en{" "}
+            <Link href="/settings?tab=channels" className="cp-link">
+              Canales
+            </Link>{" "}
+            («Configurar» en cada número; la fila de cada página).
+          </p>
+        </header>
+        {!isPending && automatic.length === 0 && (
+          <p className="src-empty">Aún no hay canales conectados. Al conectar WhatsApp, Messenger, Instagram o los formularios de Facebook aparecerán aquí.</p>
+        )}
+        {automatic.map((s) => (
+          <SourceRow key={s.id} source={s} onChanged={refresh} />
+        ))}
+      </section>
+
+      <section className="src-section" aria-labelledby="src-own">
+        <header className="src-section__head">
+          <h4 id="src-own">Tuyas</h4>
+          <p>Para lo que no entra solo (Web, Referidos, Feria…) o para apuntarle un canal. La fuente de un contacto se cambia desde su ficha.</p>
+        </header>
+        <div className="src-new">
+          <input type="color" className="src-swatch" value={color} onChange={(e) => setColor(e.target.value)} title="Color" aria-label="Color de la nueva fuente" />
+          <input
+            className="field field-sm"
+            value={name}
+            placeholder="Nueva fuente (ej. Referidos)"
+            aria-label="Nombre de la nueva fuente"
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && name.trim() && create.mutate()}
+          />
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => create.mutate()} disabled={!name.trim() || create.isPending}>
+            Añadir
+          </button>
+        </div>
+        {isPending && <p className="src-empty">Cargando…</p>}
+        {own.map((s) => (
+          <SourceRow key={s.id} source={s} onChanged={refresh} />
+        ))}
+      </section>
     </Panel>
   );
 }
 
 function SourceRow({ source, onChanged }: { source: SourceDto; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
   const [name, setName] = useState(source.name);
-  const [color, setColor] = useState(source.color ?? "#2c4b7a");
-  const dirty = name.trim() !== source.name || color !== (source.color ?? "#2c4b7a");
+  const [color, setColor] = useState(source.color ?? DEFAULT_COLOR);
+  useEffect(() => {
+    setName(source.name);
+    setColor(source.color ?? DEFAULT_COLOR);
+  }, [source.name, source.color]);
+  const dirty = name.trim() !== source.name || color !== (source.color ?? DEFAULT_COLOR);
 
   const save = useMutation({
     mutationFn: () => updateSource(source.id, { name: name.trim(), color }),
     onSuccess: () => {
+      setEditing(false);
       toast.success("Fuente actualizada");
       onChanged();
     },
@@ -88,32 +118,100 @@ function SourceRow({ source, onChanged }: { source: SourceDto; onChanged: () => 
     onSuccess: onChanged,
     onError: (e) => toast.error((e as Error).message),
   });
+  const cancel = () => {
+    setName(source.name);
+    setColor(source.color ?? DEFAULT_COLOR);
+    setEditing(false);
+  };
+  const count = source.contactCount;
 
   return (
-    <div style={{ ...card, display: "flex", gap: 10, alignItems: "center" }}>
-      <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={swatch} title="Color" />
-      <input style={{ ...input, fontWeight: 600 }} value={name} onChange={(e) => setName(e.target.value)} />
-      <span style={{ ...muted, fontSize: 12.5, whiteSpace: "nowrap" }}>
-        {source.contactCount} contacto{source.contactCount === 1 ? "" : "s"}
-      </span>
-      {dirty && (
-        <button onClick={() => save.mutate()} disabled={save.isPending} style={primaryBtn}>
-          {save.isPending ? "…" : "Guardar"}
-        </button>
-      )}
-      <button
-        onClick={() => {
-          void confirmDialog({ message: `¿Eliminar la fuente "${source.name}"?`, danger: true }).then(
-            (ok) => ok && remove.mutate(),
-          );
-        }}
-        style={dangerBtn}
-        title="Eliminar"
-      >
-        <NavIcon name="x" size={14} />
-      </button>
+    <div className="src-row" data-source={source.name}>
+      <input type="color" className="src-swatch" value={color} onChange={(e) => setColor(e.target.value)} title="Color" aria-label={`Color de ${source.name}`} />
+      <div className="src-row__main">
+        {editing ? (
+          <input
+            className="field field-sm"
+            autoFocus
+            value={name}
+            maxLength={80}
+            aria-label="Nombre de la fuente"
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && name.trim()) save.mutate();
+              if (e.key === "Escape") cancel();
+            }}
+          />
+        ) : (
+          <strong className="src-row__name">{source.name}</strong>
+        )}
+        <div className="src-row__meta">
+          {source.kind && (
+            <span className="src-kind">
+              <SourceKindMark kind={source.kind} />
+              {SOURCE_KIND_LABEL[source.kind]}
+            </span>
+          )}
+          {source.channels.map((c, i) => (
+            <span key={`${c.kind}-${c.label}-${i}`} className="src-chip" title={`Trae contactos desde ${SOURCE_KIND_LABEL[c.kind]}`}>
+              <SourceKindMark kind={c.kind} />
+              {c.label}
+            </span>
+          ))}
+          <span>
+            {count} contacto{count === 1 ? "" : "s"}
+          </span>
+        </div>
+      </div>
+      <div className="src-row__actions">
+        {dirty && (
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => save.mutate()} disabled={save.isPending || !name.trim()}>
+            {save.isPending ? "…" : "Guardar"}
+          </button>
+        )}
+        {editing || dirty ? (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={cancel}>
+            Cancelar
+          </button>
+        ) : (
+          <button type="button" className="cp-iconbtn" onClick={() => setEditing(true)} title="Renombrar" aria-label={`Renombrar ${source.name}`}>
+            <NavIcon name="pencil" size={13} />
+          </button>
+        )}
+        {source.kind ? (
+          <span className="src-lock" title="La crean tus canales: puedes renombrarla, no borrarla." aria-label="No se puede borrar">
+            <NavIcon name="lock" size={13} />
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="cp-iconbtn is-danger"
+            onClick={() => {
+              void confirmDialog({
+                message:
+                  count > 0
+                    ? `¿Eliminar la fuente «${source.name}»? Sus ${count} contacto${count === 1 ? "" : "s"} se quedan sin fuente.`
+                    : `¿Eliminar la fuente «${source.name}»?`,
+                danger: true,
+              }).then((ok) => ok && remove.mutate());
+            }}
+            title="Eliminar"
+            aria-label={`Eliminar ${source.name}`}
+          >
+            <NavIcon name="x" size={14} />
+          </button>
+        )}
+      </div>
     </div>
   );
+}
+
+/** La marca de la vía de entrada: el canal, el megáfono de los anuncios o el formulario. */
+function SourceKindMark({ kind }: { kind: SourceKind }) {
+  if (kind === "ad") return <NavIcon name="megaphone" size={11} />;
+  if (kind === "form") return <NavIcon name="file" size={11} />;
+  if (kind === "whatsapp") return <NavIcon name="whatsapp" size={11} />;
+  return <ChannelMark kind={kind} size={11} />;
 }
 
 // ── Campos personalizados ────────────────────────────────────
@@ -132,17 +230,9 @@ export function CustomFieldsSettings() {
 // Los embudos y sus etapas viven en PipelinesSettings.tsx.
 
 // ── Layout compartido ────────────────────────────────────────
-function Panel({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  children: React.ReactNode;
-}) {
+function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <header>
         <h3 style={{ margin: "0 0 4px" }}>{title}</h3>
         <p style={muted}>{subtitle}</p>
@@ -152,68 +242,4 @@ function Panel({
   );
 }
 
-const muted: React.CSSProperties = { color: "var(--muted)", fontSize: 14, marginTop: 0 };
-
-const card: React.CSSProperties = {
-  background: "var(--panel)",
-  border: "1px solid var(--border)",
-  borderRadius: 10,
-  padding: 12,
-  boxShadow: "var(--shadow-card)",
-};
-
-const input: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  padding: "9px 11px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "var(--field)",
-  color: "var(--text)",
-  fontSize: 14,
-};
-
-const swatch: React.CSSProperties = {
-  width: 38,
-  height: 38,
-  padding: 0,
-  border: "none",
-  background: "none",
-  cursor: "pointer",
-  flexShrink: 0,
-};
-
-const primaryBtn: React.CSSProperties = {
-  padding: "9px 16px",
-  borderRadius: 8,
-  border: "none",
-  background: "var(--accent)",
-  color: "var(--accent-ink)",
-  fontWeight: 600,
-  cursor: "pointer",
-  whiteSpace: "nowrap",
-};
-
-const dangerBtn: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  borderRadius: 8,
-  border: "1px solid var(--danger-border)",
-  background: "transparent",
-  color: "var(--danger)",
-  cursor: "pointer",
-  fontSize: 13,
-  flexShrink: 0,
-};
-
-
-function badge(bg: string): React.CSSProperties {
-  return {
-    fontSize: 11,
-    padding: "2px 8px",
-    borderRadius: 999,
-    background: bg,
-    color: readableInk(bg),
-    whiteSpace: "nowrap",
-  };
-}
+const muted: React.CSSProperties = { color: "var(--muted)", fontSize: 14, marginTop: 0, maxWidth: "70ch", lineHeight: 1.5 };

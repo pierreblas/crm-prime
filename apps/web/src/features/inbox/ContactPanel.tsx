@@ -12,7 +12,7 @@ import {
   type NoteDto,
   type SourceDto,
   type StageRef,
-  isWaUserId,
+  isDialable,
   phoneLabel,
 } from "@crm/shared";
 import {
@@ -270,7 +270,7 @@ function Identity({
         </button>
         <div className="cp-row" style={{ marginTop: 8, flexWrap: "wrap" }}>
           {/* Con usuario de WhatsApp y sin número no hay a dónde llamar. */}
-          {!isWaUserId(conversation.contact.phone) && (
+          {isDialable(conversation.contact.phone) && (
             <button
               type="button"
               className="btn btn-primary btn-sm"

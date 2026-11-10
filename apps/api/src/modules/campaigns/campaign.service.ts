@@ -131,6 +131,8 @@ export class CampaignService {
       const recent = new Date(Date.now() - a.skipRecentDays * 86_400_000);
       and.push({ NOT: { conversations: { some: { messages: { some: { campaignId: { not: null }, createdAt: { gte: recent } } } } } } });
     }
+    // Quien escribió por Messenger o Instagram no tiene número: una difusión de WhatsApp no le llega.
+    and.push({ NOT: { OR: [{ phone: { startsWith: "FB." } }, { phone: { startsWith: "IG." } }, { phone: { startsWith: "TIK." } }] } });
     return { optIn: true, AND: and };
   }
 

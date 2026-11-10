@@ -60,8 +60,8 @@ export class ProductsController {
           }
         : undefined,
       orderBy: { createdAt: "desc" },
-      take: 200,
-      include: { prices: { orderBy: { currency: "asc" } } },
+      take: 500,
+      include: { prices: { orderBy: { currency: "asc" } }, source: { select: { id: true, kind: true, name: true } } },
     });
     return rows.map((p) => this.toDto(p));
   }
@@ -272,7 +272,7 @@ export class ProductsController {
   private async dtoById(id: string): Promise<ProductDto> {
     const p = await this.prisma.product.findUniqueOrThrow({
       where: { id },
-      include: { prices: { orderBy: { currency: "asc" } } },
+      include: { prices: { orderBy: { currency: "asc" } }, source: { select: { id: true, kind: true, name: true } } },
     });
     return this.toDto(p);
   }
@@ -289,6 +289,7 @@ export class ProductsController {
     imageUrl: string | null;
     isActive: boolean;
     createdAt: Date;
+    source?: { id: string; kind: string; name: string } | null;
   }): ProductDto {
     return {
       id: p.id,
@@ -302,6 +303,7 @@ export class ProductsController {
       imageUrl: p.imageUrl,
       isActive: p.isActive,
       createdAt: p.createdAt.toISOString(),
+      source: p.source ?? null,
     };
   }
 }

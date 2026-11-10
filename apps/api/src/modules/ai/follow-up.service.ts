@@ -208,6 +208,12 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
   private async send(conversationId: string, step: FollowUpStep): Promise<boolean> {
     if (step.kind === "template") {
       if (!step.templateId) return false;
+      // Messenger e Instagram no tienen plantillas: ese toque se salta.
+      const convo = await this.prisma.conversation.findUnique({ where: { id: conversationId }, select: { channelKind: true } });
+      if (convo && convo.channelKind !== "whatsapp") {
+        this.logger.log(`Toque de plantilla en ${conversationId} omitido: la conversación es de ${convo.channelKind}`);
+        return false;
+      }
       const template = await this.prisma.template.findUnique({ where: { id: step.templateId }, select: { body: true } });
       if (!template) {
         this.logger.warn(`La plantilla ${step.templateId} del seguimiento ya no existe`);

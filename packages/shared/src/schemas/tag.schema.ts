@@ -6,6 +6,8 @@ export const tagDtoSchema = z.object({
   name: z.string(),
   color: z.string().nullable(),
   contactCount: z.number(),
+  /** Viene de las etiquetas de la app de WhatsApp (coexistencia). */
+  waLabel: z.boolean().default(false),
 });
 export type TagDto = z.infer<typeof tagDtoSchema>;
 

@@ -10,6 +10,8 @@ Con los webhooks el CRM **avisa a tu sistema** cuando pasa algo. **Ajustes › W
 | `deal.created` | Se crea una oportunidad |
 | `deal.stage_changed` | Una oportunidad cambia de etapa |
 | `conversation.escalated` | La IA se rinde y pasa el chat a un humano |
+| `booking.created` / `booking.rescheduled` / `booking.cancelled` | Se reserva, se mueve o se cancela una cita |
+| `catalog.synced` | Se actualizó el catálogo desde una tienda conectada o por la API (trae la conexión y cuántos productos cambiaron) |
 
 El CRM manda un `POST` con este cuerpo:
 

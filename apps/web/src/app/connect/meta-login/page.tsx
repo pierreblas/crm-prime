@@ -18,9 +18,9 @@ export const metadata = { title: "Conectar con Facebook" };
 export default async function MetaLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ origin?: string }>;
+  searchParams: Promise<{ origin?: string; scopes?: string }>;
 }) {
-  const { origin } = await searchParams;
+  const { origin, scopes } = await searchParams;
   const base = (process.env.SAAS_BASE_DOMAIN ?? "").split(":")[0]?.toLowerCase() ?? "";
   const allowed = isTenantOrigin(origin, base);
   return (
@@ -28,7 +28,7 @@ export default async function MetaLoginPage({
       <div style={{ width: "100%", maxWidth: 420 }}>
         <p style={{ margin: "0 0 14px", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>Driony</p>
         {allowed ? (
-          <MetaLoginHub origin={origin!} />
+          <MetaLoginHub origin={origin!} scopes={scopes === "messaging" ? "messaging" : "leads"} />
         ) : (
           <div style={{ padding: 20, borderRadius: 12, border: "1px solid var(--border)", background: "var(--panel)" }}>
             <h1 style={{ margin: 0, fontSize: 20 }}>Enlace no válido</h1>

@@ -11,10 +11,12 @@ import {
 } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
-import { QUEUE_META_LEADS } from "../../infra/queue/queue.constants";
+import { createHash } from "node:crypto";
+import { QUEUE_META_LEADS, QUEUE_META_MESSAGING } from "../../infra/queue/queue.constants";
 import { WebhookSignatureGuard } from "../whatsapp/webhook-signature.guard";
 import { IntegrationSettingsService } from "../integrations/integration-settings.service";
 import type { LeadgenNotification } from "./meta-lead.service";
+import { normalizeMetaMessaging, type MetaMessagingBody } from "./meta-messaging.types";
 
 /** Aviso de Meta cuando alguien completa un formulario. */
 interface LeadgenWebhookBody {
@@ -34,9 +36,11 @@ interface LeadgenWebhookBody {
 }
 
 /**
- * Webhook de Lead Ads. Meta manda solo identificadores; las respuestas del
- * formulario se descargan después, en la cola, porque hay que responder 200
- * enseguida o Meta reintenta y acaba desactivando la suscripción.
+ * Webhook de las páginas de Facebook: Lead Ads (objeto «page», cambios
+ * `leadgen`), Messenger (objeto «page», `messaging`) e Instagram (objeto
+ * «instagram»). Meta manda poco y hay que responder 200 enseguida (si no,
+ * reintenta y acaba desactivando la suscripción): todo va a una cola y el
+ * worker descarga, resuelve la empresa y guarda.
  */
 @Controller("meta/webhook")
 export class MetaWebhookController {
@@ -44,6 +48,7 @@ export class MetaWebhookController {
 
   constructor(
     @InjectQueue(QUEUE_META_LEADS) private readonly queue: Queue,
+    @InjectQueue(QUEUE_META_MESSAGING) private readonly messaging: Queue,
     private readonly settings: IntegrationSettingsService,
   ) {}
 
@@ -65,7 +70,7 @@ export class MetaWebhookController {
   @Post()
   @HttpCode(200)
   @UseGuards(WebhookSignatureGuard)
-  async receive(@Body() body: LeadgenWebhookBody): Promise<{ received: true }> {
+  async receive(@Body() body: LeadgenWebhookBody & MetaMessagingBody): Promise<{ received: true }> {
     const jobs: LeadgenNotification[] = [];
 
     for (const entry of body.entry ?? []) {
@@ -93,6 +98,23 @@ export class MetaWebhookController {
       );
       this.logger.log(`${jobs.length} lead(s) encolado(s)`);
     }
+
+    const social = normalizeMetaMessaging(body);
+    if (social.length) {
+      await this.messaging.addBulk(
+        social.map((data) => ({
+          name: data.kind,
+          data,
+          // Meta reintenta si tardamos: el mismo mensaje entra una sola vez.
+          opts: data.kind === "message" ? { jobId: `mm-${hash(`${data.platform}:${data.mid}`)}` } : {},
+        })),
+      );
+      this.logger.log(`${social.length} aviso(s) de Messenger/Instagram encolado(s)`);
+    }
     return { received: true };
   }
+}
+
+function hash(s: string): string {
+  return createHash("sha1").update(s).digest("hex").slice(0, 24);
 }

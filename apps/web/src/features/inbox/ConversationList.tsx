@@ -1,7 +1,8 @@
 "use client";
 
 import { readableInk } from "@/lib/readable-ink";
-import { MessageDirection, MessageType, phoneLabel, type ConversationDto } from "@crm/shared";
+import { CHANNEL_KIND_LABEL, MessageDirection, MessageType, phoneLabel, type ConversationDto } from "@crm/shared";
+import { ChannelMark } from "./ChannelMark";
 import { NavIcon, type IconName } from "@/components/NavIcons";
 import { useT } from "@/i18n/I18nProvider";
 import type { Translator } from "@/i18n/translate";
@@ -198,8 +199,8 @@ export function ConversationList({
                   </span>
                 )}
                 {c.channel && (
-                  <span style={metaChip} title={c.channel.displayPhoneNumber ?? undefined}>
-                    <NavIcon name="phone" size={10} />
+                  <span style={metaChip} title={c.channel.displayPhoneNumber ?? CHANNEL_KIND_LABEL[c.channel.kind]}>
+                    <ChannelMark kind={c.channel.kind} size={10} />
                     {c.channel.label ?? c.channel.displayPhoneNumber}
                   </span>
                 )}

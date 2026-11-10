@@ -182,6 +182,36 @@ export const reactMessageSchema = z.object({
 });
 export type ReactMessageInput = z.infer<typeof reactMessageSchema>;
 
+/**
+ * Por dónde va una conversación: un número de WhatsApp, o la página de Facebook
+ * conectada (Messenger) o su cuenta de Instagram.
+ */
+export const channelKinds = ["whatsapp", "messenger", "instagram", "tiktok"] as const;
+export type ChannelKind = (typeof channelKinds)[number];
+export const CHANNEL_KIND_LABEL: Record<ChannelKind, string> = {
+  whatsapp: "WhatsApp",
+  messenger: "Messenger",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+};
+/** Messenger e Instagram dejan a una persona responder hasta 7 días; TikTok y WhatsApp no. */
+export function supportsHumanAgent(kind: ChannelKind | string | null | undefined): boolean {
+  return kind === "messenger" || kind === "instagram";
+}
+/**
+ * Messenger e Instagram: pasadas las 24 h no hay plantillas, pero una persona
+ * puede seguir contestando (etiqueta de agente humano) hasta 7 días después del
+ * último mensaje del cliente.
+ */
+export const HUMAN_AGENT_DAYS = 7;
+
+/** Si aún se puede responder como agente humano, dada la ventana de 24 h (que cuenta desde el último mensaje del cliente). */
+export function humanAgentOpen(windowExpiresAt: string | Date | null | undefined, now = Date.now()): boolean {
+  if (!windowExpiresAt) return false;
+  const closes = new Date(windowExpiresAt).getTime() + (HUMAN_AGENT_DAYS - 1) * 86_400_000;
+  return closes > now;
+}
+
 export const assignedAgentSchema = z.object({
   id: z.string(),
   name: z.string().nullable(),
@@ -206,10 +236,12 @@ export const conversationDtoSchema = z.object({
       .default(null),
   }),
   assignedAgent: assignedAgentSchema.nullable(),
-  // Número (canal) de WhatsApp por el que entró la conversación (multi-número).
+  // Canal por el que entró la conversación: el número de WhatsApp (multi-número),
+  // o la página de Facebook (Messenger) o su Instagram.
   channel: z
     .object({
       id: z.string(),
+      kind: z.enum(channelKinds).default("whatsapp"),
       label: z.string().nullable(),
       displayPhoneNumber: z.string().nullable(),
     })

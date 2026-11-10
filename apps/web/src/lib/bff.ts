@@ -139,6 +139,15 @@ import type {
   CreateProductInput,
   UpdateProductInput,
   ImportProductsInput,
+  ProductSourceDto,
+  ConnectProductSourceInput,
+  UpdateProductSourceInput,
+  TestProductSourceResult,
+  SyncProductSourceResult,
+  RemoveProductSourceMode,
+  MercadoLibreConfig,
+  MercadoLibreConnectStart,
+  StartMercadoLibreConnectInput,
   ImportProductsResult,
   MetaPageDto,
   MetaLeadFormsResult,
@@ -1623,6 +1632,81 @@ export async function deleteProduct(id: string): Promise<void> {
   if (!res.ok) throw new Error("No se pudo eliminar el producto");
 }
 
+// ── Tiendas conectadas (catálogo) ────────────────────────────
+export async function fetchProductSources(): Promise<ProductSourceDto[]> {
+  const res = await bffFetch("/api/bff/products/sources");
+  if (!res.ok) throw new Error("No se pudieron cargar las tiendas conectadas");
+  return res.json();
+}
+
+/** Prueba las credenciales sin guardar nada: nombre de la tienda, moneda y una muestra. */
+export async function testProductSource(input: ConnectProductSourceInput): Promise<TestProductSourceResult> {
+  const res = await bffFetch("/api/bff/products/sources/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo conectar con la tienda"));
+  return res.json();
+}
+
+export async function createProductSource(input: ConnectProductSourceInput): Promise<ProductSourceDto> {
+  const res = await bffFetch("/api/bff/products/sources", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo conectar la tienda"));
+  return res.json();
+}
+
+export async function updateProductSource(id: string, input: UpdateProductSourceInput): Promise<ProductSourceDto> {
+  const res = await bffFetch(`/api/bff/products/sources/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar la conexión"));
+  return res.json();
+}
+
+export async function syncProductSource(id: string): Promise<SyncProductSourceResult> {
+  const res = await bffFetch(`/api/bff/products/sources/${id}/sync`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo iniciar la lectura"));
+  return res.json();
+}
+
+/** Vuelve a intentar que la tienda registre los webhooks de producto. */
+export async function registerProductSourceWebhooks(id: string): Promise<ProductSourceDto> {
+  const res = await bffFetch(`/api/bff/products/sources/${id}/webhooks/register`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron registrar los webhooks"));
+  return res.json();
+}
+
+/** `mode`: los productos de la conexión se quedan (keep) o se borran con ella (delete). */
+export async function deleteProductSource(id: string, mode: RemoveProductSourceMode): Promise<void> {
+  const res = await bffFetch(`/api/bff/products/sources/${id}?products=${mode}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo quitar la conexión"));
+}
+
+/** Mercado Libre: si el servidor tiene la app configurada y las URLs que hay que registrar en ella. */
+export async function fetchMercadoLibreConfig(): Promise<MercadoLibreConfig> {
+  const res = await bffFetch("/api/bff/products/sources/mercadolibre/config");
+  if (!res.ok) throw new Error("No se pudo consultar la configuración de Mercado Libre");
+  return res.json();
+}
+
+/** Empieza la autorización: devuelve la URL de Mercado Libre a la que mandar al navegador. */
+export async function startMercadoLibreConnect(input: StartMercadoLibreConnectInput): Promise<MercadoLibreConnectStart> {
+  const res = await bffFetch("/api/bff/products/sources/mercadolibre/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo iniciar la conexión con Mercado Libre"));
+  return res.json();
+}
+
 // ── Pipeline ─────────────────────────────────────────────────
 /** Tablero de un embudo (sin id: el predeterminado). `view` = abiertas o descartadas. */
 export async function fetchPipeline(
@@ -2404,4 +2488,37 @@ export function updateBooking(id: string, input: UpdateBookingInput): Promise<Bo
 }
 export function cancelBooking(id: string, reason: string | null): Promise<BookingDto> {
   return bookingsJson(`/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }, "No se pudo cancelar la cita");
+}
+
+// ── TikTok (Business Messaging) ──────────────────────────────
+export async function fetchTikTokAccounts(): Promise<import("@crm/shared").TikTokAccountsResponse> {
+  const res = await bffFetch("/api/bff/tiktok/accounts");
+  if (!res.ok) throw new Error("No se pudieron cargar las cuentas de TikTok");
+  return res.json();
+}
+
+/** Pide la URL de TikTok a la que mandar al administrador para autorizar su cuenta. */
+export async function startTikTokConnect(): Promise<import("@crm/shared").TikTokConnectStart> {
+  const res = await bffFetch("/api/bff/tiktok/connect/start", { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo iniciar la conexión con TikTok"));
+  return res.json();
+}
+
+export async function updateTikTokAccount(
+  id: string,
+  input: import("@crm/shared").UpdateTikTokAccountInput,
+): Promise<import("@crm/shared").TikTokAccountsResponse> {
+  const res = await bffFetch(`/api/bff/tiktok/accounts/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar"));
+  return res.json();
+}
+
+export async function deleteTikTokAccount(id: string): Promise<import("@crm/shared").TikTokAccountsResponse> {
+  const res = await bffFetch(`/api/bff/tiktok/accounts/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo desconectar"));
+  return res.json();
 }

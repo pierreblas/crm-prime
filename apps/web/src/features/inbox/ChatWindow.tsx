@@ -9,7 +9,9 @@ import {
   ConversationStatus,
   MessageDirection,
   MessageType,
-  isWaUserId,
+  humanAgentOpen,
+  supportsHumanAgent,
+  isDialable,
   phoneLabel,
   type AiSuggestion,
   type ConversationDto,
@@ -358,6 +360,11 @@ export function ChatWindow({
   const left = conversation.windowOpen
     ? windowLeft(conversation.windowExpiresAt)
     : null;
+  // Messenger / Instagram: sin plantillas, pero una persona puede responder
+  // hasta 7 días después del último mensaje del cliente.
+  const kind = conversation.channel?.kind ?? "whatsapp";
+  const social = kind !== "whatsapp";
+  const canReply = conversation.windowOpen || (supportsHumanAgent(kind) && humanAgentOpen(conversation.windowExpiresAt));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -424,7 +431,7 @@ export function ChatWindow({
           {left && (
             <span
               style={windowChip}
-              title={t("inbox.windowOpenTitle", { time: left })}
+              title={t(kind === "tiktok" ? "inbox.windowOpenTitleTikTok" : social ? "inbox.windowOpenTitleSocial" : "inbox.windowOpenTitle", { time: left })}
             >
               <NavIcon name="hourglass" size={12} />
               {t("inbox.windowOpenLeft", { time: left })}
@@ -438,8 +445,8 @@ export function ChatWindow({
             onChange={(m) => aiModeMut.mutate(m)}
           />
 
-          {/* Con usuario de WhatsApp y sin número no hay a dónde llamar. */}
-          {!isWaUserId(conversation.contact.phone) && (
+          {/* Sin número (usuario de WhatsApp, Messenger, Instagram) no hay a dónde llamar. */}
+          {isDialable(conversation.contact.phone) && (
             <button
               type="button"
               onClick={() =>
@@ -693,7 +700,16 @@ export function ChatWindow({
         </div>
       )}
 
-      {conversation.windowOpen ? (
+      {canReply ? (
+        <>
+        {social && !conversation.windowOpen && (
+          <div style={windowClosed}>
+            <span style={{ color: "var(--warning)", display: "inline-flex", flexShrink: 0 }}>
+              <NavIcon name="hourglass" size={18} />
+            </span>
+            <div style={{ flex: 1, minWidth: 0, fontSize: 13 }}>{t("inbox.socialWindowClosedBody")}</div>
+          </div>
+        )}
         <Composer
           text={text}
           onTextChange={setText}
@@ -721,24 +737,28 @@ export function ChatWindow({
               setBeforeRewrite(null);
             },
           }}
-          windowOpen
+          windowOpen={conversation.windowOpen}
+          channelKind={conversation.channel?.kind ?? "whatsapp"}
         />
+        </>
       ) : (
         <div style={windowClosed}>
           <span style={{ color: "var(--warning)", display: "inline-flex", flexShrink: 0 }}>
             <NavIcon name="hourglass" size={18} />
           </span>
           <div style={{ flex: 1, minWidth: 0, fontSize: 13 }}>
-            {t("inbox.windowClosedBody")}
+            {t(kind === "tiktok" ? "inbox.tiktokWindowClosedBody" : social ? "inbox.socialWindowExpiredBody" : "inbox.windowClosedBody")}
           </div>
-          <button
-            onClick={() => setTemplateOpen(true)}
-            style={sendTemplateBtn}
-            type="button"
-          >
-            <NavIcon name="template" size={15} />
-            {t("inbox.sendTemplate")}
-          </button>
+          {!social && (
+            <button
+              onClick={() => setTemplateOpen(true)}
+              style={sendTemplateBtn}
+              type="button"
+            >
+              <NavIcon name="template" size={15} />
+              {t("inbox.sendTemplate")}
+            </button>
+          )}
         </div>
       )}
       {sendMut.isError && (

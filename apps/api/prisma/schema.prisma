@@ -162,6 +162,7 @@ model Organization {
   products             Product[]
   productPrices        ProductPrice[]
   productFields        ProductField[]
+  productSources       ProductSource[]
   sources              Source[]
   tags                 Tag[]
   calls                Call[]
@@ -181,6 +182,7 @@ model Organization {
   stageAutomations     StageAutomation[]
   stageAutomationRuns  StageAutomationRun[]
   metaPages            MetaPage[]
+  tiktokAccounts       TikTokAccount[]
   quickReplies         QuickReply[]
   aiSetting            AiSetting?
   integrationSetting   IntegrationSetting?
@@ -465,7 +467,13 @@ model Contact {
   // mensaje, tenga o no número: reconoce a la persona aunque deje de
   // compartirlo. No es único: el mismo cliente pudo entrar antes por número.
   waUserId      String?
-  waUsername    String? // su usuario de WhatsApp («tienda.ana»), si tiene
+  waUsername    String? // su usuario de WhatsApp («tienda.ana»), o su @ de Instagram
+  // Messenger e Instagram: el id que Meta le da a esta persona para la página
+  // (PSID) o para la cuenta de Instagram (IGSID). Su «teléfono» es entonces
+  // «FB.<id>» / «IG.<id>» hasta que dé su número (ver isSocialId).
+  fbPsid        String?
+  igsid         String?
+  ttUserId      String? // TikTok: su id en nuestra app
   optIn         Boolean   @default(true)
   sourceId      String? // origen COMERCIAL del lead (Facebook Ads, Web…)
   lastMessageAt DateTime?
@@ -499,6 +507,9 @@ model Contact {
 
   @@unique([orgId, phone])
   @@index([orgId, waUserId])
+  @@index([orgId, fbPsid])
+  @@index([orgId, igsid])
+  @@index([orgId, ttUserId])
   @@index([optIn])
   @@index([orgId, lastMessageAt])
   @@index([sourceId])
@@ -546,11 +557,18 @@ model Product {
   // Valores de los campos personalizados de producto (key → valor), según
   // las definiciones de ProductField.
   attributes Json?
+  // Si viene de una tienda u hoja conectada: cuál, con qué id allí y cuándo se leyó.
+  sourceId   String?
+  externalId String?
+  syncedAt   DateTime?
 
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org    Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  source ProductSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
 
   @@unique([orgId, sku])
+  @@unique([sourceId, externalId])
   @@index([isActive])
+  @@index([sourceId])
   @@map("products")
 }
 
@@ -594,6 +612,41 @@ model ProductPrice {
   @@map("product_prices")
 }
 
+// Catálogo conectado a un tercero (WooCommerce, Shopify, una hoja de Google…):
+// de dónde se leen los productos y cada cuánto. Las credenciales van cifradas
+// con secret-box; la tienda manda sobre nombre, precio, imagen y descripción.
+model ProductSource {
+  id              String    @id @default(cuid())
+  orgId           String
+  kind            String // woocommerce | shopify | sheet (productSourceKinds en @crm/shared)
+  name            String
+  target          String // URL de la tienda, dominio .myshopify.com o enlace de la hoja
+  defaultCurrency String?
+  credentials     String? // JSON cifrado
+  syncEvery       Int       @default(60) // minutos; 0 = solo a mano
+  isActive        Boolean   @default(true)
+  status          String    @default("idle") // idle | running | ok | error
+  lastError       String?
+  lastSummary     Json?
+  lastSyncAt      DateTime?
+  nextSyncAt      DateTime?
+  runStartedAt    DateTime?
+  // Webhook de entrada: la tienda avisa a /products/sources/hook/<token> y se relee al momento.
+  webhookToken        String?   @unique
+  webhookRegisteredAt DateTime?
+  webhookError        String?
+  lastWebhookAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  products Product[]
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([nextSyncAt])
+  @@map("product_sources")
+}
+
 // ─────────────────────────────────────────────────────────────
 // Fuentes (origen del lead) y asignación a vendedores
 // ─────────────────────────────────────────────────────────────
@@ -604,15 +657,24 @@ model Source {
   orgId     String
   name      String
   color     String?
+  // Automática de una vía de entrada (whatsapp | ad | form | messenger |
+  // instagram): se reconoce por aquí, no por el nombre, así que la empresa
+  // puede renombrarla. Null = la creó la empresa.
+  kind      String?
   createdAt DateTime @default(now())
 
   contacts  Contact[]
   users     UserSource[] // vendedores que atienden esta fuente
-  metaPages MetaPage[]
+  metaPages MetaPage[] @relation("MetaPageLeadSource")
+  messengerPages      MetaPage[]           @relation("MetaPageMessengerSource")
+  instagramPages      MetaPage[]           @relation("MetaPageInstagramSource")
+  whatsappConnections WhatsappConnection[]
+  tiktokAccounts      TikTokAccount[]      @relation("TikTokAccountSource")
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, name])
+  @@index([orgId, kind])
   @@map("sources")
 }
 
@@ -670,6 +732,14 @@ model Conversation {
   orgId           String
   contactId       String
   channelId       String? // por qué número de WhatsApp entró (multi-número)
+  // whatsapp | messenger | instagram. Con messenger/instagram la conversación
+  // cuelga de la página de Facebook (metaPageId), no de un número.
+  channelKind     String             @default("whatsapp")
+  metaPageId      String?
+  // TikTok: la cuenta por la que entró y el id de la conversación en TikTok
+  // (hace falta para responder; una por cliente y cuenta).
+  tiktokAccountId String?
+  externalId      String?
   assignedAgentId String?
   status          ConversationStatus @default(OPEN)
   windowExpiresAt DateTime? // ventana de 24h de WhatsApp
@@ -693,6 +763,8 @@ model Conversation {
 
   contact       Contact             @relation(fields: [contactId], references: [id], onDelete: Cascade)
   channel       WhatsappConnection? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  metaPage      MetaPage?           @relation(fields: [metaPageId], references: [id], onDelete: SetNull)
+  tiktokAccount TikTokAccount?      @relation(fields: [tiktokAccountId], references: [id], onDelete: SetNull)
   assignedAgent User?               @relation("AssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
   messages      Message[]
   notes         Note[]
@@ -706,6 +778,9 @@ model Conversation {
 
   @@index([orgId, status])
   @@index([channelId])
+  @@index([metaPageId])
+  @@index([tiktokAccountId])
+  @@index([externalId])
   @@index([assignedAgentId])
   @@index([aiMode])
   @@index([orgId, lastMessageAt])
@@ -859,13 +934,40 @@ model MetaPage {
   // regla, sigue a la página.
   formRules         Json?
   welcomeTemplateId String? // plantilla de WhatsApp de bienvenida
+  // ── Mensajería: Messenger e Instagram sobre la misma página ──
+  // El token de página sirve también para leer y enviar mensajes. Cada canal
+  // se enciende aparte, con su agente de IA y su embudo (null = los
+  // predeterminados de la empresa).
+  messengerEnabled      Boolean   @default(false)
+  instagramEnabled      Boolean   @default(false)
+  // Cuenta profesional de Instagram vinculada a la página. Es el entry.id de
+  // sus webhooks, único global como la página.
+  instagramId           String?   @unique
+  instagramUsername     String?
+  // Desde cuándo la página recibe mensajes: lo anterior no despierta a nadie.
+  messagingSubscribedAt DateTime?
+  messagingError        String?
+  messengerBotId        String?
+  instagramBotId        String?
+  messengerPipelineId   String?
+  instagramPipelineId   String?
+  // Fuente de los contactos de cada canal; null = la automática de su vía.
+  messengerSourceId     String?
+  instagramSourceId     String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  source   Source?      @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  source   Source?      @relation("MetaPageLeadSource", fields: [sourceId], references: [id], onDelete: SetNull)
   template Template?    @relation(fields: [welcomeTemplateId], references: [id], onDelete: SetNull)
   leads    MetaLead[]
+  messengerSource   Source?        @relation("MetaPageMessengerSource", fields: [messengerSourceId], references: [id], onDelete: SetNull)
+  instagramSource   Source?        @relation("MetaPageInstagramSource", fields: [instagramSourceId], references: [id], onDelete: SetNull)
+  messengerBot      AgentConfig?   @relation("MetaPageMessengerBot", fields: [messengerBotId], references: [id], onDelete: SetNull)
+  instagramBot      AgentConfig?   @relation("MetaPageInstagramBot", fields: [instagramBotId], references: [id], onDelete: SetNull)
+  messengerPipeline Pipeline?      @relation("MetaPageMessengerPipeline", fields: [messengerPipelineId], references: [id], onDelete: SetNull)
+  instagramPipeline Pipeline?      @relation("MetaPageInstagramPipeline", fields: [instagramPipelineId], references: [id], onDelete: SetNull)
+  conversations     Conversation[]
 
   @@index([orgId])
   @@map("meta_pages")
@@ -997,6 +1099,9 @@ model Pipeline {
   stages   PipelineStage[]
   bot      AgentConfig?         @relation("PipelineBot", fields: [botId], references: [id], onDelete: SetNull)
   channels WhatsappConnection[]
+  messengerPages MetaPage[] @relation("MetaPageMessengerPipeline")
+  instagramPages MetaPage[] @relation("MetaPageInstagramPipeline")
+  tiktokAccounts TikTokAccount[] @relation("TikTokAccountPipeline")
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -1112,6 +1217,9 @@ model AgentConfig {
 
   org       Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   channel   WhatsappConnection? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  messengerPages MetaPage[] @relation("MetaPageMessengerBot")
+  instagramPages MetaPage[] @relation("MetaPageInstagramBot")
+  tiktokAccounts TikTokAccount[] @relation("TikTokAccountBot")
   pipelines Pipeline[]          @relation("PipelineBot")
   runs      AiRun[]
 
@@ -1248,6 +1356,9 @@ model WhatsappConnection {
   // Embudo al que entran las conversaciones nuevas de este número. Null = el
   // predeterminado de la empresa.
   pipelineId         String?
+  // Fuente con la que entran sus contactos. Null = la automática «WhatsApp»
+  // (los que llegan desde un anuncio van siempre a la de anuncios).
+  sourceId           String?
   // Conversiones de anuncios (Conversions API de Meta): activadas y dataset de su WABA.
   capiEnabled        Boolean   @default(false)
   capiDatasetId      String?
@@ -1260,12 +1371,50 @@ model WhatsappConnection {
   campaigns     Campaign[]
 
   pipeline         Pipeline?         @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  source           Source?           @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   conversionEvents ConversionEvent[]
 
   @@index([isActive])
   @@index([orgId])
   @@map("whatsapp_connections")
+}
+
+// Cuenta de empresa de TikTok conectada (Business Messaging API). Sus mensajes
+// directos entran en la bandeja. El token dura un día y se renueva con el de
+// refresco (30 días); si ambos caducan, hay que volver a autorizar.
+model TikTokAccount {
+  id               String    @id @default(cuid())
+  orgId            String
+  // open_id de la cuenta en nuestra app: único global, y es lo que trae cada
+  // webhook (user_openid). Una cuenta de TikTok pertenece a una sola empresa.
+  businessId       String    @unique
+  username         String?
+  displayName      String?
+  avatarUrl        String?
+  accessToken      String
+  refreshToken     String
+  tokenExpiresAt   DateTime
+  refreshExpiresAt DateTime
+  status           String    @default("connected") // connected | reauth_required | error
+  statusReason     String?
+  isActive         Boolean   @default(true)
+  // Quién la atiende y a dónde entran sus contactos (null = lo predeterminado / la fuente automática).
+  botId            String?
+  pipelineId       String?
+  sourceId         String?
+  lastWebhookAt    DateTime?
+  connectedAt      DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  org           Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  bot           AgentConfig?   @relation("TikTokAccountBot", fields: [botId], references: [id], onDelete: SetNull)
+  pipeline      Pipeline?      @relation("TikTokAccountPipeline", fields: [pipelineId], references: [id], onDelete: SetNull)
+  source        Source?        @relation("TikTokAccountSource", fields: [sourceId], references: [id], onDelete: SetNull)
+  conversations Conversation[]
+
+  @@index([orgId])
+  @@map("tiktok_accounts")
 }
 
 // ─────────────────────────────────────────────────────────────

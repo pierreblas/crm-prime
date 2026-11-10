@@ -16,6 +16,8 @@ La documentación interactiva de todos los endpoints, con «probar» desde el na
 | `deals:write` | Crear oportunidades y moverlas de etapa |
 | `messages:send` | Enviar mensajes de WhatsApp |
 | `analytics:read` | Consultar métricas agregadas |
+| `products:read` | Listar y leer el catálogo |
+| `products:write` | Crear, actualizar y cargar en bloque productos |
 
 La clave se muestra **una sola vez**. Si la pierdes, crea otra y revoca la anterior; se guarda solo su hash.
 
@@ -114,6 +116,46 @@ curl -X POST https://tu-empresa.driony.com/api/public/v1/messages \
 ```
 
 **Limitación de WhatsApp, no del CRM:** solo puedes escribir a quien te haya escrito en las últimas 24 h. Fuera de esa ventana hay que usar una plantilla aprobada (desde Difusiones). Si no hay conversación abierta, la API responde `400` explicándolo.
+
+## Catálogo
+
+Para que tu ERP, tu tienda o un n8n mantengan los productos que el agente de IA cotiza. La llave es el **SKU**: con él se actualiza en vez de duplicar.
+
+```bash
+# Listar (filtros: search, sku, active=true|false, updatedSince=ISO)
+curl "https://tu-empresa.driony.com/api/public/v1/products?active=true&limit=100" \
+  -H "Authorization: Bearer $CRM_KEY"
+
+# Crear uno
+curl -X POST https://tu-empresa.driony.com/api/public/v1/products \
+  -H "Authorization: Bearer $CRM_KEY" -H "Content-Type: application/json" \
+  -d '{"sku":"CAM-001","name":"Camiseta azul","price":59.9,"currency":"PEN",
+       "prices":[{"currency":"USD","amount":16}],"imageUrl":"https://misitio.com/camiseta.jpg",
+       "description":"Algodón 100%","fields":{"Talla":"M","Color":"Azul"}}'
+
+# Actualizar (los campos se fusionan; un valor vacío borra el campo; `prices` reemplaza el juego entero)
+curl -X PATCH https://tu-empresa.driony.com/api/public/v1/products/cmu0… \
+  -H "Authorization: Bearer $CRM_KEY" -H "Content-Type: application/json" \
+  -d '{"price":54.9,"fields":{"Color":""}}'
+```
+
+### Cargar el catálogo entero
+
+```bash
+curl -X PUT https://tu-empresa.driony.com/api/public/v1/products/bulk \
+  -H "Authorization: Bearer $CRM_KEY" -H "Content-Type: application/json" \
+  -d '{"deactivateMissing":true,"products":[
+        {"sku":"CAM-001","name":"Camiseta azul","price":59.9,"currency":"PEN"},
+        {"sku":"GOR-002","name":"Gorra negra","price":12,"currency":"USD"}]}'
+# { "created": 1, "updated": 1, "deactivated": 3, "errors": [] }
+```
+
+- Hasta **500 productos por envío**; para más, varios envíos.
+- Los productos que empuja una clave quedan ligados a una conexión **API · nombre-de-la-clave**, visible en **Productos › Tiendas**, igual que una tienda conectada.
+- Con `deactivateMissing` los productos que esa misma clave cargó antes y no vienen en el envío quedan **inactivos** (no se borran). Así mandas el catálogo completo y Driony queda igual que tu sistema.
+- Un SKU que ya existía se actualiza aunque sea de otra conexión; si viene de una tienda conectada, esa tienda lo volverá a pisar en su siguiente lectura.
+- `fields` acepta la clave del campo (la ves y la copias en **Productos › Campos**) o su nombre visible (`"talla"` o `"Talla"`); una clave que no es de ningún campo se guarda igual y aparece cuando crees el campo.
+- Tras cada carga en bloque se dispara el webhook saliente `catalog.synced`.
 
 ## Métricas
 

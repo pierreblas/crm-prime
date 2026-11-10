@@ -18,6 +18,7 @@ import { KnowledgeModule } from "./modules/knowledge/knowledge.module";
 import { CampaignsModule } from "./modules/campaigns/campaigns.module";
 import { QuickRepliesModule } from "./modules/quick-replies/quick-replies.module";
 import { MetaLeadsModule } from "./modules/meta-leads/meta-leads.module";
+import { TikTokModule } from "./modules/tiktok/tiktok.module";
 import { SourcesModule } from "./modules/sources/sources.module";
 import { TagsModule } from "./modules/tags/tags.module";
 import { ProductsModule } from "./modules/products/products.module";
@@ -69,6 +70,7 @@ import { HealthController } from "./health.controller";
     DashboardModule,
     BookingsModule,
     MetaLeadsModule,
+    TikTokModule,
     SourcesModule,
     TagsModule,
     ProductsModule,

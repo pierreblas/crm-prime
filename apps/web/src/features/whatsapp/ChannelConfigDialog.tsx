@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { WhatsappChannel } from "@crm/shared";
-import { fetchBots, fetchFlows, fetchPipeline, updateWhatsappChannel } from "@/lib/bff";
+import { fetchBots, fetchFlows, fetchPipeline, fetchSources, updateWhatsappChannel } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { toast } from "@/lib/toast";
 
@@ -23,17 +23,20 @@ export function ChannelConfigDialog({
 }) {
   const queryClient = useQueryClient();
   const routing = useChannelRouting();
+  const { data: sources = [] } = useQuery({ queryKey: ["sources"], queryFn: fetchSources });
   const pipelines = routing.pipelines;
   const bots = routing.bots.filter((b) => b.isActive || b.id === channel.bot?.id);
 
   const [label, setLabel] = useState(channel.label ?? "");
   const [pipelineId, setPipelineId] = useState(channel.pipelineId ?? "");
   const [botId, setBotId] = useState(channel.bot?.id ?? "");
+  const [sourceId, setSourceId] = useState(channel.sourceId ?? "");
 
   useEffect(() => {
     setLabel(channel.label ?? "");
     setPipelineId(channel.pipelineId ?? "");
     setBotId(channel.bot?.id ?? "");
+    setSourceId(channel.sourceId ?? "");
   }, [channel]);
 
   useEffect(() => {
@@ -54,11 +57,14 @@ export function ChannelConfigDialog({
   // El agente elegido atiende hoy otro número: avisar de que cambia de sitio.
   const movesFrom = chosenBot?.channelId && chosenBot.channelId !== channel.id ? routing.channelName(chosenBot.channelId) : null;
   const flows = routing.flowsOf(channel.id);
+  const autoWhatsapp = sources.find((s) => s.kind === "whatsapp");
+  const autoAd = sources.find((s) => s.kind === "ad");
 
   const dirty =
     label.trim() !== (channel.label ?? "") ||
     (pipelineId || null) !== channel.pipelineId ||
-    (botId || null) !== (channel.bot?.id ?? null);
+    (botId || null) !== (channel.bot?.id ?? null) ||
+    (sourceId || null) !== (channel.sourceId ?? null);
 
   const save = useMutation({
     mutationFn: () =>
@@ -66,6 +72,7 @@ export function ChannelConfigDialog({
         label: label.trim() || null,
         pipelineId: pipelineId || null,
         botId: botId || null,
+        sourceId: sourceId || null,
       }),
     onSuccess: (channels) => {
       queryClient.setQueryData(["wa-channels"], channels);
@@ -150,6 +157,27 @@ export function ChannelConfigDialog({
           </label>
 
           <label style={group}>
+            <span style={labelStyle}>Fuente de sus contactos</span>
+            <select className="field" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
+              <option value="">{autoWhatsapp ? `La automática (${autoWhatsapp.name})` : "La automática «WhatsApp»"}</option>
+              {sources
+                .filter((s) => !s.kind)
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+            </select>
+            <span style={hint}>
+              Quien escriba a este número entra con esta fuente; si llega desde un anuncio, con «{autoAd?.name ?? "Anuncio de Meta"}». Las fuentes
+              reparten los contactos entre vendedores.{" "}
+              <Link href="/settings?tab=sources" style={link}>
+                Ajustes › Fuentes
+              </Link>
+            </span>
+          </label>
+
+          <label style={group}>
             <span style={labelStyle}>Agente de IA</span>
             <select className="field" value={botId} onChange={(e) => setBotId(e.target.value)}>
               <option value="">{defaultBot ? `El predeterminado (${defaultBot.name})` : "Ninguno (sin agente predeterminado)"}</option>
@@ -218,6 +246,8 @@ export function useChannelRouting() {
   const bots = useMemo(() => botsRes?.bots ?? [], [botsRes]);
   const flows = useMemo(() => flowsRes?.flows ?? [], [flowsRes]);
   const channels = useMemo(() => botsRes?.channels ?? [], [botsRes]);
+  const { data: sourcesRes } = useQuery({ queryKey: ["sources"], queryFn: fetchSources });
+  const sources = useMemo(() => sourcesRes ?? [], [sourcesRes]);
 
   const stageName = (id: string | null) => (id ? (stages.find((s) => s.id === id)?.name ?? null) : null);
   const firstStageName = (pipelineId: string) => stages.find((s) => s.pipelineId === pipelineId)?.name ?? null;
@@ -232,9 +262,12 @@ export function useChannelRouting() {
     const p = ch.pipelineId ? pipelines.find((x) => x.id === ch.pipelineId) : null;
     const def = pipelines.find((x) => x.isDefault);
     const defBot = bots.find((b) => b.isDefault);
+    const own = ch.sourceId ? sources.find((s) => s.id === ch.sourceId) : null;
+    const autoSource = sources.find((s) => s.kind === "whatsapp");
     return {
       pipeline: p ? p.name : def ? `${def.name} (predeterminado)` : "Embudo predeterminado",
       bot: ch.bot ? ch.bot.name : defBot ? `${defBot.name} (predeterminado)` : "Sin agente",
+      source: own ? own.name : autoSource ? `${autoSource.name} (automática)` : "WhatsApp (automática)",
       flows: flowsOf(ch.id).length,
     };
   };

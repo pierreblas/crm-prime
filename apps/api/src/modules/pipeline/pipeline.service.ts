@@ -497,11 +497,13 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     contactId: string,
     channelId: string | null,
     conversationId: string | null = null,
+    /** Messenger/Instagram: el embudo elegido para esa página (no hay número de WhatsApp). */
+    pipelineId: string | null = null,
   ): Promise<void> {
-    return runAsActor("system:whatsapp", () => this.intake(contactId, channelId, conversationId));
+    return runAsActor("system:whatsapp", () => this.intake(contactId, channelId, conversationId, pipelineId));
   }
 
-  private async intake(contactId: string, channelId: string | null, conversationId: string | null): Promise<void> {
+  private async intake(contactId: string, channelId: string | null, conversationId: string | null, forcedPipelineId: string | null = null): Promise<void> {
     const channel = channelId
       ? await this.prisma.whatsappConnection.findUnique({
           where: { id: channelId },
@@ -509,9 +511,10 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         })
       : null;
     const withStages = { include: { stages: { orderBy: { order: "asc" as const } } } };
-    const pipeline = channel?.pipelineId
-      ? await this.prisma.pipeline.findUnique({ where: { id: channel.pipelineId }, ...withStages })
-      : await this.prisma.pipeline.findFirst({ where: { isDefault: true }, ...withStages });
+    const wanted = channel?.pipelineId ?? forcedPipelineId;
+    const pipeline =
+      (wanted ? await this.prisma.pipeline.findUnique({ where: { id: wanted }, ...withStages }) : null) ??
+      (await this.prisma.pipeline.findFirst({ where: { isDefault: true }, ...withStages }));
     if (!pipeline || !pipeline.inboundEnabled) return;
     const entry = pipeline.stages.find((s) => s.id === pipeline.inboundStageId) ?? pipeline.stages[0];
     if (!entry) return;

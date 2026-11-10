@@ -5,7 +5,6 @@ import Link from "next/link";
 import { formatAiIncluded, formatPlanLimit, PLAN_KEYS, PLANS, TRIAL_AI_CONVERSATIONS, TRIAL_DAYS } from "@crm/shared";
 import "./landing.css";
 import { Arrow, Check, GITHUB, IconGit, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
-import { HeroChat } from "./HeroChat";
 import { LeadCalc } from "./LeadCalc";
 import { PlanPicker } from "./PlanPicker";
 import { Sectors } from "./Sectors";
@@ -187,7 +186,7 @@ export function Landing() {
       <MarketingHeader active={active} home />
 
       <main id="contenido">
-        {/* ── Hero: dos bloques, el lima con el argumento y el oscuro con el producto en vivo ── */}
+        {/* ── Hero: dos bloques, el lima con el argumento y el oscuro con el producto real ── */}
         <section className="lp-hero">
           <div className="lp-wrap lp-hero__grid">
             <div className="lp-hero__copy">
@@ -240,7 +239,22 @@ export function Landing() {
               <span className="lp-hero__spine" aria-hidden="true">
                 Agentic Relationship Management // Driony // En vivo
               </span>
-              <HeroChat />
+              <figure className="lp-hero__shot">
+                <div className="lp-hero__shot-bar" aria-hidden="true">
+                  <span>[ + ] Driony // Bandeja // Copilot</span>
+                  <i />
+                </div>
+                <div className="lp-hero__shot-frame">
+                  <img
+                    src="/landing/bandeja.webp"
+                    alt="La bandeja de Driony: un agente de IA en modo Copilot responde a un cliente por WhatsApp y le agenda una demo, con el equipo viéndolo todo"
+                    width={2160}
+                    height={1350}
+                    fetchPriority="high"
+                    decoding="async"
+                  />
+                </div>
+              </figure>
             </div>
           </div>
         </section>

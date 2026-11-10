@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
@@ -17,6 +17,8 @@ import {
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { MessagingService } from "../messaging/messaging.service";
+import { MetaMessagingClient } from "../messaging/meta-messaging.client";
+import { socialUserId } from "@crm/shared";
 import { AgentService } from "./agent.service";
 import { AiSettingsService } from "./ai-settings.service";
 import { BotService } from "./bot.service";
@@ -48,6 +50,7 @@ export class AutopilotService {
     private readonly webhooks: WebhookOutService,
     private readonly events: EventEmitter2,
     @InjectQueue(QUEUE_AI_REPLY) private readonly replyQueue: Queue,
+    @Optional() private readonly meta?: MetaMessagingClient,
   ) {}
 
   /** Conversaciones en las que el modelo está redactando ahora mismo. */
@@ -122,9 +125,23 @@ export class AutopilotService {
       const last = await this.prisma.message.findFirst({
         where: { conversationId, direction: "INBOUND", waMessageId: { not: null } },
         orderBy: { createdAt: "desc" },
-        select: { waMessageId: true, conversation: { select: { channel: true } } },
+        select: {
+          waMessageId: true,
+          conversation: { select: { channel: true, channelKind: true, metaPage: true, contact: { select: { phone: true } } } },
+        },
       });
       if (!last?.waMessageId) return;
+      const convo = last.conversation;
+      if (convo.channelKind === "tiktok") return; // TikTok no tiene «escribiendo…».
+      if (convo.channelKind !== "whatsapp") {
+        if (!this.meta || !convo.metaPage) return;
+        await this.meta.senderAction(
+          { pageId: convo.metaPage.pageId, accessToken: convo.metaPage.accessToken, platform: convo.channelKind as "messenger" | "instagram" },
+          socialUserId(convo.contact.phone),
+          "typing_on",
+        );
+        return;
+      }
       await this.wa.sendTypingIndicator(
         last.waMessageId,
         last.conversation.channel?.phoneNumberId,

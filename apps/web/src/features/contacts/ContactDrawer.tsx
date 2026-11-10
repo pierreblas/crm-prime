@@ -398,7 +398,7 @@ export function initials(value: string): string {
 export const ORIGIN_COLORS: Record<ContactOrigin, string> = {
   ad: "#7a5fb0",
   whatsapp: "#0a6b42",
-  webhook: "#0a58b4",
+  webhook: "#0a58b4", messenger: "#0067c0", instagram: "#b4286e", tiktok: "#c21d47",
   manual: "#3f5b6b",
   import: "#8a5300",
   call: "#3f7a8c",

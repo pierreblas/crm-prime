@@ -4,8 +4,10 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  FIELD_KEY_RE,
   isListFieldType,
   MULTI_SEPARATOR,
+  nextProductFieldKey,
   productFieldTypes,
   splitMulti,
   type CreateProductFieldInput,
@@ -30,6 +32,8 @@ export const TYPE_INFO: Record<ProductFieldType, { label: string; example: strin
 
 type Draft = {
   label: string;
+  /** Clave elegida a mano al crear; vacío = la propuesta a partir del nombre. */
+  key: string;
   type: ProductFieldType;
   options: string[];
   unit: string;
@@ -39,7 +43,7 @@ type Draft = {
   aiVisible: boolean;
 };
 
-const EMPTY: Draft = { label: "", type: "text", options: [], unit: "", help: "", required: false, showOnCard: true, aiVisible: true };
+const EMPTY: Draft = { label: "", key: "", type: "text", options: [], unit: "", help: "", required: false, showOnCard: true, aiVisible: true };
 
 // Puntos de partida por tipo de negocio. Nada es fijo: todo se puede editar.
 const TEMPLATES: { name: string; fields: (Partial<Draft> & { label: string; type: ProductFieldType })[] }[] = [
@@ -84,6 +88,7 @@ const TEMPLATES: { name: string; fields: (Partial<Draft> & { label: string; type
 
 const toInput = (d: Draft): CreateProductFieldInput => ({
   label: d.label.trim(),
+  ...(d.key ? { key: d.key } : {}),
   type: d.type,
   options: isListFieldType(d.type) ? d.options : [],
   unit: d.type === "number" ? d.unit.trim() || null : null,
@@ -201,7 +206,7 @@ export function ProductFieldsDialog({ fields, onClose }: { fields: ProductFieldD
               <ol className="pf-items">
                 {fields.map((f, i) => (
                   <li key={f.id} className={`pf-item${selected === f.id ? " is-on" : ""}`}>
-                    <button type="button" className="pf-item__main" aria-current={selected === f.id} onClick={() => setSelected(f.id)}>
+                    <button type="button" className="pf-item__main" aria-current={selected === f.id} onClick={() => setSelected(f.id)} title={`Clave: ${f.key}`}>
                       <span className="pf-item__icon" aria-hidden>
                         <NavIcon name={TYPE_INFO[f.type].icon} size={14} />
                       </span>
@@ -242,6 +247,7 @@ export function ProductFieldsDialog({ fields, onClose }: { fields: ProductFieldD
               // La clave reinicia el formulario al cambiar de campo.
               key={selected}
               field={current}
+              fields={fields}
               onBack={() => setSelected(null)}
               notice={saved && saved.id === current?.id ? saved.text : null}
               onSaved={(f, created) => {
@@ -326,19 +332,23 @@ function describe(f: ProductFieldDto): string {
  */
 function FieldForm({
   field,
+  fields,
   notice,
   onBack,
   onSaved,
   onDeleted,
 }: {
   field?: ProductFieldDto;
+  fields: ProductFieldDto[];
   onBack: () => void;
   notice: string | null;
   onSaved: (f: ProductFieldDto, created: boolean) => void;
   onDeleted: (id: string) => void;
 }) {
-  const initial: Draft = field ? { ...field, unit: field.unit ?? "", help: field.help ?? "" } : EMPTY;
+  // La clave de un campo existente no se edita: solo se elige al crear.
+  const initial: Draft = field ? { ...field, key: "", unit: field.unit ?? "", help: field.help ?? "" } : EMPTY;
   const [d, setD] = useState<Draft>(initial);
+  const [editKey, setEditKey] = useState(false);
   const [preview, setPreview] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((x) => ({ ...x, [k]: v }));
@@ -357,8 +367,13 @@ function FieldForm({
   });
 
   const needsOptions = isListFieldType(d.type) && d.options.length === 0;
+  // Clave: la propuesta a partir del nombre (sin chocar con las que hay) o la que se escriba.
+  const autoKey = nextProductFieldKey(d.label, fields.map((x) => x.key));
+  const finalKey = editKey && d.key ? d.key : autoKey;
+  const keyBad = editKey && !!d.key && !FIELD_KEY_RE.test(d.key);
+  const keyTaken = editKey && !!d.key && fields.some((x) => x.key === d.key);
   const dirty = JSON.stringify(toInput(d)) !== JSON.stringify(toInput(initial));
-  const canSave = d.label.trim().length > 0 && !needsOptions && dirty && !save.isPending;
+  const canSave = d.label.trim().length > 0 && !needsOptions && !keyBad && !keyTaken && dirty && !save.isPending;
   const typeChanged = field && field.type !== d.type;
 
   return (
@@ -389,6 +404,48 @@ function FieldForm({
             onChange={(e) => set("label", e.target.value)}
           />
         </label>
+
+        {field ? (
+          <div className="cfe__keyline pf-keyline" data-field-key>
+            <span>Clave para la API y la importación:</span>
+            <KeyChip value={field.key} />
+            <small>
+              Fija: no cambia aunque renombres el campo. En la API: <code>{`"fields": { "${field.key}": "…" }`}</code>
+            </small>
+          </div>
+        ) : d.label.trim() ? (
+          <div className="cfe__keyline pf-keyline" data-field-key>
+            <span>Clave para la API y la importación:</span>
+            {editKey ? (
+              <input
+                className="field field-sm cfe__keyinput"
+                value={d.key}
+                autoFocus
+                maxLength={40}
+                placeholder={autoKey}
+                aria-label="Clave"
+                onChange={(e) => set("key", e.target.value.toLowerCase().replace(/\s+/g, "_"))}
+              />
+            ) : (
+              <code>{finalKey}</code>
+            )}
+            {!editKey && (
+              <button
+                type="button"
+                className="cfe__link"
+                onClick={() => {
+                  setEditKey(true);
+                  set("key", autoKey);
+                }}
+              >
+                cambiar
+              </button>
+            )}
+            {keyBad && <em>Solo minúsculas, números y _, empezando por letra.</em>}
+            {!keyBad && keyTaken && <em>Ya existe un campo con esa clave.</em>}
+            {!keyBad && !keyTaken && <small>Propuesta a partir del nombre. Una vez creado el campo no cambia, aunque lo renombres.</small>}
+          </div>
+        ) : null}
 
         <fieldset className="pf-fieldset">
           <legend>Tipo de dato</legend>
@@ -470,7 +527,7 @@ function FieldForm({
           <div className="pf-confirm" role="alert">
             <span>
               ¿Eliminar «{field!.label}»? Los productos conservan sus valores y reaparecen si lo vuelves a crear
-              con el mismo nombre.
+              con la misma clave ({field!.key}).
             </span>
             <div className="pf-confirm__actions">
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)} autoFocus>
@@ -507,6 +564,31 @@ function FieldForm({
         )}
       </footer>
     </form>
+  );
+}
+
+/** La clave del campo, con copiar al pulsar: es lo que se pega en una integración. */
+function KeyChip({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="cfe__key"
+      title="Clic para copiar"
+      aria-label={`Copiar la clave ${value}`}
+      onClick={() =>
+        navigator.clipboard.writeText(value).then(
+          () => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          },
+          () => toast.error("No se pudo copiar"),
+        )
+      }
+    >
+      <code>{value}</code>
+      <NavIcon name={copied ? "check" : "copy"} size={12} />
+    </button>
   );
 }
 

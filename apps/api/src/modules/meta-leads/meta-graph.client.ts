@@ -139,8 +139,12 @@ export class MetaGraphClient {
     return pages;
   }
 
-  /** Suscribe la página al aviso de leads. Sin esto no llega ningún webhook. */
-  async subscribePage(pageId: string, pageToken: string): Promise<void> {
+  /**
+   * Suscribe la página a los avisos indicados (leads y, si la empresa encendió
+   * Messenger o Instagram, los de mensajes). Sin esto no llega ningún webhook.
+   * Meta reemplaza la lista entera en cada llamada: hay que mandar siempre todo.
+   */
+  async subscribePage(pageId: string, pageToken: string, fields: readonly string[] = ["leadgen"]): Promise<void> {
     const { graphVersion } = await this.requireApp();
     const res = await fetch(
       `${this.baseUrl}/${graphVersion}/${pageId}/subscribed_apps`,
@@ -148,7 +152,7 @@ export class MetaGraphClient {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subscribed_fields: "leadgen",
+          subscribed_fields: fields.join(","),
           access_token: pageToken,
         }),
       },
@@ -170,6 +174,21 @@ export class MetaGraphClient {
       `${this.baseUrl}/${graphVersion}/${pageId}/subscribed_apps?access_token=${encodeURIComponent(pageToken)}`,
       { method: "DELETE" },
     ).catch(() => undefined);
+  }
+
+  /**
+   * La cuenta profesional de Instagram vinculada a la página, si la hay y el
+   * permiso (instagram_basic) lo deja. Es la que recibe los mensajes directos.
+   */
+  async pageInstagram(pageId: string, pageToken: string): Promise<{ id: string; username: string | null } | null> {
+    const { graphVersion } = await this.requireApp();
+    const res = await fetch(
+      `${this.baseUrl}/${graphVersion}/${pageId}?fields=instagram_business_account{id,username}&access_token=${encodeURIComponent(pageToken)}`,
+    );
+    if (!res.ok) return this.denied(res, "leer la cuenta de Instagram de la página");
+    const data = (await res.json().catch(() => null)) as { instagram_business_account?: { id?: string | number; username?: string } } | null;
+    const ig = data?.instagram_business_account;
+    return ig?.id ? { id: String(ig.id), username: ig.username ?? null } : null;
   }
 
   /** Respuestas de un lead concreto. Requiere el token de su página. */

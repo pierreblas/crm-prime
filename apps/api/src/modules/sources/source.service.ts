@@ -10,6 +10,7 @@ import type {
   CreateUserInput,
   SellerDto,
   SourceDto,
+  SourceKind,
   UpdateSourceInput,
   UpdateUserInput,
 } from "@crm/shared";
@@ -30,12 +31,59 @@ export class SourceService {
   ) {}
 
   // ── Fuentes ──────────────────────────────────────────────────
+  /**
+   * Las fuentes con cuántos contactos tienen y qué canales las alimentan hoy:
+   * cada número de WhatsApp, página (formularios, Messenger, Instagram) y los
+   * anuncios click-to-WhatsApp van a la fuente que la empresa eligió para ese
+   * canal o, si no eligió, a la automática de su vía.
+   */
   async list(): Promise<SourceDto[]> {
-    const rows = await this.prisma.source.findMany({
-      orderBy: { name: "asc" },
-      include: { _count: { select: { contacts: true } } },
-    });
-    return rows.map((s) => this.toDto(s));
+    const [rows, numbers, pages, tiktoks] = await Promise.all([
+      this.prisma.source.findMany({
+        orderBy: [{ kind: { sort: "asc", nulls: "last" } }, { name: "asc" }],
+        include: { _count: { select: { contacts: true } } },
+      }),
+      this.prisma.whatsappConnection.findMany({
+        where: { isActive: true },
+        select: { label: true, displayPhoneNumber: true, phoneNumberId: true, sourceId: true },
+      }),
+      this.prisma.metaPage.findMany({
+        where: { isActive: true },
+        select: {
+          name: true,
+          instagramUsername: true,
+          sourceId: true,
+          messengerEnabled: true,
+          messengerSourceId: true,
+          instagramEnabled: true,
+          instagramSourceId: true,
+        },
+      }),
+      this.prisma.tikTokAccount.findMany({
+        where: { isActive: true },
+        select: { username: true, displayName: true, sourceId: true },
+      }),
+    ]);
+    const autoId = (kind: SourceKind) => rows.find((r) => r.kind === kind)?.id ?? null;
+    const feeds = new Map<string, { kind: SourceKind; label: string }[]>();
+    const feed = (sourceId: string | null, kind: SourceKind, label: string) => {
+      const id = sourceId ?? autoId(kind);
+      if (!id) return;
+      feeds.set(id, [...(feeds.get(id) ?? []), { kind, label }]);
+    };
+    for (const n of numbers) {
+      const label = n.label || n.displayPhoneNumber || n.phoneNumberId;
+      feed(n.sourceId, "whatsapp", label);
+      // Los anuncios click-to-WhatsApp entran por cada número, a la fuente de anuncios.
+      feed(null, "ad", label);
+    }
+    for (const p of pages) {
+      feed(p.sourceId, "form", p.name);
+      if (p.messengerEnabled) feed(p.messengerSourceId, "messenger", p.name);
+      if (p.instagramEnabled) feed(p.instagramSourceId, "instagram", p.instagramUsername ? `@${p.instagramUsername}` : p.name);
+    }
+    for (const a of tiktoks) feed(a.sourceId, "tiktok", a.username ? `@${a.username}` : (a.displayName ?? "TikTok"));
+    return rows.map((s) => this.toDto(s, feeds.get(s.id) ?? []));
   }
 
   async create(input: CreateSourceInput): Promise<SourceDto> {
@@ -63,6 +111,11 @@ export class SourceService {
   async remove(id: string): Promise<{ ok: true }> {
     const s = await this.prisma.source.findUnique({ where: { id } });
     if (!s) throw new NotFoundException("Fuente no encontrada");
+    if (s.kind) {
+      throw new BadRequestException(
+        "Esta fuente la crean tus canales y recibe a quien escribe por ellos. Puedes renombrarla; para que un canal use otra fuente, elígela en Ajustes › Canales.",
+      );
+    }
     await this.prisma.source.delete({ where: { id } });
     return { ok: true };
   }
@@ -242,19 +295,25 @@ export class SourceService {
     return rows.map((r) => r.sourceId);
   }
 
-  private toDto(s: {
-    id: string;
-    name: string;
-    color: string | null;
-    createdAt: Date;
-    _count: { contacts: number };
-  }): SourceDto {
+  private toDto(
+    s: {
+      id: string;
+      name: string;
+      color: string | null;
+      kind?: string | null;
+      createdAt: Date;
+      _count: { contacts: number };
+    },
+    channels: SourceDto["channels"] = [],
+  ): SourceDto {
     return {
       id: s.id,
       name: s.name,
       color: s.color,
       contactCount: s._count.contacts,
       createdAt: s.createdAt.toISOString(),
+      kind: (s.kind as SourceKind | null | undefined) ?? null,
+      channels,
     };
   }
 }

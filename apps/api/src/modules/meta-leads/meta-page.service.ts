@@ -16,6 +16,7 @@ import {
   type MetaLeadField,
   type MetaLeadFormDto,
   type MetaLeadFormsResult,
+  type MetaMessagingChannel,
   type MetaPageDto,
   type MetaPagesAvailableResult,
   type UpdateMetaPageInput,
@@ -23,6 +24,7 @@ import {
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { MetaGraphClient, type MetaPageAccount } from "./meta-graph.client";
+import { fuenteAutomatica } from "../sources/fuente-automatica";
 
 // Preguntas estándar de Meta, por su clave en los leads.
 const STANDARD_QUESTIONS: Record<string, string> = {
@@ -55,6 +57,25 @@ function questionLabel(key: string): string {
 
 /** El token de usuario solo vive unos minutos, entre elegir páginas y guardar. */
 const SESSION_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Lo que la página tiene que notificar para que Messenger e Instagram entren en
+ * la bandeja. Instagram no tiene campos propios en la página: sus avisos
+ * llegan por «messages» con el objeto «instagram» configurado en la app.
+ */
+export const META_MESSAGING_FIELDS = [
+  "messages",
+  "messaging_postbacks",
+  "message_echoes",
+  "message_reads",
+  "message_deliveries",
+  "message_reactions",
+  "messaging_referrals",
+] as const;
+
+function subscribedFields(page: { messengerEnabled: boolean; instagramEnabled: boolean }): string[] {
+  return page.messengerEnabled || page.instagramEnabled ? ["leadgen", ...META_MESSAGING_FIELDS] : ["leadgen"];
+}
 
 @Injectable()
 export class MetaPageService {
@@ -103,8 +124,11 @@ export class MetaPageService {
     return { sessionId, pages: list };
   }
 
-  /** Paso 2: guarda las páginas elegidas y las suscribe a los avisos. */
-  async connect(sessionId: string, pageIds: string[]): Promise<MetaPageDto[]> {
+  /**
+   * Paso 2: guarda las páginas elegidas y las suscribe a los avisos. Con
+   * `enable`, además enciende Messenger o Instagram en cada una.
+   */
+  async connect(sessionId: string, pageIds: string[], enable?: MetaMessagingChannel): Promise<MetaPageDto[]> {
     const session = this.sessions.get(sessionId);
     if (!session || session.expiresAt < Date.now()) {
       this.sessions.delete(sessionId);
@@ -113,6 +137,7 @@ export class MetaPageService {
       );
     }
 
+    const connected: string[] = [];
     for (const pageId of pageIds) {
       const account = session.pages.find((p) => p.pageId === pageId);
       if (!account) continue;
@@ -121,7 +146,7 @@ export class MetaPageService {
       // "conectada" que en realidad no recibe nada.
       await this.graph.subscribePage(account.pageId, account.accessToken);
 
-      await this.prisma.metaPage.upsert({
+      const row = await this.prisma.metaPage.upsert({
         where: { pageId: account.pageId },
         create: {
           orgId: this.tenant.orgId(),
@@ -138,15 +163,32 @@ export class MetaPageService {
         },
       });
       this.logger.log(`Página conectada: ${account.name} (${account.pageId})`);
+      connected.push(row.id);
     }
 
     this.sessions.delete(sessionId);
+    // La fuente de sus formularios existe desde ya (se ve en Ajustes › Fuentes).
+    if (connected.length) await fuenteAutomatica(this.prisma, this.tenant.orgId(), "form").catch(() => undefined);
+    if (enable) {
+      // Encender el canal pedido en cada página. Si una falla (sin Instagram
+      // vinculado, sin permiso), las demás siguen y se avisa de la primera.
+      let firstError: string | null = null;
+      for (const id of connected) {
+        try {
+          await this.update(id, enable === "messenger" ? { messengerEnabled: true } : { instagramEnabled: true });
+        } catch (e) {
+          firstError ??= (e as Error).message;
+        }
+      }
+      if (firstError) throw new BadRequestException(firstError);
+    }
     return this.list();
   }
 
   async list(): Promise<MetaPageDto[]> {
     const rows = await this.prisma.metaPage.findMany({
       orderBy: { createdAt: "desc" },
+      include: { messengerBot: { select: { id: true, name: true } }, instagramBot: { select: { id: true, name: true } } },
     });
     const counts = await this.prisma.metaLead.groupBy({
       by: ["pageId", "status"],
@@ -167,6 +209,18 @@ export class MetaPageService {
         dealStageId: p.dealStageId,
         formRules: parseMetaFormRules(p.formRules),
         welcomeTemplateId: p.welcomeTemplateId,
+        messengerEnabled: p.messengerEnabled,
+        instagramEnabled: p.instagramEnabled,
+        instagramId: p.instagramId,
+        instagramUsername: p.instagramUsername,
+        messagingSubscribedAt: p.messagingSubscribedAt?.toISOString() ?? null,
+        messagingError: p.messagingError,
+        messengerBot: p.messengerBot ? { id: p.messengerBot.id, name: p.messengerBot.name } : null,
+        instagramBot: p.instagramBot ? { id: p.instagramBot.id, name: p.instagramBot.name } : null,
+        messengerPipelineId: p.messengerPipelineId,
+        instagramPipelineId: p.instagramPipelineId,
+        messengerSourceId: p.messengerSourceId,
+        instagramSourceId: p.instagramSourceId,
         leadCount: mine.reduce((n, c) => n + c._count._all, 0),
         pendingCount:
           mine.find((c) => c.status === "NO_PHONE")?._count._all ?? 0,
@@ -210,9 +264,66 @@ export class MetaPageService {
       if (found !== new Set(stageIds).size) throw new BadRequestException("Esa etapa ya no existe");
     }
 
+    // ── Mensajería: quién atiende cada canal y si está encendido ──
+    const messaging: Prisma.MetaPageUncheckedUpdateInput = {};
+    for (const key of ["messengerBotId", "instagramBotId"] as const) {
+      const botId = input[key];
+      if (botId === undefined) continue;
+      if (botId && !(await this.prisma.agentConfig.findUnique({ where: { id: botId }, select: { id: true } }))) {
+        throw new BadRequestException("Ese agente ya no existe");
+      }
+      messaging[key] = botId || null;
+    }
+    for (const key of ["messengerPipelineId", "instagramPipelineId"] as const) {
+      const pipelineId = input[key];
+      if (pipelineId === undefined) continue;
+      if (pipelineId && !(await this.prisma.pipeline.findUnique({ where: { id: pipelineId }, select: { id: true } }))) {
+        throw new BadRequestException("Ese embudo ya no existe");
+      }
+      messaging[key] = pipelineId || null;
+    }
+    for (const key of ["messengerSourceId", "instagramSourceId"] as const) {
+      const sourceId = input[key];
+      if (sourceId === undefined) continue;
+      if (sourceId && !(await this.prisma.source.findUnique({ where: { id: sourceId }, select: { id: true } }))) {
+        throw new BadRequestException("Esa fuente ya no existe");
+      }
+      messaging[key] = sourceId || null;
+    }
+    const wantsMessenger = input.messengerEnabled ?? existing.messengerEnabled;
+    const wantsInstagram = input.instagramEnabled ?? existing.instagramEnabled;
+    if (wantsInstagram && !existing.instagramId) {
+      const ig = await this.graph.pageInstagram(existing.pageId, existing.accessToken);
+      if (!ig) {
+        throw new BadRequestException(
+          "Esta página no tiene una cuenta profesional de Instagram vinculada, o la conexión no incluyó el permiso instagram_basic. Vincúlala en la configuración de la página y vuelve a pulsar «Conectar con Facebook».",
+        );
+      }
+      messaging.instagramId = ig.id;
+      messaging.instagramUsername = ig.username;
+    }
+    if (wantsMessenger !== existing.messengerEnabled || wantsInstagram !== existing.instagramEnabled) {
+      // Suscribir ANTES de guardar: si Meta lo rechaza (sin permiso), nada queda encendido a medias.
+      await this.graph.subscribePage(
+        existing.pageId,
+        existing.accessToken,
+        subscribedFields({ messengerEnabled: wantsMessenger, instagramEnabled: wantsInstagram }),
+      );
+      messaging.messengerEnabled = wantsMessenger;
+      messaging.instagramEnabled = wantsInstagram;
+      messaging.messagingSubscribedAt = wantsMessenger || wantsInstagram ? (existing.messagingSubscribedAt ?? new Date()) : null;
+      messaging.messagingError = null;
+      messaging.subscribedAt = new Date();
+      this.logger.log(`Página ${existing.name}: Messenger ${wantsMessenger ? "sí" : "no"}, Instagram ${wantsInstagram ? "sí" : "no"}`);
+    }
+    // Las fuentes de los canales encendidos existen desde ya (se ven en Ajustes › Fuentes).
+    if (wantsMessenger) await fuenteAutomatica(this.prisma, this.tenant.orgId(), "messenger").catch(() => undefined);
+    if (wantsInstagram) await fuenteAutomatica(this.prisma, this.tenant.orgId(), "instagram").catch(() => undefined);
+
     await this.prisma.metaPage.update({
       where: { id },
       data: {
+        ...messaging,
         ...(input.sourceId !== undefined ? { sourceId: input.sourceId } : {}),
         ...(input.tagIds !== undefined
           ? { tagIds: input.tagIds as unknown as Prisma.InputJsonValue }
@@ -318,10 +429,10 @@ export class MetaPageService {
   async resubscribe(id: string): Promise<MetaPageDto[]> {
     const page = await this.prisma.metaPage.findUnique({ where: { id } });
     if (!page) throw new NotFoundException("Página no encontrada");
-    await this.graph.subscribePage(page.pageId, page.accessToken);
+    await this.graph.subscribePage(page.pageId, page.accessToken, subscribedFields(page));
     await this.prisma.metaPage.update({
       where: { id },
-      data: { subscribedAt: new Date(), isActive: true },
+      data: { subscribedAt: new Date(), isActive: true, messagingError: null },
     });
     return this.list();
   }

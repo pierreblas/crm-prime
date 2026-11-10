@@ -24,6 +24,8 @@ export const ADMIN_COPILOT_ROUTES = `- [Bandeja](/): conversaciones. Un chat con
   - [Etiquetas](/settings?tab=tags)
   - [Respuestas rápidas](/settings?tab=quickReplies)
   - [Canales › WhatsApp](/settings?tab=channels&channel=whatsapp)
+  - [Canales › Messenger](/settings?tab=channels&channel=messenger) y [Canales › Instagram](/settings?tab=channels&channel=instagram): los mensajes de la página de Facebook y de su Instagram entran en la misma bandeja
+  - [Canales › TikTok](/settings?tab=channels&channel=tiktok): los mensajes directos de la cuenta de empresa de TikTok (texto e imagen, 48 h para responder)
   - [Canales › Formularios de Facebook](/settings?tab=channels&channel=facebook)
   - [Fuentes](/settings?tab=sources)
   - [Campos personalizados](/settings?tab=fields)

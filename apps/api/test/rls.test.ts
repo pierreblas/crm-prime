@@ -250,7 +250,7 @@ test("la consola de plataforma agrega todas las empresas con el rol restringido"
 
   // Salud: las consultas SQL funcionan y las colas sin Redis se señalan, no rompen.
   const salud = await svc.health();
-  assert.equal(salud.queues.length, 7);
+  assert.equal(salud.queues.length, 10); // 7 colas + «Mensajes de Meta» + «Mensajes de TikTok» + «Catálogos conectados»
   assert.ok(salud.queues.every((q) => q.ok === false));
   assert.ok(Array.isArray(salud.numbersWithError) && Array.isArray(salud.failedByOrg) && Array.isArray(salud.webhooksFailing));
 });
@@ -1362,4 +1362,735 @@ test("los avisos de cita salen con el rol restringido: confirmación, recordator
       await prisma.organization.delete({ where: { id: orgId } });
     }),
   );
+});
+
+test("Messenger e Instagram entran por la página de Facebook y salen con el token de la página, solo en su empresa", async () => {
+  const { MessagingService } = await import("../src/modules/messaging/messaging.service");
+  const { normalizeMetaMessaging } = await import("../src/modules/meta-leads/meta-messaging.types");
+  const suf = String(Date.now()).slice(-7);
+  const orgA = `o_mm_a_${suf}`;
+  const orgB = `o_mm_b_${suf}`;
+  await ctx.runUnscoped("prueba: empresas de Messenger", () =>
+    prisma.organization.createMany({
+      data: [
+        { id: orgA, slug: `mm-a-${suf}`, name: "Clínica Mensajes" },
+        { id: orgB, slug: `mm-b-${suf}`, name: "Otra empresa" },
+      ],
+    }),
+  );
+  const sent: { page: any; to: string; text?: string; opts?: any; kind: string }[] = [];
+  const meta = {
+    sendText: async (page: any, to: string, text: string, opts: any) => {
+      sent.push({ kind: "text", page, to, text, opts });
+      return { mid: `m_${sent.length}` };
+    },
+    sendMedia: async (page: any, to: string) => {
+      sent.push({ kind: "media", page, to });
+      return { mid: `m_${sent.length}` };
+    },
+    sendGenericTemplate: async (page: any, to: string) => {
+      sent.push({ kind: "generic", page, to });
+      return { mid: `m_${sent.length}` };
+    },
+    uploadMedia: async () => "att_1",
+    react: async () => undefined,
+  };
+  const emitted: string[] = [];
+  const intakes: any[] = [];
+  const svc = new MessagingService(
+    prisma,
+    { orgId: () => orgA } as any,
+    { add: async () => undefined } as any,
+    {} as any,
+    { resolveChannel: async () => null } as any,
+    {} as any,
+    { emit: (name: string) => emitted.push(name) } as any,
+    { emit: async () => undefined } as any,
+    {} as any,
+    { intakeFromWhatsapp: async (...args: unknown[]) => void intakes.push(args) } as any,
+    {} as any,
+    meta as any,
+  );
+
+  await ctx.runInOrg(orgA, async () => {
+    const page = await prisma.metaPage.create({
+      data: {
+        orgId: orgA,
+        pageId: `pg${suf}`,
+        name: "Clínica",
+        accessToken: "tok-pagina",
+        messengerEnabled: true,
+        messagingSubscribedAt: new Date(Date.now() - 60_000),
+      },
+    });
+
+    // 1 · El webhook de Meta se traduce a trabajos: un mensaje y un «leído».
+    const now = Date.now();
+    const jobs = normalizeMetaMessaging({
+      object: "page",
+      entry: [
+        {
+          id: `pg${suf}`,
+          time: now,
+          messaging: [
+            { sender: { id: "111" }, recipient: { id: `pg${suf}` }, timestamp: now, message: { mid: `mid1-${suf}`, text: "Hola, ¿precio?" } },
+            { sender: { id: "111" }, recipient: { id: `pg${suf}` }, timestamp: now, read: { watermark: now } },
+            { sender: { id: `pg${suf}` }, recipient: { id: "111" }, timestamp: now, message: { mid: `eco-${suf}`, text: "desde Meta", is_echo: true } },
+          ],
+        },
+      ],
+    });
+    assert.deepEqual(jobs.map((j) => j.kind), ["message", "read", "message"]);
+    assert.equal((jobs[2] as any).isEcho, true);
+
+    // 2 · El mensaje entra como contacto de Messenger (sin teléfono) y conversación de la página.
+    const social = { kind: "messenger" as const, metaPageId: page.id, since: page.messagingSubscribedAt, label: "Clínica", pipelineId: null };
+    await svc.handleInbound({ from: "FB.111", name: "Rosa", waMessageId: `mid1-${suf}`, type: "TEXT" as any, text: "Hola, ¿precio?", timestampMs: now - 1000, social });
+    const contact = await prisma.contact.findFirst({ where: { phone: "FB.111" } });
+    assert.ok(contact, "contacto creado");
+    assert.equal(contact.fbPsid, "111");
+    assert.equal(contact.origin, "messenger");
+    assert.equal(contact.name, "Rosa");
+    const convo = await prisma.conversation.findFirst({ where: { contactId: contact.id } });
+    assert.equal(convo.channelKind, "messenger");
+    assert.equal(convo.metaPageId, page.id);
+    assert.ok(convo.windowExpiresAt > new Date(), "ventana de 24 h abierta");
+    assert.ok(emitted.includes("conversation.inbound"), "despierta a la automatización");
+    assert.equal(intakes[0]?.[1], null, "sin número de WhatsApp");
+
+    // 3 · Dentro de la ventana: sale como respuesta, al PSID, con el token de la página.
+    const out = await svc.queueOutbound({ conversationId: convo.id, type: "TEXT" as any, text: "Cuesta S/ 80" }, "AI" as any);
+    await svc.processOutbound(out.id);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to, "111");
+    assert.equal(sent[0].page.accessToken, "tok-pagina");
+    assert.equal(sent[0].page.platform, "messenger");
+    assert.equal(sent[0].opts.humanAgent, false);
+    const m = await prisma.message.findUnique({ where: { id: out.id } });
+    assert.equal(m.status, "SENT");
+    assert.equal(m.waMessageId, "m_1");
+
+    // 4 · Las plantillas son de WhatsApp.
+    const tpl = await prisma.template.create({
+      data: { orgId: orgA, name: `t_${suf}`, language: "es", category: "UTILITY", status: "APPROVED", body: "Hola" },
+    });
+    await assert.rejects(svc.sendTemplateMessage({ conversationId: convo.id, templateId: tpl.id, fill: { body: [], urlButtons: [] } }, "HUMAN" as any), /WhatsApp/);
+
+    // 5 · Ventana cerrada hace 2 h: una persona aún puede responder, como agente humano.
+    await prisma.conversation.update({ where: { id: convo.id }, data: { windowExpiresAt: new Date(Date.now() - 2 * 3_600_000) } });
+    const out2 = await svc.queueOutbound({ conversationId: convo.id, type: "TEXT" as any, text: "¿Seguimos?" }, "HUMAN" as any);
+    await svc.processOutbound(out2.id);
+    assert.equal(sent[1].opts.humanAgent, true);
+
+    // 6 · Pasados 7 días, no.
+    await prisma.conversation.update({ where: { id: convo.id }, data: { windowExpiresAt: new Date(Date.now() - 8 * 86_400_000) } });
+    await assert.rejects(svc.queueOutbound({ conversationId: convo.id, type: "TEXT" as any, text: "Hola" }, "HUMAN" as any), /7 días/);
+
+    // 7 · «Leído hasta ahora» marca los salientes como leídos.
+    await svc.markReadUpTo("FB.111", Date.now() + 1000);
+    assert.equal((await prisma.message.findUnique({ where: { id: out.id } })).status, "READ");
+
+    // 8 · Lo que el equipo contesta desde la bandeja de Meta entra como saliente humano.
+    await svc.handleSocialEcho({ social, to: "FB.111", mid: `eco-${suf}`, type: "TEXT" as any, text: "desde Meta" });
+    const echo = await prisma.message.findFirst({ where: { waMessageId: `eco-${suf}` } });
+    assert.equal(echo.direction, "OUTBOUND");
+    assert.equal(echo.author, "HUMAN");
+
+    // 9 · La bandeja sabe de qué canal es.
+    const list = await svc.listConversations("u", { filter: "all" } as any, "ADMIN");
+    const row = list.find((c) => c.id === convo.id);
+    assert.equal(row?.channel?.kind, "messenger");
+    assert.equal(row?.channel?.label, "Clínica");
+  }).finally(() =>
+    ctx.runUnscoped("prueba: limpiar Messenger", async () => {
+      await prisma.message.deleteMany({ where: { orgId: { in: [orgA, orgB] } } });
+      await prisma.conversation.deleteMany({ where: { orgId: { in: [orgA, orgB] } } });
+      await prisma.template.deleteMany({ where: { orgId: { in: [orgA, orgB] } } });
+      await prisma.contact.deleteMany({ where: { orgId: { in: [orgA, orgB] } } });
+      await prisma.source.deleteMany({ where: { orgId: { in: [orgA, orgB] } } });
+      await prisma.metaPage.deleteMany({ where: { orgId: { in: [orgA, orgB] } } });
+      await prisma.organization.deleteMany({ where: { id: { in: [orgA, orgB] } } });
+    }),
+  );
+
+  // 10 · La otra empresa no ve nada, ni con SQL crudo.
+  // (Se comprueba antes de la limpieza: la limpieza va en finally, así que aquí ya no quedan filas;
+  //  la prueba real de aislamiento es el SQL de abajo sobre lo que exista.)
+  await ctx.runInOrg(orgB, async () => {
+    const rows: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM conversations WHERE "metaPageId" IS NOT NULL`);
+    assert.equal(rows.length, 0);
+  });
+});
+
+test("las fuentes de los canales se reconocen por su tipo: renombrar no duplica, no se borran, y un número puede apuntar a otra", async () => {
+  const { fuenteAutomatica } = await import("../src/modules/sources/fuente-automatica");
+  const { SourceService } = await import("../src/modules/sources/source.service");
+  const { MessagingService } = await import("../src/modules/messaging/messaging.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_src_${suf}`;
+  await ctx.runUnscoped("prueba: empresa de fuentes", () => prisma.organization.create({ data: { id: orgId, slug: `src-${suf}`, name: "Fuentes" } }));
+
+  await ctx.runInOrg(orgId, async () => {
+    const svc = new SourceService({} as any, prisma, { orgId: () => orgId } as any, { invalidate: () => undefined } as any);
+
+    // 1 · La automática de WhatsApp nace una vez y, renombrada, sigue siendo la misma.
+    const wa = await fuenteAutomatica(prisma, orgId, "whatsapp");
+    await svc.update(wa, { name: "Chats", color: "#000000" });
+    assert.equal(await fuenteAutomatica(prisma, orgId, "whatsapp"), wa, "renombrada no se duplica");
+
+    // 2 · Una fuente de la empresa con el nombre de nacimiento no la confunde.
+    const manual = await svc.create({ name: "WhatsApp", color: null });
+    assert.equal(await fuenteAutomatica(prisma, orgId, "whatsapp"), wa);
+
+    // 3 · No se borra; una de la empresa sí.
+    await assert.rejects(svc.remove(wa), /canales/);
+
+    // 4 · Una heredada (sin tipo, con el nombre de nacimiento) se adopta y queda marcada.
+    const legacy = await prisma.source.create({ data: { orgId, name: "Instagram" } });
+    assert.equal(await fuenteAutomatica(prisma, orgId, "instagram"), legacy.id);
+    assert.equal((await prisma.source.findUnique({ where: { id: legacy.id } })).kind, "instagram");
+
+    // 5 · Un número con fuente propia: quien le escribe entra con ella.
+    const conn = await prisma.whatsappConnection.create({
+      data: { orgId, phoneNumberId: `pn-src-${suf}`, accessToken: "x", sourceId: manual.id, connectedAt: new Date(Date.now() - 60_000) },
+    });
+    const msgSvc = new MessagingService(
+      prisma,
+      { orgId: () => orgId } as any,
+      {} as any,
+      {} as any,
+      { resolveChannel: async () => ({ id: conn.id, orgId, connectedAt: conn.connectedAt, sourceId: manual.id }) } as any,
+      {} as any,
+      { emit: () => undefined } as any,
+      { emit: async () => undefined } as any,
+      {} as any,
+      { intakeFromWhatsapp: async () => undefined } as any,
+      {} as any,
+    );
+    await msgSvc.handleInbound({ from: `+51994${suf}`, waMessageId: `src1-${suf}`, type: "TEXT" as any, text: "hola", channelPhoneNumberId: `pn-src-${suf}`, timestampMs: Date.now() - 1000 });
+    const c1 = await prisma.contact.findUnique({ where: { orgId_phone: { orgId, phone: `+51994${suf}` } } });
+    assert.equal(c1.sourceId, manual.id);
+
+    // 6 · El listado dice de qué vía es cada fuente y qué canal la alimenta.
+    const list = await svc.list();
+    assert.equal(list.find((s) => s.id === wa)?.kind, "whatsapp");
+    assert.deepEqual(list.find((s) => s.id === manual.id)?.channels.map((c) => c.kind), ["whatsapp"]);
+    assert.equal(list.find((s) => s.id === manual.id)?.kind, null);
+  }).finally(() =>
+    ctx.runUnscoped("prueba: limpiar fuentes", async () => {
+      await prisma.message.deleteMany({ where: { orgId } });
+      await prisma.conversation.deleteMany({ where: { orgId } });
+      await prisma.contact.deleteMany({ where: { orgId } });
+      await prisma.whatsappConnection.deleteMany({ where: { orgId } });
+      await prisma.source.deleteMany({ where: { orgId } });
+      await prisma.organization.delete({ where: { id: orgId } });
+    }),
+  );
+});
+
+test("TikTok entra por la cuenta de empresa con 48 h de ventana, sale con su token y solo en su empresa", async () => {
+  const { MessagingService } = await import("../src/modules/messaging/messaging.service");
+  const { verifyTikTokSignature } = await import("../src/modules/messaging/tiktok.client");
+  const { parseTikTokContent } = await import("../src/modules/tiktok/tiktok-messaging.service");
+  const { createHmac } = await import("node:crypto");
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_tt_${suf}`;
+  await ctx.runUnscoped("prueba: empresa de TikTok", () => prisma.organization.create({ data: { id: orgId, slug: `tt-${suf}`, name: "Tienda TikTok" } }));
+
+  // 1 · La firma del webhook: «t.cuerpo» con el secreto; caducada o cambiada, no vale.
+  const raw = JSON.stringify({ event: "im_receive_msg", user_openid: `biz${suf}`, content: JSON.stringify({ conversation_id: "c1", message_id: "m1", type: "text", text: { body: "hola" } }) });
+  const t = Math.floor(Date.now() / 1000);
+  const sig = createHmac("sha256", "secreto").update(`${t}.${raw}`).digest("hex");
+  assert.equal(verifyTikTokSignature("secreto", `t=${t},s=${sig}`, raw), true);
+  assert.equal(verifyTikTokSignature("secreto", `t=${t},s=${sig}`, raw + " "), false, "cuerpo distinto");
+  assert.equal(verifyTikTokSignature("secreto", `t=${t - 3600},s=${sig}`, raw), false, "hora vieja");
+  assert.equal(verifyTikTokSignature("otro", `t=${t},s=${sig}`, raw), false, "otro secreto");
+  assert.equal(parseTikTokContent(JSON.parse(raw).content)?.message_id, "m1");
+
+  const sent: { businessId: string; conversationId: string; text?: string; kind: string }[] = [];
+  const tiktok = {
+    validToken: async () => "tok-vivo",
+    sendText: async (creds: any, conversationId: string, text: string) => {
+      sent.push({ kind: "text", businessId: creds.businessId, conversationId, text });
+      return { messageId: `tt_${sent.length}` };
+    },
+    sendImage: async (creds: any, conversationId: string) => {
+      sent.push({ kind: "image", businessId: creds.businessId, conversationId });
+      return { messageId: `tt_${sent.length}` };
+    },
+  };
+  const emitted: string[] = [];
+  const svc = new MessagingService(
+    prisma,
+    { orgId: () => orgId } as any,
+    { add: async () => undefined } as any,
+    {} as any,
+    { resolveChannel: async () => null } as any,
+    {} as any,
+    { emit: (name: string) => emitted.push(name) } as any,
+    { emit: async () => undefined } as any,
+    {} as any,
+    { intakeFromWhatsapp: async () => undefined } as any,
+    {} as any,
+    undefined,
+    tiktok as any,
+  );
+
+  await ctx.runInOrg(orgId, async () => {
+    const acc = await prisma.tikTokAccount.create({
+      data: {
+        orgId,
+        businessId: `biz${suf}`,
+        username: "tienda.tt",
+        accessToken: "a",
+        refreshToken: "r",
+        tokenExpiresAt: new Date(Date.now() + 3_600_000),
+        refreshExpiresAt: new Date(Date.now() + 86_400_000),
+        connectedAt: new Date(Date.now() - 60_000),
+      },
+    });
+    const social = {
+      kind: "tiktok" as const,
+      tiktokAccountId: acc.id,
+      externalId: `conv-${suf}`,
+      since: acc.connectedAt,
+      label: "@tienda.tt",
+      pipelineId: null,
+      sourceId: null,
+      windowMs: 48 * 3_600_000,
+    };
+
+    // 2 · Entra: contacto de TikTok (sin teléfono), conversación con el id de TikTok y 48 h de ventana.
+    const now = Date.now();
+    await svc.handleInbound({ from: "TIK.u555", name: "ana.tt", username: "ana.tt", waMessageId: `tt-in-${suf}`, type: "TEXT" as any, text: "¿Tienen stock?", timestampMs: now - 1000, social });
+    const contact = await prisma.contact.findFirst({ where: { phone: "TIK.u555" } });
+    assert.ok(contact, "contacto creado");
+    assert.equal(contact.ttUserId, "u555");
+    assert.equal(contact.origin, "tiktok");
+    assert.equal(contact.waUsername, "ana.tt");
+    const convo = await prisma.conversation.findFirst({ where: { contactId: contact.id } });
+    assert.equal(convo.channelKind, "tiktok");
+    assert.equal(convo.tiktokAccountId, acc.id);
+    assert.equal(convo.externalId, `conv-${suf}`);
+    assert.ok(convo.windowExpiresAt.getTime() > now + 47 * 3_600_000, "ventana de 48 h");
+    assert.ok(emitted.includes("conversation.inbound"));
+
+    // 3 · Sale por la cuenta, a la conversación de TikTok.
+    const out = await svc.queueOutbound({ conversationId: convo.id, type: "TEXT" as any, text: "Sí, nos queda" }, "AI" as any);
+    await svc.processOutbound(out.id);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].businessId, `biz${suf}`);
+    assert.equal(sent[0].conversationId, `conv-${suf}`);
+    assert.equal((await prisma.message.findUnique({ where: { id: out.id } })).waMessageId, "tt_1");
+
+    // 4 · Botones: van numerados en el texto.
+    const buttons = await svc.queueInteractive({ conversationId: convo.id, body: "¿Talla?", buttons: [{ id: "s", title: "S" }, { id: "m", title: "M" }] } as any, "AI" as any);
+    await svc.processOutbound(buttons.id);
+    assert.match(sent[1].text!, /1\) S[\s\S]*2\) M/);
+
+    // 5 · A las 48 h se cierra, sin «agente humano».
+    await prisma.conversation.update({ where: { id: convo.id }, data: { windowExpiresAt: new Date(Date.now() - 60_000) } });
+    await assert.rejects(svc.queueOutbound({ conversationId: convo.id, type: "TEXT" as any, text: "hola" }, "HUMAN" as any), /48 h/);
+
+    // 6 · Lo contestado desde la app de TikTok entra como saliente humano.
+    await svc.handleSocialEcho({ social, to: "TIK.u555", mid: `tt-echo-${suf}`, type: "TEXT" as any, text: "desde la app" });
+    const echo = await prisma.message.findFirst({ where: { waMessageId: `tt-echo-${suf}` } });
+    assert.equal(echo.direction, "OUTBOUND");
+    assert.equal(echo.author, "HUMAN");
+
+    // 7 · La bandeja sabe que es TikTok.
+    const list = await svc.listConversations("u", { filter: "all" } as any, "ADMIN");
+    const row = list.find((c) => c.id === convo.id);
+    assert.equal(row?.channel?.kind, "tiktok");
+    assert.equal(row?.channel?.label, "@tienda.tt");
+  }).finally(() =>
+    ctx.runUnscoped("prueba: limpiar TikTok", async () => {
+      await prisma.message.deleteMany({ where: { orgId } });
+      await prisma.conversation.deleteMany({ where: { orgId } });
+      await prisma.contact.deleteMany({ where: { orgId } });
+      await prisma.source.deleteMany({ where: { orgId } });
+      await prisma.tikTokAccount.deleteMany({ where: { orgId } });
+      await prisma.organization.delete({ where: { id: orgId } });
+    }),
+  );
+
+  // 8 · Otra empresa no ve cuentas de TikTok ajenas, ni con SQL crudo.
+  await ctx.runInOrg("o_b", async () => {
+    const rows: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM tiktok_accounts`);
+    assert.equal(rows.length, 0);
+  });
+});
+
+test("un catálogo conectado se lee solo en su empresa: crea, actualiza, desactiva, adopta por SKU y crea sus campos", async () => {
+  const { ProductSyncService } = await import("../src/modules/products/product-sync.service");
+  const { ProductSourceService } = await import("../src/modules/products/product-source.service");
+  process.env.APP_ENCRYPTION_KEY ??= "clave-de-prueba-para-cifrar-secretos";
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_cat_${suf}`;
+  await ctx.runUnscoped("prueba: empresa del catálogo", () => prisma.organization.create({ data: { id: orgId, slug: `cat-${suf}`, name: "Catálogo" } }));
+
+  await ctx
+    .runInOrg(orgId, async () => {
+      // Sin Redis ni internet: la cola se apunta y la «tienda» es una lista en memoria.
+      const encolados: string[] = [];
+      const queue = { add: async (_n: string, data: any) => void encolados.push(data.sourceId) } as any;
+      const sync = new ProductSyncService(prisma, queue);
+      let items: any[] = [
+        { externalId: "p1", name: "Camiseta", sku: "CAM-1", description: "Algodón", price: 50, currency: "PEN", imageUrl: "https://t.example/c.jpg", isActive: true, attributes: { talla: "M" } },
+        { externalId: "p2", name: "Gorra", sku: "GOR-1", description: null, price: 20, currency: "PEN", imageUrl: null, isActive: true, attributes: {} },
+      ];
+      sync.useConnectors([
+        {
+          kind: "woocommerce",
+          normalizeTarget: (raw: string) => raw.replace(/\/+$/, ""),
+          test: async () => ({ ok: true as const, name: "Tienda X", currency: "PEN", count: 2, sample: ["Camiseta", "Gorra"], warnings: [] }),
+          pull: async () => ({ items, storeName: "Tienda X", currency: "PEN", fields: [{ key: "talla", label: "Talla", type: "text" as const, showOnCard: true }], warnings: [] }),
+        },
+      ]);
+      const sources = new ProductSourceService(prisma, { orgId: () => orgId } as any, sync);
+
+      // 1 · Conectar prueba, guarda cifrado y encola la primera lectura.
+      const src = await sources.create({ kind: "woocommerce", url: "https://tienda.example/", consumerKey: "ck_1234567890abcdef", consumerSecret: "cs_abcdef1234567890", syncEvery: 60 });
+      assert.equal(src.name, "Tienda X", "el nombre sale de la tienda");
+      assert.equal(src.target, "https://tienda.example");
+      assert.equal(src.credentialsHint, "ck_123…cdef");
+      assert.deepEqual(encolados, [src.id]);
+      const guardada = await prisma.productSource.findUnique({ where: { id: src.id } });
+      assert.ok(guardada.credentials && !guardada.credentials.includes("ck_1234567890abcdef"), "las claves no están en claro");
+
+      // 2 · Primera lectura: crea los productos y el campo «Talla».
+      const r1 = await sync.run(src.id);
+      assert.equal(r1.summary?.created, 2);
+      const cam = await prisma.product.findFirst({ where: { sku: "CAM-1" } });
+      assert.equal(cam.sourceId, src.id);
+      assert.equal(cam.externalId, "p1");
+      assert.equal(cam.attributes.talla, "M");
+      assert.ok(await prisma.productField.findFirst({ where: { key: "talla" } }), "el campo de la opción se crea solo");
+
+      // 3 · Segunda lectura: el precio cambia, la gorra desaparece (se desactiva) y lo de Driony se conserva.
+      await prisma.product.update({ where: { id: cam.id }, data: { attributes: { ...cam.attributes, nota: "mía" } } });
+      await prisma.productPrice.create({ data: { orgId, productId: cam.id, currency: "USD", amount: 14 } });
+      items = [{ ...items[0], price: 55 }];
+      const r2 = await sync.run(src.id);
+      assert.equal(r2.summary?.updated, 1);
+      assert.equal(r2.summary?.deactivated, 1);
+      const cam2 = await prisma.product.findUnique({ where: { id: cam.id }, include: { prices: true } });
+      assert.equal(Number(cam2.price), 55);
+      assert.equal(cam2.attributes.nota, "mía", "un campo propio no se pierde");
+      assert.equal(cam2.attributes.talla, "M");
+      assert.equal(cam2.prices.length, 1, "el precio en otra moneda se conserva");
+      assert.equal((await prisma.product.findFirst({ where: { sku: "GOR-1" } })).isActive, false, "lo que la tienda ya no trae queda inactivo");
+
+      // 4 · Sin cambios no se escribe; un producto manual con el mismo SKU se adopta.
+      await prisma.product.create({ data: { orgId, name: "Polo", sku: "POL-1", price: 10 } });
+      items = [items[0], { externalId: "p3", name: "Polo nuevo", sku: "POL-1", description: null, price: 12, currency: "PEN", imageUrl: null, isActive: true, attributes: {} }];
+      const r3 = await sync.run(src.id);
+      assert.equal(r3.summary?.unchanged, 1);
+      assert.equal(r3.summary?.created, 0, "no se duplica");
+      const polo = await prisma.product.findFirst({ where: { sku: "POL-1" } });
+      assert.equal(polo.sourceId, src.id);
+      assert.equal(polo.name, "Polo nuevo");
+
+      // 5 · El estado se ve en la lista; otra empresa no ve la conexión ni con SQL crudo.
+      const [dto] = await sources.list();
+      assert.equal(dto.status, "ok");
+      assert.equal(dto.productCount, 3);
+      assert.equal(dto.lastSummary?.total, 2);
+      await ctx.runInOrg("o_b", async () => {
+        const rows: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM product_sources`);
+        assert.equal(rows.length, 0);
+      });
+
+      // 6 · Quitar conservando: los productos se quedan, sin conexión.
+      await sources.remove(src.id, "keep");
+      assert.equal((await prisma.product.findUnique({ where: { id: cam.id } })).sourceId, null);
+      assert.equal(await prisma.productSource.count(), 0);
+    })
+    .finally(() =>
+      ctx.runUnscoped("prueba: limpiar catálogo", async () => {
+        await prisma.productPrice.deleteMany({ where: { orgId } });
+        await prisma.product.deleteMany({ where: { orgId } });
+        await prisma.productField.deleteMany({ where: { orgId } });
+        await prisma.productSource.deleteMany({ where: { orgId } });
+        await prisma.organization.delete({ where: { id: orgId } });
+      }),
+    );
+});
+
+test("la API pública carga productos por SKU ligados a su clave, y el webhook de una tienda solo dispara con firma válida", async () => {
+  const { ProductSyncService } = await import("../src/modules/products/product-sync.service");
+  const { ProductSourceService } = await import("../src/modules/products/product-source.service");
+  const { PublicProductsService } = await import("../src/modules/public-api/public-products.service");
+  const { createHmac } = await import("node:crypto");
+  process.env.APP_ENCRYPTION_KEY ??= "clave-de-prueba-para-cifrar-secretos";
+  // Sin dirección pública: los webhooks de la tienda no se pueden registrar (y así no se sale a internet).
+  const urlPublica = process.env.API_PUBLIC_URL;
+  const dominio = process.env.SAAS_BASE_DOMAIN;
+  delete process.env.API_PUBLIC_URL;
+  delete process.env.SAAS_BASE_DOMAIN;
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_api_${suf}`;
+  await ctx.runUnscoped("prueba: empresa de la API de catálogo", () => prisma.organization.create({ data: { id: orgId, slug: `api-${suf}`, name: "API catálogo" } }));
+
+  await ctx
+    .runInOrg(orgId, async () => {
+      const encolados: string[] = [];
+      const avisos: string[] = [];
+      const queue = { add: async (_n: string, data: any) => void encolados.push(data.sourceId) } as any;
+      const webhooks = { emit: async (event: string) => void avisos.push(event) } as any;
+      const sync = new ProductSyncService(prisma, queue, webhooks);
+      const sources = new ProductSourceService(prisma, { orgId: () => orgId } as any, sync);
+      const api = new PublicProductsService(prisma, { orgId: () => orgId } as any, sources, sync);
+
+      // 1 · La carga en bloque crea los productos y los liga a la conexión «api» de la clave.
+      const r1 = await api.bulk(
+        {
+          products: [
+            { sku: "A-1", name: "Taza", price: 10, currency: "PEN", fields: { Color: "rojo" } },
+            { sku: "B-2", name: "Plato", price: 20, currency: "PEN" },
+          ],
+          deactivateMissing: false,
+        },
+        "erp",
+      );
+      assert.equal(r1.created, 2);
+      assert.equal(r1.errors.length, 0);
+      const apiSrc = (await sources.list()).find((s) => s.kind === "api");
+      assert.ok(apiSrc, "la conexión api nace sola");
+      assert.equal(apiSrc.target, "erp");
+      assert.equal(apiSrc.productCount, 2);
+      assert.equal(apiSrc.lastSummary?.created, 2);
+      assert.ok(avisos.includes("catalog.synced"), "se avisa por webhook saliente");
+      const taza = await prisma.product.findFirst({ where: { sku: "A-1" } });
+      assert.equal(taza.sourceId, apiSrc.id);
+      assert.equal(taza.attributes.color, "rojo", "el campo se guarda por su clave");
+
+      // 2 · Segundo envío: actualiza lo que viene y desactiva lo que esta clave cargó y ya no manda.
+      const r2 = await api.bulk({ products: [{ sku: "A-1", name: "Taza grande", price: 12 }], deactivateMissing: true }, "erp");
+      assert.equal(r2.updated, 1);
+      assert.equal(r2.deactivated, 1);
+      assert.equal(Number((await prisma.product.findFirst({ where: { sku: "A-1" } })).price), 12);
+      assert.equal((await prisma.product.findFirst({ where: { sku: "B-2" } })).isActive, false);
+
+      // 3 · Se lista y se lee con el molde público.
+      const page = await api.list({ limit: 10, sku: "A-1" });
+      assert.equal(page.data.length, 1);
+      assert.equal(page.data[0].source, "API · erp");
+      assert.equal(page.data[0].fields.color, "rojo");
+      assert.equal((await api.list({ limit: 10, active: "false" })).data.length, 1);
+
+      // 4 · Webhook de tienda: sin URL pública queda pendiente; la firma de WooCommerce manda.
+      sync.useConnectors([
+        {
+          kind: "woocommerce",
+          normalizeTarget: (raw: string) => raw.replace(/\/+$/, ""),
+          test: async () => ({ ok: true as const, name: "W", currency: "PEN", count: 0, sample: [], warnings: [] }),
+          pull: async () => ({ items: [], storeName: "W", currency: "PEN", fields: [], warnings: [] }),
+        },
+      ]);
+      const woo = await sources.create({ kind: "woocommerce", url: "https://w.example/", consumerKey: "ck_1234567890", consumerSecret: "cs_1234567890", syncEvery: 60 });
+      assert.equal(woo.webhookUrl, null);
+      assert.match(woo.webhookError ?? "", /dirección pública/);
+      const token = (await prisma.productSource.findUnique({ where: { id: woo.id } })).webhookToken as string;
+      assert.ok(token && token.length >= 32);
+      const body = Buffer.from(JSON.stringify({ id: 1 }));
+      encolados.length = 0;
+      await assert.rejects(sources.receiveHook(token, { "x-wc-webhook-signature": "mala" }, body), /firma/i);
+      assert.equal(encolados.length, 0, "con firma mala no se relee");
+      const firma = createHmac("sha256", token).update(body).digest("base64");
+      await sources.receiveHook(token, { "x-wc-webhook-signature": firma }, body);
+      assert.deepEqual(encolados, [woo.id], "con firma buena se encola la relectura");
+      assert.ok((await prisma.productSource.findUnique({ where: { id: woo.id } })).lastWebhookAt);
+      await assert.rejects(sources.receiveHook("deadbeefdeadbeefdeadbeefdeadbeef", {}, body), /no existe/);
+      assert.equal((await sources.syncNow(apiSrc.id)).queued, false, "una conexión api no se lee");
+
+      // 5 · Otra empresa no ve estos productos ni la conexión por SQL crudo.
+      await ctx.runInOrg("o_b", async () => {
+        const rows: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM products WHERE sku = 'A-1'`);
+        assert.equal(rows.length, 0);
+        const srcs: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM product_sources WHERE kind = 'api'`);
+        assert.equal(srcs.length, 0);
+      });
+    })
+    .finally(() =>
+      ctx.runUnscoped("prueba: limpiar API de catálogo", async () => {
+        if (urlPublica) process.env.API_PUBLIC_URL = urlPublica;
+        if (dominio) process.env.SAAS_BASE_DOMAIN = dominio;
+        await prisma.productPrice.deleteMany({ where: { orgId } });
+        await prisma.product.deleteMany({ where: { orgId } });
+        await prisma.productField.deleteMany({ where: { orgId } });
+        await prisma.productSource.deleteMany({ where: { orgId } });
+        await prisma.organization.delete({ where: { id: orgId } });
+      }),
+    );
+});
+
+test("Mercado Libre: la autorización crea la conexión del vendedor en su empresa, las publicaciones se traducen con variaciones y el aviso de la app relee", async () => {
+  const { ProductSyncService } = await import("../src/modules/products/product-sync.service");
+  const { MercadoLibreConnectService } = await import("../src/modules/products/mercadolibre-connect.service");
+  const { mapMercadoLibreItem } = await import("../src/modules/products/connectors/mercadolibre.connector");
+  const { decryptSecret } = await import("../src/common/utils/secret-box");
+  process.env.APP_ENCRYPTION_KEY ??= "clave-de-prueba-para-cifrar-secretos";
+  const appIdAntes = process.env.MERCADOLIBRE_APP_ID;
+  const dominio = process.env.SAAS_BASE_DOMAIN;
+  process.env.MERCADOLIBRE_APP_ID = "424242";
+  delete process.env.SAAS_BASE_DOMAIN;
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_ml_${suf}`;
+  await ctx.runUnscoped("prueba: empresa de Mercado Libre", () => prisma.organization.create({ data: { id: orgId, slug: `ml-${suf}`, name: "ML catálogo" } }));
+
+  try {
+    // 1 · Una publicación con variaciones, en el molde de Driony (sin salir a internet).
+    const fields = new Map<string, any>();
+    const productos = mapMercadoLibreItem(
+      {
+        id: "MPE100",
+        title: "Polo básico",
+        price: 49.9,
+        currency_id: "PEN",
+        status: "active",
+        permalink: "https://articulo.mercadolibre.com.pe/MPE-100",
+        pictures: [
+          { id: "p1", secure_url: "https://img.test/p1.jpg" },
+          { id: "p2", secure_url: "https://img.test/p2.jpg" },
+        ],
+        attributes: [
+          { id: "BRAND", name: "Marca", value_name: "Acme" },
+          { id: "SELLER_SKU", name: "SKU", value_name: "POLO" },
+        ],
+        category_id: "MPE1430",
+        condition: "new",
+        variations: [
+          {
+            id: 1,
+            price: 49.9,
+            available_quantity: 3,
+            attribute_combinations: [
+              { id: "SIZE", name: "Talla", value_name: "M" },
+              { id: "COLOR", name: "Color", value_name: "Rojo" },
+            ],
+            picture_ids: ["p2"],
+            attributes: [{ id: "SELLER_SKU", value_name: "POLO-M-R" }],
+          },
+          {
+            id: 2,
+            price: 54.9,
+            available_quantity: 0,
+            attribute_combinations: [
+              { id: "SIZE", name: "Talla", value_name: "L" },
+              { id: "COLOR", name: "Color", value_name: "Rojo" },
+            ],
+            picture_ids: [],
+          },
+        ],
+      },
+      "Polo de algodón",
+      "Ropa",
+      fields,
+      "PEN",
+    );
+    assert.equal(productos.length, 2);
+    assert.equal(productos[0].externalId, "MPE100:1");
+    assert.equal(productos[0].name, "Polo básico – M / Rojo");
+    assert.equal(productos[0].sku, "POLO-M-R");
+    assert.equal(productos[0].imageUrl, "https://img.test/p2.jpg", "la foto de la variación");
+    assert.equal(productos[0].description, "Polo de algodón");
+    assert.equal(productos[0].attributes.talla, "M");
+    assert.equal(productos[0].attributes.color, "Rojo");
+    assert.equal(productos[0].attributes.stock, "3");
+    assert.equal(productos[0].attributes.enlace, "https://articulo.mercadolibre.com.pe/MPE-100");
+    assert.equal(productos[0].attributes.categoria, "Ropa");
+    assert.equal(productos[0].attributes.marca, "Acme");
+    assert.equal(productos[1].price, 54.9);
+    assert.equal(productos[1].sku, null, "con varias variaciones, la que no tiene SKU no hereda el del padre");
+    assert.equal(productos[1].imageUrl, "https://img.test/p1.jpg", "sin foto propia, la de la publicación");
+    assert.ok(fields.has("talla") && fields.has("color") && fields.has("marca"), "los campos de las combinaciones y la marca (stock, enlace y categoría los pone la lectura)");
+    const pausado = mapMercadoLibreItem({ id: "MPE200", title: "Gorra", price: 20, currency_id: "PEN", status: "paused", available_quantity: 5, seller_custom_field: "GORRA-1" }, null, null, fields, "PEN");
+    assert.equal(pausado.length, 1);
+    assert.equal(pausado[0].externalId, "MPE200");
+    assert.equal(pausado[0].isActive, false, "pausada = inactiva en Driony");
+    assert.equal(pausado[0].sku, "GORRA-1");
+    assert.equal(pausado[0].attributes.stock, "5");
+
+    await ctx.runInOrg(orgId, async () => {
+      // 2 · La vuelta de la autorización crea la conexión en la empresa del pase.
+      const admin = await prisma.user.create({ data: { orgId, email: `ml-admin-${suf}@prueba.test`, passwordHash: "x", name: "Admin", role: "ADMIN" } });
+      const encolados: string[] = [];
+      const queue = { add: async (_n: string, data: any) => void encolados.push(data.sourceId) } as any;
+      const sync = new ProductSyncService(prisma, queue);
+      const tickets = { issue: async () => "pase", redeem: async () => ({ sub: admin.id, org: orgId, site: "MPE", syncEvery: 360, pkce: "k" }) } as any;
+      let canjes = 0;
+      const client = {
+        configured: true,
+        appId: "424242",
+        authorizeUrl: () => "https://auth.mercadolibre.com.pe/authorization?x",
+        exchangeCode: async () => {
+          canjes++;
+          return { accessToken: "APP_USR-1", refreshToken: "TG-1", expiresAt: Date.now() + 6 * 3_600_000, userId: "777", scope: "offline_access read" };
+        },
+        me: async () => ({ id: 777, nickname: "TIENDA_PRUEBA", site_id: "MPE" }),
+      } as any;
+      const ml = new MercadoLibreConnectService(prisma, sync, tickets, client);
+      const vuelta = await ml.complete({ code: "TG-code", state: "pase" });
+      assert.match(vuelta, /\/products\?stores=mercadolibre&connected=1$/);
+      assert.equal(canjes, 1);
+      const src = await prisma.productSource.findFirst({ where: { kind: "mercadolibre" } });
+      assert.ok(src, "la conexión existe");
+      assert.equal(src.target, "777");
+      assert.equal(src.name, "TIENDA_PRUEBA");
+      assert.equal(src.defaultCurrency, "PEN");
+      assert.equal(src.syncEvery, 360);
+      assert.deepEqual(encolados, [src.id], "se encola la primera lectura");
+      const creds = JSON.parse(decryptSecret(src.credentials) as string);
+      assert.equal(creds.refreshToken, "TG-1");
+      assert.equal(creds.nickname, "TIENDA_PRUEBA");
+      assert.equal(creds.siteId, "MPE");
+
+      // Volver a autorizar la misma cuenta renueva la conexión en vez de duplicarla.
+      await ml.complete({ code: "TG-code-2", state: "pase" });
+      assert.equal(await prisma.productSource.count({ where: { kind: "mercadolibre" } }), 1);
+
+      // Mercado Libre devuelve un error: se vuelve con el motivo y no se toca nada.
+      const cancelada = await ml.complete({ state: "pase", error: "access_denied", errorDescription: "El usuario canceló" });
+      assert.match(cancelada, /stores=mercadolibre&error=El%20usuario%20cancel/);
+      assert.equal(canjes, 2);
+
+      // 3 · Los avisos de la app: solo los de nuestra app, de un vendedor conectado y de un tema de publicaciones releen.
+      encolados.length = 0;
+      assert.equal((await ml.handleNotification({ topic: "items", resource: "/items/MPE100", user_id: 777, application_id: 424242 })).queued, 1);
+      assert.deepEqual(encolados, [src.id]);
+      assert.ok((await prisma.productSource.findUnique({ where: { id: src.id } })).lastWebhookAt);
+      assert.equal((await ml.handleNotification({ topic: "items", user_id: 777, application_id: 999 })).queued, 0, "otra app");
+      assert.equal((await ml.handleNotification({ topic: "items", user_id: 123456, application_id: 424242 })).queued, 0, "vendedor desconocido");
+      assert.equal((await ml.handleNotification({ topic: "orders_v2", user_id: 777, application_id: 424242 })).queued, 0, "otro tema");
+      assert.equal((await ml.handleNotification("basura")).queued, 0);
+
+      // Sin app en el servidor no se puede ni empezar.
+      const sinApp = new MercadoLibreConnectService(prisma, sync, tickets, { configured: false, appId: "" } as any);
+      await assert.rejects(sinApp.start({ sub: admin.id, org: orgId }, { site: "MPE", syncEvery: 60 }), /MERCADOLIBRE_APP_ID/);
+
+      // La conexión se lista como las demás, sin URL de webhook propia.
+      const { ProductSourceService } = await import("../src/modules/products/product-source.service");
+      const sources = new ProductSourceService(prisma, { orgId: () => orgId } as any, sync);
+      const dto = (await sources.list()).find((x) => x.kind === "mercadolibre");
+      assert.ok(dto);
+      assert.equal(dto.webhookUrl, null);
+      assert.equal(dto.credentialsHint, "Vendedor TIENDA_PRUEBA");
+    });
+
+    // 4 · Otra empresa no ve la conexión.
+    await ctx.runInOrg("o_b", async () => {
+      const rows: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM product_sources WHERE kind = 'mercadolibre' AND target = '777'`);
+      assert.equal(rows.length, 0);
+    });
+  } finally {
+    await ctx.runUnscoped("prueba: limpiar Mercado Libre", async () => {
+      if (appIdAntes === undefined) delete process.env.MERCADOLIBRE_APP_ID;
+      else process.env.MERCADOLIBRE_APP_ID = appIdAntes;
+      if (dominio) process.env.SAAS_BASE_DOMAIN = dominio;
+      await prisma.productSource.deleteMany({ where: { orgId } });
+      await prisma.user.deleteMany({ where: { orgId } });
+      await prisma.organization.delete({ where: { id: orgId } });
+    });
+  }
 });

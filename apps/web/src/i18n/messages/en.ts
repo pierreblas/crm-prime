@@ -446,6 +446,17 @@ export const en = {
     quickReplyFile: "File from the quick reply",
     windowClosedBody:
       "More than 24 h have passed since the customer's last message. WhatsApp only lets you write to them with an approved template.",
+    tiktokWindowClosedBody:
+      "More than 48 h have passed since the customer's last message. TikTok doesn't allow writing to them until they write again.",
+    windowOpenTitleTikTok:
+      "You can write for another {time}. TikTok allows 48 hours after the customer's last message and up to 10 messages per reply.",
+    socialWindowClosedBody:
+      "More than 24 h have passed since the customer's last message. Messenger and Instagram let a person reply for up to 7 days; after that you must wait for them to write again.",
+    socialWindowExpiredBody:
+      "More than 7 days have passed since the customer's last message. Messenger and Instagram don't allow writing to them until they write again.",
+    windowOpenTitleSocial:
+      "You can write freely for another {time}. After that, Messenger and Instagram only let a person reply, for up to 7 days.",
+    templatesWhatsappOnly: "Templates are a WhatsApp feature; write a normal message here.",
     sendTemplate: "Send a template",
     openDocument: "Open document",
     mediaUnavailable: "[{type} unavailable]",

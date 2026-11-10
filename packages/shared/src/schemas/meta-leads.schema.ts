@@ -19,6 +19,20 @@ export const META_LEADS_SCOPES = [
   "ads_management",
 ].join(",");
 
+/**
+ * Lo anterior más la mensajería de la página: Messenger (pages_messaging) e
+ * Instagram (instagram_basic, instagram_manage_messages). Se piden aparte, solo
+ * desde las pestañas de Messenger e Instagram: hasta que Meta las apruebe en
+ * la revisión de la app, solo las puede conceder quien tiene un rol en ella.
+ */
+export const META_MESSAGING_SCOPES = [
+  ...new Set([...META_LEADS_SCOPES.split(","), "pages_messaging", "instagram_basic", "instagram_manage_messages"]),
+].join(",");
+
+/** Los dos canales de mensajería que cuelgan de una página de Facebook. */
+export const metaMessagingChannels = ["messenger", "instagram"] as const;
+export type MetaMessagingChannel = (typeof metaMessagingChannels)[number];
+
 /** Fuente automática de los leads de formularios cuando la página no elige otra. */
 export const META_FORM_SOURCE_NAME = "Formulario de Facebook";
 
@@ -85,6 +99,27 @@ export const metaPageDtoSchema = z.object({
   /** Qué hacer con cada formulario (los que no están aquí siguen a la página). */
   formRules: z.array(metaFormRuleSchema),
   welcomeTemplateId: z.string().nullable(),
+  // ── Mensajería (Messenger e Instagram) ─────────────────────
+  /** Los mensajes de Messenger de esta página entran en la bandeja. */
+  messengerEnabled: z.boolean().default(false),
+  /** Los mensajes directos de su Instagram entran en la bandeja. */
+  instagramEnabled: z.boolean().default(false),
+  /** Cuenta profesional de Instagram vinculada a la página (se lee de Meta al activarla). */
+  instagramId: z.string().nullable().default(null),
+  instagramUsername: z.string().nullable().default(null),
+  /** Cuándo empezó a recibir mensajes. Null = solo leads. */
+  messagingSubscribedAt: z.string().nullable().default(null),
+  /** Último problema al enviar o recibir (token caducado, permiso…). */
+  messagingError: z.string().nullable().default(null),
+  /** Agente de IA que atiende cada canal; null = el predeterminado. */
+  messengerBot: z.object({ id: z.string(), name: z.string() }).nullable().default(null),
+  instagramBot: z.object({ id: z.string(), name: z.string() }).nullable().default(null),
+  /** Embudo al que entran sus conversaciones; null = el predeterminado. */
+  messengerPipelineId: z.string().nullable().default(null),
+  instagramPipelineId: z.string().nullable().default(null),
+  /** Fuente de sus contactos; null = la automática de cada canal. */
+  messengerSourceId: z.string().nullable().default(null),
+  instagramSourceId: z.string().nullable().default(null),
   leadCount: z.number(),
   pendingCount: z.number(),
   createdAt: z.string(),
@@ -157,6 +192,8 @@ export type MetaPagesAvailableInput = z.infer<typeof metaPagesAvailableSchema>;
 export const connectMetaPagesSchema = z.object({
   sessionId: z.string().min(1),
   pageIds: z.array(z.string()).min(1),
+  /** Desde la pestaña de Messenger o Instagram: encender ese canal en las páginas conectadas. */
+  enable: z.enum(metaMessagingChannels).optional(),
 });
 export type ConnectMetaPagesInput = z.infer<typeof connectMetaPagesSchema>;
 
@@ -169,6 +206,15 @@ export const updateMetaPageSchema = z.object({
   formRules: z.array(metaFormRuleSchema).max(300).optional(),
   welcomeTemplateId: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
+  // Mensajería: encender o apagar cada canal, y quién lo atiende.
+  messengerEnabled: z.boolean().optional(),
+  instagramEnabled: z.boolean().optional(),
+  messengerBotId: z.string().nullable().optional(),
+  instagramBotId: z.string().nullable().optional(),
+  messengerPipelineId: z.string().nullable().optional(),
+  instagramPipelineId: z.string().nullable().optional(),
+  messengerSourceId: z.string().nullable().optional(),
+  instagramSourceId: z.string().nullable().optional(),
 });
 export type UpdateMetaPageInput = z.infer<typeof updateMetaPageSchema>;
 

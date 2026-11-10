@@ -18,6 +18,8 @@ export const whatsappChannelSchema = z.object({
   pipelineId: z.string().nullable(),
   // Agente de IA que atiende este número; null = el predeterminado de la empresa.
   bot: z.object({ id: z.string(), name: z.string() }).nullable().default(null),
+  // Fuente con la que entran sus contactos; null = la automática «WhatsApp».
+  sourceId: z.string().nullable().default(null),
 });
 export type WhatsappChannel = z.infer<typeof whatsappChannelSchema>;
 
@@ -27,6 +29,7 @@ export const updateChannelSchema = z.object({
   label: z.string().max(60).nullable().optional(),
   pipelineId: z.string().nullable().optional(),
   botId: z.string().nullable().optional(),
+  sourceId: z.string().nullable().optional(),
 });
 export type UpdateChannelInput = z.infer<typeof updateChannelSchema>;
 

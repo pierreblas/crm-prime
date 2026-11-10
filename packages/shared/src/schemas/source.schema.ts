@@ -2,6 +2,22 @@ import { z } from "zod";
 import { Role } from "../enums.js";
 import { userPermissionsSchema } from "../permissions.js";
 
+/**
+ * Vías de entrada que crean su propia fuente al conectar el canal: quien
+ * escribe por ahí entra con ella sin que nadie lo etiquete. Se reconocen por
+ * este tipo, no por el nombre, así que la empresa puede renombrarlas.
+ */
+export const sourceKinds = ["whatsapp", "ad", "form", "messenger", "instagram", "tiktok"] as const;
+export type SourceKind = (typeof sourceKinds)[number];
+export const SOURCE_KIND_LABEL: Record<SourceKind, string> = {
+  whatsapp: "Chats de WhatsApp",
+  ad: "Anuncios click-to-WhatsApp",
+  form: "Formularios de Facebook e Instagram",
+  messenger: "Messenger",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+};
+
 // Fuente (origen del lead).
 export const sourceDtoSchema = z.object({
   id: z.string(),
@@ -9,6 +25,10 @@ export const sourceDtoSchema = z.object({
   color: z.string().nullable(),
   contactCount: z.number(),
   createdAt: z.string(),
+  /** Automática de una vía de entrada (se renombra, no se borra); null = creada por la empresa. */
+  kind: z.enum(sourceKinds).nullable().default(null),
+  /** Qué canales traen contactos a esta fuente hoy (números, páginas, anuncios). */
+  channels: z.array(z.object({ kind: z.enum(sourceKinds), label: z.string() })).default([]),
 });
 export type SourceDto = z.infer<typeof sourceDtoSchema>;
 

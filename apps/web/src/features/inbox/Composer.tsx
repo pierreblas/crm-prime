@@ -3,7 +3,7 @@
 import { emptyMessageLabel } from "./emptyMessage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { MessageDto, QuickReplyDto, RewriteMode } from "@crm/shared";
+import type { ChannelKind, MessageDto, QuickReplyDto, RewriteMode } from "@crm/shared";
 import { renderQuickReply } from "@crm/shared";
 import { fetchQuickReplies, mediaSrc, type UploadedMedia } from "@/lib/bff";
 import { NavIcon, type IconName } from "@/components/NavIcons";
@@ -37,6 +37,7 @@ export function Composer({
   onOpenTemplates,
   onOpenButtons,
   windowOpen,
+  channelKind = "whatsapp",
   onSuggest,
   suggesting,
   copilot,
@@ -59,6 +60,8 @@ export function Composer({
   onOpenButtons: () => void;
   /** Dentro de las 24h se puede escribir libre; fuera, solo plantillas. */
   windowOpen: boolean;
+  /** Messenger e Instagram no tienen plantillas. */
+  channelKind?: ChannelKind;
   /** Pide a la IA un borrador y lo carga en el cuadro. */
   onSuggest: () => void;
   suggesting: boolean;
@@ -202,6 +205,8 @@ export function Composer({
       labelKey: "inbox.templateAction",
       hintKey: "inbox.templateHint",
       onClick: onOpenTemplates,
+      disabled: channelKind !== "whatsapp",
+      disabledHintKey: "inbox.templatesWhatsappOnly",
     },
     {
       icon: "buttons",

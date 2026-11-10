@@ -18,6 +18,7 @@ export const webhookEvents = [
   "booking.created",
   "booking.rescheduled",
   "booking.cancelled",
+  "catalog.synced",
 ] as const;
 export type WebhookEvent = (typeof webhookEvents)[number];
 
@@ -31,6 +32,7 @@ export const webhookEventLabels: Record<WebhookEvent, string> = {
   "booking.created": "Se reserva una cita",
   "booking.rescheduled": "Se mueve una cita",
   "booking.cancelled": "Se cancela una cita",
+  "catalog.synced": "Se actualiza el catálogo desde una tienda o la API",
 };
 
 export const webhookSubscriptionSchema = z.object({

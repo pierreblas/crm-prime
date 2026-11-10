@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -15,6 +16,7 @@ import type { ProductField } from "@prisma/client";
 import {
   createProductFieldSchema,
   isListFieldType,
+  productFieldKey,
   productFieldTypes,
   reorderProductFieldsSchema,
   Role,
@@ -64,9 +66,10 @@ export class ProductFieldsController {
     const count = await this.prisma.productField.count();
     if (count >= MAX_FIELDS) throw new BadRequestException(`Máximo ${MAX_FIELDS} campos`);
     assertOptions(body.type, body.options);
-    const base = slug(body.label);
-    let key = base;
-    for (let i = 2; await this.prisma.productField.findFirst({ where: { key } }); i++) key = `${base}_${i}`;
+    if (body.key && (await this.prisma.productField.findFirst({ where: { key: body.key } }))) {
+      throw new ConflictException(`Ya hay un campo con la clave «${body.key}»`);
+    }
+    const key = body.key ?? (await this.uniqueKey(slug(body.label)));
     const f = await this.prisma.productField.create({
       data: {
         orgId: this.tenant.orgId(),
@@ -83,6 +86,13 @@ export class ProductFieldsController {
       },
     });
     return toDto(f);
+  }
+
+  /** La clave propuesta, esquivando las que ya existen: talla, talla_2, talla_3… */
+  private async uniqueKey(base: string): Promise<string> {
+    let key = base;
+    for (let i = 2; await this.prisma.productField.findFirst({ where: { key } }); i++) key = `${base}_${i}`;
+    return key;
   }
 
   /** Nuevo orden: la lista completa de ids, de primero a último. */
@@ -141,16 +151,9 @@ function assertOptions(type: string, options: string[]) {
   }
 }
 
+// La clave que se propone cuando no se elige una: la misma regla que ve el usuario y que usan los conectores (@crm/shared).
 function slug(label: string): string {
-  return (
-    label
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 40) || "campo"
-  );
+  return productFieldKey(label);
 }
 
 function toDto(f: ProductField): ProductFieldDto {

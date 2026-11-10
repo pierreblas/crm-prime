@@ -1,15 +1,25 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
 } from "@nestjs/common";
 import {
+  bulkPublicProductsSchema,
+  createPublicProductSchema,
+  listProductsQuerySchema,
+  updatePublicProductSchema,
+  type BulkPublicProductsInput,
+  type CreatePublicProductInput,
+  type ListProductsQuery,
+  type UpdatePublicProductInput,
   createPublicContactSchema,
   createPublicDealSchema,
   listContactsQuerySchema,
@@ -32,6 +42,7 @@ import { ApiKeyGuard } from "../../common/guards/api-key.guard";
 import { Scopes } from "../../common/decorators/scopes.decorator";
 import type { AuthenticatedApiKey } from "../api-keys/api-key.service";
 import { PublicApiService } from "./public-api.service";
+import { PublicProductsService } from "./public-products.service";
 
 /**
  * API pública para integraciones (`/api/public/v1`).
@@ -48,7 +59,10 @@ import { PublicApiService } from "./public-api.service";
 @Controller("api/public/v1")
 @UseGuards(ApiKeyGuard)
 export class PublicApiController {
-  constructor(private readonly api: PublicApiService) {}
+  constructor(
+    private readonly api: PublicApiService,
+    private readonly products: PublicProductsService,
+  ) {}
 
   // ── Contactos ───────────────────────────────────────────────
   @Get("contacts")
@@ -122,6 +136,55 @@ export class PublicApiController {
     body: SendPublicMessageInput,
   ) {
     return this.api.sendMessage(body);
+  }
+
+  // ── Catálogo ────────────────────────────────────────────────
+  @Get("products")
+  @ApiOperation({ summary: "Lista productos, paginados por cursor" })
+  @Scopes("products:read")
+  listProducts(@Query(new ZodValidationPipe(listProductsQuerySchema)) query: ListProductsQuery) {
+    return this.products.list(query);
+  }
+
+  @Get("products/:id")
+  @ApiOperation({ summary: "Un producto por su id" })
+  @Scopes("products:read")
+  getProduct(@Param("id") id: string) {
+    return this.products.get(id);
+  }
+
+  @Post("products")
+  @ApiOperation({ summary: "Crea un producto" })
+  @Scopes("products:write")
+  createProduct(
+    @Body(new ZodValidationPipe(createPublicProductSchema)) body: CreatePublicProductInput,
+    @Req() req: { apiKey?: AuthenticatedApiKey | null },
+  ) {
+    return this.products.create(body, req.apiKey?.name ?? "api");
+  }
+
+  @Put("products/bulk")
+  @ApiOperation({ summary: "Carga el catálogo en bloque: crea o actualiza por SKU" })
+  @Scopes("products:write")
+  bulkProducts(
+    @Body(new ZodValidationPipe(bulkPublicProductsSchema)) body: BulkPublicProductsInput,
+    @Req() req: { apiKey?: AuthenticatedApiKey | null },
+  ) {
+    return this.products.bulk(body, req.apiKey?.name ?? "api");
+  }
+
+  @Patch("products/:id")
+  @ApiOperation({ summary: "Actualiza un producto" })
+  @Scopes("products:write")
+  updateProduct(@Param("id") id: string, @Body(new ZodValidationPipe(updatePublicProductSchema)) body: UpdatePublicProductInput) {
+    return this.products.update(id, body);
+  }
+
+  @Delete("products/:id")
+  @ApiOperation({ summary: "Elimina un producto" })
+  @Scopes("products:write")
+  deleteProduct(@Param("id") id: string) {
+    return this.products.remove(id);
   }
 
   // ── Métricas ────────────────────────────────────────────────

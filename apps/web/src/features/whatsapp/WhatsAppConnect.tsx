@@ -873,7 +873,7 @@ function ChannelRow({
   onImportEnv: () => void;
   importing: boolean;
   /** A qué embudo entra y qué agente lo atiende, en palabras. */
-  routing: { pipeline: string; bot: string; flows: number };
+  routing: { pipeline: string; bot: string; source: string; flows: number };
   onConfigure: () => void;
   onDisconnect: () => void;
   onUpdateToken: () => void;
@@ -922,6 +922,10 @@ function ChannelRow({
               <span title="Agente de IA que atiende este número">
                 <NavIcon name="bot" size={12} />
                 {routing.bot}
+              </span>
+              <span title="Fuente con la que entran los contactos de este número">
+                <NavIcon name="target" size={12} />
+                {routing.source}
               </span>
               {routing.flows > 0 && (
                 <span title="Flujos que escuchan solo este número">

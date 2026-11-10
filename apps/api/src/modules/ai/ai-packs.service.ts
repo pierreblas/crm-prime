@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
 import type { AiPackDto } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { monthStart } from "./ai-usage.service";
@@ -66,41 +65,40 @@ export class AiPacksService {
   /**
    * Gasta una conversación extra para esta conversación este mes. true si ya
    * la tenía o si quedaba saldo; false si no queda nada.
+   *
+   * Todo en una transacción con un cerrojo por conversación: dos mensajes de
+   * la misma conversación a la vez (el autopilot responde en paralelo) no
+   * compiten por los paquetes; el segundo espera, ve el apunte del primero y
+   * no gasta. Sin el cerrojo, cada uno restaba de un paquete distinto y el que
+   * perdía la carrera devolvía el suyo: una conversación bien cobrada, pero
+   * gastada del paquete equivocado (el que vence después).
    */
   async consume(orgId: string, conversationId: string): Promise<boolean> {
     const month = monthStart();
-    const done = await this.prisma.aiPackUse.findFirst({
-      where: { orgId, conversationId, month },
-      select: { id: true },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${orgId}:${conversationId}`}))`;
+      const done = await tx.aiPackUse.findFirst({
+        where: { orgId, conversationId, month },
+        select: { id: true },
+      });
+      if (done) return true;
+
+      // Restar y elegir el paquete en una sola sentencia: el que vence antes.
+      // SKIP LOCKED: conversaciones distintas a la vez no se esperan entre sí.
+      const [hit] = await tx.$queryRaw<Array<{ id: string }>>`
+        UPDATE ai_packs SET used = used + 1
+        WHERE id = (
+          SELECT id FROM ai_packs
+          WHERE "orgId" = ${orgId} AND "expiresAt" > now() AND used < conversations
+          ORDER BY "expiresAt", "createdAt"
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+        )
+        RETURNING id
+      `;
+      if (!hit) return false;
+      await tx.aiPackUse.create({ data: { orgId, packId: hit.id, conversationId, month } });
+      return true;
     });
-    if (done) return true;
-
-    // Restar y elegir el paquete en una sola sentencia: dos mensajes a la vez
-    // no pueden gastar la misma última conversación de un paquete.
-    const [hit] = await this.prisma.$queryRaw<Array<{ id: string }>>`
-      UPDATE ai_packs SET used = used + 1
-      WHERE id = (
-        SELECT id FROM ai_packs
-        WHERE "orgId" = ${orgId} AND "expiresAt" > now() AND used < conversations
-        ORDER BY "expiresAt", "createdAt"
-        LIMIT 1
-        FOR UPDATE SKIP LOCKED
-      )
-      RETURNING id
-    `;
-    if (!hit) return false;
-
-    try {
-      await this.prisma.aiPackUse.create({ data: { orgId, packId: hit.id, conversationId, month } });
-    } catch (e) {
-      // Otra petición apuntó la misma conversación a la vez: ya está pagada,
-      // así que se devuelve la que acabamos de restar.
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-        await this.prisma.$executeRaw`UPDATE ai_packs SET used = used - 1 WHERE id = ${hit.id} AND used > 0`;
-        return true;
-      }
-      throw e;
-    }
-    return true;
   }
 }

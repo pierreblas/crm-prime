@@ -17,7 +17,7 @@
  */
 
 export function normalizePhone(raw: string): string {
-  if (isWaUserId(raw.trim())) return raw.trim();
+  if (isWaUserId(raw.trim()) || isSocialId(raw.trim())) return raw.trim();
   // "00" inicial es la marcación internacional: equivale al "+".
   const trimmed = raw.trim().replace(/^00/, "+");
   const digits = trimmed.replace(/\D/g, "");
@@ -41,7 +41,43 @@ export function isValidPhone(value: string): boolean {
 const WA_USER_ID = /^[A-Z]{2}\.(?:ENT\.)?[A-Za-z0-9]{1,128}$/;
 
 export function isWaUserId(value: string | null | undefined): boolean {
-  return !!value && WA_USER_ID.test(value);
+  return !!value && !SOCIAL_ID.test(value) && WA_USER_ID.test(value);
+}
+
+/**
+ * Identificador de un cliente de Messenger o Instagram, que no tiene teléfono:
+ * «FB.<id>» (el id que Meta le da a esa persona para esa página) o «IG.<id>».
+ * Ocupa el sitio del teléfono en el contacto (es único por empresa) hasta que
+ * el cliente dé su número. «FB» e «IG» no son países: no choca con los
+ * identificadores de usuario de WhatsApp.
+ */
+const SOCIAL_ID = /^(FB|IG)\.\d{3,40}$|^TIK\.[A-Za-z0-9_-]{3,80}$/;
+export type SocialChannel = "messenger" | "instagram" | "tiktok";
+const SOCIAL_PREFIX: Record<SocialChannel, string> = { messenger: "FB", instagram: "IG", tiktok: "TIK" };
+
+export function isSocialId(value: string | null | undefined): boolean {
+  return !!value && SOCIAL_ID.test(value);
+}
+
+/** El «teléfono» con el que se guarda a quien escribe por Messenger o Instagram. */
+export function socialId(kind: SocialChannel, userId: string): string {
+  return `${SOCIAL_PREFIX[kind]}.${userId}`;
+}
+
+/** De qué red es un identificador social; null si es un teléfono o un usuario de WhatsApp. */
+export function socialChannelOf(phone: string | null | undefined): SocialChannel | null {
+  if (!isSocialId(phone)) return null;
+  return phone!.startsWith("FB.") ? "messenger" : phone!.startsWith("IG.") ? "instagram" : "tiktok";
+}
+
+/** El id de Meta dentro de un identificador social («FB.123» → «123»). */
+export function socialUserId(phone: string): string {
+  return phone.slice(phone.indexOf(".") + 1);
+}
+
+/** Hay un número al que llamar: ni usuario de WhatsApp sin número ni cliente de Messenger o Instagram. */
+export function isDialable(phone: string | null | undefined): boolean {
+  return !!phone && !isWaUserId(phone) && !isSocialId(phone);
 }
 
 /**
@@ -49,6 +85,8 @@ export function isWaUserId(value: string | null | undefined): boolean {
  * («@tienda.ana») si escribe con usuario de WhatsApp sin compartir el número.
  */
 export function phoneLabel(phone: string, username?: string | null): string {
+  const social = socialChannelOf(phone);
+  if (social) return username ? `@${username.replace(/^@/, "")}` : social === "messenger" ? "Messenger" : social === "instagram" ? "Instagram" : "TikTok";
   if (!isWaUserId(phone)) return phone;
   return username ? `@${username.replace(/^@/, "")}` : "Usuario de WhatsApp";
 }
@@ -76,7 +114,7 @@ export function phoneWithDefaultCountry(raw: string, dialCode: string | null): s
  * formulario y su chat de WhatsApp quedan como dos contactos distintos.
  */
 export function phoneVariants(e164: string): string[] {
-  if (isWaUserId(e164)) return [e164];
+  if (isWaUserId(e164) || isSocialId(e164)) return [e164];
   const d = e164.replace(/\D/g, "");
   if (!d) return [];
   const out = new Set([`+${d}`]);

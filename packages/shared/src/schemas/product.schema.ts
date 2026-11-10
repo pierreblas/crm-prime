@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { fieldKeyFromLabel, fieldKeySchema } from "./contact-import.schema.js";
 
 export const productDtoSchema = z.object({
   id: z.string(),
@@ -14,6 +15,8 @@ export const productDtoSchema = z.object({
   imageUrl: z.string().nullable(),
   isActive: z.boolean(),
   createdAt: z.string(),
+  // De qué tienda u hoja conectada viene (null si se creó a mano o por archivo).
+  source: z.object({ id: z.string(), kind: z.string(), name: z.string() }).nullable().default(null),
 });
 export type ProductDto = z.infer<typeof productDtoSchema>;
 
@@ -84,11 +87,11 @@ export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 export const PRODUCT_IMPORT_FIELDS = [
   { key: "name", label: "Nombre", required: true, aliases: ["nombre", "producto", "name", "title", "titulo", "título"] },
   { key: "sku", label: "SKU", required: false, aliases: ["sku", "codigo", "código", "code", "referencia", "ref"] },
-  { key: "price", label: "Precio", required: true, aliases: ["precio", "price", "valor", "importe", "monto"] },
+  { key: "price", label: "Precio", required: true, aliases: ["precio", "price", "valor", "importe", "monto", "regular price", "precio regular", "precio normal", "pvp"] },
   { key: "currency", label: "Moneda", required: false, aliases: ["moneda", "currency", "divisa"] },
   { key: "description", label: "Descripción", required: false, aliases: ["descripcion", "descripción", "description", "detalle", "detalles"] },
-  { key: "imageUrl", label: "Imagen (URL)", required: false, aliases: ["imagen", "image", "imageurl", "image_url", "foto", "url imagen", "url de imagen"] },
-  { key: "isActive", label: "Activo", required: false, aliases: ["activo", "active", "isactive", "estado", "habilitado", "disponible"] },
+  { key: "imageUrl", label: "Imagen (URL)", required: false, aliases: ["imagen", "image", "imageurl", "image_url", "foto", "url imagen", "url de imagen", "images", "imagenes", "fotos"] },
+  { key: "isActive", label: "Activo", required: false, aliases: ["activo", "active", "isactive", "estado", "habilitado", "disponible", "published", "publicado"] },
 ] as const;
 
 export type ProductImportField = (typeof PRODUCT_IMPORT_FIELDS)[number]["key"];
@@ -149,7 +152,7 @@ export function parseImportPrice(raw: string): number | null {
 }
 
 const TRUTHY = ["si", "sí", "true", "1", "activo", "yes", "y", "x", "verdadero"];
-const FALSY = ["no", "false", "0", "inactivo", "n", "falso"];
+const FALSY = ["no", "false", "0", "-1", "inactivo", "n", "falso"];
 
 export function parseImportBoolean(raw: string, fallback = true): boolean {
   const v = normalizeHeader(raw);
@@ -260,6 +263,8 @@ const fieldText = (max: number) =>
 
 export const createProductFieldSchema = z.object({
   label: z.string().trim().min(1, "Ponle un nombre").max(80),
+  /** Clave para la API y la importación. Si no viene, se propone del nombre. Fija una vez creado el campo. */
+  key: fieldKeySchema.optional(),
   type: z.enum(productFieldTypes).default("text"),
   options: fieldOptions.default([]),
   unit: fieldText(20),
@@ -283,6 +288,26 @@ export const updateProductFieldSchema = z.object({
 export type UpdateProductFieldInput = z.input<typeof updateProductFieldSchema>;
 
 export const reorderProductFieldsSchema = z.object({ ids: z.array(z.string()).min(1).max(200) });
+
+/**
+ * La clave que se PROPONE para un campo de producto a partir de su nombre:
+ * «Talla» → talla, «Fecha de inicio» → fecha_de_inicio. Quien crea el campo
+ * puede cambiarla; una vez creado es fija aunque se renombre el campo, porque
+ * es lo que usan la API (`fields`), la importación y las tiendas conectadas.
+ * Misma regla que los campos de contacto (fieldKeyFromLabel), en la API, los
+ * conectores y la interfaz.
+ */
+export function productFieldKey(label: string): string {
+  return fieldKeyFromLabel(label);
+}
+
+/** La clave que recibirá un campo nuevo con ese nombre, esquivando las que ya existen (talla, talla_2…). */
+export function nextProductFieldKey(label: string, taken: ReadonlyArray<string>): string {
+  const base = productFieldKey(label);
+  let key = base;
+  for (let i = 2; taken.includes(key); i++) key = `${base}_${i}`;
+  return key;
+}
 
 type FieldShape = { label: string; type: string; options: string[]; unit?: string | null; required?: boolean };
 
@@ -438,7 +463,8 @@ export function toProductImportRow(
     if (parsedField.value) attributes[f.key] = parsedField.value;
   }
 
-  const rawImage = get("imageUrl");
+  // Varias imágenes separadas por comas (como exporta WooCommerce): se queda la primera.
+  const rawImage = get("imageUrl").split(/[,\s]+/)[0] ?? "";
   const imageUrl = rawImage
     ? /^https?:\/\//i.test(rawImage)
       ? rawImage
