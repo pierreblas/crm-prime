@@ -12,6 +12,8 @@ export interface LeadCreatedEvent {
   via: "meta" | "webhook" | "api";
   formName?: string | null;
   formId?: string | null;
+  /** Importado o reprocesado a mano: no arranca flujos. */
+  silent?: boolean;
 }
 
 export interface ContactTaggedEvent {
@@ -51,6 +53,7 @@ export class FlowTriggersService {
 
   @OnEvent("lead.created", { async: true })
   async onLead(e: LeadCreatedEvent): Promise<void> {
+    if (e.silent) return;
     await this.safe("lead.created", e.orgId, () =>
       this.engine.onLead(e.contactId, e.via, { formName: e.formName ?? null, formId: e.formId ?? null }),
     );

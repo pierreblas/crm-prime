@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Prisma } from "@prisma/client";
 import {
@@ -33,6 +33,7 @@ type LeadPage = {
   createDeal: boolean;
   dealStageId: string | null;
   formRules: unknown;
+  newFormsEnter?: boolean;
   welcomeTemplateId: string | null;
 };
 
@@ -41,6 +42,21 @@ export interface LeadgenNotification {
   pageId: string;
   formId?: string;
   adId?: string;
+  /** Importado de los leads anteriores del formulario: sin bienvenida ni flujos. */
+  backfill?: boolean;
+  /** Cuándo se envió en Meta (los importados conservan su fecha). */
+  createdTime?: string | null;
+}
+
+/** Al crear el contacto: `silent` = sin plantilla de bienvenida ni flujos (importaciones y reprocesados). */
+type ContactOpts = { silent?: boolean };
+
+/** La fecha de envío que da Meta («2026-10-01T10:00:00+0000»), como Date; null si no viene o no se entiende. */
+function sentAt(raw: string | null | undefined): Date | null {
+  if (!raw) return null;
+  const iso = raw.replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? null : new Date(t);
 }
 
 /**
@@ -64,6 +80,13 @@ export class MetaLeadService {
   /** La regla de ese formulario en la página, si la tiene. */
   private ruleFor(page: LeadPage, formId: string | null | undefined) {
     return formId ? parseMetaFormRules(page.formRules).find((r) => r.formId === formId) : undefined;
+  }
+
+  /** Si los leads de ese formulario entran: lo que diga su regla o, sin regla, la política de la página para los nuevos. */
+  private formEnters(page: LeadPage, formId: string | null | undefined): boolean {
+    if (!formId) return true;
+    const rule = this.ruleFor(page, formId);
+    return rule ? rule.enabled : page.newFormsEnter !== false;
   }
 
   /**
@@ -96,8 +119,8 @@ export class MetaLeadService {
       );
       return;
     }
-    // Formulario apagado en Ajustes: sus leads no entran.
-    if (this.ruleFor(page, note.formId)?.enabled === false) {
+    // Formulario apagado en Ajustes (o nuevo en una página que los deja esperando): sus leads no entran.
+    if (!this.formEnters(page, note.formId)) {
       this.logger.log(`Lead ${note.leadgenId} del formulario ${note.formId}, desactivado: se ignora`);
       return;
     }
@@ -115,7 +138,7 @@ export class MetaLeadService {
     }
 
     // El aviso de Meta puede no traer el formulario: con el del lead se mira otra vez.
-    if (!note.formId && this.ruleFor(page, detail.formId)?.enabled === false) {
+    if (!note.formId && !this.formEnters(page, detail.formId)) {
       this.logger.log(`Lead ${note.leadgenId} del formulario ${detail.formId}, desactivado: se ignora`);
       return;
     }
@@ -140,7 +163,9 @@ export class MetaLeadService {
       return;
     }
 
-    const contactId = await this.createContact(page, mapped, formName, ad, detail.formId ?? note.formId ?? null);
+    const contactId = await this.createContact(page, mapped, formName, ad, detail.formId ?? note.formId ?? null, {
+      silent: !!note.backfill,
+    });
 
     await this.record(
       { ...note, formId: detail.formId ?? undefined },
@@ -149,7 +174,7 @@ export class MetaLeadService {
       { status: "PROCESSED", formName, ...ad, ...mapped, contactId },
     );
     this.logger.log(
-      `Lead ${note.leadgenId} → contacto ${contactId} (${page.name})`,
+      `Lead ${note.leadgenId} → contacto ${contactId} (${page.name})${note.backfill ? " [importado]" : ""}`,
     );
   }
 
@@ -160,6 +185,7 @@ export class MetaLeadService {
     formName: string | null,
     ad: { adName: string | null; campaignName: string | null } = { adName: null, campaignName: null },
     formId: string | null = null,
+    opts: ContactOpts = {},
   ): Promise<string> {
     // Fuente: la del formulario si la tiene («auto» = la automática); si no, o
     // si ya no existe, la de la página. Etiquetas: las de los dos.
@@ -193,15 +219,16 @@ export class MetaLeadService {
         integration: `Meta · ${page.name}`,
       },
       `Meta Lead Ads · ${page.name}`,
-      { via: "meta", formName, formId },
+      { via: "meta", formName, formId, silent: !!opts.silent },
     );
     if (!source) await this.formSource(page.orgId, contactId);
 
     const target = this.dealTarget(page, formId);
     if (target) {
-      await runAsActor("system:meta", () => this.createDeal(page.orgId, contactId, mapped.name, formName, target.stageId));
+      await runAsActor("system:meta", () => this.createDeal(page.orgId, contactId, mapped.name, formName, target.stageId, !!opts.silent));
     }
-    if (page.welcomeTemplateId) {
+    // Un lead importado o reprocesado puede ser de hace semanas: no se le escribe solo.
+    if (page.welcomeTemplateId && !opts.silent) {
       await this.sendWelcome(page.orgId, contactId, page.welcomeTemplateId);
     }
 
@@ -242,7 +269,8 @@ export class MetaLeadService {
    * del embudo predeterminado). Como la entrada desde WhatsApp: si el cliente
    * ya tiene una en curso no se duplica, y una descartada por inactividad en
    * ese embudo vuelve. Avisa del cambio de etapa para que corran sus
-   * automatizaciones, conversiones y flujos.
+   * automatizaciones, conversiones y flujos, salvo en silencio (leads
+   * importados o reprocesados: el tablero se entera, las automatizaciones no).
    */
   private async createDeal(
     orgId: string,
@@ -250,6 +278,7 @@ export class MetaLeadService {
     name: string | null,
     formName: string | null,
     stageId: string | null,
+    silent = false,
   ): Promise<void> {
     const select = { id: true, pipelineId: true } as const;
     const stage =
@@ -290,7 +319,7 @@ export class MetaLeadService {
                 },
               })
             ).id;
-      this.events.emit("deal.stage_changed", { orgId, dealId, contactId, stageId: stage.id });
+      if (!silent) this.events.emit("deal.stage_changed", { orgId, dealId, contactId, stageId: stage.id });
       this.events.emit("pipeline.changed", { orgId, dealId });
     } catch (e) {
       this.logger.warn(`No se pudo crear la oportunidad: ${(e as Error).message}`);
@@ -376,23 +405,51 @@ export class MetaLeadService {
         status: extra.status,
         error: extra.error ?? null,
         contactId: extra.contactId ?? null,
+        // Un lead importado conserva la fecha en que se envió (Meta la manda con «+0000», sin los dos puntos).
+        ...(sentAt(note.createdTime) ? { createdAt: sentAt(note.createdTime)! } : {}),
       },
     });
   }
 
   // ── Bandeja de leads ───────────────────────────────────────
-  async listLeads(status?: MetaLeadStatusValue): Promise<MetaLeadDto[]> {
+  async listLeads(filter: { status?: MetaLeadStatusValue; pageId?: string; formId?: string } = {}): Promise<MetaLeadDto[]> {
     const rows = await this.prisma.metaLead.findMany({
-      where: status ? { status } : undefined,
+      where: {
+        ...(filter.status ? { status: filter.status } : {}),
+        ...(filter.pageId ? { pageId: filter.pageId } : {}),
+        ...(filter.formId ? { formId: filter.formId } : {}),
+      },
       orderBy: { createdAt: "desc" },
       take: 200,
       include: { page: { select: { name: true } } },
     });
-    return rows.map((r) => ({
+    return rows.map((r) => this.toDto(r));
+  }
+
+  private toDto(r: {
+    id: string;
+    leadgenId: string;
+    pageId: string;
+    page: { name: string };
+    formId: string | null;
+    formName: string | null;
+    adName: string | null;
+    campaignName: string | null;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    status: string;
+    error: string | null;
+    contactId: string | null;
+    fieldData: unknown;
+    createdAt: Date;
+  }): MetaLeadDto {
+    return {
       id: r.id,
       leadgenId: r.leadgenId,
       pageId: r.pageId,
       pageName: r.page.name,
+      formId: r.formId,
       formName: r.formName,
       adName: r.adName,
       campaignName: r.campaignName,
@@ -404,7 +461,62 @@ export class MetaLeadService {
       contactId: r.contactId,
       fields: (r.fieldData as MetaLeadField[] | null) ?? [],
       createdAt: r.createdAt.toISOString(),
-    }));
+    };
+  }
+
+  /**
+   * Vuelve a pasar un lead con la configuración actual del formulario: tras
+   * corregir a dónde va cada pregunta, o si falló al leerlo. Uno que falló se
+   * vuelve a pedir a Meta. Si ahora tiene teléfono, crea o actualiza el
+   * contacto (en silencio: sin bienvenida ni flujos); si no, queda pendiente.
+   */
+  async reprocessLead(id: string): Promise<MetaLeadDto> {
+    const lead = await this.prisma.metaLead.findUnique({ where: { id }, include: { page: true } });
+    if (!lead) throw new NotFoundException("Lead no encontrado");
+    let fields = (lead.fieldData as MetaLeadField[] | null) ?? [];
+    let formId = lead.formId;
+    let formName = lead.formName;
+    let ad = { adName: lead.adName, campaignName: lead.campaignName, platform: lead.platform };
+    if (lead.status === "ERROR" || fields.length === 0) {
+      const detail = await this.graph.getLead(lead.leadgenId, lead.page.accessToken);
+      fields = detail.fields;
+      formId = detail.formId ?? formId;
+      const [name, info] = await Promise.all([
+        formId ? this.graph.getFormName(formId, lead.page.accessToken) : null,
+        this.graph.getLeadAdInfo(lead.leadgenId, lead.page.accessToken),
+      ]);
+      formName = name ?? formName;
+      if (info) ad = info;
+    }
+    if (!this.formEnters(lead.page, formId)) throw new BadRequestException("Ese formulario está apagado: actívalo para reprocesar sus leads.");
+
+    const mapped = mapMetaLeadFields(fields, this.ruleFor(lead.page, formId)?.fieldMap);
+    // El mismo número que recibe el contacto (E.164, con el prefijo de la empresa si falta). Uno
+    // puesto a mano al convertirlo se conserva si el formulario no trae ninguno.
+    const phone = mapped.phone ? phoneWithDefaultCountry(mapped.phone, await this.defaultDialCode()) : lead.phone;
+    const base = {
+      fieldData: fields as unknown as Prisma.InputJsonValue,
+      formId,
+      formName,
+      adName: ad.adName,
+      campaignName: ad.campaignName,
+      platform: ad.platform,
+      name: mapped.name ?? lead.name,
+      email: mapped.email ?? lead.email,
+      error: null,
+    };
+    if (!phone) {
+      const row = await this.prisma.metaLead.update({ where: { id }, data: { ...base, status: "NO_PHONE" }, include: { page: { select: { name: true } } } });
+      return this.toDto(row);
+    }
+    const contactId = await this.createContact(lead.page, { ...mapped, phone }, formName, ad, formId, { silent: true });
+    const row = await this.prisma.metaLead.update({
+      where: { id },
+      data: { ...base, phone, status: "PROCESSED", contactId },
+      include: { page: { select: { name: true } } },
+    });
+    this.logger.log(`Lead ${lead.leadgenId} reprocesado → contacto ${contactId}`);
+    return this.toDto(row);
   }
 
   /** Convierte a contacto un lead que llegó sin teléfono. */

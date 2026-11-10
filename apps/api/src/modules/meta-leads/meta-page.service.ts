@@ -5,11 +5,14 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
 import type { Prisma } from "@prisma/client";
 import {
   defaultMetaFormRule,
   parseMetaFormRules,
   type AvailableMetaPage,
+  type ImportMetaFormLeadsResult,
   type MetaFormQuestion,
   type MetaFormQuestionsResult,
   type MetaFormRule,
@@ -19,9 +22,11 @@ import {
   type MetaMessagingChannel,
   type MetaPageDto,
   type MetaPagesAvailableResult,
+  type MetaSessionFormsResult,
   type UpdateMetaPageInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { QUEUE_META_LEADS } from "../../infra/queue/queue.constants";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { MetaGraphClient, type MetaPageAccount } from "./meta-graph.client";
 import { fuenteAutomatica } from "../sources/fuente-automatica";
@@ -80,16 +85,19 @@ function subscribedFields(page: { messengerEnabled: boolean; instagramEnabled: b
 @Injectable()
 export class MetaPageService {
   private readonly logger = new Logger("MetaPages");
-  // No se guarda en la BD: es un token temporal de un paso intermedio.
+  // No se guarda en la BD: es un token temporal de un paso intermedio. Los
+  // formularios que se listaron en ese paso se recuerdan para guardar sus
+  // reglas al conectar.
   private readonly sessions = new Map<
     string,
-    { pages: MetaPageAccount[]; expiresAt: number }
+    { pages: MetaPageAccount[]; forms: Map<string, { id: string; name: string; status: string | null }[] | null>; expiresAt: number }
   >();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
     private readonly graph: MetaGraphClient,
+    @InjectQueue(QUEUE_META_LEADS) private readonly queue: Queue,
   ) {}
 
   /** Paso 1: del login (token, o código antiguo) a las páginas del usuario (sin sus tokens). */
@@ -112,6 +120,7 @@ export class MetaPageService {
     const sessionId = randomUUID();
     this.sessions.set(sessionId, {
       pages,
+      forms: new Map(),
       expiresAt: Date.now() + SESSION_TTL_MS,
     });
     this.cleanSessions();
@@ -124,18 +133,72 @@ export class MetaPageService {
     return { sessionId, pages: list };
   }
 
-  /**
-   * Paso 2: guarda las páginas elegidas y las suscribe a los avisos. Con
-   * `enable`, además enciende Messenger o Instagram en cada una.
-   */
-  async connect(sessionId: string, pageIds: string[], enable?: MetaMessagingChannel): Promise<MetaPageDto[]> {
+  private session(sessionId: string) {
     const session = this.sessions.get(sessionId);
     if (!session || session.expiresAt < Date.now()) {
       this.sessions.delete(sessionId);
-      throw new BadRequestException(
-        "La conexión con Facebook caducó. Vuelve a iniciar sesión.",
-      );
+      throw new BadRequestException("La conexión con Facebook caducó. Vuelve a iniciar sesión.");
     }
+    return session;
+  }
+
+  /**
+   * Paso intermedio: los formularios de las páginas elegidas, para marcar
+   * cuáles entran antes de conectar. Una página ya conectada sale con lo que
+   * tiene configurado. Si Meta no deja listarlos (permiso), se dice y la
+   * página entra con todos, como siempre.
+   */
+  async sessionForms(sessionId: string, pageIds: string[]): Promise<MetaSessionFormsResult> {
+    const session = this.session(sessionId);
+    const pages: MetaSessionFormsResult["pages"] = [];
+    for (const pageId of pageIds) {
+      const account = session.pages.find((p) => p.pageId === pageId);
+      if (!account) continue;
+      const listed = await this.graph.listForms(pageId, account.accessToken);
+      session.forms.set(pageId, listed);
+      const existing = await this.prisma.metaPage.findUnique({ where: { pageId } });
+      const rules = parseMetaFormRules(existing?.formRules);
+      const newFormsEnter = existing?.newFormsEnter ?? true;
+      const counts = existing
+        ? await this.prisma.metaLead.groupBy({ by: ["formId"], where: { pageId, formId: { not: null } }, _count: { _all: true } })
+        : [];
+      const leadCount = (formId: string) => counts.find((c) => c.formId === formId)?._count._all ?? 0;
+      const forms = (listed ?? []).map((f) => {
+        const rule = rules.find((r) => r.formId === f.id);
+        return {
+          formId: f.id,
+          formName: f.name,
+          status: f.status,
+          // Sin regla: un activo entra, un archivado no.
+          enabled: rule ? rule.enabled : newFormsEnter && f.status !== "ARCHIVED",
+          leadCount: leadCount(f.id),
+        };
+      });
+      // Una regla de un formulario que Meta ya no lista se enseña igual: tiene historia.
+      for (const r of rules) {
+        if (!forms.some((f) => f.formId === r.formId)) {
+          forms.push({ formId: r.formId, formName: r.formName || r.formId, status: null, enabled: r.enabled, leadCount: leadCount(r.formId) });
+        }
+      }
+      pages.push({ pageId, name: account.name, connected: !!existing, fromMeta: listed !== null, newFormsEnter, forms });
+    }
+    return { pages };
+  }
+
+  /**
+   * Paso 2: guarda las páginas elegidas y las suscribe a los avisos. Con
+   * `enable`, además enciende Messenger o Instagram en cada una. Con
+   * `forms`, los formularios de esa página que no estén marcados quedan
+   * apagados, y `newFormsEnter` dice qué pasa con los que se creen después.
+   */
+  async connect(
+    sessionId: string,
+    pageIds: string[],
+    enable?: MetaMessagingChannel,
+    forms?: { pageId: string; formIds: string[] }[],
+    newFormsEnter?: boolean,
+  ): Promise<MetaPageDto[]> {
+    const session = this.session(sessionId);
 
     const connected: string[] = [];
     for (const pageId of pageIds) {
@@ -164,6 +227,29 @@ export class MetaPageService {
       });
       this.logger.log(`Página conectada: ${account.name} (${account.pageId})`);
       connected.push(row.id);
+
+      // Lo elegido en el paso de formularios. Solo si Meta los listó: sin
+      // lista no hay qué apagar, y «esperan» dejaría la página sin entradas.
+      const pick = forms?.find((f) => f.pageId === pageId);
+      const known = session.forms.get(pageId);
+      if (pick && known) {
+        const wanted = new Set(pick.formIds);
+        const previous = parseMetaFormRules(row.formRules);
+        const rules: MetaFormRule[] = known.map((f) => ({
+          ...(previous.find((r) => r.formId === f.id) ?? defaultMetaFormRule(f.id, f.name)),
+          formName: f.name,
+          enabled: wanted.has(f.id),
+        }));
+        for (const r of previous) if (!rules.some((x) => x.formId === r.formId)) rules.push({ ...r, enabled: wanted.has(r.formId) });
+        await this.prisma.metaPage.update({
+          where: { id: row.id },
+          data: {
+            formRules: rules as unknown as Prisma.InputJsonValue,
+            ...(newFormsEnter !== undefined ? { newFormsEnter } : {}),
+          },
+        });
+        this.logger.log(`Página ${account.name}: ${pick.formIds.length} de ${rules.length} formularios activos`);
+      }
     }
 
     this.sessions.delete(sessionId);
@@ -208,6 +294,7 @@ export class MetaPageService {
         createDeal: p.createDeal,
         dealStageId: p.dealStageId,
         formRules: parseMetaFormRules(p.formRules),
+        newFormsEnter: p.newFormsEnter,
         welcomeTemplateId: p.welcomeTemplateId,
         messengerEnabled: p.messengerEnabled,
         instagramEnabled: p.instagramEnabled,
@@ -335,6 +422,7 @@ export class MetaPageService {
         ...(input.formRules !== undefined
           ? { formRules: input.formRules as unknown as Prisma.InputJsonValue }
           : {}),
+        ...(input.newFormsEnter !== undefined ? { newFormsEnter: input.newFormsEnter } : {}),
         ...(input.welcomeTemplateId !== undefined
           ? { welcomeTemplateId: input.welcomeTemplateId }
           : {}),
@@ -363,8 +451,9 @@ export class MetaPageService {
     ]);
     const rules = parseMetaFormRules(page.formRules);
     const byId = new Map<string, MetaLeadFormDto>();
+    // Sin regla, el formulario sigue la política de la página para los nuevos.
     const ruleOf = (formId: string, formName: string): MetaFormRule =>
-      rules.find((r) => r.formId === formId) ?? defaultMetaFormRule(formId, formName);
+      rules.find((r) => r.formId === formId) ?? defaultMetaFormRule(formId, formName, page.newFormsEnter !== false);
 
     for (const f of fromMeta ?? []) {
       byId.set(f.id, { ...ruleOf(f.id, f.name), formName: f.name, status: f.status, leadCount: 0, lastLeadAt: null });
@@ -420,9 +509,50 @@ export class MetaPageService {
       }
     }
     const byKey = new Map<string, MetaFormQuestion>();
-    for (const q of fromMeta ?? []) byKey.set(q.key, { key: q.key, label: q.label, sample: sample.get(q.key) ?? null });
-    for (const [key, value] of sample) if (!byKey.has(key)) byKey.set(key, { key, label: questionLabel(key), sample: value });
-    return { questions: [...byKey.values()], fromMeta: fromMeta !== null };
+    for (const q of fromMeta ?? []) {
+      byKey.set(q.key, { key: q.key, label: q.label, sample: sample.get(q.key) ?? null, type: q.type ?? null, options: q.options ?? [] });
+    }
+    for (const [key, value] of sample) if (!byKey.has(key)) byKey.set(key, { key, label: questionLabel(key), sample: value, type: null, options: [] });
+    const last = (recent[0]?.fieldData as MetaLeadField[] | null) ?? null;
+    return { questions: [...byKey.values()], fromMeta: fromMeta !== null, sampleLead: last && last.length ? last : null };
+  }
+
+  /**
+   * Trae los leads que Meta todavía guarda de un formulario (los últimos 90
+   * días) y encola los que no están en Driony. Cada uno se procesa después
+   * como uno recién llegado, pero marcado como importado: sin plantilla de
+   * bienvenida ni flujos.
+   */
+  async importForm(id: string, formId: string): Promise<ImportMetaFormLeadsResult> {
+    if (!/^\d{1,30}$/.test(formId)) throw new BadRequestException("Formulario no válido");
+    const page = await this.prisma.metaPage.findUnique({ where: { id } });
+    if (!page) throw new NotFoundException("Página no encontrada");
+    const rule = parseMetaFormRules(page.formRules).find((r) => r.formId === formId);
+    if (rule ? !rule.enabled : page.newFormsEnter === false) {
+      throw new BadRequestException("Ese formulario está apagado: actívalo antes de importar sus leads.");
+    }
+    const leads = await this.graph.listFormLeads(formId, page.accessToken);
+    const existing = new Set<string>();
+    for (let i = 0; i < leads.length; i += 500) {
+      const rows = await this.prisma.metaLead.findMany({
+        where: { leadgenId: { in: leads.slice(i, i + 500).map((l) => l.id) } },
+        select: { leadgenId: true },
+      });
+      for (const r of rows) existing.add(r.leadgenId);
+    }
+    const fresh = leads.filter((l) => !existing.has(l.id));
+    if (fresh.length) {
+      await this.queue.addBulk(
+        fresh.map((l) => ({
+          name: "lead",
+          data: { leadgenId: l.id, pageId: page.pageId, formId, backfill: true, createdTime: l.createdTime },
+          // El mismo id que usa el webhook: un lead entra una sola vez.
+          opts: { jobId: `lead-${l.id}` },
+        })),
+      );
+    }
+    this.logger.log(`Formulario ${formId} de ${page.name}: ${leads.length} leads en Meta, ${fresh.length} nuevos en cola`);
+    return { found: leads.length, queued: fresh.length, skipped: leads.length - fresh.length };
   }
 
   /** Reintenta la suscripción (p. ej. tras arreglar permisos en Meta). */

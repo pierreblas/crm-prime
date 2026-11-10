@@ -9,6 +9,7 @@ import { i18n } from "../../i18n/i18n";
 //   /{page}/subscribed_apps?subscribed_fields=leadgen
 //   /{leadgen_id}   -> respuestas del formulario
 //   /{form_id}?fields=questions -> preguntas del formulario
+//   /{form_id}/leads -> los leads que Meta guarda del formulario (90 días)
 //
 // META_GRAPH_URL permite apuntar a un servidor de pruebas; por defecto va a
 // graph.facebook.com.
@@ -283,18 +284,51 @@ export class MetaGraphClient {
    * Las preguntas del formulario (clave con la que llegan en los leads y su
    * texto). Como listForms: null si Meta no lo deja con este token.
    */
-  async getFormQuestions(formId: string, pageToken: string): Promise<{ key: string; label: string }[] | null> {
+  async getFormQuestions(
+    formId: string,
+    pageToken: string,
+  ): Promise<{ key: string; label: string; type: string | null; options: string[] }[] | null> {
     try {
       const { graphVersion } = await this.requireApp();
       const res = await fetch(
         `${this.baseUrl}/${graphVersion}/${formId}?fields=questions&access_token=${encodeURIComponent(pageToken)}`,
       );
       if (!res.ok) return this.denied(res, `leer las preguntas del formulario ${formId}`);
-      const data = (await res.json()) as { questions?: { key?: string; label?: string }[] };
-      return (data.questions ?? []).filter((q) => q.key).map((q) => ({ key: q.key!, label: q.label || q.key! }));
+      const data = (await res.json()) as {
+        questions?: { key?: string; label?: string; type?: string; options?: { key?: string; value?: string }[] }[];
+      };
+      return (data.questions ?? [])
+        .filter((q) => q.key)
+        .map((q) => ({
+          key: q.key!,
+          label: q.label || q.key!,
+          type: q.type ?? null,
+          options: (q.options ?? []).map((o) => o.value ?? o.key ?? "").filter(Boolean),
+        }));
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Los leads que Meta todavía guarda de un formulario (los de los últimos 90
+   * días), solo id y fecha: cada uno se lee después por su id, como los que
+   * llegan por webhook. Aquí sí se avisa del error: lo pide una persona.
+   */
+  async listFormLeads(formId: string, pageToken: string, max = 5000): Promise<{ id: string; createdTime: string | null }[]> {
+    const { graphVersion } = await this.requireApp();
+    const out: { id: string; createdTime: string | null }[] = [];
+    let url: string | null =
+      `${this.baseUrl}/${graphVersion}/${formId}/leads?fields=id,created_time&limit=100&access_token=${encodeURIComponent(pageToken)}`;
+    while (url && out.length < max) {
+      const data: { data?: { id: string; created_time?: string }[]; paging?: { next?: string } } = await this.getJson(
+        url,
+        "leer los leads del formulario en Meta",
+      );
+      for (const l of data.data ?? []) out.push({ id: String(l.id), createdTime: l.created_time ?? null });
+      url = data.paging?.next ?? null;
+    }
+    return out;
   }
 
   /** Deja en el log por qué Meta negó una lectura opcional (casi siempre, un permiso) y sigue sin ella. */

@@ -930,6 +930,19 @@ export async function fetchAvailableMetaPages(
   return res.json();
 }
 
+/** Entre el 1 y el 2: los formularios de las páginas elegidas, para marcar cuáles entran. */
+export async function fetchMetaSessionForms(
+  input: import("@crm/shared").MetaSessionFormsInput,
+): Promise<import("@crm/shared").MetaSessionFormsResult> {
+  const res = await bffFetch("/api/bff/meta/pages/available/forms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron leer los formularios"));
+  return res.json();
+}
+
 /** Paso 2: conectar y suscribir las elegidas. */
 export async function connectMetaPages(
   input: ConnectMetaPagesInput,
@@ -974,6 +987,16 @@ export async function fetchMetaFormQuestions(
   return res.json();
 }
 
+/** Trae los leads anteriores de un formulario (los que Meta aún guarda, 90 días). */
+export async function importMetaFormLeads(
+  pageId: string,
+  formId: string,
+): Promise<import("@crm/shared").ImportMetaFormLeadsResult> {
+  const res = await bffFetch(`/api/bff/meta/pages/${pageId}/forms/${encodeURIComponent(formId)}/import`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron importar los leads"));
+  return res.json();
+}
+
 export async function resubscribeMetaPage(id: string): Promise<MetaPageDto[]> {
   const res = await bffFetch(`/api/bff/meta/pages/${id}/resubscribe`, {
     method: "POST",
@@ -989,11 +1012,23 @@ export async function disconnectMetaPage(id: string): Promise<MetaPageDto[]> {
 }
 
 export async function fetchMetaLeads(
-  status?: MetaLeadStatusValue,
+  filter?: MetaLeadStatusValue | { status?: MetaLeadStatusValue; pageId?: string; formId?: string },
 ): Promise<MetaLeadDto[]> {
-  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
-  const res = await bffFetch(`/api/bff/meta/leads${qs}`);
+  const f = typeof filter === "string" ? { status: filter } : (filter ?? {});
+  const qs = new URLSearchParams();
+  if (f.status) qs.set("status", f.status);
+  if (f.pageId) qs.set("pageId", f.pageId);
+  if (f.formId) qs.set("formId", f.formId);
+  const query = qs.toString();
+  const res = await bffFetch(`/api/bff/meta/leads${query ? `?${query}` : ""}`);
   if (!res.ok) throw new Error("No se pudieron cargar los leads");
+  return res.json();
+}
+
+/** Vuelve a pasar un lead con la configuración actual de su formulario. */
+export async function reprocessMetaLead(id: string): Promise<MetaLeadDto> {
+  const res = await bffFetch(`/api/bff/meta/leads/${id}/reprocess`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo reprocesar el lead"));
   return res.json();
 }
 

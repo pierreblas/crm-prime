@@ -107,7 +107,8 @@ export class LeadService {
     // Es la procedencia fiable: la verifica el servidor, no el que llama.
     viaApiKey: string | null = null,
     // Por dónde entró, para los flujos que arrancan con un lead nuevo.
-    opts: { via?: "meta" | "webhook" | "api"; formName?: string | null; formId?: string | null } = {},
+    // `silent`: importación o reprocesado, no despierta flujos.
+    opts: { via?: "meta" | "webhook" | "api"; formName?: string | null; formId?: string | null; silent?: boolean } = {},
   ): Promise<{ id: string; created: boolean }> {
     // Ya viene normalizado a E.164 por el esquema (phoneField). Si el contacto
     // ya existe con otra forma del mismo móvil (su WhatsApp de México «+521…»
@@ -170,7 +171,7 @@ export class LeadService {
         .create({ data: { contactId: contact.id, tagId: tag.id } })
         .then(() => true)
         .catch(() => false);
-      if (added) this.events.emit("contact.tagged", { orgId, contactId: contact.id, tag: tag.name });
+      if (added && !opts.silent) this.events.emit("contact.tagged", { orgId, contactId: contact.id, tag: tag.name });
     }
 
     this.events.emit("lead.created", {
@@ -180,6 +181,7 @@ export class LeadService {
       via: opts.via ?? (viaApiKey ? "api" : "webhook"),
       formName: opts.formName ?? null,
       formId: opts.formId ?? null,
+      silent: !!opts.silent,
     });
 
     return { id: contact.id, created: !existing };

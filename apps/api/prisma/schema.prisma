@@ -933,6 +933,9 @@ model MetaPage {
   // source, tagIds, fieldMap }] (metaFormRuleSchema en @crm/shared). Sin
   // regla, sigue a la página.
   formRules         Json?
+  // Un formulario sin regla (nuevo): entra solo (true) o espera a que lo
+  // activen (false, lo elige quien conecta la página).
+  newFormsEnter     Boolean   @default(true)
   welcomeTemplateId String? // plantilla de WhatsApp de bienvenida
   // ── Mensajería: Messenger e Instagram sobre la misma página ──
   // El token de página sirve también para leer y enviar mensajes. Cada canal

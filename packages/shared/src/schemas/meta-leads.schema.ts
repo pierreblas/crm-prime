@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { phoneField } from "./contact.schema.js";
+import { phoneField, type CustomFieldType } from "./contact.schema.js";
 
 // Formularios de Meta (Lead Ads): páginas conectadas y leads recibidos.
 // El token de cada página NUNCA sale de la API: el navegador solo ve ids y
@@ -69,9 +69,9 @@ export const metaFormRuleSchema = z.object({
 });
 export type MetaFormRule = z.infer<typeof metaFormRuleSchema>;
 
-/** La regla de un formulario sin tocar: entra, y todo como la página. */
-export function defaultMetaFormRule(formId: string, formName: string): MetaFormRule {
-  return metaFormRuleSchema.parse({ formId, formName });
+/** La regla de un formulario sin tocar: entra (salvo que la página diga que los nuevos esperan), y todo como la página. */
+export function defaultMetaFormRule(formId: string, formName: string, enabled = true): MetaFormRule {
+  return metaFormRuleSchema.parse({ formId, formName, enabled });
 }
 
 /** Lee las reglas guardadas (JSON libre) sin fiarse del formato: lo irreconocible se salta. */
@@ -98,6 +98,8 @@ export const metaPageDtoSchema = z.object({
   dealStageId: z.string().nullable(),
   /** Qué hacer con cada formulario (los que no están aquí siguen a la página). */
   formRules: z.array(metaFormRuleSchema),
+  /** Un formulario que no está en las reglas: entra solo (true) o espera a que lo actives (false). */
+  newFormsEnter: z.boolean().default(true),
   welcomeTemplateId: z.string().nullable(),
   // ── Mensajería (Messenger e Instagram) ─────────────────────
   /** Los mensajes de Messenger de esta página entran en la bandeja. */
@@ -152,6 +154,10 @@ export const metaFormQuestionSchema = z.object({
   label: z.string(),
   /** La última respuesta recibida, de ejemplo. */
   sample: z.string().nullable(),
+  /** Tipo de la pregunta en Meta (FULL_NAME, PHONE, EMAIL, CUSTOM, DOB…), si Meta deja leerlo. */
+  type: z.string().nullable().default(null),
+  /** Opciones de una pregunta de opción múltiple. */
+  options: z.array(z.string()).default([]),
 });
 export type MetaFormQuestion = z.infer<typeof metaFormQuestionSchema>;
 
@@ -159,8 +165,59 @@ export const metaFormQuestionsResultSchema = z.object({
   questions: z.array(metaFormQuestionSchema),
   /** false = Meta no dejó leer el formulario: salen las preguntas de los leads recibidos. */
   fromMeta: z.boolean(),
+  /** Las respuestas del último lead recibido, para ver cómo quedaría el contacto. */
+  sampleLead: z.array(z.object({ name: z.string(), value: z.string() })).nullable().default(null),
 });
 export type MetaFormQuestionsResult = z.infer<typeof metaFormQuestionsResultSchema>;
+
+/** Qué tipo de campo del contacto le va a una pregunta de Meta: lista si tiene opciones, fecha si es una fecha, texto si no. */
+export function metaQuestionFieldType(q: { type?: string | null; options?: string[] }): CustomFieldType {
+  if (q.options?.length) return "select";
+  const t = (q.type ?? "").toUpperCase();
+  if (t === "DOB" || t === "DATE" || t === "DATE_TIME") return "date";
+  return "text";
+}
+
+const META_QUESTION_TYPES: Record<string, string> = {
+  FULL_NAME: "Nombre completo",
+  FIRST_NAME: "Nombre",
+  LAST_NAME: "Apellido",
+  EMAIL: "Email",
+  WORK_EMAIL: "Email del trabajo",
+  PHONE: "Teléfono",
+  WORK_PHONE_NUMBER: "Teléfono del trabajo",
+  CUSTOM: "Texto libre",
+  DOB: "Fecha de nacimiento",
+  DATE_TIME: "Fecha y hora",
+  CITY: "Ciudad",
+  STATE: "Estado o región",
+  PROVINCE: "Provincia",
+  COUNTRY: "País",
+  ZIP: "Código postal",
+  POST_CODE: "Código postal",
+  STREET_ADDRESS: "Dirección",
+  GENDER: "Género",
+  JOB_TITLE: "Cargo",
+  COMPANY_NAME: "Empresa",
+  STORE_LOOKUP: "Tienda",
+  MARITIAL_STATUS: "Estado civil",
+  RELATIONSHIP_STATUS: "Estado civil",
+  MILITARY_STATUS: "Situación militar",
+  ID_CPF: "CPF",
+  ID_AR_DNI: "DNI",
+  ID_CL_RUT: "RUT",
+  ID_CO_CC: "Cédula",
+  ID_EC_CI: "Cédula",
+  ID_PE_DNI: "DNI",
+  ID_MX_RFC: "RFC",
+};
+
+/** Cómo llamar al tipo de una pregunta de Meta en pantalla («Opción múltiple», «Teléfono»…); null si no se sabe. */
+export function metaQuestionTypeLabel(q: { type?: string | null; options?: string[] }): string | null {
+  if (q.options?.length) return "Opción múltiple";
+  if (!q.type) return null;
+  return META_QUESTION_TYPES[q.type.toUpperCase()] ?? q.type.replace(/_/g, " ").toLowerCase();
+}
 
 /** Página que devuelve Facebook al iniciar sesión, antes de conectarla. */
 export const availableMetaPageSchema = z.object({
@@ -189,13 +246,63 @@ export const metaPagesAvailableSchema = z
   .refine((v) => !!v.accessToken || !!v.code, { message: "Falta el token o el código de Facebook" });
 export type MetaPagesAvailableInput = z.infer<typeof metaPagesAvailableSchema>;
 
+/** Paso intermedio del login: los formularios de las páginas elegidas, para marcar cuáles entran. */
+export const metaSessionFormsSchema = z.object({
+  sessionId: z.string().min(1),
+  pageIds: z.array(z.string()).min(1).max(50),
+});
+export type MetaSessionFormsInput = z.infer<typeof metaSessionFormsSchema>;
+
+export const metaSessionPageFormsSchema = z.object({
+  pageId: z.string(),
+  name: z.string(),
+  /** Ya estaba conectada: sus formularios salen con lo que tienen configurado. */
+  connected: z.boolean(),
+  /** false = Meta no dejó listar sus formularios: entrarán todos y se apagan después. */
+  fromMeta: z.boolean(),
+  newFormsEnter: z.boolean(),
+  forms: z.array(
+    z.object({
+      formId: z.string(),
+      formName: z.string(),
+      status: z.string().nullable(),
+      enabled: z.boolean(),
+      leadCount: z.number(),
+    }),
+  ),
+});
+export type MetaSessionPageForms = z.infer<typeof metaSessionPageFormsSchema>;
+export const metaSessionFormsResultSchema = z.object({ pages: z.array(metaSessionPageFormsSchema) });
+export type MetaSessionFormsResult = z.infer<typeof metaSessionFormsResultSchema>;
+
 export const connectMetaPagesSchema = z.object({
   sessionId: z.string().min(1),
   pageIds: z.array(z.string()).min(1),
   /** Desde la pestaña de Messenger o Instagram: encender ese canal en las páginas conectadas. */
   enable: z.enum(metaMessagingChannels).optional(),
+  /**
+   * Qué formularios de cada página entran: los demás de su lista quedan
+   * apagados. Sin esto (o para una página que no está aquí), entran todos.
+   */
+  forms: z
+    .array(z.object({ pageId: z.string().min(1), formIds: z.array(z.string().max(64)).max(300) }))
+    .max(50)
+    .optional(),
+  /** Para esas páginas: si un formulario creado después entra solo o espera a que lo actives. */
+  newFormsEnter: z.boolean().optional(),
 });
 export type ConnectMetaPagesInput = z.infer<typeof connectMetaPagesSchema>;
+
+/** Resultado de importar los leads anteriores de un formulario. */
+export const importMetaFormLeadsResultSchema = z.object({
+  /** Cuántos guarda Meta todavía (los últimos 90 días). */
+  found: z.number(),
+  /** Cuántos se pusieron en cola porque no estaban en Driony. */
+  queued: z.number(),
+  /** Cuántos ya estaban. */
+  skipped: z.number(),
+});
+export type ImportMetaFormLeadsResult = z.infer<typeof importMetaFormLeadsResultSchema>;
 
 export const updateMetaPageSchema = z.object({
   sourceId: z.string().nullable().optional(),
@@ -204,6 +311,7 @@ export const updateMetaPageSchema = z.object({
   dealStageId: z.string().nullable().optional(),
   /** La lista entera de reglas por formulario (reemplaza la anterior). */
   formRules: z.array(metaFormRuleSchema).max(300).optional(),
+  newFormsEnter: z.boolean().optional(),
   welcomeTemplateId: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
   // Mensajería: encender o apagar cada canal, y quién lo atiende.
@@ -233,6 +341,7 @@ export const metaLeadDtoSchema = z.object({
   leadgenId: z.string(),
   pageId: z.string(),
   pageName: z.string(),
+  formId: z.string().nullable().default(null),
   formName: z.string().nullable(),
   /** Anuncio y campaña del lead, si Meta los da con el token de la página. */
   adName: z.string().nullable().default(null),

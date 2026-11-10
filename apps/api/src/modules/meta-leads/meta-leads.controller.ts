@@ -13,12 +13,14 @@ import {
   connectMetaPagesSchema,
   convertMetaLeadSchema,
   metaPagesAvailableSchema,
+  metaSessionFormsSchema,
   updateMetaPageSchema,
   Role,
   type ConnectMetaPagesInput,
   type ConvertMetaLeadInput,
   type MetaLeadStatusValue,
   type MetaPagesAvailableInput,
+  type MetaSessionFormsInput,
   type UpdateMetaPageInput,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -53,13 +55,22 @@ export class MetaLeadsController {
     return this.pages.available(body);
   }
 
-  /** Paso 2: guardar y suscribir las páginas elegidas. */
+  /** Entre el 1 y el 2: los formularios de las páginas elegidas, para marcar cuáles entran. */
+  @Post("pages/available/forms")
+  sessionForms(
+    @Body(new ZodValidationPipe(metaSessionFormsSchema))
+    body: MetaSessionFormsInput,
+  ) {
+    return this.pages.sessionForms(body.sessionId, body.pageIds);
+  }
+
+  /** Paso 2: guardar y suscribir las páginas elegidas (y qué formularios entran). */
   @Post("pages/connect")
   connect(
     @Body(new ZodValidationPipe(connectMetaPagesSchema))
     body: ConnectMetaPagesInput,
   ) {
-    return this.pages.connect(body.sessionId, body.pageIds, body.enable);
+    return this.pages.connect(body.sessionId, body.pageIds, body.enable, body.forms, body.newFormsEnter);
   }
 
   @Patch("pages/:id")
@@ -83,6 +94,12 @@ export class MetaLeadsController {
     return this.pages.questions(id, formId);
   }
 
+  /** Trae los leads anteriores del formulario (los que Meta aún guarda, 90 días). */
+  @Post("pages/:id/forms/:formId/import")
+  importForm(@Param("id") id: string, @Param("formId") formId: string) {
+    return this.pages.importForm(id, formId);
+  }
+
   @Post("pages/:id/resubscribe")
   resubscribe(@Param("id") id: string) {
     return this.pages.resubscribe(id);
@@ -95,8 +112,14 @@ export class MetaLeadsController {
 
   // ── Leads ──────────────────────────────────────────────────
   @Get("leads")
-  listLeads(@Query("status") status?: MetaLeadStatusValue) {
-    return this.leads.listLeads(status);
+  listLeads(@Query("status") status?: MetaLeadStatusValue, @Query("pageId") pageId?: string, @Query("formId") formId?: string) {
+    return this.leads.listLeads({ status, pageId, formId });
+  }
+
+  /** Vuelve a pasar un lead con la configuración actual del formulario. */
+  @Post("leads/:id/reprocess")
+  reprocess(@Param("id") id: string) {
+    return this.leads.reprocessLead(id);
   }
 
   /** Convierte en contacto un lead que llegó sin teléfono. */

@@ -5,27 +5,26 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AvailableMetaPage,
-  MetaFormQuestion,
   MetaFormRule,
   MetaLeadDto,
   MetaLeadFormDto,
   MetaPageDto,
+  MetaSessionFormsResult,
   StageRef,
   TemplateDto,
+  UpdateMetaPageInput,
 } from "@crm/shared";
-import { META_FORM_SOURCE_NAME, META_LEADS_SCOPES, metaFieldAutoTarget, resolveFieldKeys } from "@crm/shared";
+import { META_FORM_SOURCE_NAME, META_LEADS_SCOPES } from "@crm/shared";
 import {
   connectMetaPages,
   convertMetaLead,
-  createCustomField,
   disconnectMetaPage,
   discardMetaLead,
   fetchAvailableMetaPages,
-  fetchCustomFields,
-  fetchMetaFormQuestions,
   fetchMetaLeads,
   fetchMetaPageForms,
   fetchMetaPages,
+  fetchMetaSessionForms,
   fetchSources,
   fetchStages,
   fetchTags,
@@ -36,6 +35,7 @@ import {
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
 import { NavIcon } from "@/components/NavIcons";
+import { MetaFormDialog } from "./MetaFormDialog";
 
 const APP_ID = process.env.NEXT_PUBLIC_WHATSAPP_APP_ID ?? "";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -200,12 +200,11 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
       {/* Elegir páginas */}
       {picker && (
         <PagePicker
+          sessionId={picker.sessionId}
           pages={picker.pages}
           saving={connect.isPending}
           onCancel={() => setPicker(null)}
-          onConfirm={(pageIds) =>
-            connect.mutate({ sessionId: picker.sessionId, pageIds })
-          }
+          onConfirm={(input) => connect.mutate({ sessionId: picker.sessionId, ...input })}
         />
       )}
 
@@ -220,6 +219,7 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
           templates={templates}
           stages={stages}
           onChanged={refresh}
+          onReauthorize={login}
         />
       ))}
       {!isPending && pages.length === 0 && !picker && (
@@ -286,20 +286,115 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
   );
 }
 
+/**
+ * Conectar en dos pasos: las páginas y, de cada una, qué formularios entran.
+ * Si Meta no deja listar los formularios de una página, se avisa y entra con
+ * todos (se apagan después desde la lista, conforme traigan leads).
+ */
 function PagePicker({
+  sessionId,
   pages,
   saving,
   onCancel,
   onConfirm,
 }: {
+  sessionId: string;
   pages: AvailableMetaPage[];
   saving: boolean;
   onCancel: () => void;
-  onConfirm: (pageIds: string[]) => void;
+  onConfirm: (input: { pageIds: string[]; forms?: { pageId: string; formIds: string[] }[]; newFormsEnter?: boolean }) => void;
 }) {
   const [selected, setSelected] = useState<string[]>(
     pages.filter((p) => p.connected).map((p) => p.pageId),
   );
+  const [step, setStep] = useState<MetaSessionFormsResult | null>(null);
+  // Por página, los formularios marcados.
+  const [picked, setPicked] = useState<Record<string, string[]>>({});
+  const [newFormsEnter, setNewFormsEnter] = useState(true);
+  const forms = useMutation({
+    mutationFn: () => fetchMetaSessionForms({ sessionId, pageIds: selected }),
+    onSuccess: (r) => {
+      setStep(r);
+      setPicked(Object.fromEntries(r.pages.map((p) => [p.pageId, p.forms.filter((f) => f.enabled).map((f) => f.formId)])));
+      // Una página ya conectada que dejaba esperar a los nuevos lo sigue haciendo.
+      setNewFormsEnter(!r.pages.some((p) => p.connected && !p.newFormsEnter));
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  const toggle = (pageId: string, formId: string, on: boolean) =>
+    setPicked((prev) => ({ ...prev, [pageId]: on ? [...(prev[pageId] ?? []), formId] : (prev[pageId] ?? []).filter((id) => id !== formId) }));
+
+  if (step) {
+    const listable = step.pages.filter((p) => p.fromMeta);
+    return (
+      <div style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }} data-meta-forms-step>
+        <strong>Elige los formularios que entran</strong>
+        <p style={{ ...muted, fontSize: 13, margin: 0 }}>
+          Los que dejes sin marcar quedan apagados: sus leads no entran. Después puedes cambiarlo formulario por formulario.
+        </p>
+        {step.pages.map((p) => (
+          <div key={p.pageId} style={{ display: "flex", flexDirection: "column", gap: 6 }} data-pick-page={p.pageId}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <strong style={{ fontSize: 13.5 }}>{p.name}</strong>
+              {p.connected && <span style={{ ...muted, fontSize: 12 }}>ya conectada</span>}
+              {p.fromMeta && p.forms.length > 1 && (
+                <>
+                  <button type="button" className="cfe__link" onClick={() => setPicked((prev) => ({ ...prev, [p.pageId]: p.forms.map((f) => f.formId) }))}>
+                    todos
+                  </button>
+                  <button type="button" className="cfe__link" onClick={() => setPicked((prev) => ({ ...prev, [p.pageId]: [] }))}>
+                    ninguno
+                  </button>
+                </>
+              )}
+            </div>
+            {!p.fromMeta && (
+              <p style={{ ...muted, fontSize: 12.5, margin: 0 }}>
+                Meta no dejó leer los formularios de esta página con los permisos que diste: entrarán todos, y podrás apagar los que no quieras desde la lista conforme traigan leads.
+              </p>
+            )}
+            {p.fromMeta && p.forms.length === 0 && (
+              <p style={{ ...muted, fontSize: 12.5, margin: 0 }}>Esta página aún no tiene formularios de clientes potenciales.</p>
+            )}
+            {p.forms.map((f) => (
+              <label key={f.formId} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5, cursor: "pointer" }} data-pick-form={f.formId}>
+                <input type="checkbox" checked={(picked[p.pageId] ?? []).includes(f.formId)} onChange={(e) => toggle(p.pageId, f.formId, e.target.checked)} />
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.formName}</span>
+                {f.status === "ARCHIVED" && <span style={pill("#3f5b6b")}>Archivado</span>}
+                {f.leadCount > 0 && (
+                  <span style={{ ...muted, fontSize: 12 }}>
+                    {f.leadCount} lead{f.leadCount === 1 ? "" : "s"}
+                  </span>
+                )}
+              </label>
+            ))}
+          </div>
+        ))}
+        {listable.length > 0 && (
+          <label>
+            <div style={label}>Formularios que crees más adelante</div>
+            <select style={{ ...input, maxWidth: 420 }} value={newFormsEnter ? "enter" : "wait"} onChange={(e) => setNewFormsEnter(e.target.value === "enter")} data-new-forms>
+              <option value="enter">Entran solos, como la página (recomendado)</option>
+              <option value="wait">Esperan a que los actives en la lista</option>
+            </select>
+          </label>
+        )}
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={() => setStep(null)} style={ghostBtn} disabled={saving}>
+            Atrás
+          </button>
+          <button
+            onClick={() => onConfirm({ pageIds: selected, forms: listable.map((p) => ({ pageId: p.pageId, formIds: picked[p.pageId] ?? [] })), newFormsEnter })}
+            disabled={saving}
+            style={primaryBtn}
+            data-connect
+          >
+            {saving ? "Conectando…" : "Conectar"}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ ...card, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -323,16 +418,17 @@ function PagePicker({
           )}
         </label>
       ))}
-      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap" }}>
+        {forms.isError && (
+          <button type="button" className="cfe__link" onClick={() => onConfirm({ pageIds: selected })} disabled={selected.length === 0 || saving}>
+            Conectar sin elegir formularios
+          </button>
+        )}
         <button onClick={onCancel} style={ghostBtn}>
           Cancelar
         </button>
-        <button
-          onClick={() => onConfirm(selected)}
-          disabled={selected.length === 0 || saving}
-          style={primaryBtn}
-        >
-          {saving ? "Conectando…" : "Conectar"}
+        <button onClick={() => forms.mutate()} disabled={selected.length === 0 || saving || forms.isPending} style={primaryBtn} data-next>
+          {forms.isPending ? "Leyendo formularios…" : "Siguiente"}
         </button>
       </div>
     </div>
@@ -373,6 +469,7 @@ function PageRow({
   templates,
   stages,
   onChanged,
+  onReauthorize,
 }: {
   page: MetaPageDto;
   sources: { id: string; name: string }[];
@@ -380,6 +477,7 @@ function PageRow({
   templates: TemplateDto[];
   stages: StageRef[];
   onChanged: () => void;
+  onReauthorize: () => void;
 }) {
   const save = useMutation({
     mutationFn: (input: Parameters<typeof updateMetaPage>[1]) =>
@@ -549,17 +647,19 @@ function PageRow({
         sources={sources}
         tags={tags}
         saving={save.isPending}
-        onSave={(formRules) => save.mutate({ formRules })}
+        onPatch={(input) => save.mutate(input)}
+        onReauthorize={onReauthorize}
       />
     </div>
   );
 }
 
 /**
- * Los formularios de la página: si sus leads entran, a qué etapa va cada uno
- * y, en «Ajustes», su fuente, sus etiquetas y a dónde va cada pregunta. Sin
- * tocar, siguen a la página. Si Meta no deja listarlos (falta un permiso),
- * salen los que ya mandaron algún lead.
+ * Los formularios de la página: si sus leads entran y a qué etapa va cada uno,
+ * y «Configurar» abre la ventana con todo lo demás (fuente, etiquetas, campos,
+ * vista previa y leads). Sin tocar, siguen a la página. Si Meta no deja
+ * listarlos (falta un permiso), salen los que ya mandaron algún lead y se
+ * ofrece volver a autorizar.
  */
 function PageForms({
   page,
@@ -567,54 +667,80 @@ function PageForms({
   sources,
   tags,
   saving,
-  onSave,
+  onPatch,
+  onReauthorize,
 }: {
   page: MetaPageDto;
   stages: StageRef[];
   sources: { id: string; name: string }[];
   tags: { id: string; name: string }[];
   saving: boolean;
-  onSave: (rules: MetaFormRule[]) => void;
+  onPatch: (input: UpdateMetaPageInput) => void;
+  onReauthorize: () => void;
 }) {
   const [open, setOpen] = useState<string | null>(null);
-  const { data, isPending } = useQuery({
+  const { data, isPending, isFetching, refetch } = useQuery({
     queryKey: ["meta-forms", page.id],
     queryFn: () => fetchMetaPageForms(page.id),
   });
   const forms = data?.forms ?? [];
+  const ruleOf = (f: MetaLeadFormDto): MetaFormRule => ({
+    formId: f.formId,
+    formName: f.formName,
+    enabled: f.enabled,
+    stage: f.stage,
+    source: f.source,
+    tagIds: f.tagIds,
+    fieldMap: f.fieldMap,
+  });
   const setRule = (f: MetaLeadFormDto, patch: Partial<MetaFormRule>) =>
-    onSave([
-      ...page.formRules.filter((r) => r.formId !== f.formId),
-      {
-        formId: f.formId,
-        formName: f.formName,
-        enabled: f.enabled,
-        stage: f.stage,
-        source: f.source,
-        tagIds: f.tagIds,
-        fieldMap: f.fieldMap,
-        ...patch,
-      },
-    ]);
+    onPatch({ formRules: [...page.formRules.filter((r) => r.formId !== f.formId), { ...ruleOf(f), ...patch }] });
   const known = (stage: string) => stage === "page" || stage === "none" || stages.some((s) => s.id === stage);
-  // Lo que el formulario cambia respecto a la página, para verlo sin abrir «Ajustes».
+  // Lo que el formulario cambia respecto a la página, para verlo sin abrirlo.
   const changes = (f: MetaLeadFormDto) =>
     [
       f.source !== "page" ? "fuente propia" : "",
       f.tagIds.length ? `${f.tagIds.length} etiqueta${f.tagIds.length === 1 ? "" : "s"}` : "",
       Object.keys(f.fieldMap).length ? `${Object.keys(f.fieldMap).length} campo${Object.keys(f.fieldMap).length === 1 ? "" : "s"} a mano` : "",
     ].filter(Boolean);
+  const current = open ? forms.find((f) => f.formId === open) : null;
 
   return (
     <section data-meta-forms={page.id}>
-      <div style={label}>Formularios</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+        <div style={{ ...label, marginBottom: 0 }}>Formularios</div>
+        <div style={{ flex: 1 }} />
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)" }} title="Qué pasa con un formulario que crees después, mientras no lo configures">
+          Nuevos:
+          <select
+            style={{ ...input, width: "auto", padding: "5px 8px", fontSize: 12.5 }}
+            value={page.newFormsEnter ? "enter" : "wait"}
+            disabled={saving}
+            onChange={(e) => onPatch({ newFormsEnter: e.target.value === "enter" })}
+            aria-label="Formularios nuevos"
+            data-new-forms-policy
+          >
+            <option value="enter">entran solos</option>
+            <option value="wait">esperan a que los actives</option>
+          </select>
+        </label>
+        <button type="button" style={ghostBtn} disabled={isFetching} onClick={() => void refetch()} title="Vuelve a pedir la lista a Meta" data-refresh-forms>
+          {isFetching ? "Actualizando…" : "Actualizar lista"}
+        </button>
+      </div>
       {isPending && <p style={{ ...muted, margin: 0 }}>Cargando formularios…</p>}
-      {!isPending && forms.length === 0 && (
-        <p style={{ ...muted, fontSize: 13, margin: 0 }}>
-          {data?.fromMeta
-            ? "Esta página aún no tiene formularios de clientes potenciales."
-            : "Meta no deja leer los formularios de esta página con los permisos que diste. Pulsa «Añadir páginas», deja marcada esta página y acepta todos los permisos: saldrán todos, aunque aún no tengan leads. Mientras, sus leads entran como indica la página."}
-        </p>
+      {!isPending && data && !data.fromMeta && (
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "8px 10px", marginBottom: 6, border: "1px solid var(--border)", background: "var(--warning-soft)" }} data-forms-denied>
+          <span style={{ fontSize: 12.5, flex: "1 1 240px", lineHeight: 1.45 }}>
+            Meta no deja leer la lista de formularios con los permisos que diste: solo salen los que ya trajeron leads, y uno nuevo entra como indica la página. Vuelve a autorizar la página aceptando todos los permisos para verlos todos.
+          </span>
+          <button type="button" style={ghostBtn} onClick={onReauthorize} data-reauthorize>
+            Volver a autorizar
+          </button>
+        </div>
+      )}
+      {!isPending && forms.length === 0 && data?.fromMeta && (
+        <p style={{ ...muted, fontSize: 13, margin: 0 }}>Esta página aún no tiene formularios de clientes potenciales.</p>
       )}
       {forms.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -645,233 +771,25 @@ function PageForms({
                 <option value="none">No crear oportunidad</option>
                 <StageOptions stages={stages} />
               </select>
-              <button
-                type="button"
-                style={{ ...ghostBtn, color: open === f.formId ? "var(--text)" : "var(--muted)" }}
-                disabled={!f.enabled}
-                aria-expanded={open === f.formId}
-                onClick={() => setOpen(open === f.formId ? null : f.formId)}
-                data-form-settings={f.formId}
-              >
-                Ajustes {open === f.formId ? "▴" : "▾"}
+              <button type="button" style={{ ...ghostBtn, color: "var(--text)" }} onClick={() => setOpen(f.formId)} data-form-settings={f.formId}>
+                Configurar
               </button>
-              {open === f.formId && f.enabled && (
-                <FormSettings
-                  page={page}
-                  form={f}
-                  sources={sources}
-                  tags={tags}
-                  saving={saving}
-                  onChange={(patch) => setRule(f, patch)}
-                />
-              )}
             </div>
           ))}
         </div>
       )}
-      {!isPending && data && !data.fromMeta && forms.length > 0 && (
-        <p style={{ ...muted, fontSize: 12, margin: "6px 0 0" }}>
-          Solo salen los que ya mandaron algún lead: Meta no deja leer la lista con los permisos que diste. Para ver los demás, pulsa «Añadir páginas», deja marcada esta página y acepta todos los permisos. Mientras, uno nuevo entra como indica la página.
-        </p>
+      {current && (
+        <MetaFormDialog
+          key={current.formId}
+          page={page}
+          form={current}
+          stages={stages}
+          sources={sources}
+          tags={tags}
+          onClose={() => setOpen(null)}
+        />
       )}
     </section>
-  );
-}
-
-const STD_TARGETS = [
-  { value: "std:name", label: "Nombre" },
-  { value: "std:phone", label: "Teléfono" },
-  { value: "std:email", label: "Email" },
-] as const;
-const NEW_FIELD = "new";
-
-/** Fuente, etiquetas y campos de un formulario (lo que no se toca sigue a la página). */
-function FormSettings({
-  page,
-  form,
-  sources,
-  tags,
-  saving,
-  onChange,
-}: {
-  page: MetaPageDto;
-  form: MetaLeadFormDto;
-  sources: { id: string; name: string }[];
-  tags: { id: string; name: string }[];
-  saving: boolean;
-  onChange: (patch: Partial<MetaFormRule>) => void;
-}) {
-  const queryClient = useQueryClient();
-  const { data: fields = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
-  const { data, isPending } = useQuery({
-    queryKey: ["meta-form-questions", page.id, form.formId],
-    queryFn: () => fetchMetaFormQuestions(page.id, form.formId),
-  });
-  const questions = data?.questions ?? [];
-
-  const setTarget = (key: string, target: string) => {
-    const fieldMap = { ...form.fieldMap };
-    if (target) fieldMap[key] = target;
-    else delete fieldMap[key];
-    onChange({ fieldMap });
-  };
-  const createField = useMutation({
-    mutationFn: (q: MetaFormQuestion) => createCustomField({ label: q.label.trim().slice(0, 80), type: "text", options: [] }),
-    onSuccess: (created, q) => {
-      queryClient.invalidateQueries({ queryKey: ["custom-fields"] });
-      setTarget(q.key, `field:${created.key}`);
-    },
-    onError: (e) => toast.error((e as Error).message),
-  });
-
-  // La automática no sale en la lista: es la opción «automática».
-  const formSource = sources.find((s) => s.name === META_FORM_SOURCE_NAME);
-  const pageSource =
-    page.sourceId && page.sourceId !== formSource?.id
-      ? (sources.find((s) => s.id === page.sourceId)?.name ?? META_FORM_SOURCE_NAME)
-      : META_FORM_SOURCE_NAME;
-  const sourceValue =
-    form.source === formSource?.id
-      ? "auto"
-      : form.source === "page" || form.source === "auto" || sources.some((s) => s.id === form.source)
-        ? form.source
-        : "page";
-
-  /** Qué haría la regla automática con esta pregunta. */
-  const autoLabel = (key: string) => {
-    const std = metaFieldAutoTarget(key);
-    if (std) return STD_TARGETS.find((t) => t.value === std)!.label;
-    const resolved = Object.keys(resolveFieldKeys({ [key]: "" }, fields))[0]!;
-    const def = fields.find((f) => f.key === resolved);
-    // Sin campo con esa clave, el dato se guarda pero no sale en la ficha.
-    return def ? `campo «${def.label}»` : "no sale en la ficha";
-  };
-  const goesTo = (key: string) => form.fieldMap[key] ?? metaFieldAutoTarget(key);
-  const noPhone = questions.length > 0 && !questions.some((q) => goesTo(q.key) === "std:phone");
-
-  return (
-    <div style={settingsPanel} data-form-panel={form.formId}>
-      <label>
-        <div style={label}>Fuente de sus leads</div>
-        <select
-          style={{ ...input, maxWidth: 360 }}
-          value={sourceValue}
-          disabled={saving}
-          onChange={(e) => onChange({ source: e.target.value })}
-          aria-label={`Fuente de ${form.formName}`}
-        >
-          <option value="page">Como la página ({pageSource})</option>
-          <option value="auto">{META_FORM_SOURCE_NAME} (automática)</option>
-          {sources.filter((s) => s.id !== formSource?.id).map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <div>
-        <div style={label}>Etiquetas (además de las de la página)</div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {tags.map((t) => {
-            const fromPage = page.tagIds.includes(t.id);
-            const on = fromPage || form.tagIds.includes(t.id);
-            return (
-              <button
-                key={t.id}
-                type="button"
-                disabled={fromPage || saving}
-                title={fromPage ? "Ya la pone la página" : undefined}
-                onClick={() =>
-                  onChange({ tagIds: on ? form.tagIds.filter((id) => id !== t.id) : [...form.tagIds, t.id] })
-                }
-                style={{
-                  ...ghostBtn,
-                  padding: "5px 11px",
-                  borderColor: on ? "var(--accent)" : "var(--border)",
-                  color: on ? "var(--text)" : "var(--muted)",
-                  background: on ? "var(--accent-soft)" : "transparent",
-                  opacity: fromPage ? 0.6 : 1,
-                  cursor: fromPage ? "default" : "pointer",
-                }}
-              >
-                {t.name}
-              </button>
-            );
-          })}
-          {tags.length === 0 && <span style={{ ...muted, fontSize: 12.5 }}>No hay etiquetas creadas.</span>}
-        </div>
-      </div>
-
-      <div>
-        <div style={label}>Campos: a dónde va cada respuesta</div>
-        {isPending && <p style={{ ...muted, fontSize: 13, margin: 0 }}>Cargando preguntas…</p>}
-        {!isPending && questions.length === 0 && (
-          <p style={{ ...muted, fontSize: 13, margin: 0 }}>
-            Meta no deja leer las preguntas de este formulario: aparecerán cuando llegue su primer lead, o antes si vuelves a conectar la página aceptando todos los permisos. Mientras, cada respuesta se reparte sola por el nombre de la pregunta.
-          </p>
-        )}
-        {questions.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {questions.map((q) => {
-              const target = form.fieldMap[q.key] ?? "";
-              const lost = target.startsWith("field:") && !fields.some((f) => `field:${f.key}` === target);
-              return (
-                <div key={q.key} style={questionRow} data-question={q.key}>
-                  <span style={{ flex: "1 1 200px", minWidth: 0 }}>
-                    <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={q.label}>
-                      {q.label}
-                    </span>
-                    {q.sample && (
-                      <span style={{ ...muted, fontSize: 12, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        p. ej. {q.sample}
-                      </span>
-                    )}
-                  </span>
-                  <span style={{ color: "var(--muted)", display: "flex" }} aria-hidden>
-                    <NavIcon name="arrow-right" size={12} />
-                  </span>
-                  <select
-                    style={{ ...input, flex: "1 1 240px", maxWidth: 300 }}
-                    value={target}
-                    disabled={saving || createField.isPending}
-                    onChange={(e) => {
-                      if (e.target.value === NEW_FIELD) createField.mutate(q);
-                      else setTarget(q.key, e.target.value);
-                    }}
-                    aria-label={`Destino de ${q.label}`}
-                  >
-                    <option value="">Automático: {autoLabel(q.key)}</option>
-                    {STD_TARGETS.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                    <option value={NEW_FIELD}>Crear campo «{q.label.trim().slice(0, 40)}»</option>
-                    {fields.length > 0 && (
-                      <optgroup label="Campos del contacto">
-                        {fields.map((f) => (
-                          <option key={f.key} value={`field:${f.key}`}>
-                            {f.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {lost && <option value={target}>Campo borrado ({target.slice("field:".length)})</option>}
-                    <option value="skip">No guardar</option>
-                  </select>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {noPhone && (
-          <p style={{ fontSize: 12.5, margin: "8px 0 0", color: "var(--danger)" }}>
-            Ninguna pregunta va al teléfono: sus leads quedarán pendientes hasta que les pongas uno a mano.
-          </p>
-        )}
-      </div>
-    </div>
   );
 }
 
