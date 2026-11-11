@@ -65,6 +65,8 @@ export function MarketingHeader({ active, home = false }: { active?: string | nu
   return (
     <>
       <header className="lp-nav" data-scrolled={scrolled}>
+        {/* Hilo de progreso de lectura, en lima: lo mueve el scroll desde CSS; sin soporte, no se ve. */}
+        <span className="lp-nav__progress" aria-hidden="true" />
         <div className="lp-wrap lp-nav__inner">
           <Link href="/" className="lp-brand" aria-label="Driony, inicio">
             <Wordmark size={19} />

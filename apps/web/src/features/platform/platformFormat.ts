@@ -1,4 +1,4 @@
-import { includedAiCapUsd, PLANS, PLAN_KEYS, type PlatformAuditEntry, type PlatformOrg } from "@crm/shared";
+import { AI_TOKENS_PER_CONVERSATION, formatTokens, includedAiCapUsd, PLANS, PLAN_KEYS, type PlatformAuditEntry, type PlatformOrg } from "@crm/shared";
 
 export const money = (n: number) => `USD ${n.toFixed(2)}`;
 export const date = (iso: string) => new Date(iso).toLocaleDateString("es", { day: "numeric", month: "short" });
@@ -50,9 +50,14 @@ export function fromDateInput(v: string): string | null {
 
 const PLAN_NAMES: Record<string, string> = Object.fromEntries(PLAN_KEYS.map((k) => [k, PLANS[k].name]));
 
-/** Tope en dólares de la IA incluida de una empresa: su cupo más sus conversaciones extra del mes y las que le quedan. */
+/** Tope en dólares de la IA incluida de una empresa: su cupo más sus tokens extra del mes y los que le quedan. */
 export function orgAiCapUsd(o: Pick<PlatformOrg, "aiIncludedLimit" | "aiExtraRemaining" | "aiExtraUsedMonth">): number {
   return includedAiCapUsd((o.aiIncludedLimit ?? 0) + o.aiExtraUsedMonth + o.aiExtraRemaining);
+}
+
+/** Tokens de un apunte de paquete: los nuevos los traen; los antiguos, conversaciones. */
+function packTokens(d: Record<string, unknown>): number {
+  return d.tokens !== undefined ? Number(d.tokens ?? 0) : Number(d.conversations ?? 0) * AI_TOKENS_PER_CONVERSATION;
 }
 
 /** Una línea del diario, en palabras. */
@@ -73,10 +78,11 @@ export function describeAudit(e: PlatformAuditEntry): string {
       return "Editó las notas internas";
     case "login_as":
       return `Entró al panel como ${d.email ?? "administrador"}`;
+    // Antes de noviembre de 2026 los paquetes eran conversaciones: se leen como tokens.
     case "ai_pack_added":
-      return `Añadió ${Number(d.conversations ?? 0).toLocaleString("es")} conversaciones extra${d.priceUsd === null || d.priceUsd === undefined ? " (regalo)" : ` (USD ${d.priceUsd})`}`;
+      return `Añadió ${formatTokens(packTokens(d))} de tokens extra${d.priceUsd === null || d.priceUsd === undefined ? " (regalo)" : ` (USD ${d.priceUsd})`}`;
     case "ai_pack_removed":
-      return `Quitó un paquete de ${Number(d.conversations ?? 0).toLocaleString("es")} conversaciones extra (${Number(d.used ?? 0).toLocaleString("es")} gastadas)`;
+      return `Quitó un paquete de ${formatTokens(packTokens(d))} de tokens extra (${formatTokens(d.tokens !== undefined ? Number(d.used ?? 0) : Number(d.used ?? 0) * AI_TOKENS_PER_CONVERSATION)} gastados)`;
     // Cotizador de implementaciones.
     case "assessment_created":
       return `Creó el diagnóstico «${d.title ?? ""}» para ${d.clientName ?? "un cliente"}`;

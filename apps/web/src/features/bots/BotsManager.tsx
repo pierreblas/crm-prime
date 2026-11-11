@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@/lib/toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
-import { aiQuotaLevel, type BotDto } from "@crm/shared";
+import { formatTokens, aiQuotaLevel, type BotDto } from "@crm/shared";
 import { deleteBot, fetchBots } from "@/lib/bff";
 import { BotEditor } from "./BotEditor";
 import { AgentPlayground } from "./AgentPlayground";
@@ -115,20 +115,19 @@ export function BotsManager() {
           <NavIcon name={aiStatus.included.full ? "alert" : "sparkles"} size={16} />
           {aiStatus.included.full ? (
             <span className="kb-banner__text">
-              <strong>Llegaste a las {quotaTotal(aiStatus.included).toLocaleString("es")} conversaciones con IA de este mes.</strong>{" "}
-              Tus agentes terminan las que ya atendían; los chats nuevos pasan a Pendientes para tu equipo hasta {resetLabel(aiStatus.included)}.
+              <strong>Se gastaron los {formatTokens(quotaTotal(aiStatus.included))} de tokens de IA de este mes.</strong>{" "}
+              Tus agentes terminan las conversaciones que ya atendían; los chats nuevos pasan a Pendientes para tu equipo hasta {resetLabel(aiStatus.included)}.
             </span>
           ) : (
             <span className="kb-banner__text">
               <strong>
-                Llevas {aiStatus.included.conversations.toLocaleString("es")} de{" "}
-                {quotaTotal(aiStatus.included).toLocaleString("es")} conversaciones con IA de este mes.
+                Llevas {formatTokens(aiStatus.included.tokens)} de {formatTokens(quotaTotal(aiStatus.included))} tokens de IA de este mes.
               </strong>{" "}
-              Al llegar al tope, tus agentes terminan las que ya atendían y los chats nuevos pasan a tu equipo. Con tu propia clave no hay cupo.
+              Al gastarlos, tus agentes terminan las conversaciones que ya atendían y los chats nuevos pasan a tu equipo. Con tu propia clave no hay cupo.
             </span>
           )}
           <Link href="/settings?tab=plan#extra" className="btn btn-primary btn-sm">
-            Conversaciones extra
+            Tokens extra
           </Link>
           <Link href="/settings?tab=ai" className="btn btn-sm">
             Conectar mi clave
@@ -403,7 +402,7 @@ function badge(bg: string): React.CSSProperties {
   };
 }
 
-/** Lo que hay este mes con la IA de Driony: el cupo del plan más las conversaciones extra. */
+/** Lo que hay este mes con la IA de Driony: el cupo del plan más los tokens extra. */
 function quotaTotal(i: { limit: number; extraUsed: number; extraRemaining: number }): number {
   return i.limit + i.extraUsed + i.extraRemaining;
 }

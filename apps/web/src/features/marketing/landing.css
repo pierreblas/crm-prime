@@ -1950,6 +1950,246 @@ select.lp-input option {
   animation: lp-rise 0.7s var(--ease) backwards;
 }
 
+/* ── Movimiento con el scroll, en CSS ───────────────────────── */
+/* Líneas de tiempo de scroll (animation-timeline): Chrome 115, Safari 26 y
+   Firefox 159. Sin soporte: el hilo no se ve, la captura no se mueve y los
+   reveals los hace el observador de Landing.tsx, como siempre. Solo
+   transform y opacity; con prefers-reduced-motion todo queda quieto. */
+.lp-nav__progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  pointer-events: none;
+}
+@keyframes lp-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+/* La captura sube un poco más despacio que la página: profundidad sin librerías. */
+@keyframes lp-hero-drift {
+  to {
+    transform: translateX(-40.71%) translateY(-7%);
+  }
+}
+@keyframes lp-rise-view {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@supports (animation-timeline: scroll()) {
+  .lp-nav__progress {
+    animation: lp-progress linear both;
+    animation-timeline: scroll(root block);
+  }
+  .lp-js .lp-hero__shot-frame img {
+    animation: lp-hero-drift linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 100vh;
+  }
+}
+@supports (animation-timeline: view()) {
+  /* Cada bloque sube mientras entra por abajo (del 10 % al 80 % de su entrada, para que se vea);
+     lo que ya está en pantalla al cargar, quieto y visible. Las tarjetas pares van un paso después. */
+  .lp-js .lp-reveal,
+  .lp-js .lp-reveal.is-in {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    animation: lp-rise-view linear both;
+    animation-timeline: view(block);
+    animation-range: entry 10% entry 80%;
+  }
+  .lp-js .lp-card.lp-reveal:nth-of-type(even) {
+    animation-range: entry 25% entry 95%;
+  }
+}
+
+/* ── Arma tu agente (simulador): el constructor a la izquierda, el chat y lo que hizo a la derecha ── */
+.lp-sim {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 16px;
+  align-items: start;
+}
+.lp-sim__build {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--glass-line);
+}
+.lp-sim__group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.lp-sim__group legend,
+.lp-sim__label,
+.lp-sim__name > span {
+  display: block;
+  padding: 0;
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.lp-sim__group .lp-sec__tabs {
+  margin-bottom: 0;
+}
+.lp-sim__goals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.lp-sim__goal {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 12px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+.lp-sim__goal strong {
+  font-size: 14px;
+}
+.lp-sim__goal small {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+@media (hover: hover) {
+  .lp-sim__goal:hover {
+    border-color: var(--accent-line);
+  }
+}
+.lp-sim__goal[aria-checked="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.lp-sim__name {
+  display: flex;
+  flex-direction: column;
+}
+.lp-sim__name input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+}
+.lp-sim__name input::placeholder {
+  color: var(--muted);
+}
+.lp-sim__name input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.lp-sim__result {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: lp-fade 0.25s var(--ease) both;
+}
+.lp-sim__does {
+  padding: 18px 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.lp-sim__does .lp-sim__label {
+  margin-bottom: 4px;
+}
+.lp-sim__caps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.lp-sim__caps li {
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+}
+.lp-sim__cta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+.lp-sim__cta small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 56ch;
+}
+@media (max-width: 900px) {
+  .lp-sim {
+    grid-template-columns: 1fr;
+  }
+  .lp-sim__build {
+    padding: 18px;
+  }
+}
+
+/* ── Terminal del hero: el registro del agente escribiéndose ── */
+/* Con el terminal debajo de la captura, el bloque oscuro apila en columna (antes era una fila con un solo hijo). */
+.lp-hero__demo {
+  flex-direction: column;
+  justify-content: center;
+}
+.lp-hero__term {
+  margin-top: 10px;
+  padding: 9px 14px 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  clip-path: var(--cut-md);
+}
+.lp-hero__term pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: clamp(10px, 2.4vw, 11.5px);
+  line-height: 1.55;
+  /* Cinco filas siempre: el fotograma quieto ya viene del servidor y nada salta. */
+  height: calc(5 * 1.55em);
+  overflow: hidden;
+  white-space: pre;
+  color: var(--cyan);
+}
+
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .lp-hero__grid {

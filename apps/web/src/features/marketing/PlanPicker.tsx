@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import Link from "next/link";
-import { PLAN_KEYS, PLANS, TRIAL_DAYS, type PlanDef } from "@crm/shared";
+import { AI_TOKENS_PER_CONVERSATION, formatTokens, PLAN_KEYS, PLANS, TRIAL_DAYS, type PlanDef } from "@crm/shared";
 import { Arrow } from "./chrome";
 
 /**
@@ -23,7 +23,8 @@ function fits(plan: PlanDef, numbers: number, users: number, broadcasts: boolean
   if (plan.limits.numbers !== null && plan.limits.numbers < numbers) return false;
   if (plan.limits.users !== null && plan.limits.users < users) return false;
   if (broadcasts && !plan.features.broadcasts) return false;
-  if (ai > 0 && plan.aiConversations !== null && plan.aiConversations < ai) return false;
+  // El visitante piensa en conversaciones; el plan trae tokens (unos 20.000 por conversación atendida).
+  if (ai > 0 && plan.aiTokens !== null && plan.aiTokens < ai * AI_TOKENS_PER_CONVERSATION) return false;
   return true;
 }
 
@@ -93,7 +94,7 @@ export function PlanPicker() {
           <li>
             {ai === 0
               ? "Con tu clave la IA no tiene cupo: pagas a tu proveedor, sin recargo."
-              : `${(plan.aiConversations ?? 0).toLocaleString("es")} conversaciones con IA incluidas al mes.`}
+              : `${formatTokens(plan.aiTokens ?? 0)} de tokens de IA al mes: unas ${Math.round((plan.aiTokens ?? 0) / AI_TOKENS_PER_CONVERSATION).toLocaleString("es")} conversaciones atendidas.`}
           </li>
           <li>Sin cobro por conversación, por mensaje ni por contacto.</li>
         </ul>

@@ -7,13 +7,14 @@ import {
   AI_PACK_MONTHS,
   FEATURE_LABELS,
   PLAN_FEATURES,
-  TRIAL_AI_CONVERSATIONS,
+  TRIAL_AI_TOKENS,
   formatAiIncluded,
   formatPlanPrice,
   formatRetention,
   planWithFeature,
   type MyPlanDto,
   type PlanDef,
+  formatTokens,
 } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { useMyPlan } from "./usePlan";
@@ -26,7 +27,7 @@ import { useMyPlan } from "./usePlan";
  * Durante la prueba del alta el plan que se ve es el que se prueba (Pro), con
  * los días que quedan; al terminar, un aviso de que sigue en Gratis.
  *
- * Con IA incluida, debajo van las conversaciones extra (#extra, adonde lleva
+ * Con IA incluida, debajo van los tokens extra (#extra, adonde lleva
  * el medidor de la cabecera): las que tiene y los paquetes que puede pedir.
  */
 export function PlanSettings() {
@@ -112,20 +113,20 @@ export function PlanSettings() {
           <Usage label="Contactos" used={usage.contacts} limit={plan.limits.contacts} />
           <Usage label="Oportunidades abiertas" used={usage.deals} limit={plan.limits.deals} />
           <Usage label="Contactos activos este mes" used={usage.activeContacts} limit={plan.limits.activeContacts} />
-          {plan.aiConversations !== null && (
-            <Usage label="Conversaciones con IA incluida este mes" used={usage.aiConversations} limit={plan.aiConversations} />
+          {plan.aiTokens !== null && (
+            <Usage label="Tokens de IA de Driony este mes" used={usage.aiTokens} limit={plan.aiTokens} format={formatTokens} />
           )}
         </div>
         <p className="plan-fairuse">
           Contactos, oportunidades y contactos activos son de <strong>uso razonable</strong>: quien te escribe por
           WhatsApp entra siempre; al tope se frena crear o importar a mano. Si superas los activos del mes de forma
           sostenida, te propondremos el plan que te corresponde. {formatRetention(plan.mediaRetentionDays)}.
-          {plan.aiConversations !== null && (
+          {plan.aiTokens !== null && (
             <>
               {" "}
-              La IA incluida cuenta conversaciones atendidas, no mensajes: al llegar al cupo, el agente termina
-              las que ya atendía y los chats nuevos pasan a tu equipo hasta el día 1. Con tu propia clave de IA no
-              hay cupo.
+              La IA incluida se mide en tokens, entrada y salida por igual, y de ahí sale todo lo que hace la IA:
+              al gastarlos, el agente termina las conversaciones que ya atendía y los chats nuevos pasan a tu
+              equipo hasta el día 1. Con tu propia clave de IA no hay cupo.
             </>
           )}
         </p>
@@ -140,7 +141,7 @@ export function PlanSettings() {
         </ul>
       </section>
 
-      {plan.aiConversations !== null && <AiExtra packs={data.aiPacks} contactEmail={data.contactEmail} />}
+      {plan.aiTokens !== null && <AiExtra packs={data.aiPacks} contactEmail={data.contactEmail} />}
 
       <section>
         <h4 className="plan-all__title">Todos los planes</h4>
@@ -176,7 +177,7 @@ function TrialNotice({ trial }: { trial: NonNullable<MyPlanDto["trial"]> }) {
           </strong>
           <span>
             Tienes todo {trial.planName} hasta el {longDate(trial.endsAt)}, con{" "}
-            {TRIAL_AI_CONVERSATIONS.toLocaleString("es")} conversaciones con IA para probar el agente. Al terminar
+            {formatTokens(TRIAL_AI_TOKENS)} de tokens de IA para probar el agente. Al terminar
             sigues en Gratis sin perder nada: tus chats, contactos y agentes se quedan como están.
           </span>
         </div>
@@ -204,30 +205,30 @@ function TrialNotice({ trial }: { trial: NonNullable<MyPlanDto["trial"]> }) {
 }
 
 /**
- * Conversaciones extra: para el mes que se queda corto, sin cambiar de plan.
+ * Tokens extra: para el mes que se queda corto, sin cambiar de plan.
  * Sin cobro en línea todavía: se piden por correo y el operador las añade
  * desde la consola al recibir el pago.
  */
 function AiExtra({ packs, contactEmail }: { packs: MyPlanDto["aiPacks"]; contactEmail: string | null }) {
-  const left = packs.reduce((n, p) => n + Math.max(0, p.conversations - p.used), 0);
+  const left = packs.reduce((n, p) => n + Math.max(0, p.tokens - p.used), 0);
   return (
     <section className="plan-extra" id="extra" data-ai-extra>
-      <h4 className="plan-all__title">Conversaciones extra con IA</h4>
+      <h4 className="plan-all__title">Tokens de IA extra</h4>
       <p className="plan-extra__lede">
         Para el mes que se te queda corto, sin cambiar de plan. Se pagan una vez, valen {AI_PACK_MONTHS} meses y se
-        gastan solo cuando se acaba el cupo de tu plan, igual que él: una por conversación atendida al mes, no por
-        mensaje. Con <Link href="/settings?tab=ai">tu propia clave de IA</Link> no hay cupo.
+        gastan solo cuando se acaba el cupo de tu plan, el que vence antes primero. Con{" "}
+        <Link href="/settings?tab=ai">tu propia clave de IA</Link> no hay cupo.
       </p>
 
       {packs.length > 0 && (
-        <ul className="plan-extra__mine" aria-label="Tus conversaciones extra">
+        <ul className="plan-extra__mine" aria-label="Tus tokens extra">
           {packs.map((p) => {
-            const rest = Math.max(0, p.conversations - p.used);
+            const rest = Math.max(0, p.tokens - p.used);
             return (
               <li key={p.id} className={rest === 0 ? "is-spent" : ""}>
                 <NavIcon name="sparkles" size={13} />
                 <span>
-                  <strong>{rest.toLocaleString("es")}</strong> de {p.conversations.toLocaleString("es")} conversaciones
+                  <strong>{formatTokens(rest)}</strong> de {formatTokens(p.tokens)} tokens
                 </span>
                 <span className="plan-extra__when">{rest === 0 ? "Gastado" : `Vence el ${longDate(p.expiresAt)}`}</span>
               </li>
@@ -236,19 +237,19 @@ function AiExtra({ packs, contactEmail }: { packs: MyPlanDto["aiPacks"]; contact
         </ul>
       )}
       {packs.length > 0 && left === 0 && (
-        <p className="plan-fairuse">Gastaste todas tus conversaciones extra: los chats nuevos pasan a tu equipo al llegar al cupo.</p>
+        <p className="plan-fairuse">Gastaste todos tus tokens extra: los chats nuevos pasan a tu equipo al acabarse el cupo.</p>
       )}
 
       <div className="plan-extra__offers">
         {AI_PACKS.map((o) => {
-          const subject = encodeURIComponent(`Conversaciones extra: ${o.conversations.toLocaleString("es")} (USD ${o.priceUsd})`);
+          const subject = encodeURIComponent(`Tokens extra: ${formatTokens(o.tokens)} (USD ${o.priceUsd})`);
           return (
             <div className="plan-extra__offer" key={o.key}>
-              <span className="plan-extra__n">+{o.conversations.toLocaleString("es")}</span>
+              <span className="plan-extra__n">+{formatTokens(o.tokens)}</span>
               <span className="plan-extra__what">
-                conversaciones con IA
+                tokens de IA
                 <small>
-                  USD {o.priceUsd}, una vez · USD {((o.priceUsd / o.conversations) * 1000).toLocaleString("es", { maximumFractionDigits: 2 })} cada mil
+                  USD {o.priceUsd}, una vez · USD {((o.priceUsd / o.tokens) * 1_000_000).toLocaleString("es", { maximumFractionDigits: 2 })} por millón
                 </small>
               </span>
               {contactEmail && (
@@ -268,14 +269,14 @@ function AiExtra({ packs, contactEmail }: { packs: MyPlanDto["aiPacks"]; contact
   );
 }
 
-function Usage({ label, used, limit }: { label: string; used: number; limit: number | null }) {
+function Usage({ label, used, limit, format = String }: { label: string; used: number; limit: number | null; format?: (n: number) => string }) {
   const pct = limit ? Math.min(1, used / limit) : 0;
   return (
     <div className="plan-usage__row">
       <span className="plan-usage__label">{label}</span>
       <span className="plan-usage__num">
-        {used}
-        {limit !== null ? ` / ${limit}` : " · sin límite"}
+        {format(used)}
+        {limit !== null ? ` / ${format(limit)}` : " · sin límite"}
       </span>
       {limit !== null && (
         <span className="plan-usage__bar" aria-hidden="true">
@@ -318,10 +319,10 @@ function PlanCard({ plan, current, trialing }: { plan: PlanDef; current: boolean
           <NavIcon name="message" size={13} />
           {lim(plan.limits.activeContacts, "contacto activo al mes", "contactos activos al mes")}
         </li>
-        {plan.aiConversations !== null && (
+        {plan.aiTokens !== null && (
           <li>
             <NavIcon name="sparkles" size={13} />
-            {formatAiIncluded(plan.aiConversations)}
+            {formatAiIncluded(plan.aiTokens)}
           </li>
         )}
         <li>

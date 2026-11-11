@@ -237,14 +237,16 @@ model AiUsage {
   @@map("ai_usage")
 }
 
-// Conversaciones con IA extra (paquetes): se pagan una vez, valen unos meses
-// y se gastan solo después del cupo del mes del plan, el que vence antes
-// primero. Mientras no haya cobro automático, los añade el operador desde la
-// consola. Quitar uno es vencerlo ya: el historial se queda.
+// Tokens de IA extra (paquetes): se pagan una vez, valen unos meses y se
+// gastan solo después del cupo del mes del plan, el que vence antes primero.
+// Mientras no haya cobro automático, los añade el operador desde la consola.
+// Quitar uno es vencerlo ya: el historial se queda. Hasta noviembre de 2026
+// eran conversaciones; se convirtieron a 20.000 tokens cada una.
 model AiPack {
   id            String   @id @default(cuid())
   orgId         String
-  conversations Int
+  // Tokens que trae y tokens gastados.
+  tokens        Int
   used          Int      @default(0)
   // Lo que pagó, en centavos de USD; null = regalo o compensación.
   priceCents    Int?
@@ -261,21 +263,22 @@ model AiPack {
   @@map("ai_packs")
 }
 
-// Qué conversación gastó una conversación extra, y en qué mes: así gasta una
-// sola vez al mes aunque el agente le conteste muchas veces o se reintente.
+// Cuántos tokens de cada paquete se gastaron cada mes: lo que excede el cupo
+// del plan se apunta aquí (AiPacksService.settle), una fila por paquete y mes,
+// así el gasto del mes se sabe sin recorrer el consumo.
 model AiPackUse {
-  id             String   @id @default(cuid())
-  orgId          String
-  packId         String
-  conversationId String
-  // Día 1 del mes (UTC) en que se gastó.
-  month          DateTime
-  createdAt      DateTime @default(now())
+  id        String   @id @default(cuid())
+  orgId     String
+  packId    String
+  // Día 1 del mes (UTC).
+  month     DateTime
+  tokens    Int      @default(0)
+  createdAt DateTime @default(now())
 
   org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   pack AiPack       @relation(fields: [packId], references: [id], onDelete: Cascade)
 
-  @@unique([orgId, conversationId, month])
+  @@unique([orgId, packId, month])
   @@index([packId])
   @@map("ai_pack_uses")
 }

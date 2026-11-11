@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { setupDraftSchema } from "./business-setup.schema.js";
 
 /**
  * Subdominios que no se pueden registrar como empresa.
@@ -87,6 +88,8 @@ export const registerOrgSchema = z.object({
   adminName: z.string().trim().min(1).max(120),
   adminEmail: z.string().email(),
   password: z.string().min(8).max(200),
+  /** Lo armado en el simulador de la landing, si vino de ahí: rellena el asistente de bienvenida. */
+  setup: setupDraftSchema.optional(),
 });
 export type RegisterOrgInput = z.infer<typeof registerOrgSchema>;
 

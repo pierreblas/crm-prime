@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AI_PACKS, AI_PACK_MONTHS, PLANS, PLAN_KEYS, planFor, type GrantAiPackInput, type PlatformOrgDetail, type UpdatePlatformOrgInput } from "@crm/shared";
+import { formatTokens, AI_PACKS, AI_PACK_MONTHS, PLANS, PLAN_KEYS, planFor, type GrantAiPackInput, type PlatformOrgDetail, type UpdatePlatformOrgInput } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
@@ -271,7 +271,7 @@ export function OrgDrawer({ id, myOrgSlug, onClose }: { id: string; myOrgSlug?: 
                   {org.aiOwnKey
                     ? "Usa su propia clave de IA: no gasta la IA de Driony y el consumo lo paga ella."
                     : org.aiIncludedLimit !== null
-                      ? `IA de Driony: ${org.aiIncludedConversations.toLocaleString("es")} de ${org.aiIncludedLimit.toLocaleString("es")} conversaciones del plan${org.aiExtraUsedMonth > 0 ? ` (+${org.aiExtraUsedMonth.toLocaleString("es")} extra)` : ""} · ${money(org.aiPlatformCostMonthUsd)} de ${money(orgAiCapUsd(org))} de tope (a precio de lista).`
+                      ? `IA de Driony: ${formatTokens(org.aiIncludedTokens)} de ${formatTokens(org.aiIncludedLimit)} tokens del plan${org.aiExtraUsedMonth > 0 ? ` (+${formatTokens(org.aiExtraUsedMonth)} extra)` : ""} · ${money(org.aiPlatformCostMonthUsd)} de ${money(orgAiCapUsd(org))} de tope (a precio de lista).`
                       : "Sin clave propia y sin IA incluida: su agente no responde."}
                 </p>
                 {org.aiIncludedLimit !== null && <AiPacks orgId={id} packs={d.aiPacks} />}
@@ -399,9 +399,9 @@ function ActivityBars({ data }: { data: { day: string; inbound: number; outbound
 }
 
 /**
- * Conversaciones extra de la empresa: las que tiene (también las vencidas) y
- * el formulario para añadir un paquete al recibir su pago, o de regalo. Quitar
- * uno lo vence ya; lo gastado queda en su historial.
+ * Tokens extra de la empresa: los paquetes que tiene (también los vencidos) y
+ * el formulario para añadir uno al recibir su pago, o de regalo. Quitar uno lo
+ * vence ya; lo gastado queda en su historial.
  */
 function AiPacks({ orgId, packs }: { orgId: string; packs: PlatformOrgDetail["aiPacks"] }) {
   const queryClient = useQueryClient();
@@ -417,7 +417,7 @@ function AiPacks({ orgId, packs }: { orgId: string; packs: PlatformOrgDetail["ai
     mutationFn: (input: GrantAiPackInput) => grantPlatformAiPack(orgId, input),
     onSuccess: (detail, input) => {
       done(detail);
-      toast.success(`Añadidas ${input.conversations.toLocaleString("es")} conversaciones extra`);
+      toast.success(`Añadidos ${formatTokens(input.tokens)} de tokens extra`);
       setNote("");
     },
     onError: (e) => toast.error((e as Error).message),
@@ -427,25 +427,25 @@ function AiPacks({ orgId, packs }: { orgId: string; packs: PlatformOrgDetail["ai
     onSuccess: done,
     onError: (e) => toast.error((e as Error).message),
   });
-  const conversations = pick === "custom" ? Math.floor(Number(custom)) : (AI_PACKS.find((p) => p.key === pick)?.conversations ?? 0);
+  const tokens = pick === "custom" ? Math.floor(Number(custom)) : (AI_PACKS.find((p) => p.key === pick)?.tokens ?? 0);
   const priceUsd = price.trim() === "" ? null : Number(price.replace(",", "."));
-  const valid = conversations > 0 && (priceUsd === null || (Number.isFinite(priceUsd) && priceUsd >= 0));
+  const valid = tokens > 0 && (priceUsd === null || (Number.isFinite(priceUsd) && priceUsd >= 0));
 
   return (
     <div className="pc-packs" data-ai-packs>
-      <h4>Conversaciones extra</h4>
+      <h4>Tokens extra</h4>
       {packs.length === 0 ? (
         <p className="pc-empty">Sin paquetes. Se gastan después del cupo del plan y valen {AI_PACK_MONTHS} meses.</p>
       ) : (
         <table className="pc-table is-compact">
           <thead>
-            <tr><th className="num">Conversaciones</th><th className="num">Gastadas</th><th>Vence</th><th>Pagó</th><th>Nota</th><th /></tr>
+            <tr><th className="num">Tokens</th><th className="num">Gastados</th><th>Vence</th><th>Pagó</th><th>Nota</th><th /></tr>
           </thead>
           <tbody>
             {packs.map((p) => (
               <tr key={p.id} className={p.active ? "" : "is-off"}>
-                <td className="num">{p.conversations.toLocaleString("es")}</td>
-                <td className="num">{p.used.toLocaleString("es")}</td>
+                <td className="num">{formatTokens(p.tokens)}</td>
+                <td className="num">{formatTokens(p.used)}</td>
                 <td>{p.active ? date(p.expiresAt) : <span className="pc-muted">vencido · {date(p.expiresAt)}</span>}</td>
                 <td>{p.priceUsd === null ? <span className="pc-muted">regalo</span> : money(p.priceUsd)}</td>
                 <td className="wrap pc-muted" title={p.createdBy ?? undefined}>{p.note ?? "—"}</td>
@@ -457,7 +457,7 @@ function AiPacks({ orgId, packs }: { orgId: string; packs: PlatformOrgDetail["ai
                       disabled={remove.isPending}
                       onClick={() =>
                         void confirmDialog({
-                          message: `¿Quitar este paquete? Le quedan ${(p.conversations - p.used).toLocaleString("es")} conversaciones; vence ya y no se pueden recuperar.`,
+                          message: `¿Quitar este paquete? Le quedan ${formatTokens(p.tokens - p.used)} de tokens; vence ya y no se pueden recuperar.`,
                           danger: true,
                         }).then((ok) => ok && remove.mutate(p.id))
                       }
@@ -476,7 +476,7 @@ function AiPacks({ orgId, packs }: { orgId: string; packs: PlatformOrgDetail["ai
         style={{ marginTop: 10 }}
         onSubmit={(e) => {
           e.preventDefault();
-          if (valid) grant.mutate({ conversations, priceUsd, note: note.trim() || null });
+          if (valid) grant.mutate({ tokens, priceUsd, note: note.trim() || null });
         }}
       >
         <label>
@@ -493,7 +493,7 @@ function AiPacks({ orgId, packs }: { orgId: string; packs: PlatformOrgDetail["ai
           >
             {AI_PACKS.map((p) => (
               <option key={p.key} value={p.key}>
-                {p.conversations.toLocaleString("es")} · USD {p.priceUsd}
+                {formatTokens(p.tokens)} · USD {p.priceUsd}
               </option>
             ))}
             <option value="custom">Otro número</option>
@@ -501,8 +501,8 @@ function AiPacks({ orgId, packs }: { orgId: string; packs: PlatformOrgDetail["ai
         </label>
         {pick === "custom" && (
           <label>
-            Conversaciones
-            <input className="pc-select" type="number" min={1} max={100000} value={custom} onChange={(e) => setCustom(e.target.value)} aria-label="Conversaciones" style={{ width: 110 }} />
+            Tokens
+            <input className="pc-select" type="number" min={1} max={2000000000} step={1000000} value={custom} onChange={(e) => setCustom(e.target.value)} aria-label="Tokens" style={{ width: 150 }} />
           </label>
         )}
         <label title="Lo que pagó, en USD. Vacío = regalo o compensación.">

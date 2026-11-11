@@ -13,11 +13,13 @@ import {
   PLANS,
   retentionLabel,
   SELF_HOSTED_PLAN,
-  TRIAL_AI_CONVERSATIONS,
+  TRIAL_AI_TOKENS,
   TRIAL_DAYS,
   TRIAL_PLAN,
   type PlanDef,
   type PlanLimit,
+  AI_TOKENS_PER_CONVERSATION,
+  formatTokens,
 } from "@crm/shared";
 import "./landing.css";
 import { Arrow, Check, CONTACT, GITHUB, IconGit, MarketingFooter, MarketingHeader, Minus } from "./chrome";
@@ -37,12 +39,12 @@ const INCLUDED = [
 ];
 
 const n = (v: number | null) => (v ?? 0).toLocaleString("es");
-/** "100 en Gratis, 500 en Inicial, 2.000 en Pro y 6.000 en Empresa", del catálogo. */
+/** "2,5 M en Gratis, 12 M en Inicial, 50 M en Pro y 150 M en Empresa", del catálogo. */
 const AI_BY_PLAN = (() => {
-  const parts = PLAN_KEYS.map((k) => `${n(PLANS[k].aiConversations)} en ${PLANS[k].name}`);
+  const parts = PLAN_KEYS.map((k) => `${formatTokens(PLANS[k].aiTokens ?? 0)} en ${PLANS[k].name}`);
   return `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}`;
 })();
-const PACKS_TEXT = AI_PACKS.map((p) => `${n(p.conversations)} por USD ${p.priceUsd}`).join(" o ");
+const PACKS_TEXT = AI_PACKS.map((p) => `${formatTokens(p.tokens)} por USD ${p.priceUsd}`).join(" o ");
 const RETENTION_BY_PLAN = (() => {
   const parts = PLAN_KEYS.map((k) => `${retentionLabel(PLANS[k].mediaRetentionDays)} en ${PLANS[k].name}`);
   return `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}`;
@@ -51,7 +53,7 @@ const RETENTION_BY_PLAN = (() => {
 const FAQ = [
   {
     q: "¿Necesito tarjeta para empezar?",
-    a: `No. Al crear tu cuenta tienes ${TRIAL_DAYS} días de Pro gratis, sin tarjeta, con ${n(TRIAL_AI_CONVERSATIONS)} conversaciones con IA para probar el agente. Al terminar sigues en el plan Gratis, que no caduca, y pasas a Inicial, Pro o Empresa cuando lo necesites.`,
+    a: `No. Al crear tu cuenta tienes ${TRIAL_DAYS} días de Pro gratis, sin tarjeta, con ${formatTokens(TRIAL_AI_TOKENS)} de tokens de IA para probar el agente. Al terminar sigues en el plan Gratis, que no caduca, y pasas a Inicial, Pro o Empresa cuando lo necesites.`,
   },
   {
     q: "¿Qué pasa cuando termina la prueba?",
@@ -75,7 +77,7 @@ const FAQ = [
   },
   {
     q: "¿La inteligencia artificial está incluida en el precio?",
-    a: `Sí. Cada plan trae un cupo de conversaciones atendidas por la IA de Driony al mes (${AI_BY_PLAN}), sin claves ni configuración. Cuenta cada conversación que el agente atiende en el mes, no cada mensaje ni cada respuesta. Si un mes se te queda corto, sumas conversaciones extra (${PACKS_TEXT}, una sola vez) que valen ${AI_PACK_MONTHS} meses. Al llegar al tope, el agente termina las que ya atendía y los chats nuevos pasan a tu equipo hasta el mes siguiente. Y si conectas tu propia clave de OpenAI, Anthropic o cualquier API compatible, no hay cupo, eliges el modelo de cada agente y pagas a tu proveedor a su precio, sin margen nuestro.`,
+    a: `Sí. Cada plan trae un cupo de tokens de IA al mes (${AI_BY_PLAN}), sin claves ni configuración. Son los mismos tokens que Driony paga al proveedor, sin créditos inventados: todo lo que hace la IA (el agente, el copiloto, los asistentes, los audios y las imágenes) sale del mismo medidor, y una conversación atendida gasta unos ${formatTokens(AI_TOKENS_PER_CONVERSATION)}. Si un mes se te queda corto, sumas tokens extra (${PACKS_TEXT}, una sola vez) que valen ${AI_PACK_MONTHS} meses. Al gastarlos, el agente termina las conversaciones que ya atendía y los chats nuevos pasan a tu equipo hasta el mes siguiente. Y si conectas tu propia clave de OpenAI, Anthropic o cualquier API compatible, no hay cupo, eliges el modelo de cada agente y pagas a tu proveedor a su precio, sin margen nuestro.`,
   },
   {
     q: "¿Y las conversaciones de WhatsApp?",
@@ -211,32 +213,32 @@ export function Pricing() {
 
 /**
  * Las tres maneras de pagar la IA, una al lado de otra: incluida, con
- * conversaciones extra o con tu clave. Es lo que nos diferencia, así que va
+ * tokens extra o con tu clave. Es lo que nos diferencia, así que va
  * justo debajo de los planes y antes de la lista de lo incluido.
  */
 function AiWays() {
-  const min = Math.min(...PLAN_KEYS.map((k) => PLANS[k].aiConversations ?? 0));
-  const max = Math.max(...PLAN_KEYS.map((k) => PLANS[k].aiConversations ?? 0));
+  const min = Math.min(...PLAN_KEYS.map((k) => PLANS[k].aiTokens ?? 0));
+  const max = Math.max(...PLAN_KEYS.map((k) => PLANS[k].aiTokens ?? 0));
   return (
     <section className="lp-ai" aria-labelledby="lp-ai-title">
       <div className="lp-ai__head">
         <h2 id="lp-ai-title">La IA, como prefieras</h2>
         <p>
-          Contamos conversaciones atendidas, no tokens ni créditos: una conversación es un cliente atendido en el mes,
-          responda el agente una vez o veinte.
+          Contamos tokens, los mismos que pagamos al proveedor: sin créditos inventados ni cobro por conversación. Todo lo
+          que hace la IA sale del mismo medidor, y lo ves en tiempo real.
         </p>
       </div>
       <div className="lp-ai__ways">
         <div className="lp-ai__way">
           <span className="lp-ai__fig">
-            {n(min)}–{n(max)}
+            {formatTokens(min)}–{formatTokens(max)}
           </span>
           <h3>Incluida en tu plan</h3>
-          <p>Conversaciones al mes según el plan, sin claves ni configuración. El agente funciona desde el primer día.</p>
+          <p>Tokens al mes según el plan, sin claves ni configuración. El agente funciona desde el primer día.</p>
         </div>
         <div className="lp-ai__way">
-          <span className="lp-ai__fig">+{n(AI_PACKS[0].conversations)}</span>
-          <h3>Conversaciones extra</h3>
+          <span className="lp-ai__fig">+{formatTokens(AI_PACKS[0].tokens)}</span>
+          <h3>Tokens extra</h3>
           <p>
             Para el mes que se queda corto: {PACKS_TEXT}, una sola vez. Valen {AI_PACK_MONTHS} meses y se gastan solo
             después de tu cupo.
@@ -283,12 +285,12 @@ function PlanCard({ plan, highlight }: { plan: PlanDef; highlight: boolean }) {
             {formatPlanLimit(k, plan.limits[k])}
           </div>
         ))}
-        {plan.aiConversations !== null && (
+        {plan.aiTokens !== null && (
           <div className="lp-row" title="Con tu propia clave de IA no hay cupo.">
             <span className="lp-row__ic">
               <Check />
             </span>
-            {formatAiIncluded(plan.aiConversations)}
+            {formatAiIncluded(plan.aiTokens)}
           </div>
         )}
         <div className="lp-row">

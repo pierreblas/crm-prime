@@ -4,8 +4,9 @@ import { z } from "zod";
  * Consumo de IA: qué se gastó, en qué y cuánto cuesta.
  *
  * Con clave propia, cada empresa paga a su proveedor y esto le enseña en qué
- * se le va el dinero. Sin clave, el agente usa la IA de Driony con un cupo de
- * conversaciones al mes según el plan (ver AI_INCLUDED_*). El coste es una
+ * se le va el dinero. Sin clave, la IA de Driony se mide en tokens: el plan
+ * trae un cupo al mes (PlanDef.aiTokens) del que sale todo lo que hace la IA,
+ * y se amplía con paquetes de tokens (AI_PACKS). El coste en dólares es una
  * ESTIMACIÓN con precios de lista; la factura real está en la cuenta del
  * proveedor.
  */
@@ -46,54 +47,68 @@ export const AI_FEATURE_LABELS: Record<AiFeature, string> = {
  */
 export const AI_INCLUDED_MODEL = "gpt-5-mini";
 /**
- * Coste medio de una conversación atendida por el agente con ese modelo, a
- * precio de lista. En producción (septiembre de 2026) ~5.000 conversaciones
- * gastaron 86,8M tokens de entrada: ~US$22 de lista solo en entrada, aunque
- * la factura fue de US$16 gracias a la caché. ai_usage no descuenta la caché,
- * así que el tope se calcula con lo que ai_usage va a sumar, no con la factura.
+ * Tokens que gasta de media una conversación atendida por el agente. En
+ * producción (septiembre de 2026) ~5.000 conversaciones gastaron 86,8 M de
+ * tokens de entrada: unos 18.000 por conversación con la salida. Sirve para
+ * traducir conversaciones a tokens (el selector de plan, los paquetes
+ * antiguos) y para que los textos digan «unas N conversaciones».
  */
-export const AI_COST_PER_CONVERSATION_USD = 0.006;
+export const AI_TOKENS_PER_CONVERSATION = 20_000;
+/**
+ * Coste de lista de un token de la IA incluida, mezclando entrada y salida
+ * como salen en producción (unos 95 % de entrada a 0,25 USD/M y 5 % de salida
+ * a 2 USD/M con gpt-5-mini). ai_usage no descuenta la caché, así que el tope
+ * se calcula con lo que ai_usage va a sumar, no con la factura.
+ */
+export const AI_TOKEN_COST_USD = 0.35 / 1_000_000;
 /** Margen del tope en dólares sobre el coste esperado del cupo. */
 export const AI_INCLUDED_SAFETY = 2;
+/**
+ * Al llegar al cupo, una conversación que el agente ya atendía este mes puede
+ * terminar: hasta este margen por encima del total (cupo más tokens extra).
+ * Lo nuevo pasa al equipo desde el 100 %.
+ */
+export const AI_GRACE = 0.05;
 
 /**
- * Tope de gasto al mes de la IA incluida para un cupo: protege de bucles,
- * abusos y conversaciones muy largas, que el cupo por conversaciones no ve.
- * Con conversaciones extra, se calcula con el cupo más las extra del mes y
- * las que quedan.
+ * Tope de gasto al mes de la IA incluida para un cupo de tokens: el cupo
+ * cuenta entrada y salida por igual, y esto frena a quien gasta mucha salida
+ * (más cara) o a un bucle antes de que cueste de verdad. Con tokens extra, se
+ * calcula con el cupo más los extra del mes y los que quedan.
  */
-export function includedAiCapUsd(conversations: number): number {
-  return conversations * AI_COST_PER_CONVERSATION_USD * AI_INCLUDED_SAFETY;
+export function includedAiCapUsd(tokens: number): number {
+  return tokens * AI_TOKEN_COST_USD * AI_INCLUDED_SAFETY;
 }
 
-// ── Conversaciones extra (paquetes) ─────────────────────────
+// ── Tokens extra (paquetes) ─────────────────────────────────
 /**
- * Paquetes de conversaciones con IA para quien se queda corto un mes: se
- * pagan una vez, valen AI_PACK_MONTHS meses y se gastan solo después del
- * cupo del plan, el que vence antes primero. Una conversación gasta una del
- * paquete una sola vez al mes, como en el cupo. Mientras no haya cobro
- * automático, el operador los añade desde la consola al recibir el pago.
+ * Paquetes de tokens de IA para quien se queda corto un mes: se pagan una
+ * vez, valen AI_PACK_MONTHS meses y se gastan solo después del cupo del plan,
+ * el que vence antes primero. Mientras no haya cobro automático, el operador
+ * los añade desde la consola al recibir el pago. Los paquetes de
+ * conversaciones anteriores a noviembre de 2026 se convirtieron a
+ * AI_TOKENS_PER_CONVERSATION tokens por conversación.
  */
 export const AI_PACKS = [
-  { key: "1k", conversations: 1000, priceUsd: 12 },
-  { key: "3k", conversations: 3000, priceUsd: 29 },
+  { key: "20m", tokens: 20_000_000, priceUsd: 12 },
+  { key: "60m", tokens: 60_000_000, priceUsd: 29 },
 ] as const;
 export type AiPackKey = (typeof AI_PACKS)[number]["key"];
 export const AI_PACK_MONTHS = 6;
 
-/** Un paquete comprado, tal como lo ve la empresa. */
+/** Un paquete comprado, tal como lo ve la empresa: tokens que trae y tokens gastados. */
 export const aiPackSchema = z.object({
   id: z.string(),
-  conversations: z.number(),
+  tokens: z.number(),
   used: z.number(),
   expiresAt: z.string(),
   createdAt: z.string(),
 });
 export type AiPackDto = z.infer<typeof aiPackSchema>;
 
-/** El operador añade un paquete: uno del catálogo o un número a mano (regalo, compensación). */
+/** El operador añade un paquete: uno del catálogo o un número de tokens a mano (regalo, compensación). */
 export const grantAiPackSchema = z.object({
-  conversations: z.number().int().min(1).max(100_000),
+  tokens: z.number().int().min(1).max(2_000_000_000),
   /** Lo que pagó, en USD; null = regalo. */
   priceUsd: z.number().min(0).max(100_000).nullable().optional(),
   months: z.number().int().min(1).max(24).optional(),
@@ -101,25 +116,31 @@ export const grantAiPackSchema = z.object({
 });
 export type GrantAiPackInput = z.infer<typeof grantAiPackSchema>;
 
-/** Funciones que cuentan una conversación del cupo (las que atienden al cliente). */
+/**
+ * Funciones que atienden al cliente: dicen qué conversaciones «ya atendía» el
+ * agente este mes (las que pueden terminar al llegar al cupo) y cuántas
+ * atendió, que se enseña junto a los tokens.
+ */
 export const AI_INCLUDED_COUNTED: readonly AiFeature[] = ["agent", "follow_up"];
 
 /**
- * Uso de la IA incluida en el mes en curso (UTC). Dos frenos distintos:
+ * Uso de la IA incluida en el mes en curso (UTC), en tokens. Dos frenos:
  *
- * - `full`: se llegó al cupo de conversaciones y no quedan extra. El agente
- *   termina las que ya atendía este mes; las nuevas pasan al equipo. Nadie se
- *   queda a medias.
+ * - `full`: se gastó el cupo del plan y los tokens extra. Lo nuevo pasa al
+ *   equipo; una conversación que el agente ya atendía puede terminar dentro
+ *   del margen AI_GRACE. El copiloto y los asistentes se detienen.
  * - `exhausted`: se llegó al tope en dólares (freno de seguridad para bucles o
  *   abusos; en un uso normal no se alcanza). Ahí la IA de Driony se apaga del
  *   todo hasta el mes siguiente, salvo la indexación del conocimiento.
  */
 export const aiIncludedSchema = z.object({
-  /** Conversaciones distintas atendidas este mes con la IA de Driony (las extra incluidas). */
+  /** Tokens gastados este mes con la IA de Driony, en todo (los extra incluidos). */
+  tokens: z.number(),
+  /** Conversaciones distintas que el agente atendió este mes, para decirlo en palabras. */
   conversations: z.number(),
-  /** El cupo del mes del plan. */
+  /** El cupo de tokens del mes del plan. */
   limit: z.number(),
-  /** Conversaciones extra (paquetes): las que quedan y las gastadas este mes. */
+  /** Tokens extra (paquetes): los que quedan y los gastados este mes. */
   extraRemaining: z.number(),
   extraUsed: z.number(),
   /** Cuándo vence el paquete que se está gastando (null = sin paquetes). */
@@ -133,11 +154,18 @@ export const aiIncludedSchema = z.object({
 });
 export type AiIncluded = z.infer<typeof aiIncludedSchema>;
 
-/** Nivel de aviso del cupo: al 80 % del total (cupo + extra) y al llegar. */
-export function aiQuotaLevel(i: Pick<AiIncluded, "conversations" | "limit" | "extraRemaining" | "extraUsed" | "full" | "exhausted">): "ok" | "warn" | "full" {
+/** Todo lo que hay este mes: el cupo del plan más los tokens extra (gastados y por gastar). */
+export function aiIncludedTotal(i: Pick<AiIncluded, "limit" | "extraRemaining" | "extraUsed">): number {
+  return i.limit + i.extraUsed + i.extraRemaining;
+}
+
+/** Nivel de aviso del cupo: al 80 % del total (cupo + extra), al 95 % y al llegar. */
+export function aiQuotaLevel(i: Pick<AiIncluded, "tokens" | "limit" | "extraRemaining" | "extraUsed" | "full" | "exhausted">): "ok" | "warn" | "high" | "full" {
   if (i.full || i.exhausted) return "full";
-  const total = i.limit + i.extraUsed + i.extraRemaining;
-  return total > 0 && i.conversations >= total * 0.8 ? "warn" : "ok";
+  const total = aiIncludedTotal(i);
+  if (total <= 0) return "ok";
+  if (i.tokens >= total * 0.95) return "high";
+  return i.tokens >= total * 0.8 ? "warn" : "ok";
 }
 
 /** Mes de la última revisión de la tabla de precios. */

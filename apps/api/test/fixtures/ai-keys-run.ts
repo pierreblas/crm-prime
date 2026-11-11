@@ -4,16 +4,16 @@
 //
 //   argv[2] = "db"  → la empresa tiene una key propia guardada
 //   argv[2] = "none" → no tiene ninguna
-//   argv[3] = conversaciones con IA de Driony este mes (por defecto 0)
+//   argv[3] = tokens gastados con la IA de Driony este mes (por defecto 0)
 //   argv[4] = gasto estimado en USD de la IA de Driony este mes (por defecto 0)
 //   argv[5] = plan de la empresa (por defecto "free")
 //   argv[6] = "counted" si la conversación de prueba ya contó este mes
-//   argv[7] = conversaciones extra (paquetes) que le quedan (por defecto 0)
+//   argv[7] = tokens extra (paquetes) que le quedan (por defecto 0)
 import { AiSettingsService } from "../../src/modules/ai/ai-settings.service";
 import { encryptSecret } from "../../src/common/utils/secret-box";
 
 const propia = process.argv[2] === "db";
-const conversations = Number(process.argv[3] ?? 0);
+const tokens = Number(process.argv[3] ?? 0);
 const costUsd = Number(process.argv[4] ?? 0);
 const plan = process.argv[5] ?? "free";
 const counted = process.argv[6] === "counted";
@@ -41,14 +41,23 @@ const prisma = {
 };
 const tenant = { orgId: () => "org_a" };
 const usage = {
-  includedUsage: async () => ({ conversations, costUsd }),
+  includedUsage: async () => ({ tokens, conversations: Math.round(tokens / 20_000), costUsd }),
   countedThisMonth: async () => counted,
   invalidate: () => undefined,
 };
 
+// Como AiPacksService: lo que excede el cupo se carga a los paquetes, una sola vez.
+let charged = 0;
 const packs = {
-  extra: async () => ({ remaining: extra, usedThisMonth: 0, nextExpiresAt: extra > 0 ? new Date(Date.now() + 86_400_000) : null }),
-  consume: async () => (extra > 0 ? (extra--, true) : false),
+  extra: async () => ({ remaining: extra, usedThisMonth: charged, nextExpiresAt: extra > 0 ? new Date(Date.now() + 86_400_000) : null }),
+  settle: async (_org: string, excess: number) => {
+    const take = Math.min(Math.max(0, excess) - charged, extra);
+    if (take > 0) {
+      extra -= take;
+      charged += take;
+    }
+    return charged;
+  },
 };
 
 const svc = new AiSettingsService(prisma as never, tenant as never, usage as never, packs as never);

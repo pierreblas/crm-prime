@@ -99,7 +99,7 @@ test("mine() devuelve el plan, el uso y el catálogo", async () => {
   const mine = await svc.mine();
   assert.equal(mine.saas, true);
   assert.equal(mine.plan.key, "pro");
-  assert.deepEqual(mine.usage, { numbers: 2, users: 4, contacts: 0, deals: 0, activeContacts: 0, aiConversations: 0 });
+  assert.deepEqual(mine.usage, { numbers: 2, users: 4, contacts: 0, deals: 0, activeContacts: 0, aiTokens: 0 });
   assert.deepEqual(
     mine.plans.map((p) => p.key),
     ["free", "starter", "pro", "business"],
@@ -184,7 +184,7 @@ test("en prueba se puede lo de Pro; terminada, vuelven los límites de Gratis", 
   assert.equal(mine.trial?.active, true);
   assert.equal(mine.trial?.daysLeft, 3);
   assert.equal(mine.trial?.planName, "Pro");
-  assert.equal(mine.plan.aiConversations, shared.TRIAL_AI_CONVERSATIONS, "la prueba trae su propio cupo de IA, menor que el de Pro");
+  assert.equal(mine.plan.aiTokens, shared.TRIAL_AI_TOKENS, "la prueba trae su propio cupo de IA, menor que el de Pro");
   assert.deepEqual(mine.aiPacks, []);
 
   const terminada = service({ plan: "free", numbers: 1, users: 2, trialEndsAt: new Date(Date.now() - 86_400_000) });

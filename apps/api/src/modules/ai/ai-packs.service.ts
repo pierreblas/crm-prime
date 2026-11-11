@@ -3,23 +3,25 @@ import type { AiPackDto } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { monthStart } from "./ai-usage.service";
 
-/** Saldo de conversaciones extra de una empresa. */
+/** Saldo de tokens extra de una empresa. */
 export interface AiExtra {
-  /** Lo que queda en paquetes vigentes. */
+  /** Tokens que quedan en paquetes vigentes. */
   remaining: number;
-  /** Las gastadas este mes (suben el tope en dólares del mes). */
+  /** Tokens de paquetes gastados este mes (suben el tope en dólares del mes). */
   usedThisMonth: number;
   /** Cuándo vence el paquete que se está gastando, o null si no queda nada. */
   nextExpiresAt: Date | null;
 }
 
 /**
- * Conversaciones con IA extra (paquetes).
+ * Tokens de IA extra (paquetes).
  *
- * Se gastan solo cuando el cupo del mes del plan está lleno, y cada
- * conversación gasta una sola vez al mes (ai_pack_uses, único por
- * conversación y mes): si el agente le contesta diez veces o se reintenta un
- * trabajo, sigue siendo una. El que vence antes se gasta primero.
+ * El consumo del mes se lee de ai_usage; lo que excede el cupo del plan se
+ * carga a los paquetes con `settle`, que apunta en ai_pack_uses cuántos
+ * tokens de cada paquete se gastaron este mes (una fila por paquete y mes).
+ * Se llama cada vez que se calcula el cupo, así que el saldo se pone al día
+ * solo y volver a llamarlo con la misma cifra no gasta dos veces. El que
+ * vence antes se gasta primero.
  *
  * Las consultas filtran por orgId además de ir con RLS: el gasto se decide en
  * el trabajo del agente, y esa es la empresa del contexto.
@@ -30,18 +32,18 @@ export class AiPacksService {
 
   async extra(orgId: string): Promise<AiExtra> {
     const now = new Date();
-    const [packs, usedThisMonth] = await Promise.all([
+    const [packs, used] = await Promise.all([
       this.prisma.aiPack.findMany({
         where: { orgId, expiresAt: { gt: now } },
         orderBy: [{ expiresAt: "asc" }, { createdAt: "asc" }],
-        select: { conversations: true, used: true, expiresAt: true },
+        select: { tokens: true, used: true, expiresAt: true },
       }),
-      this.prisma.aiPackUse.count({ where: { orgId, month: monthStart() } }),
+      this.prisma.aiPackUse.aggregate({ where: { orgId, month: monthStart() }, _sum: { tokens: true } }),
     ]);
-    const left = packs.filter((p) => p.used < p.conversations);
+    const left = packs.filter((p) => p.used < p.tokens);
     return {
-      remaining: left.reduce((n, p) => n + (p.conversations - p.used), 0),
-      usedThisMonth,
+      remaining: left.reduce((n, p) => n + (p.tokens - p.used), 0),
+      usedThisMonth: used._sum.tokens ?? 0,
       nextExpiresAt: left[0]?.expiresAt ?? null,
     };
   }
@@ -51,11 +53,11 @@ export class AiPacksService {
     const rows = await this.prisma.aiPack.findMany({
       where: { orgId, expiresAt: { gt: new Date() } },
       orderBy: [{ expiresAt: "asc" }, { createdAt: "asc" }],
-      select: { id: true, conversations: true, used: true, expiresAt: true, createdAt: true },
+      select: { id: true, tokens: true, used: true, expiresAt: true, createdAt: true },
     });
     return rows.map((p) => ({
       id: p.id,
-      conversations: p.conversations,
+      tokens: p.tokens,
       used: p.used,
       expiresAt: p.expiresAt.toISOString(),
       createdAt: p.createdAt.toISOString(),
@@ -63,42 +65,41 @@ export class AiPacksService {
   }
 
   /**
-   * Gasta una conversación extra para esta conversación este mes. true si ya
-   * la tenía o si quedaba saldo; false si no queda nada.
+   * Pone al día lo cargado a los paquetes este mes: `excess` son los tokens
+   * gastados por encima del cupo del plan. Si este mes ya se habían apuntado
+   * menos, la diferencia se resta de los paquetes vigentes, el que vence antes
+   * primero, hasta donde alcance. Devuelve lo apuntado este mes tras el ajuste.
    *
-   * Todo en una transacción con un cerrojo por conversación: dos mensajes de
-   * la misma conversación a la vez (el autopilot responde en paralelo) no
-   * compiten por los paquetes; el segundo espera, ve el apunte del primero y
-   * no gasta. Sin el cerrojo, cada uno restaba de un paquete distinto y el que
-   * perdía la carrera devolvía el suyo: una conversación bien cobrada, pero
-   * gastada del paquete equivocado (el que vence después).
+   * Todo en una transacción con un cerrojo por empresa: dos cálculos a la vez
+   * (el autopilot responde en paralelo) no cargan lo mismo dos veces.
    */
-  async consume(orgId: string, conversationId: string): Promise<boolean> {
+  async settle(orgId: string, excess: number): Promise<number> {
     const month = monthStart();
     return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${orgId}:${conversationId}`}))`;
-      const done = await tx.aiPackUse.findFirst({
-        where: { orgId, conversationId, month },
-        select: { id: true },
-      });
-      if (done) return true;
-
-      // Restar y elegir el paquete en una sola sentencia: el que vence antes.
-      // SKIP LOCKED: conversaciones distintas a la vez no se esperan entre sí.
-      const [hit] = await tx.$queryRaw<Array<{ id: string }>>`
-        UPDATE ai_packs SET used = used + 1
-        WHERE id = (
-          SELECT id FROM ai_packs
-          WHERE "orgId" = ${orgId} AND "expiresAt" > now() AND used < conversations
-          ORDER BY "expiresAt", "createdAt"
-          LIMIT 1
-          FOR UPDATE SKIP LOCKED
-        )
-        RETURNING id
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`ai-packs:${orgId}`}))`;
+      const charged = (await tx.aiPackUse.aggregate({ where: { orgId, month }, _sum: { tokens: true } }))._sum.tokens ?? 0;
+      let pending = Math.max(0, Math.floor(excess)) - charged;
+      if (pending <= 0) return charged;
+      const packs = await tx.$queryRaw<Array<{ id: string; tokens: number; used: number }>>`
+        SELECT id, tokens, used FROM ai_packs
+        WHERE "orgId" = ${orgId} AND "expiresAt" > now() AND used < tokens
+        ORDER BY "expiresAt", "createdAt"
+        FOR UPDATE
       `;
-      if (!hit) return false;
-      await tx.aiPackUse.create({ data: { orgId, packId: hit.id, conversationId, month } });
-      return true;
+      let added = 0;
+      for (const p of packs) {
+        if (pending <= 0) break;
+        const take = Math.min(pending, p.tokens - p.used);
+        await tx.aiPack.update({ where: { id: p.id }, data: { used: { increment: take } } });
+        await tx.aiPackUse.upsert({
+          where: { orgId_packId_month: { orgId, packId: p.id, month } },
+          create: { orgId, packId: p.id, month, tokens: take },
+          update: { tokens: { increment: take } },
+        });
+        pending -= take;
+        added += take;
+      }
+      return charged + added;
     });
   }
 }

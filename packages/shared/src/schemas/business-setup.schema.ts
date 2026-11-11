@@ -31,6 +31,18 @@ export type AgentGoal = (typeof AGENT_GOALS)[number];
 export const AGENT_TONES = ["cercano", "formal", "juvenil", "divertido"] as const;
 export type AgentTone = (typeof AGENT_TONES)[number];
 
+/**
+ * Lo que el visitante arma en el simulador de la landing y viaja con el alta
+ * (/signup?setup=…): el asistente de bienvenida arranca con eso rellenado.
+ */
+export const setupDraftSchema = z.object({
+  businessType: businessTypeSchema,
+  goal: z.enum(AGENT_GOALS),
+  tone: z.enum(AGENT_TONES),
+  agentName: z.string().trim().max(60).optional(),
+});
+export type SetupDraft = z.infer<typeof setupDraftSchema>;
+
 /** Una pregunta frecuente del rubro: su respuesta va al conocimiento y a una respuesta rápida. */
 export interface BusinessFaq {
   key: string;

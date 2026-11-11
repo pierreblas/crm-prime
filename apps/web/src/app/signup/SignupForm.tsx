@@ -12,6 +12,7 @@ import {
 } from "@crm/shared";
 import { PasswordStrength } from "@/components/PasswordStrength";
 import { NavIcon } from "@/components/NavIcons";
+import { AGENT_GOAL_INFO, AGENT_TONE_INFO, BUSINESS_TYPES, type SetupDraft } from "@crm/shared";
 import { checkSlug, registerOrg, type Campo } from "./actions";
 
 /**
@@ -59,7 +60,7 @@ const PASOS_DE = {
   password: 2,
 } as const;
 
-export function SignupForm({ baseDomain }: { baseDomain: string }) {
+export function SignupForm({ baseDomain, setup = null }: { baseDomain: string; setup?: SetupDraft | null }) {
   const [paso, setPaso] = useState<Paso>(1);
   const [campos, setCampos] = useState<Campos>({
     companyName: "",
@@ -181,7 +182,7 @@ export function SignupForm({ baseDomain }: { baseDomain: string }) {
     }
     setErrorGeneral(null);
     startTransition(async () => {
-      const r = await registerOrg(campos);
+      const r = await registerOrg(setup ? { ...campos, setup } : campos);
       if (!r.ok) {
         if (r.field) {
           setErrores({ [r.field]: r.error });
@@ -212,6 +213,13 @@ export function SignupForm({ baseDomain }: { baseDomain: string }) {
       <style>{css}</style>
 
       <Progreso paso={paso} />
+
+      {setup && paso === 1 && (
+        <p style={notaAgente} data-signup-setup>
+          Con la cuenta queda listo tu agente <b>{setup.agentName || "Asistente"}</b>: {BUSINESS_TYPES[setup.businessType].label.toLowerCase()}, misión «
+          {AGENT_GOAL_INFO[setup.goal].title.toLowerCase()}», tono {AGENT_TONE_INFO[setup.tone].title.toLowerCase()}. Lo ajustas al entrar.
+        </p>
+      )}
 
       {paso === 1 && (
         <section key="p1" className="signup-paso" aria-labelledby="t1">
@@ -511,6 +519,17 @@ const css = `
   .signup-paso { animation: none; }
 }
 `;
+
+/** Lo que viene del simulador de la landing: se ve en el primer paso y se manda con el alta. */
+const notaAgente: React.CSSProperties = {
+  margin: "0 0 16px",
+  padding: "10px 12px",
+  border: "1px solid var(--border)",
+  background: "var(--surface-2, rgba(255,255,255,0.04))",
+  color: "var(--muted)",
+  fontSize: 13,
+  lineHeight: 1.5,
+};
 
 const caja: React.CSSProperties = {
   width: "100%",

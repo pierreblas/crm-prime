@@ -121,7 +121,7 @@ export class OnboardingService {
       where: { id: this.tenant.orgId() },
       select: { plan: true, trialEndsAt: true },
     });
-    return (effectivePlan(org?.plan, org?.trialEndsAt).aiConversations ?? 0) > 0;
+    return (effectivePlan(org?.plan, org?.trialEndsAt).aiTokens ?? 0) > 0;
   }
 
   async skip(key: OnboardingStepKey, skipped: boolean): Promise<void> {

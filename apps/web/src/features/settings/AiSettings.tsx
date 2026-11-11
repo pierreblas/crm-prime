@@ -16,6 +16,7 @@ import {
   type AiSettingsDto,
   type ApiKeyState,
   type LlmProviderName,
+  formatTokens,
 } from "@crm/shared";
 import { fetchAiSettingEvents, fetchAiSettings, testAiConnection, updateAiSettings } from "@/lib/bff";
 import { resetLabel } from "@/features/copilot/useAiStatus";
@@ -104,11 +105,11 @@ export function AiSettings() {
   const fallbackDe = (envVar: string) =>
     saas ? (data.platformKeys ? "la key de la plataforma" : null) : envVar;
   // IA de Driony: sin clave propia, el agente usa la de la plataforma con
-  // cupo de conversaciones según el plan.
+  // un cupo de tokens según el plan.
   const included = data.included;
   const conClavePropia = data.openaiKey.source === "db" || data.anthropicKey.source === "db";
   const usaIncluida = !!included && !conClavePropia && !included.exhausted && data.provider !== "fake";
-  // Lo que hay este mes: el cupo del plan más las conversaciones extra.
+  // Lo que hay este mes: el cupo del plan más los tokens extra.
   const totalIncluida = included ? included.limit + included.extraUsed + included.extraRemaining : 0;
 
   return (
@@ -116,7 +117,7 @@ export function AiSettings() {
       title="Inteligencia Artificial"
       subtitle={
         included
-          ? "Tu plan trae IA incluida, con un cupo de conversaciones al mes: el agente, el copiloto y los asistentes la usan sin que configures nada. Aquí puedes conectar tu propia clave para elegir el modelo y no tener cupo."
+          ? "Tu plan trae IA incluida, con un cupo de tokens al mes del que sale todo: el agente, el copiloto, los asistentes, los audios y las imágenes, sin que configures nada. Aquí puedes conectar tu propia clave para elegir el modelo y no tener cupo."
           : saas
           ? "Las API keys con las que trabajan tus agentes, el copilot del inbox y el asistente de flujos. Son tuyas: se guardan cifradas, solo las usa tu empresa y el consumo se carga a tu cuenta del proveedor."
           : "La API key que usarán los agentes IA, el copilot del inbox y el asistente de flujos. Se guarda cifrada; si la dejas vacía se usa la del archivo .env."
@@ -132,28 +133,27 @@ export function AiSettings() {
                 : included.exhausted
                   ? "La IA incluida en tu plan llegó a su límite de uso este mes."
                   : included.full
-                    ? "Llegaste a las conversaciones con IA incluidas en tu plan este mes."
+                    ? "Se gastaron los tokens de IA incluidos en tu plan este mes."
                     : "IA de Driony incluida en tu plan."}
             </strong>
             <span>
               {conClavePropia
-                ? `Pagas a tu proveedor a precio de lista. Si quitas tu clave, el agente vuelve a usar la IA de Driony (${included.limit.toLocaleString("es")} conversaciones al mes en tu plan).`
+                ? `Pagas a tu proveedor a precio de lista. Si quitas tu clave, el agente vuelve a usar la IA de Driony (${formatTokens(included.limit)} de tokens al mes en tu plan).`
                 : included.exhausted
                   ? `Hasta ${resetLabel(included)}, el agente no responde y los chats en autopilot pasan a tu equipo. Conecta tu clave de OpenAI o Anthropic abajo para seguir ya, o cambia de plan en Ajustes › Plan.`
                   : included.full
-                    ? `El agente termina las conversaciones que ya atendía; los chats nuevos pasan a tu equipo hasta ${resetLabel(included)}. Conecta tu clave abajo para que atienda también los nuevos, o suma conversaciones extra o cambia de plan en Ajustes › Plan.`
-                    : `Tu agente responde sin que configures nada. Cuenta cada conversación que atiende en el mes, no cada mensaje; el cupo vuelve ${resetLabel(included)}. Si conectas tu clave de OpenAI o Anthropic, eliges el modelo, no hay cupo y pagas a tu proveedor a precio de lista, sin recargo.`}
+                    ? `El agente termina las conversaciones que ya atendía; los chats nuevos pasan a tu equipo hasta ${resetLabel(included)}. Conecta tu clave abajo para que atienda también los nuevos, o suma tokens extra o cambia de plan en Ajustes › Plan.`
+                    : `Tu agente responde sin que configures nada. Todo lo que hace la IA sale del mismo cupo de tokens, entrada y salida por igual; el cupo vuelve ${resetLabel(included)}. Si conectas tu clave de OpenAI o Anthropic, eliges el modelo, no hay cupo y pagas a tu proveedor a precio de lista, sin recargo.`}
             </span>
             {!conClavePropia && (
-              <div className="byok__meter" aria-label="Conversaciones con IA de Driony este mes">
+              <div className="byok__meter" aria-label="Tokens de IA de Driony este mes">
                 <span className="byok__bar">
-                  <i style={{ width: `${Math.min(100, (included.conversations / Math.max(1, totalIncluida)) * 100)}%` }} />
+                  <i style={{ width: `${Math.min(100, (included.tokens / Math.max(1, totalIncluida)) * 100)}%` }} />
                 </span>
                 <span className="byok__count">
-                  {Math.min(included.conversations, totalIncluida).toLocaleString("es")} de {totalIncluida.toLocaleString("es")}{" "}
-                  conversaciones este mes
-                  {included.extraUsed + included.extraRemaining > 0 &&
-                    ` (incluye ${(included.extraUsed + included.extraRemaining).toLocaleString("es")} extra)`}
+                  {formatTokens(Math.min(included.tokens, totalIncluida))} de {formatTokens(totalIncluida)} tokens este mes
+                  {included.conversations > 0 && ` · ${included.conversations.toLocaleString("es")} conversaciones atendidas`}
+                  {included.extraUsed + included.extraRemaining > 0 && ` (incluye ${formatTokens(included.extraUsed + included.extraRemaining)} extra)`}
                 </span>
               </div>
             )}

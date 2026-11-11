@@ -289,8 +289,9 @@ export class AdminCopilotTools {
         clave: ai.source,
         cupoDeDriony: ai.included
           ? {
+              tokens: ai.included.tokens,
               conversaciones: ai.included.conversations,
-              limite: ai.included.limit,
+              limiteTokens: ai.included.limit,
               extraRestante: ai.included.extraRemaining,
               agotado: ai.included.full || ai.included.exhausted,
               seRenueva: ai.included.resetsAt,
@@ -377,7 +378,7 @@ export class AdminCopilotTools {
         modelo: ai.model,
         deQuien: ai.source,
         cupoDeDriony: ai.included
-          ? { conversaciones: ai.included.conversations, limite: ai.included.limit, agotado: ai.included.full || ai.included.exhausted }
+          ? { tokens: ai.included.tokens, conversaciones: ai.included.conversations, limiteTokens: ai.included.limit, agotado: ai.included.full || ai.included.exhausted }
           : null,
       },
       agentes: agents.map((a) => ({
@@ -815,7 +816,7 @@ export class AdminCopilotTools {
     const aiProblem = !ai.ready
       ? "La IA no tiene clave ni cupo de Driony disponible: los agentes y el copiloto no funcionan."
       : ai.included && (ai.included.full || ai.included.exhausted)
-        ? `El cupo de IA de Driony está agotado hasta ${ai.included.resetsAt}.`
+        ? `El cupo de tokens de IA de Driony está agotado hasta ${ai.included.resetsAt}.`
         : null;
 
     const fixAt: Record<string, string> = {};

@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import {
   AI_INCLUDED_MODEL,
+  AI_GRACE,
+  aiIncludedTotal,
   includedAiCapUsd,
   effectivePlan,
   type OrgAiBillingMode,
@@ -410,13 +412,23 @@ export class AiSettingsService {
     if (hit && now - hit.at < AiSettingsService.TTL_MS) return hit.value;
 
     const org = await this.prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, trialEndsAt: true } });
-    const limit = effectivePlan(org?.plan, org?.trialEndsAt).aiConversations;
+    const limit = effectivePlan(org?.plan, org?.trialEndsAt).aiTokens;
     let value: AiIncluded | null = null;
     if (limit !== null && limit > 0) {
-      const [used, extra] = await Promise.all([this.usage.includedUsage(orgId), this.packs.extra(orgId)]);
-      // Las extra suben el tope: las gastadas este mes y las que aún quedan.
-      const capUsd = includedAiCapUsd(limit + extra.usedThisMonth + extra.remaining);
+      const used = await this.usage.includedUsage(orgId);
+      let extra = await this.packs.extra(orgId);
+      // Lo gastado por encima del cupo del plan se carga a los paquetes, y el
+      // saldo se pone al día aquí mismo (volver a cargar lo mismo no gasta dos veces).
+      const excess = used.tokens - limit;
+      if (excess > extra.usedThisMonth && extra.remaining > 0) {
+        await this.packs.settle(orgId, excess);
+        extra = await this.packs.extra(orgId);
+      }
+      // Los extra suben el tope: los gastados este mes y los que aún quedan.
+      const total = limit + extra.usedThisMonth + extra.remaining;
+      const capUsd = includedAiCapUsd(total);
       value = {
+        tokens: used.tokens,
         conversations: used.conversations,
         limit,
         extraRemaining: extra.remaining,
@@ -424,13 +436,13 @@ export class AiSettingsService {
         extraExpiresAt: extra.nextExpiresAt?.toISOString() ?? null,
         costUsd: used.costUsd,
         capUsd,
-        full: used.conversations >= limit && extra.remaining === 0,
+        full: used.tokens >= total,
         exhausted: used.costUsd >= capUsd,
         resetsAt: nextMonthStart().toISOString(),
       };
       if ((value.full && !hit?.value?.full) || (value.exhausted && !hit?.value?.exhausted)) {
         this.logger.warn(
-          `IA incluida ${value.exhausted ? "al tope de gasto" : "con el cupo lleno"} en ${orgId}: ${used.conversations}/${limit} conversaciones (+${extra.usedThisMonth} extra), US$${used.costUsd.toFixed(2)}/${capUsd.toFixed(2)}`,
+          `IA incluida ${value.exhausted ? "al tope de gasto" : "con el cupo lleno"} en ${orgId}: ${used.tokens}/${total} tokens (${extra.usedThisMonth} de paquetes), US${used.costUsd.toFixed(2)}/${capUsd.toFixed(2)}`,
         );
       }
     }
@@ -440,27 +452,31 @@ export class AiSettingsService {
 
   /**
    * ¿Puede el agente atender esta conversación? Siempre con clave propia; con
-   * la IA de Driony y el cupo del plan lleno, si ya la atendía este mes (así
-   * nadie se queda a medias) o si gasta una conversación extra. Sin extra, lo
-   * nuevo pasa al equipo.
+   * la IA de Driony, mientras queden tokens (del plan o extra). Con todo
+   * gastado, solo una conversación que ya atendía este mes, y solo dentro del
+   * margen AI_GRACE: así nadie se queda a medias y lo nuevo pasa al equipo.
    */
   async allowsConversation(conversationId: string): Promise<boolean> {
     const creds = await this.resolve();
-    if (!creds.included) return true;
+    // Clave propia (o simulado): el cupo de Driony no pinta nada.
+    if (!creds.included && creds.apiKey) return true;
     const included = await this.included();
-    if (!included || included.conversations < included.limit) return true;
-    const orgId = this.tenant.orgId();
-    if (await this.usage.countedThisMonth(orgId, conversationId)) return true;
-    const ok = await this.packs.consume(orgId, conversationId);
-    // El saldo cambió: que la interfaz y el próximo mensaje lo vean ya.
-    if (ok) this.includedCache.delete(orgId);
-    return ok;
+    if (!included || !included.full) return true;
+    if (included.exhausted || !this.withinGrace(included)) return false;
+    return this.usage.countedThisMonth(this.tenant.orgId(), conversationId);
   }
 
-  // Credenciales de la IA de Driony si queda dinero del tope (o, para indexar
-  // el conocimiento, mientras la empresa tenga IA incluida en su plan).
+  /** Con el cupo lleno, aún no se pasó el margen para terminar lo empezado. */
+  private withinGrace(included: AiIncluded): boolean {
+    return included.tokens < aiIncludedTotal(included) * (1 + AI_GRACE);
+  }
+
+  // Credenciales de la IA de Driony si queda dinero del tope y, con el cupo
+  // lleno, margen para terminar lo empezado (o, para indexar el conocimiento,
+  // mientras la empresa tenga IA incluida en su plan).
   private includedCreds(included: AiIncluded | null, evenIfExhausted = false): ResolvedCredentials | null {
-    if (!included || (included.exhausted && !evenIfExhausted)) return null;
+    if (!included) return null;
+    if (!evenIfExhausted && (included.exhausted || (included.full && !this.withinGrace(included)))) return null;
     const apiKey = env("OPENAI_API_KEY");
     if (!apiKey) return null;
     return {

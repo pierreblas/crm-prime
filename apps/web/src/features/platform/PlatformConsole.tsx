@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PLANS, PLAN_KEYS, planFor, type PlatformHealth, type PlatformOrg, type UpdatePlatformOrgInput } from "@crm/shared";
+import { formatTokens, PLANS, PLAN_KEYS, planFor, type PlatformHealth, type PlatformOrg, type UpdatePlatformOrgInput } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { toast } from "@/lib/toast";
 import { fetchPlatformAudit, fetchPlatformHealth, fetchPlatformOrgs, fetchPlatformOverview, updatePlatformOrg } from "@/lib/bff";
@@ -43,11 +43,11 @@ const atContactLimit = (o: PlatformOrg) => {
 };
 
 /**
- * IA incluida: ¿llegó al cupo de conversaciones de su plan? Con clave propia no
+ * IA incluida: ¿gastó los tokens de su plan y los extra? Con clave propia no
  * usa la IA de Driony, así que no cuenta. Es la mejor señal para subir de plan.
  */
 const aiFull = (o: PlatformOrg) =>
-  o.aiIncludedLimit !== null && !o.aiOwnKey && o.aiIncludedConversations >= o.aiIncludedLimit && o.aiExtraRemaining === 0;
+  o.aiIncludedLimit !== null && !o.aiOwnKey && o.aiIncludedTokens >= o.aiIncludedLimit + o.aiExtraUsedMonth + o.aiExtraRemaining;
 
 /** ¿Tocó el tope en dólares de la IA incluida (freno de seguridad: bucle o abuso)? */
 const aiCapped = (o: PlatformOrg) =>
@@ -157,7 +157,7 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
         ultima_actividad: o.lastMessageAt ?? "",
         ia_mes_usd: o.aiCostMonthUsd.toFixed(2),
         ia_driony_usd: o.aiPlatformCostMonthUsd.toFixed(2),
-        ia_conversaciones: o.aiIncludedConversations,
+        ia_tokens: o.aiIncludedTokens,
         ia_cupo: o.aiIncludedLimit ?? "",
         ia_extra_quedan: o.aiExtraRemaining,
         ia_clave_propia: o.aiOwnKey ? "sí" : "no",
@@ -192,7 +192,7 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
           sub={
             o
               ? o.aiIncluded.enabled
-                ? `${o.aiIncluded.conversations.toLocaleString("es")} conversaciones · ${o.aiIncluded.orgsUsing} ${o.aiIncluded.orgsUsing === 1 ? "empresa" : "empresas"} · ${o.aiIncluded.model} · a precio de lista`
+                ? `${formatTokens(o.aiIncluded.tokens)} tokens · ${o.aiIncluded.conversations.toLocaleString("es")} conversaciones · ${o.aiIncluded.orgsUsing} ${o.aiIncluded.orgsUsing === 1 ? "empresa" : "empresas"} · ${o.aiIncluded.model} · a precio de lista`
                 : "apagada (AI_INCLUDED)"
               : undefined
           }
@@ -377,17 +377,17 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
                             org.aiOwnKey
                               ? "Usa su propia clave de IA: el gasto lo paga ella"
                               : org.aiIncludedLimit !== null
-                                ? `IA de Driony: ${org.aiIncludedConversations.toLocaleString("es")} de ${org.aiIncludedLimit.toLocaleString("es")} conversaciones este mes · ${money(org.aiPlatformCostMonthUsd)} a precio de lista`
+                                ? `IA de Driony: ${formatTokens(org.aiIncludedTokens)} de ${formatTokens(org.aiIncludedLimit)} tokens este mes · ${money(org.aiPlatformCostMonthUsd)} a precio de lista`
                                 : undefined
                           }
                         >
                           {org.aiCostMonthUsd > 0 ? money(org.aiCostMonthUsd) : "—"}
                           {org.aiOwnKey ? (
                             <small> · clave propia</small>
-                          ) : org.aiIncludedLimit !== null && org.aiIncludedConversations > 0 ? (
+                          ) : org.aiIncludedLimit !== null && org.aiIncludedTokens > 0 ? (
                             <small>
                               {" "}
-                              · {org.aiIncludedConversations.toLocaleString("es")}/{org.aiIncludedLimit.toLocaleString("es")}
+                              · {formatTokens(org.aiIncludedTokens)}/{formatTokens(org.aiIncludedLimit)}
                             </small>
                           ) : null}
                         </td>
@@ -419,7 +419,7 @@ export function PlatformConsole({ myOrgSlug }: { myOrgSlug?: string }) {
                               </span>
                             ) : (
                               aiFull(org) && (
-                                <span className="pc-warn" title="Llegó al cupo de conversaciones con IA incluida: los chats nuevos pasan a su equipo. Candidata a subir de plan o a poner su clave.">
+                                <span className="pc-warn" title="Gastó los tokens de IA incluida: los chats nuevos pasan a su equipo. Candidata a subir de plan, a comprar tokens o a poner su clave.">
                                   IA al cupo
                                 </span>
                               )

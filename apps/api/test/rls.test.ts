@@ -195,6 +195,29 @@ test("el alta de una empresa funciona con el rol restringido", async () => {
   assert.equal(Number(cuenta.etapas), 6);
   assert.equal(Number(cuenta.agentes), 1);
 
+  // Lo armado en el simulador de la landing viaja con el alta y queda como
+  // perfil del asistente de bienvenida, completo con valores por defecto.
+  const slugSim = `alta-sim-${Date.now()}`;
+  const conAgente = await svc.register(
+    {
+      companyName: "Alta con agente",
+      slug: slugSim,
+      adminName: "Ana",
+      adminEmail: `ana@${slugSim}.test`,
+      password: "clave-larga-123",
+      setup: { businessType: "tienda", goal: "vender", tone: "juvenil" },
+    },
+    "127.0.0.1",
+  );
+  const { businessSetupSchema: perfilSchema } = await import("@crm/shared");
+  const estado = await ctx.runInOrg(conAgente.orgId, () => prisma.onboardingState.findUnique({ where: { orgId: conAgente.orgId } }));
+  const perfil = perfilSchema.safeParse(estado?.business);
+  assert.equal(perfil.success, true, "el borrador se guarda como perfil completo");
+  assert.equal(perfil.success ? perfil.data.businessType : null, "tienda");
+  assert.equal(perfil.success ? perfil.data.tone : null, "juvenil");
+  assert.equal(perfil.success ? perfil.data.agentName : null, "Asistente", "sin nombre, uno por defecto");
+  assert.equal(estado?.setupCompletedAt, null, "la IA aún no se construyó: el asistente arranca rellenado");
+
   // En la nube el alta empieza con la prueba de Pro de 15 días.
   const [org]: any[] = await ctx.runUnscoped("prueba: leer la empresa nueva", () =>
     prisma.$queryRawUnsafe(`SELECT plan, "trialEndsAt" FROM organizations WHERE id = '${r.orgId}'`),
@@ -273,21 +296,23 @@ test("la IA incluida se cuenta con el rol restringido, por empresa y en la conso
 
   const usage = new AiUsageService(prisma, { orgId: () => "o_a" } as any);
   const inc = await ctx.runInOrg("o_a", () => usage.includedUsage("o_a"));
-  assert.equal(inc.conversations, 1, "solo cuentan las del agente con la IA de Driony, y solo las suyas");
+  assert.equal(inc.tokens, 33_000, "todo lo que corrió con la IA de Driony, también el copiloto, y solo lo suyo");
+  assert.equal(inc.conversations, 1, "las conversaciones que atendió el agente, para decirlo en palabras");
   assert.ok(inc.costUsd > 0);
   assert.equal(await ctx.runInOrg("o_a", () => usage.countedThisMonth("o_a", "cv_a1")), true);
   assert.equal(await ctx.runInOrg("o_a", () => usage.countedThisMonth("o_a", "cv_b1")), false, "la conversación de otra empresa no cuenta");
 
   const plans = new PlansService(prisma, { orgId: () => "o_a" } as any, { active: async () => [] } as any);
-  assert.equal((await ctx.runInOrg("o_a", () => plans.usage())).aiConversations, 1);
+  assert.equal((await ctx.runInOrg("o_a", () => plans.usage())).aiTokens, 33_000);
 
   const colaRota = { getJobCounts: async () => { throw new Error("sin redis"); } } as any;
   const svc = new PlatformService(prisma, {} as any, colaRota, colaRota, colaRota, colaRota, colaRota, colaRota, colaRota);
   const a = (await svc.orgs("")).find((o) => o.id === "o_a")!;
-  assert.equal(a.aiIncludedConversations, 1);
+  assert.equal(a.aiIncludedTokens, 33_000);
   assert.ok(a.aiPlatformCostMonthUsd > 0 && a.aiCostMonthUsd > a.aiPlatformCostMonthUsd, "separa lo de Driony de lo suyo");
   const overview = await svc.overview();
-  assert.equal(overview.aiIncluded.conversations, 2, "suma las de todas las empresas");
+  assert.equal(overview.aiIncluded.tokens, 44_000, "suma los tokens de todas las empresas");
+  assert.equal(overview.aiIncluded.conversations, 2, "y las conversaciones atendidas");
   assert.equal(overview.aiIncluded.orgsUsing, 2);
   const ficha = await svc.detail("o_a");
   assert.ok(ficha.ai.some((r) => r.source === "platform") && ficha.ai.some((r) => r.source === "own"));
@@ -341,8 +366,8 @@ test("los ajustes de IA, su historial y el consumo quedan en su empresa con el r
   assert.notEqual(deB?.anthropicKeyEnc, "robada");
 
   // El servicio real con el rol restringido: A guarda una clave y el evento cae en A, nunca en B.
-  const usage = { includedUsage: async () => ({ conversations: 0, costUsd: 0 }), countedThisMonth: async () => false };
-  const packs = { extra: async () => ({ remaining: 0, usedThisMonth: 0, nextExpiresAt: null }), consume: async () => false };
+  const usage = { includedUsage: async () => ({ tokens: 0, conversations: 0, costUsd: 0 }), countedThisMonth: async () => false };
+  const packs = { extra: async () => ({ remaining: 0, usedThisMonth: 0, nextExpiresAt: null }), settle: async () => 0 };
   const svc = new AiSettingsService(prisma, { orgId: () => "o_a" } as any, usage as any, packs as any);
   const dto = await ctx.runInOrg("o_a", () => svc.updateSettings({ anthropicKey: "sk-ant-de-acme-3333" }, "u_acme"));
   assert.equal(dto.billingMode, "BYOK");
@@ -1149,49 +1174,48 @@ test("conversaciones extra: se gastan una vez por conversación y mes, la que ve
   const day = 86_400_000;
   try {
     // El operador añade dos paquetes a A (el regalo vence antes) y uno vencido.
-    await platform.grantAiPack(orgA, { conversations: 2, priceUsd: null, months: 1, note: "regalo" }, "op@driony.test");
-    const ficha = await platform.grantAiPack(orgA, { conversations: 1000, priceUsd: 12 }, "op@driony.test");
+    await platform.grantAiPack(orgA, { tokens: 40_000, priceUsd: null, months: 1, note: "regalo" }, "op@driony.test");
+    const ficha = await platform.grantAiPack(orgA, { tokens: 20_000_000, priceUsd: 12 }, "op@driony.test");
     assert.equal(ficha.aiPacks.length, 2);
     assert.ok(ficha.audit.some((e) => e.action === "ai_pack_added"), "queda en el diario");
-    const [regalo] = ficha.aiPacks.filter((p) => p.conversations === 2);
+    const [regalo] = ficha.aiPacks.filter((p) => p.tokens === 40_000);
     await ctx.runUnscoped("prueba: paquete vencido", () =>
-      prisma.aiPack.create({ data: { orgId: orgA, conversations: 500, expiresAt: new Date(Date.now() - day) } }),
+      prisma.aiPack.create({ data: { orgId: orgA, tokens: 500_000, expiresAt: new Date(Date.now() - day) } }),
     );
 
     await ctx.runInOrg(orgA, async () => {
       const e0 = await packs.extra(orgA);
-      assert.equal(e0.remaining, 1002, "lo vencido no cuenta");
+      assert.equal(e0.remaining, 20_040_000, "lo vencido no cuenta");
       assert.equal(e0.nextExpiresAt?.toISOString(), regalo!.expiresAt, "se gasta primero el que vence antes");
 
-      // La misma conversación gasta una sola vez al mes, aunque se pida tres veces.
-      assert.equal(await packs.consume(orgA, "cv_1"), true);
-      assert.equal(await packs.consume(orgA, "cv_1"), true);
-      await Promise.all([packs.consume(orgA, "cv_2"), packs.consume(orgA, "cv_2")]);
+      // Lo gastado por encima del cupo se carga a los paquetes; la misma cifra no se carga dos veces.
+      assert.equal(await packs.settle(orgA, 30_000), 30_000);
+      assert.equal(await packs.settle(orgA, 30_000), 30_000, "ya estaba apuntado");
+      await Promise.all([packs.settle(orgA, 50_000), packs.settle(orgA, 50_000)]);
       const e1 = await packs.extra(orgA);
-      assert.equal(e1.usedThisMonth, 2);
-      assert.equal(e1.remaining, 1000, "el regalo se terminó; queda el de 1.000 intacto");
+      assert.equal(e1.usedThisMonth, 50_000);
+      assert.equal(e1.remaining, 19_990_000, "el regalo se terminó (40.000) y el grande puso los otros 10.000");
     });
 
     // B no ve ni gasta lo de A.
     await ctx.runInOrg(orgB, async () => {
       assert.equal((await packs.extra(orgB)).remaining, 0);
-      assert.equal(await packs.consume(orgB, "cv_b"), false, "sin paquetes no se atiende lo nuevo");
+      assert.equal(await packs.settle(orgB, 1_000), 0, "sin paquetes no hay de dónde cargar");
       const ajenos: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM ai_packs`);
       assert.equal(ajenos.length, 0, "RLS: los paquetes de otra empresa no se ven");
     });
 
     // La consola ve el saldo; quitar un paquete lo vence ya.
     const a = (await platform.orgs("")).find((o) => o.id === orgA)!;
-    assert.equal(a.aiExtraRemaining, 1000);
-    assert.equal(a.aiExtraUsedMonth, 2);
-    const grande = ficha.aiPacks.find((p) => p.conversations === 1000)!;
+    assert.equal(a.aiExtraRemaining, 19_990_000);
+    assert.equal(a.aiExtraUsedMonth, 50_000);
+    const grande = ficha.aiPacks.find((p) => p.tokens === 20_000_000)!;
     assert.equal(grande.priceUsd, 12);
     const tras = await platform.removeAiPack(orgA, grande.id, "op@driony.test");
     assert.equal(tras.aiPacks.find((p) => p.id === grande.id)?.active, false);
     assert.equal(tras.org.aiExtraRemaining, 0);
     await ctx.runInOrg(orgA, async () => {
-      assert.equal(await packs.consume(orgA, "cv_3"), false, "quitado ya no se gasta");
-      assert.equal(await packs.consume(orgA, "cv_1"), true, "lo ya pagado este mes sigue valiendo");
+      assert.equal(await packs.settle(orgA, 80_000), 50_000, "quitado ya no se gasta: lo apuntado se queda como está");
     });
   } finally {
     await ctx.runUnscoped("prueba: limpiar empresas de paquetes", async () => {

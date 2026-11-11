@@ -1,6 +1,5 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import {
-  AI_INCLUDED_COUNTED,
   FEATURE_LABELS,
   PLAN_KEYS,
   PLANS,
@@ -34,7 +33,7 @@ import { AiPacksService } from "../ai/ai-packs.service";
  * al llegar al tope es crear o importar a mano y la API pública.
  *
  * Durante la prueba del alta (ver TRIAL_DAYS) una empresa en Gratis cuenta
- * como Pro (con la IA de la prueba, TRIAL_AI_CONVERSATIONS); al terminar
+ * como Pro (con la IA de la prueba, TRIAL_AI_TOKENS); al terminar
  * vuelve a Gratis sin tocar nada.
  *
  * En instalación propia no hay planes: todo pasa.
@@ -70,7 +69,7 @@ export class PlansService {
     contacts: number;
     deals: number;
     activeContacts: number;
-    aiConversations: number;
+    aiTokens: number;
   }> {
     const orgId = this.tenant.orgId();
     const [numbers, users, contacts, deals, active, ai] = await Promise.all([
@@ -85,11 +84,10 @@ export class PlansService {
         FROM messages m JOIN conversations c ON c.id = m."conversationId"
         WHERE m."orgId" = ${orgId} AND m."campaignId" IS NULL AND m."createdAt" >= date_trunc('month', now())
       `,
-      // Conversaciones atendidas este mes con la IA de Driony (el cupo del plan).
+      // Tokens gastados este mes con la IA de Driony (el cupo del plan).
       this.prisma.$queryRaw<Array<{ count: bigint | number }>>`
-        SELECT count(DISTINCT "conversationId") AS count FROM ai_usage
-        WHERE "orgId" = ${orgId} AND source = 'platform' AND "conversationId" IS NOT NULL
-          AND feature = ANY(${[...AI_INCLUDED_COUNTED]}::text[])
+        SELECT coalesce(sum("inputTokens" + "outputTokens"), 0) AS count FROM ai_usage
+        WHERE "orgId" = ${orgId} AND source = 'platform'
           AND "createdAt" >= date_trunc('month', now() AT TIME ZONE 'UTC')
       `,
     ]);
@@ -99,7 +97,7 @@ export class PlansService {
       contacts,
       deals,
       activeContacts: Number(active[0]?.count ?? 0),
-      aiConversations: Number(ai[0]?.count ?? 0),
+      aiTokens: Number(ai[0]?.count ?? 0),
     };
   }
 

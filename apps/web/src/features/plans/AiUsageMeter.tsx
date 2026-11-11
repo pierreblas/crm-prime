@@ -2,16 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { aiQuotaLevel, type AiIncluded, type AiStatus } from "@crm/shared";
+import { aiIncludedTotal, formatTokens, aiQuotaLevel, type AiIncluded, type AiStatus } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { useLocale, useT } from "@/i18n/I18nProvider";
 import { useAiStatus } from "@/features/copilot/useAiStatus";
 
 /**
  * Lo que lleva gastado la empresa de la IA de Driony este mes, en la cabecera
- * junto a la foto: «IA 1.240/2.000». Cuenta conversaciones, no tokens: es lo
- * que el cliente compra. Se pone ámbar al 80 % del total (cupo del plan más
- * conversaciones extra) y rojo al llegar. Al pulsarlo explica qué pasa al
+ * junto a la foto: «IA 1,2 M/2,5 M». Cuenta tokens: es lo que el cliente
+ * compra, y de ahí sale todo lo que hace la IA. Se pone ámbar al 80 % del
+ * total (cupo del plan más tokens extra), más al 95 % y rojo al llegar. Al pulsarlo explica qué pasa al
  * tope y, a los administradores, cómo ampliarlo.
  *
  * Solo aparece con la IA incluida: con clave propia no hay cupo que mirar, y
@@ -44,7 +44,7 @@ export function AiUsageMeter({ isAdmin }: { isAdmin: boolean }) {
   if (!included) return null;
 
   const m = meterOf(included);
-  const fmt = (n: number) => n.toLocaleString(locale);
+  const fmt = (n: number) => formatTokens(n);
   const day = (iso: string) => new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "long", timeZone: "UTC" });
   const level = aiQuotaLevel(included);
   const resets = day(included.resetsAt);
@@ -52,9 +52,11 @@ export function AiUsageMeter({ isAdmin }: { isAdmin: boolean }) {
     ? t("aiMeter.exhausted", { date: resets })
     : level === "full"
       ? t("aiMeter.full", { date: resets })
-      : level === "warn"
-        ? t("aiMeter.warn")
-        : t("aiMeter.ok", { date: resets });
+      : level === "high"
+        ? t("aiMeter.high", { date: resets })
+        : level === "warn"
+          ? t("aiMeter.warn")
+          : t("aiMeter.ok", { date: resets });
 
   return (
     <div ref={ref} className="ai-meter-wrap">
@@ -111,7 +113,7 @@ export function AiUsageMeter({ isAdmin }: { isAdmin: boolean }) {
 }
 
 /**
- * Aviso para los administradores al 80 % y al llegar al tope, debajo de la
+ * Aviso para los administradores al 80 %, al 95 % y al llegar al tope, debajo de la
  * cabecera y en todas las pantallas. Se cierra una vez por nivel y por mes (en
  * este navegador): avisa, no persigue. El medidor sigue a la vista.
  */
@@ -168,9 +170,9 @@ function usesIncluded(ai: AiStatus | undefined): boolean {
   return !!ai?.included && (ai.source === "included" || (ai.source === "none" && ai.included.exhausted));
 }
 
-/** Lo gastado frente a todo lo que hay este mes: el cupo del plan más las extra. */
+/** Lo gastado frente a todo lo que hay este mes: el cupo del plan más los tokens extra. */
 function meterOf(i: AiIncluded): { used: number; total: number; pct: number } {
-  const total = i.limit + i.extraUsed + i.extraRemaining;
-  const used = Math.min(i.conversations, total);
+  const total = aiIncludedTotal(i);
+  const used = Math.min(i.tokens, total);
   return { used, total, pct: total > 0 ? Math.min(1, used / total) : 1 };
 }

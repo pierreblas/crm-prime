@@ -173,9 +173,9 @@ export default function TermsPage() {
       <Section id="ia" title="6. Inteligencia artificial">
         <ul>
           <li>
-            Cada plan incluye un cupo mensual de conversaciones atendidas con la IA de Driony. Al llegar al
-            cupo, el agente termina las conversaciones que ya atendía y las nuevas pasan a tu equipo hasta el
-            mes siguiente. Para evitar abusos, la IA incluida tiene además un límite de uso mensual. Si conectas tu
+            Cada plan incluye un cupo mensual de tokens de IA de Driony, del que sale todo lo que hace la IA.
+            Al gastarlo, el agente termina las conversaciones que ya atendía y las nuevas pasan a tu equipo
+            hasta el mes siguiente o hasta que sumes tokens extra. Para evitar abusos, la IA incluida tiene además un límite de uso mensual. Si conectas tu
             propia clave de OpenAI, Anthropic u otro proveedor compatible, no hay cupo y ese proveedor te
             cobra directamente. Driony registra el gasto y te deja ponerle un tope por agente.
           </li>

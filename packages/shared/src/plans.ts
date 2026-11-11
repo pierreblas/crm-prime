@@ -53,11 +53,12 @@ export const planDefSchema = z.object({
     activeContacts: z.number().nullable(),
   }),
   /**
-   * Conversaciones al mes que el agente atiende con la IA de Driony, para
-   * quien no conecta su propia clave. Con clave propia no hay cupo. null =
-   * sin IA de Driony (instalación propia: la clave es del servidor).
+   * Tokens de IA al mes con la IA de Driony, para quien no conecta su propia
+   * clave: todo lo que hace la IA (agente, seguimientos, copiloto, asistentes,
+   * audios e imágenes) sale del mismo cupo. Con clave propia no hay cupo.
+   * null = sin IA de Driony (instalación propia: la clave es del servidor).
    */
-  aiConversations: z.number().nullable(),
+  aiTokens: z.number().nullable(),
   /** Días que se guardan los adjuntos de los mensajes. null = sin plazo (instalación propia). */
   mediaRetentionDays: z.number().nullable(),
   features: z.object({
@@ -92,7 +93,7 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     tagline: "Para probar Driony con un número y el agente de IA.",
     priceUsd: 0,
     limits: { numbers: 1, users: 2, contacts: 500, deals: 200, activeContacts: 300 },
-    aiConversations: 100,
+    aiTokens: 2_500_000,
     mediaRetentionDays: 90,
     features: { coexistence: false, broadcasts: false, api: false, prioritySupport: false },
   },
@@ -104,7 +105,7 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     tagline: "Para el negocio que atiende desde su celular y quiere IA.",
     priceUsd: 19,
     limits: { numbers: 1, users: 3, contacts: 2000, deals: 1000, activeContacts: 1000 },
-    aiConversations: 500,
+    aiTokens: 12_000_000,
     mediaRetentionDays: 180,
     features: { coexistence: true, broadcasts: false, api: false, prioritySupport: false },
   },
@@ -114,7 +115,7 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     tagline: "Para equipos que venden por WhatsApp todos los días.",
     priceUsd: 49,
     limits: { numbers: 3, users: 10, contacts: 5000, deals: 2000, activeContacts: 3000 },
-    aiConversations: 2000,
+    aiTokens: 50_000_000,
     mediaRetentionDays: 365,
     features: { coexistence: true, broadcasts: true, api: true, prioritySupport: false },
   },
@@ -124,9 +125,10 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     tagline: "Varios números, equipo grande y soporte prioritario.",
     priceUsd: 149,
     limits: { numbers: null, users: null, contacts: null, deals: null, activeContacts: 15000 },
-    // 10.000 dejaban la IA en un 20–40 % del precio; quien necesite más
-    // compra conversaciones extra (AI_PACKS) o conecta su clave.
-    aiConversations: 6000,
+    // Una conversación atendida gasta unos 18.000 tokens (dato de producción,
+    // septiembre de 2026): 150 M son unas 8.000. Quien necesite más compra
+    // tokens extra (AI_PACKS) o conecta su clave.
+    aiTokens: 150_000_000,
     mediaRetentionDays: 1095,
     features: { coexistence: true, broadcasts: true, api: true, prioritySupport: true },
   },
@@ -139,7 +141,7 @@ export const SELF_HOSTED_PLAN: PlanDef = {
   tagline: "Tu servidor, tus claves, sin límites.",
   priceUsd: null,
   limits: { numbers: null, users: null, contacts: null, deals: null, activeContacts: null },
-  aiConversations: null,
+  aiTokens: null,
   mediaRetentionDays: null,
   features: { coexistence: true, broadcasts: true, api: true, prioritySupport: false },
 };
@@ -157,13 +159,13 @@ export function planFor(key: string | null | undefined): PlanDef {
  * Solo cuenta mientras el plan guardado es Gratis: si el operador la pasa a
  * un plan de pago durante la prueba, manda el de pago.
  *
- * La IA incluida de la prueba es menor que la de Pro (TRIAL_AI_CONVERSATIONS):
- * sobra para probar el agente en serio (unas 30 conversaciones al día) y cada
- * alta no puede gastar más de unos pocos dólares de la plataforma.
+ * La IA incluida de la prueba es menor que la de Pro (TRIAL_AI_TOKENS): 12 M
+ * de tokens son unas 600 conversaciones, sobra para probar el agente en serio
+ * y cada alta no puede gastar más de unos pocos dólares de la plataforma.
  */
 export const TRIAL_DAYS = 15;
 export const TRIAL_PLAN: PlanKey = "pro";
-export const TRIAL_AI_CONVERSATIONS = 500;
+export const TRIAL_AI_TOKENS = 12_000_000;
 
 type When = Date | string | null | undefined;
 const toMs = (d: When): number | null => (d ? new Date(d).getTime() : null);
@@ -177,7 +179,7 @@ export function inTrial(key: string | null | undefined, trialEndsAt: When, now: 
 /** El plan que manda: el de prueba mientras dure (con la IA de la prueba), si no el guardado. */
 export function effectivePlan(key: string | null | undefined, trialEndsAt: When, now: Date = new Date()): PlanDef {
   if (!inTrial(key, trialEndsAt, now)) return planFor(key);
-  return { ...PLANS[TRIAL_PLAN], aiConversations: TRIAL_AI_CONVERSATIONS };
+  return { ...PLANS[TRIAL_PLAN], aiTokens: TRIAL_AI_TOKENS };
 }
 
 /** Días que le quedan a la prueba, redondeando hacia arriba (el último día cuenta como 1). */
@@ -221,8 +223,26 @@ export function formatRetention(days: number | null): string {
   return `Adjuntos guardados ${retentionLabel(days)}`;
 }
 
-/** "100 conversaciones con IA incluida al mes", o "" si el plan no la trae. */
+/** "2,5 M de tokens de IA al mes", o "" si el plan no la trae. */
 export function formatAiIncluded(n: number | null): string {
   if (n === null) return "";
-  return `${n.toLocaleString("es")} conversaciones con IA incluida al mes`;
+  return `${formatTokens(n)} de tokens de IA al mes`;
+}
+
+/**
+ * Tokens en corto, como se leen en el medidor: «2,5 M», «850 mil», «420».
+ * Siempre en español: es la unidad que vende Driony y así sale igual en la
+ * landing, en Ajustes y en la consola.
+ */
+export function formatTokens(n: number): string {
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) {
+    const m = n / 1_000_000;
+    return `${m.toLocaleString("es", { maximumFractionDigits: abs >= 10_000_000 ? 0 : 1 })} M`;
+  }
+  if (abs >= 1_000) {
+    const k = n / 1_000;
+    return `${k.toLocaleString("es", { maximumFractionDigits: abs >= 10_000 ? 0 : 1 })} mil`;
+  }
+  return n.toLocaleString("es");
 }

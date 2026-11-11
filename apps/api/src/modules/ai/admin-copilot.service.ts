@@ -110,7 +110,7 @@ export class AdminCopilotService {
       statusCode: 400,
       code: "AI_NOT_CONFIGURED",
       message: s.included?.exhausted || s.included?.full
-        ? "El cupo de IA de Driony de este mes está agotado. Puedes usar tu propia clave en Ajustes › Inteligencia Artificial."
+        ? "El cupo de tokens de IA de Driony de este mes está agotado. Puedes sumar tokens extra en Ajustes › Plan o usar tu propia clave en Ajustes › Inteligencia Artificial."
         : "Configura tu clave de OpenAI o Anthropic en Ajustes › Inteligencia Artificial para usar el copiloto.",
     });
   }

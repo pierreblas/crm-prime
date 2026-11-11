@@ -4,7 +4,7 @@ Un agente es un asistente configurado por ti que atiende las conversaciones: res
 
 ## Quién paga la IA: la incluida en tu plan o tu propia clave
 
-Tu plan trae **IA incluida** con un cupo de conversaciones al mes (ver [Planes](/docs/planes#ia-incluida-y-conversaciones-extra)): el agente, el copiloto y los asistentes funcionan sin que configures nada. Si prefieres elegir el modelo y no tener cupo, conecta **tu propia clave** en **Ajustes › Inteligencia Artificial**:
+Tu plan trae **IA incluida** con un cupo de tokens al mes (ver [Planes](/docs/planes#ia-incluida-y-tokens-extra)): el agente, el copiloto y los asistentes funcionan sin que configures nada. Si prefieres elegir el modelo y no tener cupo, conecta **tu propia clave** en **Ajustes › Inteligencia Artificial**:
 
 - **OpenAI** o **Anthropic (Claude)**: pega tu API key y elige el modelo por defecto.
 - **Cualquier API compatible con OpenAI** (Groq, DeepSeek, OpenRouter…): pon su URL base en el campo *URL base* de OpenAI, con la key y el modelo de ese servicio. En la nube de Driony solo se admiten proveedores conocidos por https; si usas otro, pídenos que lo añadamos. En una instalación propia vale cualquier dirección, también Ollama en tu red.
@@ -73,7 +73,7 @@ En Copilot las acciones quedan pendientes de aprobación; en Autopilot se aplica
 
 ## Copiloto, memoria y conocimiento que aprende
 
-Además del agente que responde solo, Driony ayuda a tu equipo dentro de cada conversación. Todo esto funciona con la **IA incluida** de tu plan (no gasta conversaciones del cupo, pero sí entra en su tope de seguridad) o, si la conectaste, con **tu propia clave** de OpenAI o Anthropic (Ajustes › Inteligencia Artificial): Driony no vende créditos ni pone margen sobre tu clave, pagas a tu proveedor al precio de su lista.
+Además del agente que responde solo, Driony ayuda a tu equipo dentro de cada conversación. Todo esto funciona con la **IA incluida** de tu plan (sus tokens salen del mismo cupo que el agente) o, si la conectaste, con **tu propia clave** de OpenAI o Anthropic (Ajustes › Inteligencia Artificial): Driony no vende créditos ni pone margen sobre tu clave, pagas a tu proveedor al precio de su lista.
 
 **En el cuadro de mensaje**, el botón de la varita reescribe tu borrador: mejorar la redacción, más cordial, más formal, más corto, corregir ortografía, o traducir al idioma del cliente (lo detecta de sus mensajes), al inglés o al portugués. Si no te convence, **Deshacer** devuelve tu texto.
 

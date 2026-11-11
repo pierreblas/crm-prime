@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { formatAiIncluded, formatPlanLimit, PLAN_KEYS, PLANS, TRIAL_AI_CONVERSATIONS, TRIAL_DAYS } from "@crm/shared";
+import { formatAiIncluded, formatPlanLimit, formatTokens, PLAN_KEYS, PLANS, TRIAL_AI_TOKENS, TRIAL_DAYS } from "@crm/shared";
 import "./landing.css";
 import { Arrow, Check, GITHUB, IconGit, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
+import { HeroTerminal } from "./HeroTerminal";
 import { LeadCalc } from "./LeadCalc";
 import { PlanPicker } from "./PlanPicker";
-import { Sectors } from "./Sectors";
+import { AgentSimulator } from "./AgentSimulator";
 
 // La página argumenta en este orden: el dolor con cifras del visitante, lo que
 // Driony hace, si sirve para su rubro, cuánto tarda, qué cambia, cuánto cuesta
@@ -61,9 +62,9 @@ const STEPS = [
   },
 ];
 
-/** "100 en Gratis, 500 en Inicial, 2.000 en Pro y 6.000 en Empresa", del catálogo. */
+/** "2,5 M en Gratis, 12 M en Inicial, 50 M en Pro y 150 M en Empresa", del catálogo. */
 function aiByPlan(): string {
-  const parts = PLAN_KEYS.map((k) => `${(PLANS[k].aiConversations ?? 0).toLocaleString("es")} en ${PLANS[k].name}`);
+  const parts = PLAN_KEYS.map((k) => `${formatTokens(PLANS[k].aiTokens ?? 0)} en ${PLANS[k].name}`);
   return `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}`;
 }
 
@@ -96,7 +97,7 @@ const FAQ = [
   },
   {
     q: "¿De verdad no necesito tarjeta?",
-    a: `No. Al crear tu cuenta tienes ${TRIAL_DAYS} días del plan Pro completo, sin tarjeta: tres números, diez personas, difusiones, API y ${TRIAL_AI_CONVERSATIONS.toLocaleString("es")} conversaciones con IA para probar el agente en serio. Al terminar no se corta ni se borra nada: sigues en el plan Gratis (un número, dos personas y ${PLANS.free.aiConversations} conversaciones con IA al mes) con tus chats, contactos y agentes, y pasas a Inicial, Pro o Empresa cuando quieras.`,
+    a: `No. Al crear tu cuenta tienes ${TRIAL_DAYS} días del plan Pro completo, sin tarjeta: tres números, diez personas, difusiones, API y ${formatTokens(TRIAL_AI_TOKENS)} de tokens de IA para probar el agente en serio. Al terminar no se corta ni se borra nada: sigues en el plan Gratis (un número, dos personas y ${formatTokens(PLANS.free.aiTokens ?? 0)} de tokens de IA al mes) con tus chats, contactos y agentes, y pasas a Inicial, Pro o Empresa cuando quieras.`,
   },
   {
     q: "¿Necesito un número nuevo de WhatsApp?",
@@ -108,7 +109,7 @@ const FAQ = [
   },
   {
     q: "¿Cuánto cuesta la inteligencia artificial?",
-    a: `Va incluida: cada plan trae conversaciones con IA al mes (${aiByPlan()}), sin configurar nada. Si un mes se te queda corto, sumas conversaciones extra. Y si prefieres otro modelo o no tener cupo, conectas tu clave de OpenAI, Anthropic o cualquier API compatible y pagas a tu proveedor a su precio, sin recargo. Cada respuesta registra lo que costó y cada agente tiene su tope mensual.`,
+    a: `Va incluida: cada plan trae tokens de IA al mes (${aiByPlan()}), sin configurar nada. Son los mismos tokens que pagamos al proveedor, sin créditos inventados, y de ahí sale todo lo que hace la IA. Si un mes se te queda corto, sumas tokens extra. Y si prefieres otro modelo o no tener cupo, conectas tu clave de OpenAI, Anthropic o cualquier API compatible y pagas a tu proveedor a su precio, sin recargo. Cada respuesta registra lo que costó y cada agente tiene su tope mensual.`,
   },
   {
     q: "¿Me cobran por conversación, por mensaje o por contacto?",
@@ -142,24 +143,30 @@ export function Landing() {
   const [active, setActive] = useState<string | null>(null);
 
   // Reveals y sección activa. El contenido es visible por defecto (sin JS);
-  // la clase lp-js solo añade la animación al hidratar.
+  // la clase lp-js solo añade la animación al hidratar. Donde el navegador
+  // sabe de líneas de tiempo de scroll (animation-timeline: view(), Chrome,
+  // Safari y Firefox desde 2026), los reveals van en CSS y aquí no se observa
+  // nada; el observador queda para los navegadores viejos.
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     root.classList.add("lp-js");
 
-    const reveal = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) {
-            e.target.classList.add("is-in");
-            reveal.unobserve(e.target);
-          }
-        }
-      },
-      { rootMargin: "0px 0px -10% 0px", threshold: 0.12 },
-    );
-    root.querySelectorAll(".lp-reveal").forEach((el) => reveal.observe(el));
+    const cssTimelines = typeof CSS !== "undefined" && CSS.supports("animation-timeline: view()");
+    const reveal = cssTimelines
+      ? null
+      : new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                e.target.classList.add("is-in");
+                reveal?.unobserve(e.target);
+              }
+            }
+          },
+          { rootMargin: "0px 0px -10% 0px", threshold: 0.12 },
+        );
+    if (reveal) root.querySelectorAll(".lp-reveal").forEach((el) => reveal.observe(el));
 
     const sections = new IntersectionObserver(
       (entries) => {
@@ -173,7 +180,7 @@ export function Landing() {
     });
 
     return () => {
-      reveal.disconnect();
+      reveal?.disconnect();
       sections.disconnect();
     };
   }, []);
@@ -255,6 +262,8 @@ export function Landing() {
                   />
                 </div>
               </figure>
+              {/* Debajo de la captura, el registro del agente escribiéndose: lo que hace, en sus palabras. */}
+              <HeroTerminal />
             </div>
           </div>
         </section>
@@ -528,7 +537,7 @@ export function Landing() {
               <article className="lp-card lp-card--two-thirds lp-reveal">
                 <h3>IA incluida en el plan, sin sorpresas en la factura</h3>
                 <p>
-                  Tu plan trae <b>conversaciones con IA incluidas</b> cada mes, sin claves ni configuración. Cuando quieras más, conectas OpenAI, Claude o cualquier API compatible con <b>tu</b> clave y eliges el modelo <b>por agente</b>, sin cupo y sin recargo. Cada respuesta registra lo que costó y cada agente tiene su <b>tope</b> mensual: al llegar, la IA se detiene y la conversación pasa a tu equipo.
+                  Tu plan trae <b>tokens de IA incluidos</b> cada mes, sin claves ni configuración, y de ahí sale todo lo que hace la IA. Cuando quieras más, conectas OpenAI, Claude o cualquier API compatible con <b>tu</b> clave y eliges el modelo <b>por agente</b>, sin cupo y sin recargo. Cada respuesta registra lo que costó y cada agente tiene su <b>tope</b> mensual: al llegar, la IA se detiene y la conversación pasa a tu equipo.
                 </p>
                 <div className="lp-meter" aria-hidden="true">
                   <div className="lp-meter__head">
@@ -544,18 +553,18 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ── Para tu rubro: «¿y esto sirve para mi negocio?» ── */}
+        {/* ── Arma tu agente: rubro, misión y tono, y el chat que saldría; el botón lleva al alta con eso ── */}
         <section className="lp-section" id="rubros">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 03 // Tu rubro ]</p>
-              <h2>Sirve para tu negocio. Elige el tuyo y mira cómo atiende.</h2>
+              <p className="lp-tag">[ 03 // Arma tu agente ]</p>
+              <h2>Arma tu agente en 30 segundos y mira cómo atiende.</h2>
               <p className="lp-lede">
-                El mismo agente, entrenado con lo tuyo: tus precios, tus horarios, tus reglas. Esto es lo que pasa en un chat real de cada rubro.
+                Elige tu rubro, su misión y su tono. Lo que ves es un ejemplo escrito a mano; en tu cuenta lo hace la IA con tus precios, tus horarios y tus reglas, y arranca con esta misma configuración.
               </p>
             </div>
             <div className="lp-reveal">
-              <Sectors />
+              <AgentSimulator />
             </div>
           </div>
         </section>
@@ -676,7 +685,7 @@ export function Landing() {
                         <span className="lp-row__ic">
                           <Check />
                         </span>
-                        {formatAiIncluded(plan.aiConversations)}
+                        {formatAiIncluded(plan.aiTokens)}
                       </div>
                     </div>
                     {pro && (

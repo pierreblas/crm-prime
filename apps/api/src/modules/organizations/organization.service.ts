@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
+import type { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import * as bcrypt from "bcryptjs";
 import {
@@ -16,6 +17,7 @@ import {
   trialEndsFrom,
   type RegisterOrgInput,
   type RegisterOrgResult,
+  businessSetupSchema,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { runInOrg, runUnscoped, tenancyMode } from "../../infra/tenant/tenant.context";
@@ -161,6 +163,20 @@ export class OrganizationService {
               ],
             },
           });
+
+          // Lo que armó en el simulador de la landing: el asistente de bienvenida
+          // arranca con ese perfil rellenado (los demás campos, por defecto).
+          if (input.setup) {
+            await tx.onboardingState.create({
+              data: {
+                orgId,
+                business: businessSetupSchema.parse({
+                  ...input.setup,
+                  agentName: input.setup.agentName?.trim() || "Asistente",
+                }) as unknown as Prisma.InputJsonObject,
+              },
+            });
+          }
 
           return { org: creada, adminId: admin.id };
         }),

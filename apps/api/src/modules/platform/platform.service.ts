@@ -198,9 +198,9 @@ export class PlatformService {
       lastMessageAt: r.last_message_at?.toISOString() ?? null,
       aiCostMonthUsd: (ai?.ownUsd ?? 0) + (ai?.platformUsd ?? 0),
       aiPlatformCostMonthUsd: ai?.platformUsd ?? 0,
-      aiIncludedConversations: ai?.conversations ?? 0,
+      aiIncludedTokens: ai?.tokens ?? 0,
       // Solo cuenta si el servidor tiene la IA incluida encendida.
-      aiIncludedLimit: AiSettingsService.includedEnabled() ? effectivePlan(r.plan, r.trialEndsAt).aiConversations : null,
+      aiIncludedLimit: AiSettingsService.includedEnabled() ? effectivePlan(r.plan, r.trialEndsAt).aiTokens : null,
       aiExtraRemaining: Number(r.ai_extra),
       aiExtraUsedMonth: Number(r.ai_extra_month),
       aiOwnKey: r.ai_own_key,
@@ -319,7 +319,7 @@ export class PlatformService {
         won30d: won.map((w) => ({ currency: w.currency, total: Number(w.total ?? 0), count: n(w.count) })),
         aiPacks: packs.map((p) => ({
           id: p.id,
-          conversations: p.conversations,
+          tokens: p.tokens,
           used: p.used,
           expiresAt: p.expiresAt.toISOString(),
           createdAt: p.createdAt.toISOString(),
@@ -358,14 +358,16 @@ export class PlatformService {
       ]),
     );
     const out = new Map<string, OrgAi>();
-    const get = (id: string) => out.get(id) ?? out.set(id, { ownUsd: 0, platformUsd: 0, conversations: 0 }).get(id)!;
+    const get = (id: string) => out.get(id) ?? out.set(id, { ownUsd: 0, platformUsd: 0, tokens: 0, conversations: 0 }).get(id)!;
     for (const r of costs) {
       const input = Number(r.input);
       const output = Number(r.output);
       const cost = estimateAiCost(r.model, input, output) ?? (r.source === "platform" ? estimateAiCost(AI_INCLUDED_MODEL, input, output) ?? 0 : 0);
       const acc = get(r.orgId);
-      if (r.source === "platform") acc.platformUsd += cost;
-      else acc.ownUsd += cost;
+      if (r.source === "platform") {
+        acc.platformUsd += cost;
+        acc.tokens += input + output;
+      } else acc.ownUsd += cost;
     }
     for (const r of convs) get(r.orgId).conversations = Number(r.count);
     return out;
@@ -378,7 +380,7 @@ export class PlatformService {
       runUnscoped("consola de plataforma: planes", () =>
         this.prisma.organization.findMany({ select: { id: true, plan: true, trialEndsAt: true } }),
       ),
-      runUnscoped("consola de plataforma: conversaciones extra", () =>
+      runUnscoped("consola de plataforma: tokens extra", () =>
         this.prisma.$queryRaw<Array<{ orgId: string; remaining: bigint; used_month: bigint }>>`
           SELECT o.id AS "orgId", ${EXTRA_REMAINING} AS remaining, ${EXTRA_USED_MONTH} AS used_month
           FROM organizations o WHERE EXISTS (SELECT 1 FROM ai_packs p WHERE p."orgId" = o.id)
@@ -389,6 +391,7 @@ export class PlatformService {
     const extraOf = new Map(extras.map((e) => [e.orgId, { remaining: Number(e.remaining), usedMonth: Number(e.used_month) }]));
     let own = 0;
     let platform = 0;
+    let tokens = 0;
     let conversations = 0;
     let orgsUsing = 0;
     let orgsFull = 0;
@@ -396,14 +399,16 @@ export class PlatformService {
     for (const [id, a] of byOrg) {
       own += a.ownUsd;
       platform += a.platformUsd;
+      tokens += a.tokens;
       conversations += a.conversations;
       if (a.platformUsd > 0) orgsUsing++;
-      const limit = (planOf.get(id) ?? PLANS.free).aiConversations;
+      const limit = (planOf.get(id) ?? PLANS.free).aiTokens;
       if (limit !== null && limit > 0) {
-        // Con conversaciones extra no está lleno, y su tope sube.
+        // Con tokens extra no está lleno, y su tope sube.
         const extra = extraOf.get(id) ?? { remaining: 0, usedMonth: 0 };
-        if (a.conversations >= limit && extra.remaining === 0) orgsFull++;
-        if (a.platformUsd >= includedAiCapUsd(limit + extra.usedMonth + extra.remaining)) orgsCapped++;
+        const total = limit + extra.usedMonth + extra.remaining;
+        if (a.tokens >= total) orgsFull++;
+        if (a.platformUsd >= includedAiCapUsd(total)) orgsCapped++;
       }
     }
     return {
@@ -413,6 +418,7 @@ export class PlatformService {
         model: env("AI_INCLUDED_MODEL") ?? AI_INCLUDED_MODEL,
         platformCostUsd: platform,
         ownCostUsd: own,
+        tokens,
         conversations,
         orgsUsing,
         orgsFull,
@@ -461,8 +467,8 @@ export class PlatformService {
   }
 
   /**
-   * Añadir conversaciones extra a una empresa (al recibir su pago, o como
-   * regalo). Valen AI_PACK_MONTHS meses salvo que se diga otra cosa.
+   * Añadir tokens extra a una empresa (al recibir su pago, o como regalo).
+   * Valen AI_PACK_MONTHS meses salvo que se diga otra cosa.
    */
   async grantAiPack(id: string, input: GrantAiPackInput, actor: string): Promise<PlatformOrgDetail> {
     const org = await this.prisma.organization.findUnique({ where: { id }, select: { id: true } });
@@ -471,14 +477,14 @@ export class PlatformService {
     const expiresAt = new Date();
     expiresAt.setUTCMonth(expiresAt.getUTCMonth() + months);
     const priceCents = input.priceUsd === null || input.priceUsd === undefined ? null : Math.round(input.priceUsd * 100);
-    const pack = await runUnscoped("consola de plataforma: añadir conversaciones extra", () =>
+    const pack = await runUnscoped("consola de plataforma: añadir tokens extra", () =>
       this.prisma.aiPack.create({
-        data: { orgId: id, conversations: input.conversations, priceCents, note: input.note?.trim() || null, createdBy: actor, expiresAt },
+        data: { orgId: id, tokens: input.tokens, priceCents, note: input.note?.trim() || null, createdBy: actor, expiresAt },
       }),
     );
     await this.audit(actor, "ai_pack_added", id, {
       packId: pack.id,
-      conversations: input.conversations,
+      tokens: input.tokens,
       priceUsd: priceCents === null ? null : priceCents / 100,
       expiresAt: expiresAt.toISOString(),
     });
@@ -487,15 +493,15 @@ export class PlatformService {
 
   /** Quitar un paquete es vencerlo ya: lo gastado se queda en su historial. */
   async removeAiPack(id: string, packId: string, actor: string): Promise<PlatformOrgDetail> {
-    const pack = await runUnscoped("consola de plataforma: quitar conversaciones extra", () =>
+    const pack = await runUnscoped("consola de plataforma: quitar tokens extra", () =>
       this.prisma.aiPack.findFirst({ where: { id: packId, orgId: id } }),
     );
     if (!pack) throw new NotFoundException("Paquete no encontrado");
     if (pack.expiresAt.getTime() > Date.now()) {
-      await runUnscoped("consola de plataforma: quitar conversaciones extra", () =>
+      await runUnscoped("consola de plataforma: quitar tokens extra", () =>
         this.prisma.aiPack.update({ where: { id: packId }, data: { expiresAt: new Date() } }),
       );
-      await this.audit(actor, "ai_pack_removed", id, { packId, conversations: pack.conversations, used: pack.used });
+      await this.audit(actor, "ai_pack_removed", id, { packId, tokens: pack.tokens, used: pack.used });
     }
     return this.detail(id);
   }
@@ -728,14 +734,17 @@ interface OrgRow {
   ai_extra_month: bigint;
 }
 
-// Conversaciones extra de la empresa `o`: lo que queda en paquetes vigentes y
+// Tokens extra de la empresa `o`: lo que queda en paquetes vigentes y
 // lo gastado este mes (el mes de ai_pack_uses es el día 1 en UTC).
-const EXTRA_REMAINING = Prisma.sql`(SELECT coalesce(sum(p.conversations - p.used), 0) FROM ai_packs p WHERE p."orgId" = o.id AND p."expiresAt" > now())`;
-const EXTRA_USED_MONTH = Prisma.sql`(SELECT count(*) FROM ai_pack_uses pu WHERE pu."orgId" = o.id AND pu.month = date_trunc('month', now() AT TIME ZONE 'UTC'))`;
+const EXTRA_REMAINING = Prisma.sql`(SELECT coalesce(sum(p.tokens - p.used), 0) FROM ai_packs p WHERE p."orgId" = o.id AND p."expiresAt" > now() AND p.used < p.tokens)`;
+const EXTRA_USED_MONTH = Prisma.sql`(SELECT coalesce(sum(pu.tokens), 0) FROM ai_pack_uses pu WHERE pu."orgId" = o.id AND pu.month = date_trunc('month', now() AT TIME ZONE 'UTC'))`;
 
 interface OrgAi {
   ownUsd: number;
   platformUsd: number;
+  /** Tokens del mes con la IA de Driony. */
+  tokens: number;
+  /** Conversaciones del mes que atendió el agente con la IA de Driony. */
   conversations: number;
 }
 

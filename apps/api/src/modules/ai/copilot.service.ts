@@ -62,9 +62,20 @@ export class CopilotService {
     return this.settings.status();
   }
 
-  /** Sin clave no hay copiloto. En desarrollo local se deja pasar al simulado. */
+  /**
+   * Sin clave no hay copiloto; con la IA de Driony y los tokens del mes
+   * gastados, tampoco (el margen de gracia es para que el agente termine lo
+   * empezado, no para el copiloto). En desarrollo local se deja pasar al simulado.
+   */
   private async assertReady(): Promise<void> {
     const s = await this.settings.status();
+    if (s.ready && s.source === "included" && s.included && (s.included.full || s.included.exhausted)) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: "AI_NOT_CONFIGURED",
+        message: "Se gastaron los tokens de IA de Driony de este mes. Suma tokens extra en Ajustes › Plan, conecta tu clave en Ajustes › Inteligencia Artificial o espera al día 1.",
+      });
+    }
     if (s.ready) return;
     const devSimulado = tenancyMode !== "multi" && process.env.NODE_ENV !== "production";
     if (devSimulado) return;

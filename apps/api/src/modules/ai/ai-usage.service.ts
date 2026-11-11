@@ -97,10 +97,11 @@ export class AiUsageService {
   }
 
   /**
-   * Uso de la IA de Driony en el mes en curso (UTC): conversaciones distintas
-   * que el agente atendió y coste estimado de todo lo gastado con su clave.
+   * Uso de la IA de Driony en el mes en curso (UTC): tokens de todo lo que
+   * corrió con su clave (es el cupo del plan), conversaciones distintas que el
+   * agente atendió (para decirlo en palabras) y coste estimado a precio de lista.
    */
-  async includedUsage(orgId: string): Promise<{ conversations: number; costUsd: number }> {
+  async includedUsage(orgId: string): Promise<{ tokens: number; conversations: number; costUsd: number }> {
     const from = monthStart();
     const [convs, byModel] = await Promise.all([
       this.prisma.$queryRaw<Array<{ count: bigint | number }>>`
@@ -114,15 +115,17 @@ export class AiUsageService {
         _sum: { inputTokens: true, outputTokens: true },
       }),
     ]);
+    let tokens = 0;
     let costUsd = 0;
     for (const r of byModel) {
       // Un modelo sin precio en la tabla se cuenta al precio del modelo de la
       // IA incluida, para que un hueco de la tabla no deje el tope sin efecto.
       const input = r._sum.inputTokens ?? 0;
       const output = r._sum.outputTokens ?? 0;
+      tokens += input + output;
       costUsd += estimateAiCost(r.model, input, output) ?? estimateAiCost(AI_INCLUDED_MODEL, input, output) ?? 0;
     }
-    return { conversations: Number(convs[0]?.count ?? 0), costUsd };
+    return { tokens, conversations: Number(convs[0]?.count ?? 0), costUsd };
   }
 
   async report(period: AiUsagePeriod): Promise<AiUsageReport> {

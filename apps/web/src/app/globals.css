@@ -1345,6 +1345,19 @@ code {
 .ai-meter__track.is-warn > i {
   background: var(--warning);
 }
+/* 95 %: el mismo ámbar, con el borde pleno para que se note el salto. */
+.ai-meter.is-high {
+  border-color: var(--warning);
+  background: var(--warning-soft);
+}
+.ai-meter.is-high > svg,
+.ai-meter.is-high .ai-meter__text {
+  color: var(--warning);
+}
+.ai-meter.is-high .ai-meter__bar > i,
+.ai-meter__track.is-high > i {
+  background: var(--warning);
+}
 .ai-meter.is-full {
   border-color: color-mix(in srgb, var(--danger) 45%, transparent);
   background: var(--danger-soft);

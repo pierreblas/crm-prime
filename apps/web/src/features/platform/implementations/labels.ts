@@ -86,7 +86,7 @@ export const AI_MODE_LABEL: Record<AiBillingMode, string> = {
 /** Lo que se le dice al cliente sobre la IA según el modo. */
 export const AI_MODE_NOTE: Record<AiBillingMode, string> = {
   BYOK: "El consumo de IA se paga directamente al proveedor (OpenAI o Anthropic) con la clave del cliente. No es un ingreso de Driony ni está incluido en este precio.",
-  MANAGED: "La IA la gestiona Driony dentro del cupo de conversaciones de su plan. Nunca es ilimitada: al agotarse el cupo, los chats pasan al equipo humano o se añaden conversaciones extra.",
+  MANAGED: "La IA la gestiona Driony dentro del cupo de tokens de su plan. Nunca es ilimitada: al gastarse el cupo, los chats pasan al equipo humano o se añaden tokens extra.",
   UNDECIDED: "El modo de IA se define antes de empezar: con clave propia del cliente o gestionada por Driony dentro del cupo de su plan.",
 };
 

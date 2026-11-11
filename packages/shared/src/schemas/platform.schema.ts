@@ -8,7 +8,7 @@ export const myPlanSchema = z.object({
   /** false = instalación propia: no hay planes ni límites. */
   saas: z.boolean(),
   plan: planDefSchema,
-  usage: z.object({ numbers: z.number(), users: z.number(), contacts: z.number(), deals: z.number(), activeContacts: z.number(), aiConversations: z.number() }),
+  usage: z.object({ numbers: z.number(), users: z.number(), contacts: z.number(), deals: z.number(), activeContacts: z.number(), aiTokens: z.number() }),
   /** El catálogo completo, para comparar. Vacío en instalación propia. */
   plans: z.array(planDefSchema),
   /** A quién escribir para cambiar de plan (no hay cobro automático). */
@@ -26,7 +26,7 @@ export const myPlanSchema = z.object({
       planName: z.string(),
     })
     .nullable(),
-  /** Paquetes de conversaciones extra que aún valen (con o sin saldo), el que vence antes primero. */
+  /** Paquetes de tokens extra que aún valen (con o sin saldo), el que vence antes primero. */
   aiPacks: z.array(aiPackSchema),
 });
 export type MyPlanDto = z.infer<typeof myPlanSchema>;
@@ -59,9 +59,12 @@ export const platformOverviewSchema = z.object({
     model: z.string(),
     platformCostUsd: z.number(),
     ownCostUsd: z.number(),
+    /** Tokens del mes con la IA de Driony, en todas las empresas. */
+    tokens: z.number(),
+    /** Conversaciones del mes que atendió el agente con la IA de Driony. */
     conversations: z.number(),
     orgsUsing: z.number(),
-    /** Empresas al cupo de conversaciones de su plan. */
+    /** Empresas al cupo de tokens de su plan (sin tokens extra). */
     orgsFull: z.number(),
     /** Empresas que tocaron el tope en dólares (freno de seguridad). */
     orgsCapped: z.number(),
@@ -103,12 +106,12 @@ export const platformOrgSchema = z.object({
   aiCostMonthUsd: z.number(),
   /** Parte del gasto del mes que corrió con la IA de Driony (la paga la plataforma). */
   aiPlatformCostMonthUsd: z.number(),
-  /** Conversaciones del mes atendidas con la IA de Driony, frente al cupo de su plan (null = sin cupo). */
-  aiIncludedConversations: z.number(),
+  /** Tokens del mes con la IA de Driony, frente al cupo de su plan (null = sin cupo). */
+  aiIncludedTokens: z.number(),
   aiIncludedLimit: z.number().nullable(),
-  /** Conversaciones extra que le quedan en paquetes vigentes. */
+  /** Tokens extra que le quedan en paquetes vigentes. */
   aiExtraRemaining: z.number(),
-  /** Conversaciones extra gastadas este mes (suben su tope en dólares). */
+  /** Tokens extra gastados este mes (suben su tope en dólares). */
   aiExtraUsedMonth: z.number(),
   /** Tiene una clave de IA propia guardada (entonces no usa la de Driony). */
   aiOwnKey: z.boolean(),
@@ -199,7 +202,7 @@ export const platformOrgDetailSchema = z.object({
     openConversations: z.number(),
   }),
   won30d: z.array(z.object({ currency: z.string(), total: z.number(), count: z.number() })),
-  /** Paquetes de conversaciones extra, también los vencidos o quitados (los últimos 20). */
+  /** Paquetes de tokens extra, también los vencidos o quitados (los últimos 20). */
   aiPacks: z.array(
     aiPackSchema.extend({
       priceUsd: z.number().nullable(),

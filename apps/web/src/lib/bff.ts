@@ -2171,7 +2171,7 @@ export async function updatePlatformOrg(id: string, input: UpdatePlatformOrgInpu
   return res.json();
 }
 
-/** Añadir conversaciones extra a una empresa (al recibir el pago, o de regalo). */
+/** Añadir tokens extra a una empresa (al recibir el pago, o de regalo). */
 export async function grantPlatformAiPack(id: string, input: GrantAiPackInput): Promise<PlatformOrgDetail> {
   const res = await bffFetch(`/api/bff/platform/orgs/${id}/ai-packs`, {
     method: "POST",

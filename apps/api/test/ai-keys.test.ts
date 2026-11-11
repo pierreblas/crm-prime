@@ -7,7 +7,7 @@
  * AI_SHARED_KEYS=true. Una key propia guardada gana siempre.
  *
  * IA de Driony (AI_INCLUDED=true): sin key propia, la empresa usa la de la
- * plataforma con el modelo fijo. Con el cupo de conversaciones lleno, el
+ * plataforma con el modelo fijo. Con el cupo de tokens gastado, el
  * agente solo sigue las que ya atendía; con el tope en dólares, no hay key
  * salvo para indexar el conocimiento.
  *
@@ -24,11 +24,11 @@ function corre(
   modo: "single" | "multi",
   compartidas: boolean,
   propia: "db" | "none",
-  incluida?: { conversaciones?: number; gasto?: number; plan?: string; yaContada?: boolean; extra?: number },
+  incluida?: { tokens?: number; gasto?: number; plan?: string; yaContada?: boolean; extra?: number },
 ) {
   const args = ["tsx", "test/fixtures/ai-keys-run.ts", propia];
   if (incluida) {
-    args.push(String(incluida.conversaciones ?? 0), String(incluida.gasto ?? 0), incluida.plan ?? "free");
+    args.push(String(incluida.tokens ?? 0), String(incluida.gasto ?? 0), incluida.plan ?? "free");
     args.push(incluida.yaContada ? "counted" : "new", String(incluida.extra ?? 0));
   }
   const out = execFileSync("npx", args, {
@@ -54,7 +54,7 @@ function corre(
     activeModel?: string;
     ready?: boolean;
     statusSource?: string;
-    included?: { conversations: number; limit: number; extraRemaining: number; capUsd: number; full: boolean; exhausted: boolean; resetsAt: string } | null;
+    included?: { tokens: number; conversations: number; limit: number; extraRemaining: number; capUsd: number; full: boolean; exhausted: boolean; resetsAt: string } | null;
     resolvedIncluded?: boolean;
     resolvedBaseUrl?: string | null;
     resolvedIsPlatformKey?: boolean;
@@ -93,7 +93,7 @@ test("una sola empresa: el .env sigue siendo su respaldo, como siempre", () => {
 });
 
 test("IA de Driony: sin key propia y con cupo, el agente usa la de la plataforma con el modelo fijo", () => {
-  const r = corre("multi", false, "none", { conversaciones: 10 });
+  const r = corre("multi", false, "none", { tokens: 200_000 });
   assert.equal(r.ok, true);
   assert.equal(r.ready, true);
   assert.equal(r.statusSource, "included");
@@ -103,46 +103,52 @@ test("IA de Driony: sin key propia y con cupo, el agente usa la de la plataforma
   assert.equal(r.resolvedIsPlatformKey, true);
   assert.equal(r.resolvedBaseUrl, null, "la clave de Driony nunca va al gateway de la empresa");
   assert.deepEqual(
-    { conversations: r.included?.conversations, limit: r.included?.limit, exhausted: r.included?.exhausted },
-    { conversations: 10, limit: 100, exhausted: false },
+    { tokens: r.included?.tokens, limit: r.included?.limit, exhausted: r.included?.exhausted },
+    { tokens: 200_000, limit: 2_500_000, exhausted: false },
   );
 });
 
 test("IA de Driony: el cupo sale del plan", () => {
-  const r = corre("multi", false, "none", { conversaciones: 150, plan: "pro" });
-  assert.equal(r.included?.limit, 2000);
+  const r = corre("multi", false, "none", { tokens: 3_000_000, plan: "pro" });
+  assert.equal(r.included?.limit, 50_000_000);
   assert.equal(r.ready, true);
 });
 
-test("IA de Driony: con el cupo lleno no empieza conversaciones nuevas", () => {
-  const r = corre("multi", false, "none", { conversaciones: 100 });
+test("IA de Driony: con el cupo gastado no empieza conversaciones nuevas", () => {
+  const r = corre("multi", false, "none", { tokens: 2_500_000 });
   assert.equal(r.included?.full, true);
   assert.equal(r.included?.exhausted, false);
   assert.equal(r.ready, true, "la IA sigue disponible para lo que ya atendía y para el equipo");
   assert.equal(r.allowsConversation, false, "una conversación nueva pasa al equipo");
 });
 
-test("IA de Driony: con el cupo lleno termina las conversaciones que ya atendía este mes", () => {
-  const r = corre("multi", false, "none", { conversaciones: 100, yaContada: true });
-  assert.equal(r.allowsConversation, true);
+test("IA de Driony: con el cupo gastado termina las conversaciones que ya atendía este mes, dentro del margen", () => {
+  const r = corre("multi", false, "none", { tokens: 2_550_000, yaContada: true });
+  assert.equal(r.allowsConversation, true, "un 2 % por encima: puede terminar");
+  assert.equal(r.ready, true);
+  const pasado = corre("multi", false, "none", { tokens: 2_700_000, yaContada: true });
+  assert.equal(pasado.allowsConversation, false, "un 8 % por encima: el margen del 5 % se acabó");
+  assert.equal(pasado.ready, false, "y la IA de Driony deja de resolverse");
+  assert.equal(pasado.embeddingsIsPlatformKey, true, "indexar el conocimiento sigue");
 });
 
-test("IA de Driony: con el cupo lleno y conversaciones extra, una nueva gasta una extra", () => {
-  const sinExtra = corre("multi", false, "none", { conversaciones: 100 });
-  const r = corre("multi", false, "none", { conversaciones: 100, extra: 50 });
+test("IA de Driony: con el cupo gastado y tokens extra, lo que sobra se carga al paquete y lo nuevo sigue", () => {
+  const sinExtra = corre("multi", false, "none", { tokens: 2_500_000 });
+  const r = corre("multi", false, "none", { tokens: 2_530_000, extra: 100_000 });
   assert.equal(r.included?.full, false, "con extra no está lleno");
-  assert.equal(r.included?.extraRemaining, 50);
+  assert.equal(r.included?.extraUsed, 30_000, "lo que pasó del cupo se cargó al paquete");
+  assert.equal(r.included?.extraRemaining, 70_000);
   assert.equal(r.allowsConversation, true, "la nueva la atiende el agente");
-  assert.ok(r.included!.capUsd > sinExtra.included!.capUsd, "las extra suben el tope en dólares");
+  assert.ok(r.included!.capUsd > sinExtra.included!.capUsd, "los extra suben el tope en dólares");
 });
 
-test("IA de Driony: el plan Inicial trae 500 y Empresa 6.000", () => {
-  assert.equal(corre("multi", false, "none", { plan: "starter" }).included?.limit, 500);
-  assert.equal(corre("multi", false, "none", { plan: "business" }).included?.limit, 6000);
+test("IA de Driony: el plan Inicial trae 12 M y Empresa 150 M", () => {
+  assert.equal(corre("multi", false, "none", { plan: "starter" }).included?.limit, 12_000_000);
+  assert.equal(corre("multi", false, "none", { plan: "business" }).included?.limit, 150_000_000);
 });
 
 test("IA de Driony: el cupo vuelve el día 1 del mes siguiente", () => {
-  const r = corre("multi", false, "none", { conversaciones: 1 });
+  const r = corre("multi", false, "none", { tokens: 1 });
   const d = new Date(r.included!.resetsAt);
   assert.equal(d.getUTCDate(), 1);
   assert.equal(d.getUTCHours(), 0);
@@ -150,8 +156,8 @@ test("IA de Driony: el cupo vuelve el día 1 del mes siguiente", () => {
 });
 
 test("IA de Driony: el tope en dólares corta aunque queden conversaciones, menos la indexación", () => {
-  const tope = corre("multi", false, "none", { conversaciones: 5 }).included!.capUsd;
-  const r = corre("multi", false, "none", { conversaciones: 5, gasto: tope });
+  const tope = corre("multi", false, "none", { tokens: 100_000 }).included!.capUsd;
+  const r = corre("multi", false, "none", { tokens: 100_000, gasto: tope });
   assert.equal(r.ready, false);
   assert.equal(r.included?.exhausted, true);
   assert.equal(r.resolvedIsPlatformKey, false);
@@ -159,7 +165,7 @@ test("IA de Driony: el tope en dólares corta aunque queden conversaciones, meno
 });
 
 test("IA de Driony: la key propia gana y usa su modelo y su gateway", () => {
-  const r = corre("multi", false, "db", { conversaciones: 100 });
+  const r = corre("multi", false, "db", { tokens: 2_500_000 });
   assert.equal(r.ready, true);
   assert.equal(r.allowsConversation, true, "con clave propia no hay cupo");
   assert.equal(r.statusSource, "own");
@@ -169,7 +175,7 @@ test("IA de Driony: la key propia gana y usa su modelo y su gateway", () => {
 });
 
 test("IA de Driony: en una instalación propia no existe", () => {
-  const r = corre("single", false, "none", { conversaciones: 0 });
+  const r = corre("single", false, "none", { tokens: 0 });
   assert.equal(r.included, null);
   assert.equal(r.statusSource, "platform");
   assert.equal(r.source, "env");

@@ -21,8 +21,8 @@ export const HANDOFF_REASON_MEDIA = "El cliente envió una imagen o documento: l
 /** Motivo fijo cuando la empresa no tiene clave de IA: el agente no responde y el chat pasa al equipo. */
 // IA incluida en el plan: llegó al cupo de conversaciones (el agente termina
 // las que ya atendía) o al tope de gasto (se apaga del todo hasta el mes que viene).
-export const HANDOFF_REASON_AI_INCLUDED_FULL = "Llegaste a las conversaciones con IA incluidas en tu plan este mes: el agente termina las que ya atendía y los chats nuevos pasan a tu equipo. Para que atienda también los nuevos, conecta tu clave de IA en Ajustes › Inteligencia Artificial o cambia de plan.";
-export const HANDOFF_REASON_AI_INCLUDED_EXHAUSTED = "Se alcanzó el límite de uso de la IA incluida en tu plan este mes. Para que el agente siga respondiendo, conecta tu clave de IA en Ajustes › Inteligencia Artificial o cambia de plan.";
+export const HANDOFF_REASON_AI_INCLUDED_FULL = "Se gastaron los tokens de IA incluidos en tu plan este mes: el agente termina las conversaciones que ya atendía y los chats nuevos pasan a tu equipo. Para que atienda también los nuevos, suma tokens extra en Ajustes › Plan, conecta tu clave de IA en Ajustes › Inteligencia Artificial o cambia de plan.";
+export const HANDOFF_REASON_AI_INCLUDED_EXHAUSTED = "Se alcanzó el límite de uso de la IA incluida en tu plan este mes. Para que el agente siga respondiendo, suma tokens extra en Ajustes › Plan, conecta tu clave de IA en Ajustes › Inteligencia Artificial o cambia de plan.";
 export const HANDOFF_REASON_NO_AI_KEY = "Falta la clave de IA de tu empresa: ponla en Ajustes › Inteligencia Artificial para que el agente responda.";
 
 /** Aviso por defecto al pasar el chat: que el cliente no se quede en silencio. */

@@ -566,6 +566,12 @@ positivo; el texto va sobre la cara (17:1).
 - **Do** texto de cuerpo a ≥4.5:1; placeholders a #7f8ea1, nunca gris fantasma.
 - **Do** usar iconos SVG de línea (18px, trazo 1.75); los emojis solo dentro de los mensajes.
 - **Do** respetar `prefers-reduced-motion`: toda animación tiene alternativa.
+- **Do** mover con el scroll desde CSS (`animation-timeline: view()` / `scroll()`) y dejar el
+  observador de JS solo como respaldo: el hilo de progreso lima bajo la barra, la captura del hero
+  que sube un poco más despacio y los reveals. Nunca librerías de scroll suave.
+- **Do** ASCII con mensaje, no de adorno: el terminal del hero narra lo que hace el agente, en
+  mono cian sobre Panel, con el fotograma quieto cuando el lector prefiere menos movimiento.
+  Las piezas se copian al repo (`asciiAgentLog.ts`, formato de ascii.rest), nada desde un CDN.
 
 ### Don't:
 - **Don't** caer en **SaaS genérico de plantilla**: rejillas de tarjetas idénticas o todo gris.

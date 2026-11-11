@@ -97,12 +97,12 @@ function empresa(row: Row = {}) {
   };
   const tenant = { orgId: () => "org_a" };
   const usage = {
-    includedUsage: async () => ({ conversations: 3, costUsd: 0.01 }),
+    includedUsage: async () => ({ tokens: 60_000, conversations: 3, costUsd: 0.01 }),
     countedThisMonth: async () => false,
   };
   const packs = {
     extra: async () => ({ remaining: 0, usedThisMonth: 0, nextExpiresAt: null }),
-    consume: async () => false,
+    settle: async () => 0,
   };
   const svc = new AiSettingsService(prisma as never, tenant as never, usage as never, packs as never);
   return { svc, fila, eventos, consumo, prisma, tenant };
