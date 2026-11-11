@@ -8,7 +8,17 @@ export const myPlanSchema = z.object({
   /** false = instalación propia: no hay planes ni límites. */
   saas: z.boolean(),
   plan: planDefSchema,
-  usage: z.object({ numbers: z.number(), users: z.number(), contacts: z.number(), deals: z.number(), activeContacts: z.number(), aiTokens: z.number() }),
+  usage: z.object({
+    numbers: z.number(),
+    users: z.number(),
+    contacts: z.number(),
+    deals: z.number(),
+    activeContacts: z.number(),
+    /** Tokens del mes con la IA de Driony (los del cupo del plan). */
+    aiTokens: z.number(),
+    /** Tokens del mes con la clave propia de la empresa (o la del servidor en una instalación propia): sin cupo. */
+    aiOwnTokens: z.number(),
+  }),
   /** El catálogo completo, para comparar. Vacío en instalación propia. */
   plans: z.array(planDefSchema),
   /** A quién escribir para cambiar de plan (no hay cobro automático). */

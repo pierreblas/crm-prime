@@ -303,7 +303,9 @@ test("la IA incluida se cuenta con el rol restringido, por empresa y en la conso
   assert.equal(await ctx.runInOrg("o_a", () => usage.countedThisMonth("o_a", "cv_b1")), false, "la conversación de otra empresa no cuenta");
 
   const plans = new PlansService(prisma, { orgId: () => "o_a" } as any, { active: async () => [] } as any);
-  assert.equal((await ctx.runInOrg("o_a", () => plans.usage())).aiTokens, 33_000);
+  const usoPlan = await ctx.runInOrg("o_a", () => plans.usage());
+  assert.equal(usoPlan.aiTokens, 33_000);
+  assert.equal(usoPlan.aiOwnTokens, 11_000, "lo gastado con la clave propia se enseña aparte, sin cupo");
 
   const colaRota = { getJobCounts: async () => { throw new Error("sin redis"); } } as any;
   const svc = new PlatformService(prisma, {} as any, colaRota, colaRota, colaRota, colaRota, colaRota, colaRota, colaRota);
@@ -366,7 +368,7 @@ test("los ajustes de IA, su historial y el consumo quedan en su empresa con el r
   assert.notEqual(deB?.anthropicKeyEnc, "robada");
 
   // El servicio real con el rol restringido: A guarda una clave y el evento cae en A, nunca en B.
-  const usage = { includedUsage: async () => ({ tokens: 0, conversations: 0, costUsd: 0 }), countedThisMonth: async () => false };
+  const usage = { includedUsage: async () => ({ tokens: 0, conversations: 0, costUsd: 0 }), countedThisMonth: async () => false, ownTokensThisMonth: async () => 0 };
   const packs = { extra: async () => ({ remaining: 0, usedThisMonth: 0, nextExpiresAt: null }), settle: async () => 0 };
   const svc = new AiSettingsService(prisma, { orgId: () => "o_a" } as any, usage as any, packs as any);
   const dto = await ctx.runInOrg("o_a", () => svc.updateSettings({ anthropicKey: "sk-ant-de-acme-3333" }, "u_acme"));

@@ -30,7 +30,7 @@ Al terminar la prueba tu empresa sigue en el plan **Gratis**, sin cortar ni borr
 
 Sin configurar nada, el agente usa la **IA de Driony** con el cupo de tu plan. Se mide en **tokens**, los mismos que Driony paga al proveedor: sin créditos inventados ni cobro por conversación. Todo lo que hace la IA sale del mismo cupo: el agente y sus seguimientos, el copiloto, los asistentes de redacción y de flujos, las preguntas sin respuesta, y los audios e imágenes de los clientes (un minuto de audio son unos 25.000 tokens). Entrada y salida cuentan por igual. De media, una conversación atendida por el agente gasta unos 20.000 tokens. El cupo vuelve a empezar el día 1 de cada mes.
 
-Lo llevado del mes se ve **arriba a la derecha, junto a tu foto**: «IA 1,2 M/2,5 M». Se pone ámbar al 80 %, más al 95 % y rojo al gastarlo; al pulsarlo ves cuándo se renueva y, si eres administrador, cómo ampliarlo. Al 80 %, al 95 % y al tope, los administradores ven también un aviso debajo de la cabecera.
+Lo llevado del mes se ve **arriba a la derecha, junto a tu foto**: «IA 1,2 M/2,5 M». Con tu propia clave, el mismo sitio enseña lo gastado con ella («IA 14 mil»), sin cupo. Se pone ámbar al 80 %, más al 95 % y rojo al gastarlo; al pulsarlo ves cuándo se renueva y, si eres administrador, cómo ampliarlo. Al 80 %, al 95 % y al tope, los administradores ven también un aviso debajo de la cabecera.
 
 Al gastar el cupo, el agente **termina las conversaciones que ya atendía** ese mes (hasta un 5 % por encima del cupo) y las nuevas pasan a tu equipo hasta el día 1; el copiloto y los asistentes se detienen. Nadie se queda a medias. Para que la IA siga tienes tres caminos:
 
@@ -80,6 +80,6 @@ Un número ya conectado en coexistencia sigue así aunque cambies de plan.
 
 ## Ver y cambiar tu plan
 
-En **Ajustes › Plan** ves tu plan, cuánto llevas usado, tus tokens extra y qué incluye cada plan.
+En **Ajustes › Plan** ves tu plan, cuánto llevas usado, tus tokens extra y qué incluye cada plan. Si usas tu propia clave de IA, en vez del cupo ves los tokens que gastaste con ella este mes (sin límite); el detalle por función y modelo está en **Ajustes › Consumo de IA**.
 
 Todavía no hay cobro automático: para cambiar de plan o pedir tokens extra, escríbenos desde **Ajustes › Plan**. Lo activamos el mismo día y te lo confirmamos antes de cobrarte nada.

@@ -366,6 +366,7 @@ export class AiSettingsService {
       source: viaIncluded ? "included" : !used?.key ? "none" : used.source === "db" ? "own" : "platform",
       saas: tenancyMode === "multi",
       included,
+      ownTokens: await this.usage.ownTokensThisMonth(this.tenant.orgId()),
     };
   }
 

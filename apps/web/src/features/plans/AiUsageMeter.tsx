@@ -14,8 +14,8 @@ import { useAiStatus } from "@/features/copilot/useAiStatus";
  * total (cupo del plan más tokens extra), más al 95 % y rojo al llegar. Al pulsarlo explica qué pasa al
  * tope y, a los administradores, cómo ampliarlo.
  *
- * Solo aparece con la IA incluida: con clave propia no hay cupo que mirar, y
- * en una instalación propia no existe.
+ * Con clave propia (o la del servidor) no hay cupo, pero el mismo sitio enseña
+ * lo gastado este mes («IA 14 mil»): siempre se sabe cuánta IA va.
  */
 export function AiUsageMeter({ isAdmin }: { isAdmin: boolean }) {
   const t = useT();
@@ -41,7 +41,47 @@ export function AiUsageMeter({ isAdmin }: { isAdmin: boolean }) {
   }, [open]);
 
   const included = usesIncluded(ai) ? ai!.included : null;
-  if (!included) return null;
+  const ownKey = !!ai && (ai.source === "own" || ai.source === "platform");
+  if (!included && !ownKey) return null;
+
+  if (!included) {
+    // Clave propia: lo gastado este mes, sin cupo ni barra.
+    const n = formatTokens(ai!.ownTokens);
+    return (
+      <div ref={ref} className="ai-meter-wrap">
+        <button
+          type="button"
+          className="ai-meter is-own"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={t("aiMeter.ownLabel", { n })}
+          title={t("aiMeter.ownLabel", { n })}
+          onClick={() => setOpen((o) => !o)}
+          data-ai-meter="own"
+        >
+          <NavIcon name="sparkles" size={14} />
+          <span className="ai-meter__text">{t("aiMeter.ownChip", { n })}</span>
+        </button>
+        {open && (
+          <div role="dialog" className="ai-meter__pop" aria-label={t("aiMeter.ownTitle")}>
+            <span className="ai-meter__eyebrow">{t("aiMeter.ownTitle")}</span>
+            <strong className="ai-meter__count">{t("aiMeter.ownCount", { n })}</strong>
+            <p className="ai-meter__status">{t("aiMeter.ownStatus")}</p>
+            <div className="ai-meter__actions">
+              <Link href="/settings?tab=aiUsage" className="btn btn-primary btn-sm" onClick={() => setOpen(false)}>
+                {t("aiMeter.usage")}
+              </Link>
+              {isAdmin && (
+                <Link href="/settings?tab=ai" className="ai-meter__link" onClick={() => setOpen(false)}>
+                  {t("aiMeter.ownKeySettings")}
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const m = meterOf(included);
   const fmt = (n: number) => formatTokens(n);

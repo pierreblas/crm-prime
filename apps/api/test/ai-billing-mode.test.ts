@@ -99,6 +99,7 @@ function empresa(row: Row = {}) {
   const usage = {
     includedUsage: async () => ({ tokens: 60_000, conversations: 3, costUsd: 0.01 }),
     countedThisMonth: async () => false,
+    ownTokensThisMonth: async () => 0,
   };
   const packs = {
     extra: async () => ({ remaining: 0, usedThisMonth: 0, nextExpiresAt: null }),

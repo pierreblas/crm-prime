@@ -22,6 +22,8 @@ export const aiStatusSchema = z.object({
   saas: z.boolean(),
   /** Uso de la IA de Driony este mes; null si la empresa no puede usarla (o es instalación propia). */
   included: aiIncludedSchema.nullable(),
+  /** Tokens del mes con la clave propia de la empresa (o la del servidor): sin cupo, pero se enseñan junto a la foto. */
+  ownTokens: z.number().default(0),
 });
 export type AiStatus = z.infer<typeof aiStatusSchema>;
 

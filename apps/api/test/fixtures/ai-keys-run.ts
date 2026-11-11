@@ -43,6 +43,7 @@ const tenant = { orgId: () => "org_a" };
 const usage = {
   includedUsage: async () => ({ tokens, conversations: Math.round(tokens / 20_000), costUsd }),
   countedThisMonth: async () => counted,
+  ownTokensThisMonth: async () => 0,
   invalidate: () => undefined,
 };
 

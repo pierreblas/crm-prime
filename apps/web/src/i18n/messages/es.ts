@@ -105,6 +105,13 @@ export const es: Messages = {
     noticeFull: "Se gastaron los tokens de IA de este mes.",
     noticeBody: "Los chats nuevos pasan a tu equipo cuando se acaban. Puedes sumar tokens extra o conectar tu propia clave, sin cupo.",
     noticeDismiss: "Entendido",
+    // Con clave propia: lo gastado, sin cupo.
+    ownChip: "IA {n}",
+    ownLabel: "Tokens de IA con tu clave este mes: {n}",
+    ownTitle: "IA con tu clave este mes",
+    ownCount: "{n} tokens · sin cupo",
+    ownStatus: "Los pagas a tu proveedor a precio de lista. Todo lo que hace la IA (agente, copiloto, audios e imágenes) suma aquí.",
+    ownKeySettings: "Ajustes de IA",
   },
   // Conector de Meta en el dominio raíz (SaaS): el SDK solo carga ahí.
   connect: {

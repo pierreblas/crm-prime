@@ -128,6 +128,15 @@ export class AiUsageService {
     return { tokens, conversations: Number(convs[0]?.count ?? 0), costUsd };
   }
 
+  /** Tokens del mes en curso (UTC) con la clave propia de la empresa (o la del servidor): sin cupo, pero se enseñan. */
+  async ownTokensThisMonth(orgId: string): Promise<number> {
+    const agg = await this.prisma.aiUsage.aggregate({
+      where: { orgId, source: "own", createdAt: { gte: monthStart() } },
+      _sum: { inputTokens: true, outputTokens: true },
+    });
+    return (agg._sum.inputTokens ?? 0) + (agg._sum.outputTokens ?? 0);
+  }
+
   async report(period: AiUsagePeriod): Promise<AiUsageReport> {
     const { from, to } = range(period);
     const orgId = this.tenant.orgId();

@@ -70,9 +70,10 @@ export class PlansService {
     deals: number;
     activeContacts: number;
     aiTokens: number;
+    aiOwnTokens: number;
   }> {
     const orgId = this.tenant.orgId();
-    const [numbers, users, contacts, deals, active, ai] = await Promise.all([
+    const [numbers, users, contacts, deals, active, ai, own] = await Promise.all([
       this.prisma.whatsappConnection.count({ where: { isActive: true } }),
       this.prisma.user.count({ where: { isActive: true } }),
       this.prisma.contact.count(),
@@ -90,6 +91,12 @@ export class PlansService {
         WHERE "orgId" = ${orgId} AND source = 'platform'
           AND "createdAt" >= date_trunc('month', now() AT TIME ZONE 'UTC')
       `,
+      // Y con la clave propia de la empresa (o la del servidor): no tienen cupo, pero se enseñan.
+      this.prisma.$queryRaw<Array<{ count: bigint | number }>>`
+        SELECT coalesce(sum("inputTokens" + "outputTokens"), 0) AS count FROM ai_usage
+        WHERE "orgId" = ${orgId} AND source = 'own'
+          AND "createdAt" >= date_trunc('month', now() AT TIME ZONE 'UTC')
+      `,
     ]);
     return {
       numbers,
@@ -98,6 +105,7 @@ export class PlansService {
       deals,
       activeContacts: Number(active[0]?.count ?? 0),
       aiTokens: Number(ai[0]?.count ?? 0),
+      aiOwnTokens: Number(own[0]?.count ?? 0),
     };
   }
 

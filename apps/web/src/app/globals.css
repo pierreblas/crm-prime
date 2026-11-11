@@ -1333,6 +1333,10 @@ code {
   transform-origin: left center;
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
+/* Clave propia: cifra sin barra, no hay cupo que llenar. */
+.ai-meter.is-own {
+  color: var(--muted);
+}
 .ai-meter.is-warn {
   border-color: rgba(240, 180, 90, 0.45);
   background: var(--warning-soft);

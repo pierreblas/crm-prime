@@ -18,6 +18,7 @@ import {
 } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { useMyPlan } from "./usePlan";
+import { useAiStatus } from "@/features/copilot/useAiStatus";
 
 /**
  * Ajustes › Plan: qué plan tiene la empresa, cuánto lleva usado y qué
@@ -32,6 +33,10 @@ import { useMyPlan } from "./usePlan";
  */
 export function PlanSettings() {
   const { data, isPending, isError, refetch } = useMyPlan();
+  // Con clave propia (o la del servidor) la IA no tiene cupo: se enseña lo gastado con ella y
+  // la fila de la IA de Driony solo si también gastó algo de ella (audios, imágenes, conocimiento).
+  const { data: ai } = useAiStatus();
+  const ownKey = ai?.source === "own" || ai?.source === "platform";
 
   // El medidor de la cabecera enlaza a #extra, que no existe hasta que carga el plan.
   useEffect(() => {
@@ -69,6 +74,14 @@ export function PlanSettings() {
             disponible, con tus claves y en tu servidor.
           </p>
         </header>
+        {/* Sin cupo, pero sí se ve cuánta IA se gastó este mes con la clave propia. */}
+        <div className="plan-usage">
+          <Usage label="Tokens de IA con tu clave este mes" used={data.usage.aiOwnTokens} limit={null} format={formatTokens} />
+        </div>
+        <p className="plan-fairuse">
+          Los tokens los pagas a tu proveedor a precio de lista. El detalle, por función y modelo, está en{" "}
+          <Link href="/settings?tab=aiUsage">Consumo de IA</Link>.
+        </p>
       </div>
     );
   }
@@ -113,20 +126,30 @@ export function PlanSettings() {
           <Usage label="Contactos" used={usage.contacts} limit={plan.limits.contacts} />
           <Usage label="Oportunidades abiertas" used={usage.deals} limit={plan.limits.deals} />
           <Usage label="Contactos activos este mes" used={usage.activeContacts} limit={plan.limits.activeContacts} />
-          {plan.aiTokens !== null && (
+          {plan.aiTokens !== null && (!ownKey || usage.aiTokens > 0) && (
             <Usage label="Tokens de IA de Driony este mes" used={usage.aiTokens} limit={plan.aiTokens} format={formatTokens} />
+          )}
+          {(ownKey || plan.aiTokens === null) && (
+            <Usage label="Tokens de IA con tu clave este mes" used={usage.aiOwnTokens} limit={null} format={formatTokens} />
           )}
         </div>
         <p className="plan-fairuse">
           Contactos, oportunidades y contactos activos son de <strong>uso razonable</strong>: quien te escribe por
           WhatsApp entra siempre; al tope se frena crear o importar a mano. Si superas los activos del mes de forma
           sostenida, te propondremos el plan que te corresponde. {formatRetention(plan.mediaRetentionDays)}.
-          {plan.aiTokens !== null && (
+          {plan.aiTokens !== null && !ownKey && (
             <>
               {" "}
               La IA incluida se mide en tokens, entrada y salida por igual, y de ahí sale todo lo que hace la IA:
               al gastarlos, el agente termina las conversaciones que ya atendía y los chats nuevos pasan a tu
               equipo hasta el día 1. Con tu propia clave de IA no hay cupo.
+            </>
+          )}
+          {ownKey && (
+            <>
+              {" "}
+              Usas tu propia clave de IA: los tokens los pagas a tu proveedor a precio de lista y no hay cupo. El
+              detalle, por función y modelo, está en Ajustes › Consumo de IA.
             </>
           )}
         </p>
@@ -141,7 +164,7 @@ export function PlanSettings() {
         </ul>
       </section>
 
-      {plan.aiTokens !== null && <AiExtra packs={data.aiPacks} contactEmail={data.contactEmail} />}
+      {plan.aiTokens !== null && !ownKey && <AiExtra packs={data.aiPacks} contactEmail={data.contactEmail} />}
 
       <section>
         <h4 className="plan-all__title">Todos los planes</h4>

@@ -106,6 +106,13 @@ export const en = {
     noticeFull: "This month's AI tokens are spent.",
     noticeBody: "New chats go to your team when they run out. You can add extra tokens or connect your own key, with no quota.",
     noticeDismiss: "Got it",
+    // Own key: what was spent, no quota.
+    ownChip: "AI {n}",
+    ownLabel: "AI tokens with your key this month: {n}",
+    ownTitle: "AI with your key this month",
+    ownCount: "{n} tokens · no quota",
+    ownStatus: "You pay your provider at list price. Everything the AI does (agent, copilot, audio and images) adds up here.",
+    ownKeySettings: "AI settings",
   },
   // Conector de Meta en el dominio raíz (SaaS): el SDK solo carga ahí.
   connect: {
