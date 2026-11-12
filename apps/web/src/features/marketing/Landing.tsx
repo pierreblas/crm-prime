@@ -5,7 +5,7 @@ import Link from "next/link";
 import { formatAiIncluded, formatPlanLimit, formatTokens, PLAN_KEYS, PLANS, TRIAL_AI_TOKENS, TRIAL_DAYS } from "@crm/shared";
 import "./landing.css";
 import { Arrow, Check, GITHUB, IconGit, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
-import { HeroTerminal } from "./HeroTerminal";
+import { HeroDemo } from "./HeroDemo";
 import { PlanPicker } from "./PlanPicker";
 import { AgentSimulator } from "./AgentSimulator";
 
@@ -244,78 +244,67 @@ export function Landing() {
       <MarketingHeader active={active} home />
 
       <main id="contenido">
-        {/* ── Hero: dos bloques, el lima con el argumento y el oscuro con el producto real ── */}
-        <section className="lp-hero">
-          <div className="lp-wrap lp-hero__grid">
-            <div className="lp-hero__copy">
-              {/* El rótulo tacha CRM y sella ARM: la categoría en un vistazo. */}
-              <p className="lp-hero__kicker lp-anim" style={{ animationDelay: "0.02s" }}>
-                <span className="lp-arm" role="img" aria-label="De CRM a ARM">
-                  <s>CRM</s>
-                  <b>ARM</b>
-                </span>
-                <span>Agentic Relationship Management</span>
-              </p>
-              <h1 className="lp-anim" style={{ animationDelay: "0.08s" }}>
-                Agentes de IA que <span className="lp-hero__accent">venden</span> por tu WhatsApp. Tú mandas.
-              </h1>
-              <p className="lp-hero__sub lp-anim" style={{ animationDelay: "0.16s" }}>
-                En tu propio número: responden en segundos, cotizan, leen comprobantes y retoman al que se enfrió, también a las 11 de la noche. Tu equipo supervisa y cierra.
-              </p>
-              <div className="lp-hero__cta lp-anim" style={{ animationDelay: "0.24s" }}>
-                <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
-                  Probar {TRIAL_DAYS} días gratis <Arrow />
-                </Link>
-                <a href="#dolor" className="lp-btn lp-btn--ghost lp-btn--lg">
-                  Mira lo que pasa hoy en tu WhatsApp
-                </a>
-              </div>
-              <ul className="lp-hero__proofs lp-anim" style={{ animationDelay: "0.32s" }} aria-label="Lo que incluye la prueba">
-                <li>
-                  <Check /> Sin tarjeta
-                </li>
-                <li>
-                  <Check /> Sin cobro por conversación
-                </li>
-                <li>
-                  <Check /> Listo en 2 minutos
-                </li>
-                <li>
-                  <Check /> IA incluida o tu propia clave
-                </li>
-              </ul>
-              <div className="lp-partner lp-anim" style={{ animationDelay: "0.4s" }} title="Driony forma parte del programa de partners de Meta">
-                <MetaMark />
-                <span>
-                  <b>Meta Business Partner</b>
-                  <span className="lp-partner__sub">API oficial de WhatsApp Business</span>
-                </span>
+        {/* ── Hero centrado: el argumento arriba, en lima; debajo, a todo el ancho, una demo que el visitante maneja ── */}
+        <section className="lp-hero lp-hero--center">
+          <div className="lp-hero__top">
+            <div className="lp-wrap">
+              <div className="lp-hero__copy">
+                {/* El rótulo tacha CRM y sella ARM: la categoría en un vistazo. */}
+                <p className="lp-hero__kicker lp-anim" style={{ animationDelay: "0.02s" }}>
+                  <span className="lp-arm" role="img" aria-label="De CRM a ARM">
+                    <s>CRM</s>
+                    <b>ARM</b>
+                  </span>
+                  <span>Agentic Relationship Management</span>
+                </p>
+                <h1 className="lp-anim" style={{ animationDelay: "0.08s" }}>
+                  Agentes de IA que <span className="lp-hero__accent">venden</span> por tu WhatsApp. Tú mandas.
+                </h1>
+                <p className="lp-hero__sub lp-anim" style={{ animationDelay: "0.16s" }}>
+                  En tu propio número: responden en segundos, cotizan, leen comprobantes y retoman al que se enfrió, también a las 11 de la noche. Tu equipo supervisa y cierra.
+                </p>
+                <div className="lp-hero__cta lp-anim" style={{ animationDelay: "0.24s" }}>
+                  <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
+                    Probar {TRIAL_DAYS} días gratis <Arrow />
+                  </Link>
+                  <a href="#dolor" className="lp-btn lp-btn--ghost lp-btn--lg">
+                    Mira lo que pasa hoy en tu WhatsApp
+                  </a>
+                </div>
+                <ul className="lp-hero__proofs lp-anim" style={{ animationDelay: "0.32s" }} aria-label="Lo que incluye la prueba">
+                  <li>
+                    <Check /> Sin tarjeta
+                  </li>
+                  <li>
+                    <Check /> Sin cobro por conversación
+                  </li>
+                  <li>
+                    <Check /> Listo en 2 minutos
+                  </li>
+                  <li>
+                    <Check /> IA incluida o tu propia clave
+                  </li>
+                </ul>
               </div>
             </div>
+          </div>
 
-            <div className="lp-hero__demo lp-anim" style={{ animationDelay: "0.2s" }}>
-              <span className="lp-hero__spine" aria-hidden="true">
-                Agentic Relationship Management // Driony // En vivo
-              </span>
-              <figure className="lp-hero__shot lp-hero__shot--photo">
-                <div className="lp-hero__shot-bar" aria-hidden="true">
-                  <span>[ + ] 20:15 // Tu equipo se va // Tu agente sigue atendiendo</span>
-                  <i />
+          {/* La demo va montada sobre la costura: media en lima, media en noir. */}
+          <div className="lp-hero__stage">
+            <div className="lp-wrap">
+              <div className="lp-hero__console lp-anim" style={{ animationDelay: "0.3s" }}>
+                <HeroDemo />
+              </div>
+              <div className="lp-hero__under">
+                <div className="lp-partner" title="Driony forma parte del programa de partners de Meta">
+                  <MetaMark />
+                  <span>
+                    <b>Meta Business Partner</b>
+                    <span className="lp-partner__sub">API oficial de WhatsApp Business</span>
+                  </span>
                 </div>
-                <div className="lp-hero__shot-frame">
-                  <img
-                    src="/landing/hero-cierre.webp"
-                    alt="Una directora comercial sale de su oficina al anochecer, sonriendo, con el celular en la mano: su agente sigue atendiendo los chats"
-                    width={1440}
-                    height={1160}
-                    fetchPriority="high"
-                    decoding="async"
-                  />
-                  <figcaption className="lp-hero__cap">Escena ilustrativa</figcaption>
-                </div>
-              </figure>
-              {/* Debajo de la captura, el registro del agente escribiéndose: lo que hace, en sus palabras. */}
-              <HeroTerminal />
+                <p>Demo con datos de ejemplo. En tu cuenta responde la IA con tu catálogo, tu agenda y tus reglas.</p>
+              </div>
             </div>
           </div>
         </section>

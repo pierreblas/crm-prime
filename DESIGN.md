@@ -472,20 +472,26 @@ lima a sangre con Tinta Noir, botón invertido y los píxeles en tinta arriba a 
 derecha.
 
 ### Hero (landing)
-Dos bloques pegados: el lima con el argumento y el oscuro con tinte Verde
-Circuito donde corre la conversación en vivo (chat y registro de lo que hace el
-CRM) con los píxeles abajo a la derecha. En el lima: el **rótulo ARM** (un punto
-hexagonal, «CRM» tachado en un marco de tinta y «ARM» sellado en tinta con texto
-lima y sombra dura cian, seguido de «Agentic Relationship Management» en mono),
-el titular condensado con la palabra clave marcada en tinta («venden»), el sub a
-40ch, los botones invertidos, las garantías en mono, el distintivo de Meta (ya no
-se estira) y, desde 1101px, los **píxeles en tinta y verde** abajo a la derecha.
-El bloque oscuro lleva un **lomo vertical** pegado a la costura (mono humo,
-«Agentic Relationship Management // Driony // En vivo», solo en escritorio) y la
-consola se estrecha un punto (el registro baja a 184px). El sello «ARM» cae con
-`lp-stamp` después de que suba el rótulo. La demo se reproduce una vez al cargar
-y se repite con «Ver otra vez». El HTML del servidor trae el estado final, así
-que sin JS o con movimiento reducido se ve completa.
+Dos bloques pegados y centrados. Arriba el lima a todo el ancho con el
+argumento: el **rótulo ARM** (un punto hexagonal, «CRM» tachado en un marco de
+tinta y «ARM» sellado en tinta con texto lima y sombra dura cian, seguido de
+«Agentic Relationship Management» en mono), el titular condensado en dos líneas
+con la palabra clave marcada en tinta («venden»), el sub, los botones invertidos
+y las garantías en mono; desde 1280px, **píxeles en tinta y verde** en las dos
+esquinas superiores. En el celular todo va a la izquierda. El sello «ARM» cae
+con `lp-stamp` después de que suba el rótulo.
+
+Debajo, sobre la costura lima/noir y con sombra dura cian, la **demo de la
+bandeja** (`HeroDemo.tsx`): tres columnas con la forma de la bandeja real. A la
+izquierda las conversaciones (tres casos B2B; cada fila con su estado, «Sin
+responder» o «Atendido», y su etapa; la abierta lleva lavado cian y marcador
+lima). Al centro el chat, con el contador de espera y el selector Autopilot /
+Copilot en la cabecera y la acción pegada al último mensaje. A la derecha
+«Detalles // lo que hizo el agente»: el embudo, la ficha y el registro en mono
+cian. Bajo 1024px la lista pasa a una fila de chips y bajo 760px las columnas se
+apilan. La demo es guionada y lleva la etiqueta «Datos de ejemplo»; nada corre
+solo y las alturas son fijas para que nada salte. Debajo quedan el distintivo de
+Meta y la nota de que en la cuenta real responde la IA.
 
 ### Sección «00 // Qué es ARM» (landing)
 La primera sección tras la banda define el término en el que se basa el
@@ -571,15 +577,19 @@ positivo; el texto va sobre la cara (17:1).
 - **Do** usar iconos SVG de línea (18px, trazo 1.75); los emojis solo dentro de los mensajes.
 - **Do** respetar `prefers-reduced-motion`: toda animación tiene alternativa.
 - **Do** mover con el scroll desde CSS (`animation-timeline: view()` / `scroll()`) y dejar el
-  observador de JS solo como respaldo: el hilo de progreso lima bajo la barra, la captura del hero
-  que sube un poco más despacio y los reveals. Nunca librerías de scroll suave.
+  observador de JS solo como respaldo: el hilo de progreso lima bajo la barra y los reveals
+  de cada bloque. Nunca librerías de scroll suave.
 - **Do** fotografía solo donde cuenta el dolor (sección «Lo que pasa hoy»): escenas ilustrativas de
   negocios latinoamericanos hechas con IA (Magnific), gradadas hacia noir (saturación 0,82 y velo
   inferior), con la hora en un sello lima y la nota «Escenas ilustrativas, creadas con IA». Nunca
   como testimonio, cliente o prueba.
-- **Do** ASCII con mensaje, no de adorno: el terminal del hero narra lo que hace el agente, en
-  mono cian sobre Panel, con el fotograma quieto cuando el lector prefiere menos movimiento.
-  Las piezas se copian al repo (`asciiAgentLog.ts`, formato de ascii.rest), nada desde un CDN.
+- **Do** hero centrado: el argumento arriba en el bloque lima (titular en dos líneas, botones y
+  pruebas centrados; a la izquierda en el celular) y debajo la demo (`HeroDemo.tsx`) a todo el
+  ancho, montada sobre la costura lima/noir con sombra dura en cian. La demo tiene la forma de la
+  bandeja real en tres columnas: conversaciones (el visitante elige el caso), chat (Autopilot
+  responde solo; Copilot sugiere y él edita, envía o descarta) y detalles (embudo, ficha y
+  registro en mono cian). Guionada, con la etiqueta «Datos de ejemplo»; nada corre solo; alturas
+  fijas; la acción va pegada al último mensaje para que el primer botón quede a la vista sin bajar.
 
 ### Don't:
 - **Don't** caer en **SaaS genérico de plantilla**: rejillas de tarjetas idénticas o todo gris.
