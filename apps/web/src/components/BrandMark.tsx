@@ -1,25 +1,47 @@
 /**
- * La «O» de Driony: una O de píxeles (anillo de doce bloques con el centro
- * vacío) en lima, con la esquina de arriba a la derecha en cian, el color que
- * mide. Es el mismo motivo que los píxeles de la landing y del menú. Trazados
- * sueltos, sin clipPath, para no repetir ids si sale varias veces.
+ * El logo de Driony (noviembre de 2026): la «D» en lima con la chispa dentro y
+ * «riony» en minúsculas. Trazados del archivo original recortados a su caja:
+ * sin el lienzo de 612 × 792 alrededor. Las letras van en `currentColor`, así
+ * se leen en blanco sobre noir, en tinta sobre lima y en negro al imprimir; la
+ * D siempre en lima. Trazados sueltos, sin ids, para que pueda salir varias
+ * veces en la misma página.
  */
-export function BrandMark({ size = 24, className }: { size?: number | string; className?: string }) {
+
+const ACCENT = "#e2f80d";
+const MARK_D = "M162.654 337.408 L113.194 337.227 C102.353 337.188 92.667 345.273 92.631 356.449 L92.38 433.841 C92.346 444.381 99.369 454.553 110.601 454.594 L160.127 454.772 C167.198 454.798 173.703 453.806 180.235 451.302 C199.654 443.858 211.157 424.812 211.217 404.257 L211.262 388.982 C211.346 360.474 190.555 337.509 162.654 337.408 Z M186.828 405.742 C186.253 420.427 174.559 431.352 160.153 431.397 L131.436 431.488 C128.853 431.496 119.893 442.003 114.605 445.669 L114.577 374.625 C114.574 367.663 120.067 361.021 127.129 361.023 L161.429 361.033 C175.512 361.036 186.893 372.956 186.865 386.854 Z M173.553 396.164 C173.553 396.643 173.226 397.06 172.761 397.177 C171.341 397.535 169.954 398.002 168.606 398.583 C165.088 400.098 162.009 402.176 159.37 404.814 C156.732 407.454 154.654 410.532 153.14 414.05 C152.558 415.399 152.091 416.784 151.733 418.205 C151.616 418.67 151.2 418.997 150.721 418.997 C150.242 418.997 149.825 418.67 149.709 418.205 C149.35 416.784 148.883 415.398 148.302 414.05 C146.788 410.532 144.711 407.452 142.071 404.814 C139.432 402.176 136.354 400.098 132.836 398.583 C131.486 398.002 130.101 397.535 128.68 397.177 C128.216 397.06 127.889 396.643 127.889 396.164 C127.889 395.686 128.216 395.269 128.68 395.152 C130.101 394.794 131.487 394.327 132.836 393.746 C136.354 392.231 139.433 390.153 142.071 387.515 C144.71 384.877 146.787 381.797 148.302 378.279 C148.883 376.929 149.35 375.545 149.709 374.124 C149.825 373.659 150.242 373.332 150.721 373.332 C151.2 373.332 151.616 373.659 151.733 374.124 C152.091 375.545 152.558 376.931 153.14 378.279 C154.654 381.797 156.732 384.877 159.37 387.515 C162.01 390.153 165.088 392.231 168.606 393.746 C169.956 394.327 171.341 394.794 172.761 395.152 C173.226 395.269 173.553 395.686 173.553 396.164 Z";
+
+/** La «D» sola, cuadrada (124 × 122): favicon, avatares, sitios estrechos. */
+export function BrandMark({ size = 24, className, fill = ACCENT }: { size?: number | string; className?: string; fill?: string }) {
   return (
-    <svg className={className} width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <path d="M0 0h24v8H0zM0 8h8v16H0zM24 8h8v16h-8zM0 24h32v8H0z" fill="#e2f80d" />
-      <path d="M24 0h8v8h-8z" fill="#00e5ff" />
+    <svg className={className} width={size} height={size} viewBox="90 335 124 122" aria-hidden="true">
+      <path d={MARK_D} fill={fill} />
     </svg>
   );
 }
 
-/** El nombre en mayúsculas con la «O» de la marca. Se lee como «Driony». */
-export function Wordmark({ size = 18 }: { size?: number }) {
+/**
+ * El logo completo: la D en lima y «riony» en el color del texto. `size` es el
+ * cuerpo de letra que ocupaba el nombre antes; el logo mide 1,2 veces eso de
+ * alto, porque «riony» va en minúsculas y a la misma altura se leía pequeño.
+ */
+export function Wordmark({ size = 18, className }: { size?: number; className?: string }) {
+  const height = Math.round(size * 1.2);
+  const width = Math.round((height * 432) / 122);
   return (
-    <span className="wordmark" role="img" aria-label="Driony" style={{ fontSize: size }}>
-      DRI
-      <BrandMark className="wordmark__o" size="0.76em" />
-      NY
+    <span className={className ? `wordmark ${className}` : "wordmark"} role="img" aria-label="Driony">
+      <svg width={width} height={height} viewBox="90 335 432 122" aria-hidden="true" focusable="false">
+        {/* La D en lima; sobre lima o en papel, en tinta (--wordmark-mark), que lima sobre lima no se ve. */}
+        <path d={MARK_D} style={{ fill: `var(--wordmark-mark, ${ACCENT})` }} />
+        <g fill="currentColor">
+        <path d="M300.878 399.219 C302.08 381.408 288.812 365.616 270.558 364.729 L235.327 364.5 C234.33 371.668 238.565 377.795 245.24 377.848 L269.264 378.039 C280.746 378.608 288.616 389.485 286.748 400.634 C285.17 409.757 277.822 416.892 268.475 416.928 L248.741 417.003 L248.7 385.992 L241.232 386.011 C237.325 386.138 235.217 388.921 235.222 392.619 L235.265 430.485 L267.289 430.536 C285.352 430.565 300.072 417.361 300.878 399.219 Z" />
+        <path d="M506.233 390.266 L506.079 408.279 C505.149 414.399 499.834 418.461 493.902 418.385 C488.13 418.311 483.184 414.284 482.174 408.245 L482.082 390.519 C482.044 383.367 475.731 378.703 468.58 379.773 L468.683 407.78 C468.731 420.641 479.408 430.438 491.902 431.127 C496.871 431.401 501.079 430.597 505.543 428.339 C504.501 433.609 500.684 436.833 495.866 438.022 C492.07 438.959 489.059 442.313 488.899 446.202 L488.692 451.229 L492.421 451.309 C500.804 451.489 508.565 448.165 513.758 441.208 C517.358 436.385 519.515 430.791 519.527 424.719 L519.62 379.788 C513.004 378.608 506.294 383.234 506.233 390.266 Z" />
+        <path d="M385.787 378.867 C371.143 378.867 359.271 390.736 359.271 405.376 C359.271 420.017 371.143 431.885 385.787 431.885 C400.432 431.885 412.303 420.017 412.303 405.376 C412.303 390.736 400.432 378.867 385.787 378.867 Z M385.787 418.65 C378.456 418.65 372.513 412.709 372.513 405.38 C372.513 398.051 378.456 392.11 385.787 392.11 C393.118 392.11 399.061 398.051 399.061 405.38 C399.061 412.709 393.118 418.65 385.787 418.65 Z" />
+        <path d="M442.5 379.439 C428.307 378.461 416.545 389.448 416.518 403.618 L416.519 430.471 L430.08 430.475 L430.144 403.192 C430.158 397.052 435.141 392.486 440.954 392.621 C446.391 392.747 451.268 397.245 451.285 403.362 L451.359 430.487 L464.946 430.491 L464.913 403.2 C464.898 390.497 455.052 380.305 442.5 379.439 Z" />
+        <path d="M336.533 379.628 L327.712 379.674 C315.913 379.736 306.02 389.424 305.39 401.526 L305.193 430.512 L318.864 430.458 L318.861 402.918 C319.337 397.493 323.346 392.908 328.701 392.808 L336.543 392.663 Z" />
+        <polygon points="341.074,430.486 354.615,430.493 354.639,379.629 341.098,379.623" />
+        <ellipse cx="347.786" cy="368.463" rx="7.442" ry="7.44" />
+        </g>
+      </svg>
     </span>
   );
 }

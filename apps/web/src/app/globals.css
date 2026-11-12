@@ -544,19 +544,18 @@ code {
   display: none;
 }
 /* La marca: nombre en mayúsculas con la «O» en franjas (components/BrandMark). */
+/* El logo: la D en lima y «riony» en el color del texto (currentColor). Sobre lima o en papel,
+   el contenedor pone --wordmark-mark en tinta para que la D no desaparezca. */
 .wordmark {
   display: inline-flex;
   align-items: center;
-  font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: 0.05em;
   line-height: 1;
   color: inherit;
   white-space: nowrap;
 }
-.wordmark__o {
+.wordmark svg {
+  display: block;
   flex-shrink: 0;
-  margin-inline: 0.06em 0.09em;
 }
 /* Píxeles al pie del menú, si hay sitio y detrás de todo: el motivo de la marca, en cian y filete. */
 .side-nav::after {
@@ -4845,6 +4844,10 @@ code {
 .proposal-head .wordmark,
 .proposal-head svg {
   color: #14181f;
+}
+/* En papel la D lima casi no se ve ni se imprime bien: va en tinta, como las letras. */
+.proposal-head .wordmark {
+  --wordmark-mark: #14181f;
 }
 .proposal-meta {
   display: flex;

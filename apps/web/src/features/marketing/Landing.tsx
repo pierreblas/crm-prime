@@ -6,13 +6,64 @@ import { formatAiIncluded, formatPlanLimit, formatTokens, PLAN_KEYS, PLANS, TRIA
 import "./landing.css";
 import { Arrow, Check, GITHUB, IconGit, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
 import { HeroTerminal } from "./HeroTerminal";
-import { LeadCalc } from "./LeadCalc";
 import { PlanPicker } from "./PlanPicker";
 import { AgentSimulator } from "./AgentSimulator";
 
-// La página argumenta en este orden: el dolor con cifras del visitante, lo que
-// Driony hace, si sirve para su rubro, cuánto tarda, qué cambia, cuánto cuesta
-// y qué pasa si no le convence. Cada sección cierra una objeción.
+// La página argumenta en este orden: el dolor (un día en su WhatsApp), ese mismo
+// día ya resuelto, la respuesta (ARM), lo que Driony hace, si sirve para su
+// rubro, cuánto tarda, qué cambia, cuánto cuesta y qué pasa si no le convence.
+// Cada sección cierra una objeción.
+
+// Un día cualquiera en el WhatsApp de un negocio: tres escenas, cada una con su
+// foto (ilustrativa, hecha con IA en Magnific; no son clientes) y la hora en que pasa.
+const PAIN = [
+  {
+    time: "23:04",
+    img: "/landing/dolor-noche.webp",
+    alt: "Una oficina comercial vacía y a oscuras de noche, con un celular que se ilumina solo sobre un escritorio",
+    title: "Te escriben cuando tu equipo ya se fue.",
+    text: "Un gerente de compras ve tu anuncio a las once de la noche y pide una cotización. Tu oficina está vacía y el mensaje se queda esperando. Tu competidor sí contesta.",
+  },
+  {
+    time: "08:47",
+    img: "/landing/dolor-manana.webp",
+    alt: "Un ejecutivo comercial recién llegado a la oficina mira preocupado su celular lleno de chats sin responder de la noche anterior",
+    title: "Respondes con ganas. Ya no contesta.",
+    text: "Lo primero del día: los chats de anoche. Al prospecto que más prometía le mandas la propuesta completa, pero ya cerró con otro proveedor. Y el anuncio que lo trajo lo pagaste tú.",
+  },
+  {
+    time: "15:30",
+    img: "/landing/dolor-punta.webp",
+    alt: "Una gerente comercial agobiada en medio de una sala donde cada ejecutivo atiende por su cuenta, sin mirarse",
+    title: "Cada ejecutivo por su cuenta y nadie al mando.",
+    text: "Cada ejecutivo con su teléfono. El cliente pregunta dos veces y recibe dos cotizaciones, o ninguna. Gerencia no ve quién atiende a quién, y si alguien renuncia, se lleva la cartera en su celular.",
+  },
+];
+
+// Las mismas tres horas, con un agente atendiendo (fotos ilustrativas, como las de PAIN).
+const WON = [
+  {
+    time: "23:04",
+    img: "/landing/con-noche.webp",
+    alt: "Un ejecutivo lee tranquilo en el sofá de su casa junto a su familia mientras su celular, sobre la mesa, muestra un chat que se está respondiendo",
+    title: "El agente responde. Tú descansas.",
+    text: "Cotiza desde tu catálogo, califica al prospecto y deja la oportunidad en tu embudo. Mañana la encuentras lista.",
+  },
+  {
+    time: "08:47",
+    img: "/landing/con-manana.webp",
+    alt: "Una ejecutiva comercial llega a la oficina sonriendo, con un café en una mano y el celular en la otra",
+    title: "Llegas con reuniones agendadas, no con pendientes.",
+    text: "Lo de anoche ya está atendido: quién escribió, qué se le cotizó y quién agendó reunión. Tu primera hora es para cerrar.",
+  },
+  {
+    time: "15:30",
+    img: "/landing/con-tarde.webp",
+    alt: "Un gerente comercial y su equipo revisan juntos una sola pantalla en una sala de reuniones",
+    title: "Una sola bandeja y todos al mando.",
+    text: "Cada cuenta con su responsable, el copiloto sugiere la respuesta y gerencia ve quién atiende a quién. Si alguien se va, la cartera se queda en la empresa.",
+  },
+];
 
 // Antes y después, emparejados: cada problema al lado de lo que lo resuelve.
 const COMPARE = [
@@ -215,8 +266,8 @@ export function Landing() {
                 <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
                   Probar {TRIAL_DAYS} días gratis <Arrow />
                 </Link>
-                <a href="#costo" className="lp-btn lp-btn--ghost lp-btn--lg">
-                  Cuánto pierdes respondiendo tarde
+                <a href="#dolor" className="lp-btn lp-btn--ghost lp-btn--lg">
+                  Mira lo que pasa hoy en tu WhatsApp
                 </a>
               </div>
               <ul className="lp-hero__proofs lp-anim" style={{ animationDelay: "0.32s" }} aria-label="Lo que incluye la prueba">
@@ -246,20 +297,21 @@ export function Landing() {
               <span className="lp-hero__spine" aria-hidden="true">
                 Agentic Relationship Management // Driony // En vivo
               </span>
-              <figure className="lp-hero__shot">
+              <figure className="lp-hero__shot lp-hero__shot--photo">
                 <div className="lp-hero__shot-bar" aria-hidden="true">
-                  <span>[ + ] Driony // Bandeja // Copilot</span>
+                  <span>[ + ] 20:15 // Tu equipo se va // Tu agente sigue atendiendo</span>
                   <i />
                 </div>
                 <div className="lp-hero__shot-frame">
                   <img
-                    src="/landing/bandeja.webp"
-                    alt="La bandeja de Driony: un agente de IA en modo Copilot responde a un cliente por WhatsApp y le agenda una demo, con el equipo viéndolo todo"
-                    width={2160}
-                    height={1350}
+                    src="/landing/hero-cierre.webp"
+                    alt="Una directora comercial sale de su oficina al anochecer, sonriendo, con el celular en la mano: su agente sigue atendiendo los chats"
+                    width={1440}
+                    height={1160}
                     fetchPriority="high"
                     decoding="async"
                   />
+                  <figcaption className="lp-hero__cap">Escena ilustrativa</figcaption>
                 </div>
               </figure>
               {/* Debajo de la captura, el registro del agente escribiéndose: lo que hace, en sus palabras. */}
@@ -293,6 +345,77 @@ export function Landing() {
           </button>
         </section>
 
+        {/* ── El dolor: un día cualquiera en tu WhatsApp, en tres escenas; la cuenta viene justo después ── */}
+        <section className="lp-section lp-pain-sec" id="dolor">
+          <div className="lp-wrap">
+            <div className="lp-head lp-reveal">
+              <p className="lp-tag">[ 01 // Lo que pasa hoy ]</p>
+              <h2>Un día normal en tu WhatsApp. Y las ventas que se van sin que lo notes.</h2>
+              <p className="lp-lede">
+                No es falta de ganas: tu equipo comercial responde todo lo que puede. Pero los clientes escriben de noche, se enfrían de un día para otro y llegan todos a la vez.
+              </p>
+            </div>
+            <ol className="lp-pain">
+              {PAIN.map((s, i) => (
+                <li key={s.time} className={`lp-pain__scene lp-reveal${i === 0 ? " lp-pain__scene--lead" : ""}`}>
+                  <figure className="lp-pain__img">
+                    <img src={s.img} alt={s.alt} width={1440} height={1075} loading="lazy" decoding="async" />
+                    <time className="lp-pain__time">{s.time}</time>
+                  </figure>
+                  <div className="lp-pain__copy">
+                    <h3>{s.title}</h3>
+                    <p>{s.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <div className="lp-pain__close lp-reveal">
+              <p>
+                Ninguna de estas ventas aparece en tu reporte. <b>Por eso nadie las reclama.</b>
+              </p>
+              <a href="#con-driony" className="lp-btn lp-btn--ghost">
+                El mismo día, con Driony <Arrow />
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* ── El mismo día, con un agente atendiendo: las tres horas del dolor, resueltas ── */}
+        <section className="lp-section" id="con-driony">
+          <div className="lp-wrap">
+            <div className="lp-head lp-reveal">
+              <p className="lp-tag">[ 02 // El mismo día, con Driony ]</p>
+              <h2>Las mismas tres horas. Ahora alguien responde.</h2>
+              <p className="lp-lede">
+                No cambia tu empresa ni tu número de WhatsApp. Cambia quién atiende cuando tú no puedes, y que por fin ves todo en un solo sitio.
+              </p>
+            </div>
+            <ol className="lp-pain lp-pain--won">
+              {WON.map((s) => (
+                <li key={s.time} className="lp-pain__scene lp-reveal">
+                  <figure className="lp-pain__img">
+                    <img src={s.img} alt={s.alt} width={1440} height={1075} loading="lazy" decoding="async" />
+                    <time className="lp-pain__time">{s.time}</time>
+                  </figure>
+                  <div className="lp-pain__copy">
+                    <h3>{s.title}</h3>
+                    <p>{s.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <div className="lp-pain__close lp-reveal">
+              <p>
+                Es el mismo WhatsApp de siempre, <b>con un agente y con mando.</b>
+              </p>
+              <Link href="/register" className="lp-btn lp-btn--primary">
+                Probar {TRIAL_DAYS} días gratis <Arrow />
+              </Link>
+            </div>
+            <p className="lp-pain__note">Escenas ilustrativas, creadas con IA.</p>
+          </div>
+        </section>
+
         {/* ── Qué es ARM: el término en el que se basa todo, con sus tres claves ── */}
         <section className="lp-section lp-arm-sec" id="arm">
           <div className="lp-wrap">
@@ -302,7 +425,7 @@ export function Landing() {
                 <span className="lp-arm-def__sub">Agentic // Relationship // Management</span>
               </div>
               <div className="lp-head">
-                <p className="lp-tag">[ 00 // Qué es ARM ]</p>
+                <p className="lp-tag">[ 03 // La respuesta: ARM ]</p>
                 <h2>Un CRM guarda lo que pasó con el cliente. Un ARM pone agentes a atenderlo.</h2>
                 <p className="lp-lede">
                   Agentic Relationship Management: la relación con cada cliente la trabajan agentes de IA desde tu propio WhatsApp, y tu equipo la supervisa. Driony está construido así: bandeja, embudo, flujos y agentes son un solo sistema.
@@ -323,27 +446,11 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ── El costo de responder tarde: la cuenta con las cifras del visitante ── */}
-        <section className="lp-section" id="costo">
-          <div className="lp-wrap">
-            <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 01 // Lo que pierdes ]</p>
-              <h2>El lead que esperó hasta mañana ya le compró a otro.</h2>
-              <p className="lp-lede">
-                Tus clientes escriben a las 9 de la noche, el domingo, en plena hora punta de tu equipo. Si la respuesta llega al día siguiente, ya decidieron. Haz la cuenta con tus números.
-              </p>
-            </div>
-            <div className="lp-reveal">
-              <LeadCalc />
-            </div>
-          </div>
-        </section>
-
         {/* ── Capacidades ── */}
         <section className="lp-section" id="capacidades">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 02 // Capacidades ]</p>
+              <p className="lp-tag">[ 04 // Capacidades ]</p>
               <h2>Todo lo que hace Driony mientras tú cierras.</h2>
               <p className="lp-lede">
                 Deja de saltar entre el celular, hojas de cálculo y notas sueltas. Conversaciones, embudo y agentes en una sola pantalla, con cada lead a la vista.
@@ -557,7 +664,7 @@ export function Landing() {
         <section className="lp-section" id="rubros">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 03 // Arma tu agente ]</p>
+              <p className="lp-tag">[ 05 // Arma tu agente ]</p>
               <h2>Arma tu agente en 30 segundos y mira cómo atiende.</h2>
               <p className="lp-lede">
                 Elige tu rubro, su misión y su tono. Lo que ves es un ejemplo escrito a mano; en tu cuenta lo hace la IA con tus precios, tus horarios y tus reglas, y arranca con esta misma configuración.
@@ -573,7 +680,7 @@ export function Landing() {
         <section className="lp-section" id="como">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 04 // Puesta en marcha ]</p>
+              <p className="lp-tag">[ 06 // Puesta en marcha ]</p>
               <h2>Empiezas hoy, no en tres semanas.</h2>
               <p className="lp-lede">Sin migraciones ni implementaciones eternas. Creas tu espacio, conectas tu número y el agente atiende el primer chat el mismo día.</p>
             </div>
@@ -602,7 +709,7 @@ export function Landing() {
         <section className="lp-section" id="porque">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 05 // Antes y después ]</p>
+              <p className="lp-tag">[ 07 // Antes y después ]</p>
               <h2>Lo que cambia desde la primera semana.</h2>
             </div>
             <div className="lp-vs lp-reveal" role="table" aria-label="WhatsApp a mano frente a Driony">
@@ -630,7 +737,7 @@ export function Landing() {
         <section className="lp-section" id="planes">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 06 // Planes ]</p>
+              <p className="lp-tag">[ 08 // Planes ]</p>
               <h2>Precio por empresa. Nunca por conversación.</h2>
               <p className="lp-lede">
                 Todos empiezan igual: {TRIAL_DAYS} días de Pro gratis, sin tarjeta. Después sigues en Gratis o eliges el plan que te toca. Invitar a alguien de tu equipo no sube la factura, y que te escriban más tampoco.

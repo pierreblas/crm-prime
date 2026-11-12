@@ -441,10 +441,14 @@ y rejilla en mono humo. Nunca otro color entre medias.
 - **Móvil:** el menú se pliega y sale como cajón opaco (montado con portal).
 
 ### Marca
-`components/BrandMark.tsx` e `app/icon.svg`: «DRIONY» en mayúsculas (display 800,
-+0.05em) con la «O» como un círculo en tres franjas: cian, lima y humo. La «O» sola
-es el favicon. Se lee como «Driony» (`role="img"`). El producto se sigue escribiendo
-«Driony» en el texto corrido.
+`components/BrandMark.tsx` e `app/icon.svg`: el logo de noviembre de 2026, la «D» en
+lima con la chispa dentro y «riony» en minúsculas. Las letras van en `currentColor`
+(blanco sobre noir, tinta sobre lima, negro al imprimir); la D en lima, salvo sobre lima o
+en papel, donde el contenedor pone `--wordmark-mark` en tinta para que no desaparezca. Los
+trazados vienen del archivo original recortados a su caja (432 × 122; la D sola,
+124 × 122), nunca con el lienzo tamaño carta alrededor. La D sola es el favicon, sobre
+una loseta noir redondeada para verse en pestañas claras. Se lee como «Driony»
+(`role="img"`). El producto se sigue escribiendo «Driony» en el texto corrido.
 
 ### Píxeles
 El único adorno de la marca: un racimo de cuadrados (32px, o 24px en el menú) en
@@ -569,6 +573,10 @@ positivo; el texto va sobre la cara (17:1).
 - **Do** mover con el scroll desde CSS (`animation-timeline: view()` / `scroll()`) y dejar el
   observador de JS solo como respaldo: el hilo de progreso lima bajo la barra, la captura del hero
   que sube un poco más despacio y los reveals. Nunca librerías de scroll suave.
+- **Do** fotografía solo donde cuenta el dolor (sección «Lo que pasa hoy»): escenas ilustrativas de
+  negocios latinoamericanos hechas con IA (Magnific), gradadas hacia noir (saturación 0,82 y velo
+  inferior), con la hora en un sello lima y la nota «Escenas ilustrativas, creadas con IA». Nunca
+  como testimonio, cliente o prueba.
 - **Do** ASCII con mensaje, no de adorno: el terminal del hero narra lo que hace el agente, en
   mono cian sobre Panel, con el fotograma quieto cuando el lector prefiere menos movimiento.
   Las piezas se copian al repo (`asciiAgentLog.ts`, formato de ascii.rest), nada desde un CDN.
