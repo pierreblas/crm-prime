@@ -287,7 +287,15 @@ export function OrgDrawer({ id, myOrgSlug, onClose }: { id: string; myOrgSlug?: 
                       {d.ai.map((r) => (
                         <tr key={`${r.source}-${r.feature}-${r.model}`}>
                           <td>{FEATURE_LABEL[r.feature] ?? r.feature}</td>
-                          <td>{r.source === "platform" ? <span className="pc-chip">Driony</span> : <span className="pc-muted">propia</span>}</td>
+                          <td>
+                            {r.source === "platform" ? (
+                              <span className="pc-chip">Driony</span>
+                            ) : r.source === "courtesy" ? (
+                              <span className="pc-chip" title="Preguntas gratis del copiloto: las paga Driony, no cuentan en el cupo">Driony · gratis</span>
+                            ) : (
+                              <span className="pc-muted">propia</span>
+                            )}
+                          </td>
                           <td>{r.model}</td>
                           <td className="num">{r.calls.toLocaleString("es")}</td>
                           <td className="num">{(r.inputTokens + r.outputTokens).toLocaleString("es")}</td>

@@ -34,7 +34,10 @@ export class RoutingLLMProvider implements LLMProvider {
   }
 
   async generate(req: LlmRequest): Promise<LlmResponse> {
-    const provider = await this.pick(req.model);
+    // Pregunta gratis del copiloto del administrador: va siempre con la IA de
+    // Driony (OpenAI), sin mirar lo que tenga configurado la empresa.
+    const provider = req.courtesy ? this.openai : await this.pick(req.model);
+    if (req.courtesy) this.lastUsed = this.openai.name;
     const res = await provider.generate(req);
     this.usage.record({
       feature: req.feature ?? "agent",
@@ -44,6 +47,7 @@ export class RoutingLLMProvider implements LLMProvider {
       conversationId: req.conversationId,
       // Quién pagó lo dice el adaptador, que sabe qué credencial usó.
       billingMode: res.billingMode,
+      courtesy: res.courtesy,
       requestId: res.requestId,
     });
     return res;

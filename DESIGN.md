@@ -467,6 +467,10 @@ porque pueden ser días. Etiquetas de zona y eje en mono 11px.
   Tinta Noir. Alrededor del avatar va el consumo de IA del mes en un anillo de 2px:
   cian mientras mide, ámbar desde el 80 %, rojo al tope; punteado en filete cuando la
   empresa usa su propia clave (no hay cupo que llenar) y sin anillo si no hay IA.
+  El botón «Copiloto» lleva el mismo anillo en pequeño (22px) con las preguntas
+  gratis del mes: se **vacía** a medida que se gastan, cian; ámbar cuando quedan 20;
+  pista ámbar sin arco al acabarse. Al abrir el panel, la misma cifra en palabras
+  («Te quedan 163 de 200 preguntas gratis este mes») encima de donde se escribe.
 - **Móvil:** el menú se pliega y sale como cajón opaco (montado con portal).
 
 ### Marca

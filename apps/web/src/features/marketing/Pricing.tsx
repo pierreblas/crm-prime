@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  ADMIN_COPILOT_FREE_QUESTIONS,
   AI_PACKS,
   AI_PACK_MONTHS,
   FEATURE_LABELS,
@@ -77,7 +78,7 @@ const FAQ = [
   },
   {
     q: "¿La inteligencia artificial está incluida en el precio?",
-    a: `Sí. Cada plan trae un cupo de tokens de IA al mes (${AI_BY_PLAN}), sin claves ni configuración. Son los mismos tokens que Driony paga al proveedor, sin créditos inventados: todo lo que hace la IA (el agente, el copiloto, los asistentes, los audios y las imágenes) sale del mismo medidor, y una conversación atendida gasta unos ${formatTokens(AI_TOKENS_PER_CONVERSATION)}. Si un mes se te queda corto, sumas tokens extra (${PACKS_TEXT}, una sola vez) que valen ${AI_PACK_MONTHS} meses. Al gastarlos, el agente termina las conversaciones que ya atendía y los chats nuevos pasan a tu equipo hasta el mes siguiente. Y si conectas tu propia clave de OpenAI, Anthropic o cualquier API compatible, no hay cupo, eliges el modelo de cada agente y pagas a tu proveedor a su precio, sin margen nuestro.`,
+    a: `Sí. Cada plan trae un cupo de tokens de IA al mes (${AI_BY_PLAN}), sin claves ni configuración. Son los mismos tokens que Driony paga al proveedor, sin créditos inventados: todo lo que hace la IA (el agente, el copiloto del chat, los asistentes, los audios y las imágenes) sale del mismo medidor. El copiloto que te ayuda a configurar Driony es aparte: ${ADMIN_COPILOT_FREE_QUESTIONS} preguntas gratis al mes, que no gastan tus tokens, y una conversación atendida gasta unos ${formatTokens(AI_TOKENS_PER_CONVERSATION)}. Si un mes se te queda corto, sumas tokens extra (${PACKS_TEXT}, una sola vez) que valen ${AI_PACK_MONTHS} meses. Al gastarlos, el agente termina las conversaciones que ya atendía y los chats nuevos pasan a tu equipo hasta el mes siguiente. Y si conectas tu propia clave de OpenAI, Anthropic o cualquier API compatible, no hay cupo, eliges el modelo de cada agente y pagas a tu proveedor a su precio, sin margen nuestro.`,
   },
   {
     q: "¿Y las conversaciones de WhatsApp?",

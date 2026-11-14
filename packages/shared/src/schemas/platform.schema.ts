@@ -188,10 +188,13 @@ export const platformOrgDetailSchema = z.object({
       capiEnabled: z.boolean(),
     }),
   ),
-  /** Consumo de IA del mes por función, modelo y de quién era la clave. */
+  /**
+   * Consumo de IA del mes por función, modelo y de quién era la clave. «courtesy»:
+   * preguntas gratis del copiloto del administrador, que paga Driony y no cuentan en el cupo.
+   */
   ai: z.array(
     z.object({
-      source: z.enum(["own", "platform"]),
+      source: z.enum(["own", "platform", "courtesy"]),
       feature: z.string(),
       model: z.string(),
       inputTokens: z.number(),

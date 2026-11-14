@@ -72,17 +72,40 @@ export function AiUsageSettings() {
   );
 }
 
+/**
+ * Las preguntas gratis del copiloto del administrador: las paga Driony, así que
+ * no están en el informe. Se dicen en una línea para que nadie piense que faltan.
+ */
+function CourtesyNote({ data }: { data: AiUsageReport }) {
+  if (!data.courtesy.questions) return null;
+  const n = data.courtesy.questions;
+  return (
+    <p className="usage__courtesy" data-usage-courtesy>
+      <NavIcon name="sparkles" size={14} />
+      <span>
+        <strong>
+          {num(n)} {n === 1 ? "pregunta gratis" : "preguntas gratis"} al copiloto
+        </strong>{" "}
+        en este periodo. Las paga Driony: no gastan tus tokens ni tu clave, y por eso no aparecen abajo.
+      </span>
+    </p>
+  );
+}
+
 function Report({ data }: { data: AiUsageReport }) {
   const { total } = data;
   const tokens = total.inputTokens + total.outputTokens;
 
   if (total.calls === 0) {
     return (
-      <div className="usage__empty">
-        <NavIcon name="bolt" size={22} />
-        <strong>Sin consumo en este periodo</strong>
-        <span>Cuando el agente responda o uses el copiloto, lo verás aquí con su coste.</span>
-      </div>
+      <>
+        <CourtesyNote data={data} />
+        <div className="usage__empty">
+          <NavIcon name="bolt" size={22} />
+          <strong>Sin consumo en este periodo</strong>
+          <span>Cuando el agente responda o uses el copiloto, lo verás aquí con su coste.</span>
+        </div>
+      </>
     );
   }
 
@@ -96,6 +119,7 @@ function Report({ data }: { data: AiUsageReport }) {
 
   return (
     <>
+      <CourtesyNote data={data} />
       <section className="usage__kpis">
         {onlyIncluded ? (
           <div className="usage__kpi is-main">

@@ -2225,3 +2225,78 @@ test("correo: el buzón, el envío desde la cola y la baja pública funcionan co
     });
   }
 });
+
+test("copiloto gratis: con el rol restringido no entra al cupo ni al informe, se cuenta aparte y otra empresa no lo ve", async () => {
+  const { AiUsageService } = await import("../src/modules/ai/ai-usage.service");
+  const { AiSettingsService } = await import("../src/modules/ai/ai-settings.service");
+  const { PlatformService } = await import("../src/modules/platform/platform.service");
+  const env = { AI_INCLUDED: process.env.AI_INCLUDED, OPENAI_API_KEY: process.env.OPENAI_API_KEY, AI_SHARED_KEYS: process.env.AI_SHARED_KEYS };
+  Object.assign(process.env, { AI_INCLUDED: "true", OPENAI_API_KEY: "sk-de-la-plataforma", AI_SHARED_KEYS: "" });
+  const packs = { extra: async () => ({ remaining: 0, usedThisMonth: 0, nextExpiresAt: null }), settle: async () => 0 };
+  const usageA = new AiUsageService(prisma, { orgId: () => "o_a" } as any);
+  const settingsA = new AiSettingsService(prisma, { orgId: () => "o_a" } as any, usageA, packs as any);
+  const settingsB = new AiSettingsService(prisma, { orgId: () => "o_b" } as any, new AiUsageService(prisma, { orgId: () => "o_b" } as any), packs as any);
+  const colaRota = { getJobCounts: async () => { throw new Error("sin redis"); } } as any;
+  const consola = new PlatformService(prisma, {} as any, colaRota, colaRota, colaRota, colaRota, colaRota, colaRota, colaRota);
+  try {
+    const cupoAntes = (await ctx.runInOrg("o_a", () => usageA.includedUsage("o_a"))).tokens;
+    const informeAntes = await ctx.runInOrg("o_a", () => usageA.report("month"));
+    const consolaAntes = (await consola.orgs("")).find((o) => o.id === "o_a")!;
+
+    await ctx.runInOrg("o_a", async () => {
+      await prisma.aiUsage.createMany({
+        data: [
+          // Una pregunta gratis (dos llamadas) y una pasada la cuota.
+          { orgId: "o_a", feature: "admin_copilot", model: "gpt-4.1-mini", inputTokens: 9_000, outputTokens: 1_000, source: "courtesy", billingMode: "MANAGED" },
+          { orgId: "o_a", feature: "admin_copilot", model: "gpt-4.1-mini", inputTokens: 11_000, outputTokens: 1_000, source: "courtesy", billingMode: "MANAGED" },
+          { orgId: "o_a", feature: "admin_copilot", model: "gpt-4.1-mini", inputTokens: 5_000, outputTokens: 500, source: "platform", billingMode: "MANAGED" },
+        ],
+      });
+      await prisma.adminCopilotQuestion.createMany({
+        data: [
+          { orgId: "o_a", free: true },
+          { orgId: "o_a", free: true },
+          { orgId: "o_a", free: false },
+        ],
+      });
+    });
+
+    // El cupo solo sube por la pregunta que ya no era gratis.
+    const cupo = (await ctx.runInOrg("o_a", () => usageA.includedUsage("o_a"))).tokens;
+    assert.equal(cupo - cupoAntes, 5_500, "lo gratis no gasta el cupo de la empresa");
+
+    // El informe de la empresa: lo gratis no entra en el total ni en los días; va aparte.
+    const informe = await ctx.runInOrg("o_a", () => usageA.report("month"));
+    const tokens = (r: typeof informe) => r.total.inputTokens + r.total.outputTokens;
+    assert.equal(tokens(informe) - tokens(informeAntes), 5_500);
+    assert.equal(informe.byDay.reduce((s, d) => s + d.tokens, 0) - informeAntes.byDay.reduce((s, d) => s + d.tokens, 0), 5_500);
+    assert.equal(informe.courtesy.questions - informeAntes.courtesy.questions, 2);
+    assert.equal(informe.courtesy.tokens - informeAntes.courtesy.tokens, 22_000);
+
+    // El contador de la empresa y el de otra empresa.
+    const libreA = await ctx.runInOrg("o_a", () => settingsA.copilotFree());
+    assert.equal(libreA?.used, 2);
+    assert.equal(libreA?.limit, 200);
+    assert.equal((await ctx.runInOrg("o_b", () => settingsB.copilotFree()))?.used, 0, "otra empresa empieza en cero");
+    await ctx.runInOrg("o_b", async () => {
+      const filas: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM admin_copilot_questions`);
+      assert.equal(filas.length, 0, "ni con SQL crudo ve las preguntas de otra empresa");
+    });
+
+    // La consola: lo paga Driony (sube su gasto), pero no es cupo de la empresa.
+    const consolaDespues = (await consola.orgs("")).find((o) => o.id === "o_a")!;
+    assert.equal(consolaDespues.aiIncludedTokens - consolaAntes.aiIncludedTokens, 5_500);
+    assert.ok(consolaDespues.aiPlatformCostMonthUsd > consolaAntes.aiPlatformCostMonthUsd);
+    const ficha = await consola.detail("o_a");
+    assert.ok(ficha.ai.some((r) => r.source === "courtesy" && r.feature === "admin_copilot"));
+  } finally {
+    await ctx.runInOrg("o_a", async () => {
+      await prisma.aiUsage.deleteMany({ where: { feature: "admin_copilot", model: "gpt-4.1-mini" } });
+      await prisma.adminCopilotQuestion.deleteMany({});
+    });
+    for (const [k, v] of Object.entries(env)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+});

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { aiIncludedSchema } from "../ai-usage.js";
+import { adminCopilotFreeSchema, aiIncludedSchema } from "../ai-usage.js";
 
 /**
  * Copiloto de Driony: la IA que ayuda al equipo (no la que responde sola).
@@ -24,6 +24,8 @@ export const aiStatusSchema = z.object({
   included: aiIncludedSchema.nullable(),
   /** Tokens del mes con la clave propia de la empresa (o la del servidor): sin cupo, pero se enseñan junto a la foto. */
   ownTokens: z.number().default(0),
+  /** Preguntas gratis del copiloto del administrador este mes; null donde no aplica (sin IA de Driony). */
+  copilotFree: adminCopilotFreeSchema.nullable().default(null),
 });
 export type AiStatus = z.infer<typeof aiStatusSchema>;
 
@@ -95,6 +97,8 @@ export interface AdminCopilotReply {
   consulted: string[];
   provider: string;
   model: string;
+  /** Esta respuesta fue de las gratis (la pagó Driony). */
+  free: boolean;
 }
 
 // ── Memoria del cliente ───────────────────────────────────────

@@ -566,6 +566,16 @@ export const en = {
     close: "Close",
     retry: "Retry",
     simulated: "Simulated answer: no AI key is configured.",
+    freeLeft: "{left} of {limit} free questions left this month",
+    freeLeftOne: "1 of {limit} free questions left this month",
+    freeWhy: "They don't use your AI tokens.",
+    freeWhyKey: "They don't use your AI key.",
+    freeLow: "After that they use {what}.",
+    freeNone: "You've used your {limit} free questions this month. The next ones use {what} until {date}, when they come back.",
+    whatTokens: "your AI tokens",
+    whatKey: "your AI key",
+    triggerFree: "Copilot · {left} of {limit} free questions left this month",
+    triggerNone: "Copilot · you've used the {limit} free questions this month",
   },
 };
 

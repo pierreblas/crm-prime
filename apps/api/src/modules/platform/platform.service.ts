@@ -298,7 +298,7 @@ export class PlatformService {
           capiEnabled: w.capiEnabled,
         })),
         ai: ai.map((r) => ({
-          source: r.source === "platform" ? ("platform" as const) : ("own" as const),
+          source: r.source === "platform" || r.source === "courtesy" ? r.source : ("own" as const),
           feature: r.feature,
           model: r.model,
           inputTokens: n(r.input),
@@ -367,6 +367,9 @@ export class PlatformService {
       if (r.source === "platform") {
         acc.platformUsd += cost;
         acc.tokens += input + output;
+      } else if (r.source === "courtesy") {
+        // Copiloto del administrador gratis: lo paga Driony, pero no es cupo de la empresa.
+        acc.platformUsd += estimateAiCost(r.model, input, output) ?? estimateAiCost(AI_INCLUDED_MODEL, input, output) ?? 0;
       } else acc.ownUsd += cost;
     }
     for (const r of convs) get(r.orgId).conversations = Number(r.count);

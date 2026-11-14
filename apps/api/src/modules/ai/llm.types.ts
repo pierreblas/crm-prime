@@ -48,6 +48,12 @@ export interface LlmRequest {
   /** Para qué es la llamada: la usa el informe de consumo de la empresa. */
   feature?: AiFeature;
   conversationId?: string;
+  /**
+   * La paga Driony: pregunta gratis del copiloto del administrador. Corre con
+   * la IA de Driony aunque la empresa tenga clave propia o el cupo gastado, y
+   * se registra aparte (no cuenta para el cupo). Solo lo pide AdminCopilotService.
+   */
+  courtesy?: boolean;
 }
 
 export type LlmStopReason =
@@ -64,6 +70,8 @@ export interface LlmResponse {
   model: string;
   /** Quién pagó la llamada, según la credencial que usó el adaptador. Lo copia el registro de consumo. */
   billingMode: OrgAiBillingMode;
+  /** Corrió con la credencial de cortesía (la paga Driony, fuera del cupo). */
+  courtesy?: boolean;
   /** Id de la respuesta del proveedor, para no registrar dos veces el mismo consumo. */
   requestId?: string | null;
 }

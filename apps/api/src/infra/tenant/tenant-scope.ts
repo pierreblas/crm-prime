@@ -54,6 +54,7 @@ const TENANT_MODELS = new Set<string>([
   "EmailTemplate",
   "Email",
   "EmailUnsubscribe",
+  "AdminCopilotQuestion",
 ]);
 
 /**

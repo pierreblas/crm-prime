@@ -5,11 +5,17 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useMutation } from "@tanstack/react-query";
-import type { AdminCopilotReply } from "@crm/shared";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { AdminCopilotFree, AdminCopilotReply } from "@crm/shared";
 import { askAdminCopilot } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
-import { useT } from "@/i18n/I18nProvider";
+import { useLocale, useT } from "@/i18n/I18nProvider";
+import { useAiStatus } from "./useAiStatus";
+import { ProgressRing } from "@/features/onboarding/ProgressRing";
+
+/** Quedan pocas: el contador se pone ámbar para que no sorprenda. */
+const FREE_LOW = 20;
+const freeLevel = (f: AdminCopilotFree) => (f.used >= f.limit ? "none" : f.limit - f.used <= FREE_LOW ? "low" : "ok");
 
 type Turn = {
   role: "user" | "assistant";
@@ -58,6 +64,11 @@ function save(state: { open: boolean; turns: Turn[] }) {
  */
 export function AdminCopilot() {
   const t = useT();
+  const locale = useLocale();
+  const queryClient = useQueryClient();
+  const { data: ai } = useAiStatus();
+  // Las primeras preguntas del mes las paga Driony (null donde no aplica).
+  const free = ai?.copilotFree ?? null;
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -88,11 +99,14 @@ export function AdminCopilot() {
           .map(({ role, content }) => ({ role, content: content.slice(0, 8000) })),
         path: `${window.location.pathname}${window.location.search}`,
       }),
-    onSuccess: (r: AdminCopilotReply) =>
+    onSuccess: (r: AdminCopilotReply) => {
       setTurns((prev) => [
         ...prev,
         { role: "assistant", content: r.reply, consulted: r.consulted, simulated: r.provider === "fake" },
-      ]),
+      ]);
+      // El contador de preguntas gratis (y el de tokens, si ya no era gratis) cambió.
+      void queryClient.invalidateQueries({ queryKey: ["ai-status"] });
+    },
     onError: (e) => setTurns((prev) => [...prev, { role: "assistant", content: (e as Error).message, failed: true }]),
   });
 
@@ -134,6 +148,42 @@ export function AdminCopilot() {
 
   const last = turns[turns.length - 1];
   const unanswered = !ask.isPending && last?.role === "user";
+
+  const left = free ? Math.max(0, free.limit - free.used) : 0;
+  const level = free ? freeLevel(free) : "ok";
+  // Lo que gastan las preguntas cuando se acaban las gratis: la clave propia o los tokens del plan.
+  const usesKey = ai?.source === "own" || ai?.source === "platform";
+  const what = usesKey ? t("adminCopilot.whatKey") : t("adminCopilot.whatTokens");
+  const triggerTitle = !free
+    ? t("adminCopilot.open")
+    : level === "none"
+      ? t("adminCopilot.triggerNone", { limit: free.limit })
+      : t("adminCopilot.triggerFree", { left, limit: free.limit });
+
+  /** El contador del panel, encima de donde se escribe: se ve antes de preguntar. */
+  const freeStrip = free && (
+    <div className={`admin-copilot__free is-${level}`} role="status" data-copilot-free={level}>
+      <p className="admin-copilot__free-text">
+        {level === "none" ? (
+          t("adminCopilot.freeNone", {
+            limit: free.limit,
+            what,
+            date: new Date(free.resetsAt).toLocaleDateString(locale, { day: "numeric", month: "long", timeZone: "UTC" }),
+          })
+        ) : (
+          <>
+            <strong>{left === 1 ? t("adminCopilot.freeLeftOne", { limit: free.limit }) : t("adminCopilot.freeLeft", { left, limit: free.limit })}</strong>.{" "}
+            {level === "low" ? t("adminCopilot.freeLow", { what }) : usesKey ? t("adminCopilot.freeWhyKey") : t("adminCopilot.freeWhy")}
+          </>
+        )}
+      </p>
+      {level !== "none" && (
+        <span className="admin-copilot__free-track" aria-hidden="true">
+          <i style={{ transform: `scaleX(${Math.min(1, left / free.limit)})` }} />
+        </span>
+      )}
+    </div>
+  );
 
   const panel = (
     <aside
@@ -242,6 +292,8 @@ export function AdminCopilot() {
         )}
       </div>
 
+      {freeStrip}
+
       <form
         className="admin-copilot__composer"
         onSubmit={(e) => {
@@ -291,10 +343,26 @@ export function AdminCopilot() {
         className="btn btn-soft admin-copilot-trigger"
         aria-expanded={open}
         aria-controls="admin-copilot"
-        title={t("adminCopilot.open")}
+        title={triggerTitle}
+        aria-label={triggerTitle}
+        data-copilot-ring={free ? level : undefined}
         onClick={() => (open ? close() : setOpen(true))}
       >
-        <NavIcon name="sparkles" size={16} />
+        {/* Como el anillo de la foto: se vacía a medida que se gastan las preguntas gratis. */}
+        {free ? (
+          <ProgressRing
+            pct={level === "none" ? null : left / free.limit}
+            size={22}
+            stroke={2}
+            color={level === "low" ? "var(--warning)" : "var(--cyan)"}
+            track={level === "none" ? "var(--warning)" : "rgba(0, 229, 255, 0.22)"}
+            className="admin-copilot-trigger__ring"
+          >
+            <NavIcon name="sparkles" size={12} />
+          </ProgressRing>
+        ) : (
+          <NavIcon name="sparkles" size={16} />
+        )}
         <span className="admin-copilot-trigger__label">{t("adminCopilot.open")}</span>
       </button>
       {mounted && open && createPortal(panel, document.body)}

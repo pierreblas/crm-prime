@@ -119,6 +119,24 @@ export const grantAiPackSchema = z.object({
 export type GrantAiPackInput = z.infer<typeof grantAiPackSchema>;
 
 /**
+ * Preguntas gratis al mes del copiloto del administrador (el botón «Copiloto»
+ * de la cabecera), por empresa. Es la ayuda del producto: las paga Driony con
+ * su IA y no gastan los tokens del plan ni la clave propia. Pasado el número,
+ * las siguientes salen de la IA de la empresa como el resto. Solo donde la IA
+ * de Driony está encendida (nube); en una instalación propia no aplica.
+ */
+export const ADMIN_COPILOT_FREE_QUESTIONS = 200;
+
+/** Cuántas preguntas gratis lleva la empresa este mes, para el contador. */
+export const adminCopilotFreeSchema = z.object({
+  used: z.number(),
+  limit: z.number(),
+  /** Cuándo vuelven a empezar (día 1 del mes siguiente, UTC). */
+  resetsAt: z.string(),
+});
+export type AdminCopilotFree = z.infer<typeof adminCopilotFreeSchema>;
+
+/**
  * Funciones que atienden al cliente: dicen qué conversaciones «ya atendía» el
  * agente este mes (las que pueden terminar al llegar al cupo) y cuántas
  * atendió, que se enseña junto a los tokens.
@@ -240,6 +258,12 @@ export const aiUsageReportSchema = z.object({
   byFeature: z.array(usageRow.extend({ feature: z.string(), label: z.string() })),
   byModel: z.array(usageRow.extend({ model: z.string(), priced: z.boolean() })),
   byDay: z.array(z.object({ day: z.string(), tokens: z.number(), costUsd: z.number() })),
+  /**
+   * Preguntas gratis del copiloto del administrador en el periodo: las paga
+   * Driony, así que no entran en nada de lo anterior (ni en el total ni en los
+   * días). Se enseñan aparte para que se vea que existen y que no gastaron.
+   */
+  courtesy: z.object({ questions: z.number(), tokens: z.number() }).default({ questions: 0, tokens: 0 }),
   pricesReviewed: z.string(),
 });
 export type AiUsageReport = z.infer<typeof aiUsageReportSchema>;

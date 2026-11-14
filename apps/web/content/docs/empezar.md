@@ -51,7 +51,7 @@ Si eres administrador, en la cabecera tienes **Copiloto**: un chat al que pregun
 - Responde con esta documentación y mirando tu cuenta: números, agentes, equipo, embudos, formularios y los últimos errores.
 - **Solo consulta**: no cambia nada. Te dice los pasos y te enlaza la pantalla donde se hace.
 - La conversación sigue abierta mientras te mueves por el panel; «Nueva conversación» la empieza de cero.
-- Usa tu IA como el resto de Driony (tu clave o la IA incluida en tu plan) y su gasto aparece en Ajustes › Consumo de IA como «Copiloto del administrador».
+- **Las primeras 200 preguntas de cada mes son gratis**: las paga Driony y no gastan tus tokens ni tu clave. El anillo del botón se vacía a medida que las usas, y al abrirlo ves cuántas te quedan. Pasadas las 200, usa tu IA como el resto de Driony (tu clave o la IA incluida en tu plan) y su gasto aparece en Ajustes › Consumo de IA como «Copiloto del administrador».
 
 ## Idioma
 

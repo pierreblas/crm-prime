@@ -93,6 +93,8 @@ function empresa(row: Row = {}) {
         where.id.in.map((id) => ({ id, name: "Ana Admin", email: "ana@acme.test" })),
     },
     organization: { findUnique: async () => ({ plan: "pro", trialEndsAt: null }) },
+    // Preguntas gratis del copiloto del administrador de este mes (el contador).
+    adminCopilotQuestion: { count: async () => 3 },
     $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
   };
   const tenant = { orgId: () => "org_a" };
@@ -320,4 +322,52 @@ test("el consumo copia la modalidad de la credencial y no registra dos veces la 
     ],
   );
   assert.equal(consumo[0].orgId, "org_a");
+});
+
+test("copiloto del administrador gratis: la credencial es la de Driony, sin mirar la clave ni el cupo, y se registra aparte", async () => {
+  // Una empresa con clave propia de Anthropic: aun así, la pregunta gratis va con la de Driony.
+  const { svc: settings, prisma, consumo, tenant } = empresa({ billingMode: "BYOK", anthropicKeyEnc: secrets.encryptSecret("sk-ant-de-la-empresa") });
+  const usage = new AiUsageService(prisma as never, tenant as never);
+
+  await ctx.runInOrg("org_a", async () => {
+    const creds = settings.courtesyCreds();
+    assert.ok(creds);
+    assert.equal(creds.apiKey, "sk-de-la-plataforma");
+    assert.equal(creds.provider, "openai");
+    assert.equal(creds.billingMode, "MANAGED");
+    assert.equal(creds.courtesy, true);
+
+    // El contador: preguntas gratis de este mes y el tope.
+    const free = await settings.copilotFree();
+    assert.equal(free?.used, 3);
+    assert.equal(free?.limit, 200);
+    assert.match(free!.resetsAt, /T00:00:00.000Z$/);
+    assert.equal((await settings.status()).copilotFree?.used, 3);
+
+    usage.record({ feature: "admin_copilot", model: "gpt-4.1-mini", inputTokens: 2000, outputTokens: 200, billingMode: "MANAGED", courtesy: true, requestId: "chatcmpl-c1" });
+    usage.record({ feature: "admin_copilot", model: "gpt-4.1-mini", inputTokens: 2000, outputTokens: 200, billingMode: "MANAGED", requestId: "chatcmpl-c2" });
+    await new Promise((r) => setTimeout(r, 20));
+  });
+  assert.deepEqual(
+    consumo.map((u) => [u.feature, u.source, u.billingMode]),
+    [
+      ["admin_copilot", "courtesy", "MANAGED"],
+      ["admin_copilot", "platform", "MANAGED"],
+    ],
+    "la gratis va como courtesy (fuera del cupo); pasada la cuota, como cualquier otra de Driony",
+  );
+});
+
+test("sin IA de Driony encendida no hay preguntas gratis ni credencial de cortesía", async () => {
+  const antes = process.env.AI_INCLUDED;
+  process.env.AI_INCLUDED = "false";
+  try {
+    const { svc: settings } = empresa();
+    await ctx.runInOrg("org_a", async () => {
+      assert.equal(settings.courtesyCreds(), null);
+      assert.equal(await settings.copilotFree(), null);
+    });
+  } finally {
+    process.env.AI_INCLUDED = antes;
+  }
 });

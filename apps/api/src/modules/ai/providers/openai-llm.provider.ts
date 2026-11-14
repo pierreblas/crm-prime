@@ -56,14 +56,18 @@ export class OpenAILLMProvider implements LLMProvider {
     private readonly usage: AiUsageService,
   ) {}
 
-  private async config(): Promise<{
+  private async config(courtesy = false): Promise<{
     apiKey: string;
     model: string;
     baseUrl: string;
     included: boolean;
     billingMode: OrgAiBillingMode;
+    courtesy: boolean;
   }> {
-    const c = await this.settings.resolveFor("openai");
+    // Una pregunta gratis del copiloto del administrador va con la IA de Driony,
+    // y si no la hay se dice: nunca cae en la clave de la empresa sin avisar.
+    const c = courtesy ? this.settings.courtesyCreds() : await this.settings.resolveFor("openai");
+    if (!c) throw new Error("La IA gratis del copiloto no está disponible en este servidor.");
     if (!c.apiKey) {
       throw new Error(
         "Falta la API key de OpenAI. Configúrala en Ajustes › Inteligencia Artificial.",
@@ -76,11 +80,12 @@ export class OpenAILLMProvider implements LLMProvider {
         (c.baseUrl ?? env("OPENAI_BASE_URL") ?? "https://api.openai.com/v1").replace(/\/+$/, ""),
       included: !!c.included,
       billingMode: c.billingMode,
+      courtesy: !!c.courtesy,
     };
   }
 
   async generate(req: LlmRequest): Promise<LlmResponse> {
-    const cfg = await this.config();
+    const cfg = await this.config(!!req.courtesy);
     // Lo fijo primero y lo variable (contacto, conocimiento) al final: OpenAI
     // cachea el prefijo idéntico a partir de 1.024 tokens y cobra la mitad.
     const knowledgeText = req.knowledge?.length
@@ -143,6 +148,7 @@ export class OpenAILLMProvider implements LLMProvider {
       },
       model: data.model ?? cfg.model,
       billingMode: cfg.billingMode,
+      courtesy: cfg.courtesy,
       requestId: data.id ?? null,
     };
   }

@@ -25,12 +25,23 @@ export interface UsageEvent {
    * (`ResolvedCredentials.billingMode`), nunca se deduce aquí del modelo.
    */
   billingMode: OrgAiBillingMode;
+  /** Pregunta gratis del copiloto del administrador: la paga Driony y no cuenta para el cupo. */
+  courtesy?: boolean;
   /** Id de la respuesta del proveedor, si lo da: la misma respuesta no se registra dos veces. */
   requestId?: string | null;
 }
 
-/** De quién era la clave: own (la empresa o el servidor propio) | platform (la de Driony). */
-export type UsageSource = "own" | "platform";
+/**
+ * De quién era la clave: own (la empresa o el servidor propio) | platform (la
+ * de Driony, dentro del cupo) | courtesy (la de Driony, regalada: fuera del cupo).
+ */
+export type UsageSource = "own" | "platform" | "courtesy";
+
+/** De dónde sale una fila de consumo, según quién pagó y si fue de cortesía. */
+export function usageSource(billingMode: OrgAiBillingMode, courtesy = false): UsageSource {
+  if (courtesy) return "courtesy";
+  return billingMode === "MANAGED" ? "platform" : "own";
+}
 
 /**
  * Registro y lectura del consumo de IA de cada empresa.
@@ -56,7 +67,7 @@ export class AiUsageService {
   record(e: UsageEvent): void {
     const orgId = currentOrgId();
     if (!orgId || /^fake/i.test(e.model) || (e.inputTokens <= 0 && e.outputTokens <= 0)) return;
-    const source: UsageSource = e.billingMode === "MANAGED" ? "platform" : "own";
+    const source = usageSource(e.billingMode, e.courtesy);
     void this.prisma.aiUsage
       .create({
         data: {
@@ -143,9 +154,11 @@ export class AiUsageService {
 
     // Agrupado en la base: por función y modelo, y por día y modelo (el
     // precio depende del modelo, así que el coste se calcula aquí después).
+    // Las preguntas gratis del copiloto del administrador (source courtesy) las
+    // paga Driony: no entran en el informe de lo que gasta la empresa, van aparte.
     const byFM = await this.prisma.aiUsage.groupBy({
       by: ["feature", "model", "source"],
-      where: { createdAt: { gte: from, lt: to } },
+      where: { createdAt: { gte: from, lt: to }, source: { not: "courtesy" } },
       _sum: { inputTokens: true, outputTokens: true },
       _count: { _all: true },
     });
@@ -153,9 +166,16 @@ export class AiUsageService {
       SELECT date_trunc('day', "createdAt")::date AS day, model,
              sum("inputTokens")::bigint AS input, sum("outputTokens")::bigint AS output
       FROM ai_usage
-      WHERE "orgId" = ${orgId} AND "createdAt" >= ${from} AND "createdAt" < ${to}
+      WHERE "orgId" = ${orgId} AND "createdAt" >= ${from} AND "createdAt" < ${to} AND source <> 'courtesy'
       GROUP BY 1, 2 ORDER BY 1
     `;
+    const [courtesyTokens, courtesyQuestions] = await Promise.all([
+      this.prisma.aiUsage.aggregate({
+        where: { createdAt: { gte: from, lt: to }, source: "courtesy" },
+        _sum: { inputTokens: true, outputTokens: true },
+      }),
+      this.prisma.adminCopilotQuestion.count({ where: { free: true, createdAt: { gte: from, lt: to } } }),
+    ]);
 
     const empty = () => ({ calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0, unpriced: false });
     const total = empty();
@@ -211,6 +231,10 @@ export class AiUsageService {
         .map(([model, v]) => ({ model, ...v }))
         .sort((a, b) => b.inputTokens + b.outputTokens - (a.inputTokens + a.outputTokens)),
       byDay,
+      courtesy: {
+        questions: courtesyQuestions,
+        tokens: (courtesyTokens._sum.inputTokens ?? 0) + (courtesyTokens._sum.outputTokens ?? 0),
+      },
       pricesReviewed: AI_PRICES_REVIEWED,
     };
   }

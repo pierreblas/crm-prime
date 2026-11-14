@@ -38,6 +38,9 @@ function fakePrisma(over: Record<string, Record<string, Handler>> = {}) {
 
 const settings = {
   status: async () => ({ ready: true, provider: "openai", model: "gpt-test", source: "own", saas: true, included: null }),
+  // Sin IA de Driony (instalación propia): no hay preguntas gratis.
+  copilotFree: async () => null,
+  courtesyCreds: () => null,
 } as any;
 const tenant = { orgId: () => "org-1" } as any;
 
@@ -206,4 +209,104 @@ test("una herramienta que falla responde con el error, sin romper la respuesta",
   const tools = toolsWith(prisma);
   assert.equal(await tools.run("team", {}), "Error al consultar: db caída");
   assert.match(String(await tools.run("borrar_todo", {})), /no existe/);
+});
+
+// ── Preguntas gratis (las paga Driony) ─────────────────────────
+
+/** Ajustes de IA de mentira con un contador de preguntas gratis y el estado de la IA de la empresa. */
+function freeSettings(opts: { used: number; limit?: number; ready?: boolean; full?: boolean; courtesy?: boolean }) {
+  return {
+    status: async () => ({
+      ready: opts.ready ?? true,
+      provider: "openai",
+      model: "gpt-test",
+      source: "included",
+      saas: true,
+      included: opts.full ? { full: true, exhausted: false } : null,
+    }),
+    copilotFree: async () => ({ used: opts.used, limit: opts.limit ?? 200, resetsAt: "2026-12-01T00:00:00.000Z" }),
+    courtesyCreds: () => (opts.courtesy === false ? null : { provider: "openai", apiKey: "sk-driony", courtesy: true }),
+  } as any;
+}
+
+function questionsLog() {
+  const rows: any[] = [];
+  const prisma = fakePrisma({
+    organization: { findUnique: () => ({ name: "Bistion" }) },
+    user: { findUnique: () => ({ name: "Ana", email: "a@x" }) },
+    adminCopilotQuestion: { create: ({ data }: any) => (rows.push(data), data) },
+  });
+  return { prisma, rows };
+}
+
+test("con preguntas gratis disponibles, la respuesta la paga Driony y queda contada como gratis", async () => {
+  const { prisma, rows } = questionsLog();
+  const { llm, calls } = fakeLlm((_, n) => (n === 1 ? toolUse("t1", "team") : reply("Lo atiende Luis.")));
+  // Aunque la IA de la empresa no esté lista (cupo gastado o sin clave), la gratis responde.
+  const svc = new AdminCopilotService(prisma, freeSettings({ used: 12, ready: false, full: true }), tenant, toolsWith(prisma), llm as any);
+
+  const out = await svc.ask({ messages: [{ role: "user", content: "¿Quién atiende?" }] }, "u1");
+
+  assert.equal(out.reply, "Lo atiende Luis.");
+  assert.equal(out.free, true);
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every((c) => c.courtesy === true), "todas las llamadas de la pregunta van con la IA de Driony");
+  assert.deepEqual(rows, [{ orgId: "org-1", userId: "u1", free: true }], "una pregunta, aunque fueran dos llamadas");
+});
+
+test("pasadas las gratis, la pregunta usa la IA de la empresa y no se cuenta como gratis", async () => {
+  const { prisma, rows } = questionsLog();
+  const { llm, calls } = fakeLlm(() => reply("Hecho."));
+  const svc = new AdminCopilotService(prisma, freeSettings({ used: 200 }), tenant, toolsWith(prisma), llm as any);
+
+  const out = await svc.ask({ messages: [{ role: "user", content: "hola" }] }, "u1");
+
+  assert.equal(out.free, false);
+  assert.equal(calls[0]!.courtesy, false);
+  assert.deepEqual(rows, [{ orgId: "org-1", userId: "u1", free: false }]);
+});
+
+test("sin gratis y sin IA en la empresa, el aviso dice que se usaron las gratis y cuándo vuelven", async () => {
+  const { prisma, rows } = questionsLog();
+  const { llm, calls } = fakeLlm(() => reply("no debería llegar"));
+  const svc = new AdminCopilotService(prisma, freeSettings({ used: 200, ready: false, full: true }), tenant, toolsWith(prisma), llm as any);
+
+  // En desarrollo local el copiloto contesta simulado en vez de fallar: aquí se mira lo de producción.
+  const nodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    await assert.rejects(
+      () => svc.ask({ messages: [{ role: "user", content: "hola" }] }, "u1"),
+      (e: any) => {
+        const msg = e.getResponse().message as string;
+        assert.match(msg, /Ya usaste tus 200 preguntas gratis de este mes \(vuelven el 1 de diciembre\)/);
+        assert.match(msg, /tokens de IA de este mes se gastaron/);
+        return true;
+      },
+    );
+  } finally {
+    process.env.NODE_ENV = nodeEnv;
+  }
+  assert.equal(calls.length, 0);
+  assert.equal(rows.length, 0, "una pregunta que no se respondió no se cuenta");
+});
+
+test("si la respuesta falla, la pregunta no gasta una de las gratis", async () => {
+  const { prisma, rows } = questionsLog();
+  const llm = { name: "openai", classify: async () => ({}), generate: async () => Promise.reject(new Error("OpenAI no respondió")) };
+  const svc = new AdminCopilotService(prisma, freeSettings({ used: 5 }), tenant, toolsWith(prisma), llm as any);
+
+  await assert.rejects(() => svc.ask({ messages: [{ role: "user", content: "hola" }] }, "u1"), /OpenAI no respondió/);
+  assert.equal(rows.length, 0);
+});
+
+test("sin IA de Driony en el servidor (instalación propia) todo sigue como antes: la IA de la empresa, sin contador", async () => {
+  const { prisma, rows } = questionsLog();
+  const { llm, calls } = fakeLlm(() => reply("Hecho."));
+  const svc = new AdminCopilotService(prisma, settings, tenant, toolsWith(prisma), llm as any);
+
+  const out = await svc.ask({ messages: [{ role: "user", content: "hola" }] }, "u1");
+  assert.equal(out.free, false);
+  assert.equal(calls[0]!.courtesy, false);
+  assert.deepEqual(rows, [{ orgId: "org-1", userId: "u1", free: false }]);
 });

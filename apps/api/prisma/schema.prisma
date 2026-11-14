@@ -188,6 +188,7 @@ model Organization {
   emailTemplates       EmailTemplate[]
   emails               Email[]
   emailUnsubscribes    EmailUnsubscribe[]
+  adminCopilotQuestions AdminCopilotQuestion[]
   aiSetting            AiSetting?
   integrationSetting   IntegrationSetting?
   onboarding           OnboardingState?
@@ -224,7 +225,9 @@ model AiUsage {
   outputTokens   Int      @default(0)
   conversationId String?
   // De quién era la clave: own (la empresa o el servidor propio) | platform
-  // (la IA de Driony, que cuenta para el cupo del plan). Se deriva de billingMode.
+  // (la IA de Driony, que cuenta para el cupo del plan) | courtesy (la IA de
+  // Driony en una pregunta gratis del copiloto del administrador: la paga
+  // Driony y NO cuenta para el cupo). Se deriva de billingMode y de esa marca.
   source         String   @default("own")
   // Quién pagó esta llamada, fijado desde las credenciales resueltas: MANAGED | BYOK.
   // null = fila anterior a noviembre de 2026 (vale `source`).
@@ -239,6 +242,24 @@ model AiUsage {
   @@index([orgId, createdAt])
   @@index([orgId, source, createdAt])
   @@map("ai_usage")
+}
+
+// Una pregunta al copiloto del administrador. Las primeras de cada mes son
+// gratis (ADMIN_COPILOT_FREE_QUESTIONS en @crm/shared): de aquí sale el contador
+// que ve la empresa. Una pregunta puede ser varias llamadas al modelo; lo que
+// gastan está en ai_usage (source = courtesy si fue gratis).
+model AdminCopilotQuestion {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String?
+  free      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@map("admin_copilot_questions")
 }
 
 // Tokens de IA extra (paquetes): se pagan una vez, valen unos meses y se
@@ -362,6 +383,7 @@ model User {
   bookingsCreated       Booking[]             @relation("BookingCreatedBy")
   emailAccounts         EmailAccount[]        @relation("EmailAccountOwner")
   emailsSent            Email[]               @relation("EmailSender")
+  adminCopilotQuestions AdminCopilotQuestion[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 

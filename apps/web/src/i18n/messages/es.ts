@@ -566,5 +566,16 @@ export const es: Messages = {
     close: "Cerrar",
     retry: "Reintentar",
     simulated: "Respuesta simulada: no hay clave de IA configurada.",
+    // Preguntas gratis del mes: el contador habla en preguntas, no en tokens.
+    freeLeft: "Te quedan {left} de {limit} preguntas gratis este mes",
+    freeLeftOne: "Te queda 1 de {limit} preguntas gratis este mes",
+    freeWhy: "No gastan tus tokens de IA.",
+    freeWhyKey: "No gastan tu clave de IA.",
+    freeLow: "Después gastan {what}.",
+    freeNone: "Ya usaste tus {limit} preguntas gratis de este mes. Las siguientes gastan {what} hasta el {date}, cuando vuelven.",
+    whatTokens: "tus tokens de IA",
+    whatKey: "tu clave de IA",
+    triggerFree: "Copiloto · te quedan {left} de {limit} preguntas gratis este mes",
+    triggerNone: "Copiloto · ya usaste las {limit} preguntas gratis de este mes",
   },
 };

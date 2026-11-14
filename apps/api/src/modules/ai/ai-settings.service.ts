@@ -1,11 +1,13 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import {
+  ADMIN_COPILOT_FREE_QUESTIONS,
   AI_INCLUDED_MODEL,
   AI_GRACE,
   aiIncludedTotal,
   includedAiCapUsd,
   effectivePlan,
+  type AdminCopilotFree,
   type OrgAiBillingMode,
   type AiCredentialStatus,
   type AiIncluded,
@@ -27,7 +29,7 @@ import {
   maskSecret,
 } from "../../common/utils/secret-box";
 import { credentialStatusFromError, normalizeProviderBaseUrl } from "./ai-http";
-import { AiUsageService, nextMonthStart } from "./ai-usage.service";
+import { AiUsageService, monthStart as monthStartUtc, nextMonthStart } from "./ai-usage.service";
 import { AiPacksService } from "./ai-packs.service";
 
 // Credenciales ya resueltas (BD con respaldo del entorno) para una llamada.
@@ -49,6 +51,8 @@ export interface ResolvedCredentials {
   billingMode: OrgAiBillingMode;
   /** Lo que se sabe de la clave propia (solo cuando la credencial es suya). */
   credentialStatus?: AiCredentialStatus;
+  /** Cortesía de Driony (pregunta gratis del copiloto del administrador): fuera del cupo. */
+  courtesy?: boolean;
 }
 
 interface KeySource {
@@ -367,6 +371,41 @@ export class AiSettingsService {
       saas: tenancyMode === "multi",
       included,
       ownTokens: await this.usage.ownTokensThisMonth(this.tenant.orgId()),
+      copilotFree: await this.copilotFree(),
+    };
+  }
+
+  // ── Copiloto del administrador gratis ────────────────────────
+  /**
+   * Preguntas gratis del copiloto del administrador que lleva la empresa este
+   * mes, o null donde no aplica: sin la IA de Driony encendida (instalación
+   * propia, o el operador la apagó con AI_INCLUDED) no hay nada que regalar.
+   */
+  async copilotFree(): Promise<AdminCopilotFree | null> {
+    if (!AiSettingsService.includedEnabled()) return null;
+    const used = await this.prisma.adminCopilotQuestion.count({
+      where: { free: true, createdAt: { gte: monthStartUtc() } },
+    });
+    return { used, limit: ADMIN_COPILOT_FREE_QUESTIONS, resetsAt: nextMonthStart().toISOString() };
+  }
+
+  /**
+   * La credencial de una pregunta gratis: la IA de Driony con su modelo fijo,
+   * sin mirar el cupo ni la clave propia de la empresa (no le cuesta a ella).
+   * Declarada en Planes; el tope son las preguntas del mes, no los tokens.
+   */
+  courtesyCreds(): ResolvedCredentials | null {
+    if (!AiSettingsService.includedEnabled()) return null;
+    const apiKey = env("OPENAI_API_KEY");
+    if (!apiKey) return null;
+    return {
+      provider: "openai",
+      apiKey,
+      model: env("AI_INCLUDED_MODEL") ?? AI_INCLUDED_MODEL,
+      baseUrl: null,
+      included: true,
+      billingMode: "MANAGED",
+      courtesy: true,
     };
   }
 

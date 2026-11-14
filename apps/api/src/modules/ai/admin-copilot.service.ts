@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable } from "@nestjs/common";
-import type { AdminCopilotReply, AdminCopilotRequest } from "@crm/shared";
+import type { AdminCopilotFree, AdminCopilotReply, AdminCopilotRequest } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { tenancyMode } from "../../infra/tenant/tenant.context";
@@ -24,9 +24,12 @@ const NO_ANSWER = "No llegué a una respuesta con lo que pude consultar. ¿Me da
  * Driony con su documentación y mira la configuración de la cuenta para
  * diagnosticar. Solo lee (ver AdminCopilotTools).
  *
- * Usa la IA de la empresa como el resto de la IA: su clave o, sin clave, la
- * de Driony dentro del cupo. El consumo aparece como «Copiloto del
- * administrador» en Ajustes › Consumo de IA.
+ * Es la ayuda del producto: donde la IA de Driony está encendida, las primeras
+ * preguntas de cada mes (ADMIN_COPILOT_FREE_QUESTIONS) las paga Driony con su
+ * IA, aunque la empresa tenga clave propia o el cupo gastado. Las siguientes
+ * usan la IA de la empresa como el resto: su clave o su cupo. En una
+ * instalación propia, siempre la de la empresa. El consumo aparece como
+ * «Copiloto del administrador» en Ajustes › Consumo de IA; el gratis, aparte.
  */
 @Injectable()
 export class AdminCopilotService {
@@ -39,7 +42,20 @@ export class AdminCopilotService {
   ) {}
 
   async ask(input: AdminCopilotRequest, userId: string): Promise<AdminCopilotReply> {
-    await this.assertReady();
+    // ¿Queda alguna gratis este mes? Dos preguntas a la vez justo en el límite
+    // pueden salir gratis las dos: es una de más, no vale un bloqueo.
+    const quota = await this.settings.copilotFree();
+    const free = !!quota && quota.used < quota.limit && !!this.settings.courtesyCreds();
+    if (!free) await this.assertReady(quota);
+    const reply = await this.answer(input, userId, free);
+    // Cuenta la pregunta solo si hubo respuesta: un fallo no gasta una de las gratis.
+    await this.prisma.adminCopilotQuestion
+      .create({ data: { orgId: this.tenant.orgId(), userId, free } })
+      .catch(() => undefined);
+    return reply;
+  }
+
+  private async answer(input: AdminCopilotRequest, userId: string, free: boolean): Promise<AdminCopilotReply> {
     const [org, me] = await Promise.all([
       this.prisma.organization.findUnique({ where: { id: this.tenant.orgId() }, select: { name: true } }),
       this.prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } }),
@@ -68,6 +84,7 @@ export class AdminCopilotService {
         maxTokens: 1500,
         effort: "medium",
         feature: "admin_copilot",
+        courtesy: free,
       });
       model = res.model;
       const text = res.content
@@ -78,7 +95,7 @@ export class AdminCopilotService {
       const toolUses = res.content.filter((b): b is LlmToolUseBlock => b.type === "tool_use");
 
       if (!toolUses.length || step === MAX_STEPS - 1) {
-        return { reply: text || NO_ANSWER, consulted, provider: this.llm.name, model };
+        return { reply: text || NO_ANSWER, consulted, provider: this.llm.name, model, free };
       }
 
       messages.push({ role: "assistant", content: res.content });
@@ -98,20 +115,25 @@ export class AdminCopilotService {
       if (step === MAX_STEPS - 2) results.push({ type: "text", text: FINAL_NUDGE });
       messages.push({ role: "user", content: results });
     }
-    return { reply: NO_ANSWER, consulted, provider: this.llm.name, model };
+    return { reply: NO_ANSWER, consulted, provider: this.llm.name, model, free };
   }
 
-  /** Igual que el copiloto del chat: sin IA, un error claro; en desarrollo local, el simulado. */
-  private async assertReady(): Promise<void> {
+  /**
+   * Sin preguntas gratis, la IA de la empresa: igual que el copiloto del chat,
+   * sin IA un error claro y, en desarrollo local, el simulado.
+   */
+  private async assertReady(quota: AdminCopilotFree | null): Promise<void> {
     const s = await this.settings.status();
     if (s.ready) return;
     if (tenancyMode !== "multi" && process.env.NODE_ENV !== "production") return;
+    const day = quota ? new Date(quota.resetsAt).toLocaleDateString("es", { day: "numeric", month: "long", timeZone: "UTC" }) : "";
+    const spentFree = quota ? `Ya usaste tus ${quota.limit} preguntas gratis de este mes (vuelven el ${day}) y ` : "";
     throw new BadRequestException({
       statusCode: 400,
       code: "AI_NOT_CONFIGURED",
       message: s.included?.exhausted || s.included?.full
-        ? "El cupo de tokens de IA de Driony de este mes está agotado. Puedes sumar tokens extra en Ajustes › Plan o usar tu propia clave en Ajustes › Inteligencia Artificial."
-        : "Configura tu clave de OpenAI o Anthropic en Ajustes › Inteligencia Artificial para usar el copiloto.",
+        ? `${spentFree ? `${spentFree}t` : "T"}us tokens de IA de este mes se gastaron. Puedes sumar tokens extra en Ajustes › Plan o usar tu propia clave en Ajustes › Inteligencia Artificial.`
+        : `${spentFree ? `${spentFree}para` : "Para"} seguir preguntando hace falta IA: configura tu clave de OpenAI o Anthropic en Ajustes › Inteligencia Artificial.`,
     });
   }
 }
