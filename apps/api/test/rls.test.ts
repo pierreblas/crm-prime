@@ -2120,3 +2120,108 @@ test("Mercado Libre: la autorización crea la conexión del vendedor en su empre
     });
   }
 });
+
+test("correo: el buzón, el envío desde la cola y la baja pública funcionan con el rol restringido, y otra empresa no ve nada", async () => {
+  process.env.APP_ENCRYPTION_KEY ??= "clave-de-prueba-rls";
+  const { EmailAccountsService } = await import("../src/modules/email/email-accounts.service");
+  const { EmailService } = await import("../src/modules/email/email.service");
+  const { runJobInOrg } = await import("../src/infra/tenant/job-org");
+
+  const sent: any[] = [];
+  const jobs: any[] = [];
+  const transport = { verify: async () => undefined, send: async (_a: unknown, mail: unknown) => (sent.push(mail), { messageId: "<m1@a.test>" }) };
+  const tenant = { orgId: () => ctx.currentOrgId() };
+  const accounts = new EmailAccountsService(prisma, tenant as any, transport as any);
+  const emails = new EmailService(
+    prisma,
+    tenant as any,
+    accounts,
+    { contactWhere: async () => null, canSeePhone: async () => true } as any,
+    { read: async () => null } as any,
+    transport as any,
+    { add: async (_n: string, d: unknown) => jobs.push(d) } as any,
+  );
+
+  let contactId = "";
+  let convoId = "";
+  let templateId = "";
+  let metadataAntes: unknown = null;
+  try {
+    await ctx.runInOrg("o_a", async () => {
+      const contact = await prisma.contact.findFirst();
+      contactId = contact.id;
+      metadataAntes = contact.metadata;
+      await prisma.contact.update({ where: { id: contactId }, data: { metadata: { email: "ana@cliente.test" } } });
+      await prisma.user.create({ data: { orgId: "o_a", email: "correo-rls@a.test", passwordHash: "x", role: "ADMIN" } });
+      convoId = (await prisma.conversation.create({ data: { orgId: "o_a", contactId } })).id;
+
+      // Conectar el buzón: escribe en email_accounts con la empresa de la sesión.
+      const account = await accounts.create({
+        address: "ventas@a.test",
+        fromName: "",
+        provider: "smtp",
+        smtpHost: "smtp.a.test",
+        smtpPort: 587,
+        smtpUser: "ventas@a.test",
+        smtpPass: "x",
+        userId: null,
+        signature: "",
+        dailyLimit: 300,
+      });
+      assert.equal(account.owner, null);
+      templateId = (await prisma.emailTemplate.create({ data: { orgId: "o_a", name: "Hola RLS", subject: "Hola {{primer_nombre}}", body: "Texto" } })).id;
+
+      const res = await emails.sendAutomated({ contactId, conversationId: convoId, templateId, vars: {}, origin: "Flujo «RLS»" });
+      assert.deepEqual(res, { ok: true });
+    });
+
+    // La cola: no hay petición detrás, la empresa viaja en el trabajo.
+    assert.equal(jobs.length, 1);
+    assert.equal(jobs[0].orgId, "o_a");
+    await runJobInOrg("correo", jobs[0].orgId, () => emails.deliver(jobs[0].emailId, true));
+    assert.equal(sent.length, 1);
+    await ctx.runInOrg("o_a", async () => {
+      const row = await prisma.email.findUnique({ where: { id: jobs[0].emailId } });
+      assert.equal(row.status, "sent");
+      const notes = await prisma.note.findMany({ where: { conversationId: convoId } });
+      assert.equal(notes.length, 1, "la nota del envío queda en el chat");
+      const [dto] = await accounts.usableBy("nadie");
+      assert.equal(dto.sentToday, 1);
+    });
+
+    // La baja pública: sin sesión, la empresa sale del enlace firmado.
+    await ctx.runInOrg("o_a", () => emails.unsubscribe("o_a", "Ana@Cliente.test"));
+    await ctx.runInOrg("o_a", async () => {
+      assert.deepEqual(await emails.sendAutomated({ contactId, conversationId: convoId, templateId, vars: {}, origin: "Flujo «RLS»" }), {
+        ok: false,
+        reason: "ana@cliente.test pidió no recibir correos automáticos",
+      });
+    });
+
+    // Otra empresa no ve nada de esto, ni con SQL crudo, ni puede escribir aquí.
+    await ctx.runInOrg("o_b", async () => {
+      for (const tabla of ["email_accounts", "email_templates", "emails", "email_unsubscribes"]) {
+        const rows: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM ${tabla}`);
+        assert.equal(rows.length, 0, tabla);
+      }
+      await assert.rejects(() =>
+        prisma.$executeRawUnsafe(`INSERT INTO email_unsubscribes (id,"orgId",address) VALUES ('x_un','o_a','z@z.test')`),
+      );
+      assert.equal(await emails.deliver(jobs[0].emailId, true), null, "el correo de otra empresa no existe para esta");
+    });
+
+    // Sin empresa en contexto, falla cerrado: tampoco se ve.
+    const sinContexto: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM emails`);
+    assert.equal(sinContexto.length, 0);
+  } finally {
+    await ctx.runInOrg("o_a", async () => {
+      await prisma.email.deleteMany({});
+      await prisma.emailUnsubscribe.deleteMany({});
+      await prisma.emailTemplate.deleteMany({});
+      await prisma.emailAccount.deleteMany({});
+      if (convoId) await prisma.conversation.deleteMany({ where: { id: convoId } });
+      await prisma.user.deleteMany({ where: { email: "correo-rls@a.test" } });
+      if (contactId) await prisma.contact.update({ where: { id: contactId }, data: { metadata: metadataAntes ?? {} } });
+    });
+  }
+});

@@ -23,6 +23,7 @@ export const flowNodeTypes = [
   "schedule", // en horario / fuera de horario
   "list", // lista de opciones de WhatsApp (hasta 10); cada opción es una salida
   "carousel", // carrusel de 2 a 10 tarjetas con imagen o video
+  "sendEmail", // correo con una plantilla, desde un buzón de la empresa
 ] as const;
 export type FlowNodeType = (typeof flowNodeTypes)[number];
 
@@ -151,6 +152,11 @@ export const flowNodeDataSchema = z.object({
   hours: businessHoursSchema.optional(),
   // action create_deal: título (admite {{variables}}); la etapa va en stageId
   dealTitle: z.string().optional(),
+  // sendEmail: plantilla de correo y buzón («default» = el de la empresa,
+  // «assignee» = el del responsable del chat, o el id de un buzón concreto)
+  emailTemplateId: z.string().optional(),
+  emailTemplateName: z.string().optional(), // solo para mostrar en el lienzo
+  emailAccountId: z.string().optional(),
 });
 export type FlowNodeData = z.infer<typeof flowNodeDataSchema>;
 

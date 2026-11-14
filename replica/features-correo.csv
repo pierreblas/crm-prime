@@ -1,0 +1,44 @@
+feature,area,priority,original,clone,notes
+Conectar un buzón propio para enviar,buzones,must,yes,yes,Kommo: Google por OAuth y el resto por IMAP/SMTP. Driony: no existe
+Buzón personal (de un usuario) o compartido (de la empresa),buzones,must,yes,yes,Solo administradores conectan el compartido
+Probar el envío al conectar,buzones,must,unknown,yes,No documentado en Kommo; evita descubrir el fallo al primer correo real
+Varios buzones por empresa,buzones,should,yes,yes,
+Desconectar un buzón eligiendo si se borran sus correos,buzones,should,yes,partial,
+El administrador puede ver un buzón personal,buzones,could,yes,partial,Kommo: «Share with administrator»
+Conexión con Google y Microsoft por OAuth,buzones,could,yes,no,Exige verificación de la app por Google y Microsoft
+Correo del contacto como dato propio,contactos,must,yes,yes,Driony: solo clave libre «email» en Contact.metadata (formularios de Meta y webhooks)
+Crear contacto desde un correo de remitente desconocido,contactos,should,yes,no,Driony: Contact exige teléfono
+Crear contactos automáticamente al responder,contactos,could,yes,no,
+Plantillas de correo con nombre y asunto y cuerpo,plantillas,must,yes,yes,Driony: Template es solo de WhatsApp
+Variables en asunto y cuerpo,plantillas,must,yes,yes,Driony ya interpola {{variable}} en los flujos
+Adjunto en la plantilla,plantillas,should,yes,yes,
+Cuerpo en HTML propio,plantillas,could,yes,no,
+Vista previa con datos de un contacto,plantillas,should,unknown,yes,No documentado en Kommo
+Solo administradores crean plantillas,plantillas,should,yes,yes,
+Redactar un correo desde la ficha o el chat del contacto,enviar,must,yes,yes,
+Elegir plantilla al redactar y retocarla,enviar,must,yes,yes,
+Adjuntar archivos al redactar,enviar,should,yes,yes,
+Formato de texto al redactar,enviar,should,yes,no,
+Firma por usuario,enviar,should,yes,partial,
+CC y CCO,enviar,could,unknown,no,No aparece en los artículos leídos
+Programar el envío,enviar,could,unknown,no,No documentado en Kommo
+El correo enviado queda en el historial del contacto,historial,must,yes,yes,
+Bandeja de correo con carpetas por dirección y recibidos y enviados,bandeja,should,yes,no,Segunda entrega
+Hilos por conversación,bandeja,should,yes,no,Segunda entrega
+Responder un correo entrante desde el CRM,bandeja,should,yes,no,Segunda entrega
+Borrar y restaurar con purga a los 30 días,bandeja,could,yes,no,
+Correo automático al entrar a una etapa,automatización,must,yes,yes,Driony: bloque de flujo nuevo + automatizaciones de etapa que ya existen
+Condiciones y espera antes del envío automático,automatización,must,yes,yes,StageAutomation ya tiene condiciones y delayMinutes
+Elegir remitente: responsable o buzón compartido o usuario concreto,automatización,should,yes,yes,Si el usuario no tiene buzón sale del compartido
+Enlace de baja en los correos automáticos y lista de bajas,automatización,must,yes,yes,
+Enviar solo al contacto principal,automatización,could,yes,yes,En Driony cada oportunidad tiene un contacto
+Aplicar a los leads que ya están en la etapa,automatización,could,yes,no,
+Paso «Enviar correo» dentro de un bot,automatización,must,yes,yes,Mismo bloque de flujo
+Disparador «al recibir un correo»,automatización,could,yes,no,Depende de recibir
+Seguimiento de aperturas y clics,medición,could,unknown,no,No documentado en Kommo
+Campañas masivas por correo,masivo,could,no,no,Kommo remite a Mailchimp y ActiveCampaign
+Toque de seguimiento por correo cuando la ventana de WhatsApp está cerrada,masivo,could,no,no,Idea propia de Driony
+Redactar el correo con IA,enviar,could,no,no,Idea propia de Driony; consume tokens
+Direcciones inteligentes para guardar correos enviados desde fuera,buzones,skip,yes,no,Exige dominio de correo entrante propio
+Lectura de correos con formato fijo para crear leads,contactos,skip,yes,no,Driony ya recibe leads por formularios de Meta y webhook
+Integración con Mailchimp y ActiveCampaign,masivo,skip,yes,no,Ecosistema de terceros de Kommo

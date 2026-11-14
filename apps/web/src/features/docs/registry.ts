@@ -27,6 +27,7 @@ export const DOCS: DocEntry[] = [
   { group: "Uso diario", slug: "catalogo", file: "catalogo.md", title: "Catálogo de productos", summary: "Productos y campos, importar desde Excel y conectar WooCommerce, Shopify o Google Sheets." },
   { group: "Uso diario", slug: "llamadas", file: "llamadas.md", title: "Llamadas", summary: "Llamar y recibir desde el CRM con Twilio, registro y grabaciones." },
   { group: "Uso diario", slug: "difusiones", file: "difusiones.md", title: "Difusiones y plantillas", summary: "Envíos masivos con plantillas aprobadas por Meta." },
+  { group: "Uso diario", slug: "correo", file: "correo.md", title: "Correo", summary: "Conectar tu buzón, plantillas de correo y envíos desde la ficha y los flujos." },
   { group: "Automatización", slug: "agentes", file: "agentes.md", title: "Agentes de IA", summary: "Modelos, claves, herramientas, escalado y límite de gasto." },
   { group: "Automatización", slug: "flujos", file: "flujos.md", title: "Flujos", summary: "El constructor visual: bloques, variables y disparadores." },
   { group: "Automatización", slug: "meta-ads", file: "meta-ads.md", title: "Anuncios y leads de Meta", summary: "Lead Ads, click-to-WhatsApp y atribución." },

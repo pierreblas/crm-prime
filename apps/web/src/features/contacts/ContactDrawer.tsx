@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import {
+  CONTACT_EMAIL_KEY,
   CURRENCIES,
+  contactEmailOf,
   countryFromPhone,
   contactOriginLabels,
   phoneLabel,
@@ -18,6 +20,7 @@ import {
 import { setContactSource, updateContact } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { toast } from "@/lib/toast";
+import { ContactEmails } from "@/features/email/ContactEmails";
 
 /**
  * Ficha completa del contacto en panel lateral.
@@ -66,20 +69,23 @@ export function ContactDrawer({
   }, [onClose]);
 
   const countryCurrency = countryFromPhone(contact.phone)?.currency ?? null;
+  // El correo tiene su propio bloque y se guarda al momento: no va entre los campos.
+  const businessFields = fields.filter((f) => f.key !== CONTACT_EMAIL_KEY);
 
   const dirty =
     name !== (contact.name ?? "") ||
     optIn !== contact.optIn ||
     sourceId !== (contact.source?.id ?? "") ||
     currency !== (contact.currencyOverride ?? "") ||
-    fields.some((f) => (values[f.key] ?? "") !== (contact.fields[f.key] ?? ""));
+    businessFields.some((f) => (values[f.key] ?? "") !== (contact.fields[f.key] ?? ""));
 
   const save = useMutation({
     mutationFn: async () => {
       await updateContact(contact.id, {
         name: name.trim() || null,
         optIn,
-        fields: values,
+        // Sin el correo: se guarda en su bloque y aquí podría ir un valor viejo.
+        fields: Object.fromEntries(Object.entries(values).filter(([k]) => k !== CONTACT_EMAIL_KEY)),
         currency: currency || null,
       });
       // La fuente tiene su propio endpoint (afecta al reparto por vendedor).
@@ -274,14 +280,24 @@ export function ContactDrawer({
           </Section>
 
           {/* ── Campos personalizados ───────────────────── */}
+          <div className="cd-mail">
+            <ContactEmails
+              contact={{
+                id: contact.id,
+                name: contact.name ?? phoneLabel(contact.phone, contact.waUsername),
+                email: contactEmailOf(contact.fields),
+              }}
+            />
+          </div>
+
           <Section title="Campos del negocio">
-            {fields.length === 0 ? (
+            {businessFields.length === 0 ? (
               <p style={hint}>
                 No has definido campos personalizados. Se crean en Ajustes ›
                 Campos personalizados.
               </p>
             ) : (
-              fields.map((f) => (
+              businessFields.map((f) => (
                 <Field key={f.id} label={f.label}>
                   {f.type === "select" ? (
                     <select
@@ -321,7 +337,7 @@ export function ContactDrawer({
 
           {(() => {
             const defined = new Set(fields.map((f) => f.key));
-            const extra = Object.entries(contact.fields).filter(([k, v]) => !defined.has(k) && v !== "");
+            const extra = Object.entries(contact.fields).filter(([k, v]) => !defined.has(k) && k !== CONTACT_EMAIL_KEY && v !== "");
             if (!extra.length) return null;
             return (
               <Section title="Otros datos">

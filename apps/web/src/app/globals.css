@@ -1194,6 +1194,26 @@ code {
   transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.3s ease;
 }
 
+/* Foto de la cabecera con el consumo de IA alrededor. La caja mide siempre lo
+   mismo, haya anillo o no: la foto no salta cuando llega el dato. */
+.user-ring {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+.user-ring__photo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
 /* ── Menú de ayuda («?» de la cabecera) ──────────────────────── */
 .help-menu {
   position: absolute;
@@ -3294,6 +3314,41 @@ code {
 
 .agent-day { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .agent-trigger { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 0; border: 1px solid var(--border); background: var(--surface); }
+
+/* Seguimientos: la ventana de 24 h a la vista y cada toque puesto donde cae.
+   El 68 % de la franja es la ventana (FollowUpsEditor.tsx, WINDOW_SHARE). */
+.fu-range { display: flex; flex-direction: column; gap: 6px; }
+.fu-range__lead { margin: 0 0 4px; max-width: 70ch; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.fu-range__zones { display: grid; grid-template-columns: 68fr 32fr; align-items: end; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.fu-range__zones span:first-child { color: var(--cyan); }
+.fu-range__zones span:last-child { padding-left: 8px; }
+.fu-range__track { position: relative; height: 36px; border: 1px solid var(--border); background: var(--surface); }
+.fu-range__window { position: absolute; inset: 0 32% 0 0; background: rgba(0, 229, 255, 0.09); border-right: 2px solid var(--cyan); }
+.fu-range__mark { position: absolute; top: 50%; transform: translate(-50%, -50%); }
+.fu-range__axis { position: relative; height: 16px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.fu-range__axis span { position: absolute; top: 0; white-space: nowrap; }
+.fu-range__axis span:first-child { left: 0; }
+.fu-range__axis span:last-child { left: 68%; transform: translateX(-50%); color: var(--cyan); }
+
+.fu-mark { display: inline-grid; place-items: center; flex: none; width: 22px; height: 22px; font-family: var(--font-mono); font-size: 12px; font-weight: 700; line-height: 1; }
+.fu-mark--in { background: var(--cyan); color: var(--noir); }
+.fu-mark--out { background: var(--panel); color: var(--text); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.fu-mark--bad { background: var(--danger); color: var(--noir); }
+
+.fu-step__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13.5px; }
+.fu-step__when { color: var(--muted); font-size: 12.5px; }
+@media (max-width: 640px) {
+  /* En el teléfono el momento baja a su línea: arriba quedan el número, el nombre y quitar. */
+  .fu-step__when { order: 3; flex-basis: 100%; }
+}
+.fu-step__cost { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+
+.fu-meta { padding: 10px 12px; border: 1px solid var(--border); color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.fu-meta summary { cursor: pointer; color: var(--text); font-size: 13px; font-weight: 600; }
+.fu-meta ul { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 0; padding-left: 18px; }
+.fu-meta strong { color: var(--text); font-weight: 600; }
+.fu-meta p { margin: 10px 0 0; }
+.fu-meta a { color: var(--cyan); }
 @media (max-width: 640px) {
   .agent-essentials { flex-direction: column; align-items: stretch; }
   .agent-essentials__item { flex-direction: column; align-items: stretch; }
@@ -6346,3 +6401,180 @@ button[style*="background:var(--accent)"]:focus-visible {
   .mfd__q { grid-template-columns: 1fr; }
   .mfd__q-arrow { display: none; }
 }
+
+/* ══ Correo ═══════════════════════════════════════════════════
+   Buzones (Ajustes), plantillas (Difusiones), redactar y el historial en la
+   ficha del contacto. Filas planas con filete; lo que mide (envíos de hoy,
+   pesos, horas) va en mono; la vista previa es en claro, como un programa de
+   correo. */
+.mail-settings { display: flex; flex-direction: column; gap: 30px; }
+.mail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.mail-head > .btn { flex-shrink: 0; }
+.mail-lead { margin: 0; max-width: 62ch; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.mail-muted { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.mail-count,
+.mail-mono,
+.mail-editor__kicker,
+.mail-cp-item__meta { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.mail-count { font-size: 12px; }
+
+.mail-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 12px; align-items: center;
+  padding: 12px 14px; border: 1px solid var(--border); background: var(--panel);
+}
+.mail-row__mark { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 1px solid rgba(0, 229, 255, 0.42); background: rgba(0, 229, 255, 0.1); color: var(--cyan); }
+.mail-row__mark.is-error { border-color: var(--danger-border); background: var(--danger-soft); color: var(--danger); }
+.mail-row__main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mail-row__address { font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-row__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; color: var(--muted); font-size: 12.5px; }
+.mail-row__error { margin: 2px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--warning); }
+.mail-row__actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+.mail-unsub { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 9px 14px; border: 1px solid var(--border); background: var(--panel); }
+.mail-unsub__address { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.mail-form { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--border-strong); background: var(--panel); }
+.mail-form__providers { align-self: flex-start; flex-wrap: wrap; }
+.mail-form__help { margin: -4px 0 0; max-width: 72ch; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.mail-form__help a,
+.mail-flow__hint a,
+.mail-warn a { color: var(--accent-text); }
+.mail-form__foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.mail-form__foot > .mail-muted { margin-right: auto; }
+.mail-form textarea.field { resize: vertical; }
+
+.mail-warn { margin: 0; padding: 8px 11px; border: 1px solid var(--warning-border); background: var(--warning-soft); color: var(--warning); font-size: 12.5px; line-height: 1.5; }
+.mail-check { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; color: var(--text); cursor: pointer; }
+.mail-check input { margin-top: 3px; accent-color: var(--lemon); }
+
+/* Plantillas */
+.mail-templates { display: flex; flex-direction: column; gap: 10px; }
+.mail-templates > .mail-head { margin-bottom: 4px; }
+.mail-tpl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 13px 14px; border: 1px solid var(--border); background: var(--panel); }
+.mail-tpl__main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mail-tpl__name { font-size: 14.5px; }
+.mail-tpl__subject { font-size: 13.5px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-tpl__body { margin: 2px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mail-tpl__files { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; }
+
+.mail-editor { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 20px; align-items: start; }
+.mail-editor__form { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.mail-editor__title { margin: 0 0 2px; font-size: 18px; }
+.mail-editor__preview { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.mail-editor__kicker { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+.mail-bodyhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
+.mail-bodyhead .label { margin: 0; }
+.mail-varmenu { width: auto; max-width: 190px; color: var(--muted); }
+.mail-body { resize: vertical; min-height: 150px; line-height: 1.5; }
+
+.mail-attach { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mail-attach__file { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 5px 6px 5px 9px; border: 1px solid var(--border); background: var(--surface); font-size: 12.5px; }
+.mail-attach__file > svg { flex: none; color: var(--muted); }
+.mail-attach__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.mail-attach__x { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.mail-attach__x:hover { color: var(--danger); filter: none; }
+
+/* La vista previa va en claro: así lo verá quien lo reciba. */
+.mail-preview { background: #ffffff; color: #1f2430; border: 1px solid var(--border-strong); }
+.mail-preview__meta { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-bottom: 1px solid #e3e6ec; }
+.mail-preview__from { font-size: 12px; color: #5d6577; }
+.mail-preview__subject { font-size: 15px; color: #11141c; overflow-wrap: anywhere; }
+.mail-preview__body { padding: 16px; overflow-wrap: anywhere; min-height: 120px; }
+.mail-preview__note { margin: 0; padding: 0 16px 14px; font-size: 12px; color: #6b7280; }
+
+/* Redactar */
+.mail-compose { width: 720px; }
+.mail-compose__form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.mail-compose .agenda-dialog__who { font-size: 12.5px; }
+.mail-nobox { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 18px; border: 1px dashed var(--border-strong); }
+.mail-nobox > svg { color: var(--cyan); }
+.mail-nobox p { margin: 0; max-width: 56ch; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+
+/* En la ficha del contacto */
+.cd-mail { margin-bottom: 22px; }
+.cd-mail .cp-section { padding: 0; border-bottom: 0; }
+.mail-cp-address { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+.mail-cp-address__value { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-cp-item { border: 1px solid var(--border); background: var(--surface-2); }
+.mail-cp-item.is-failed { border-color: var(--danger-border); }
+.mail-cp-item__head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 11px; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.mail-cp-item__head:hover { background: var(--surface); filter: none; }
+.mail-cp-item__head > svg { flex: none; color: var(--cyan); }
+.mail-cp-item.is-failed .mail-cp-item__head > svg { color: var(--danger); }
+.mail-cp-item.is-queued .mail-cp-item__head > svg { color: var(--muted); }
+.mail-cp-item__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.mail-cp-item__subject { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-cp-item__meta { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-cp-item__body { display: flex; flex-direction: column; gap: 8px; padding: 10px 11px 11px; border-top: 1px solid var(--border); }
+.mail-cp-item__body > .mail-cp-item__meta { white-space: normal; overflow-wrap: anywhere; }
+.mail-cp-item__text { margin: 0; font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow-y: auto; }
+.mail-cp-item__error { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--danger); }
+
+/* Bloque «Enviar correo» en el panel del flujo */
+.mail-flow { display: flex; flex-direction: column; gap: 10px; }
+.mail-flow__hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+@media (max-width: 860px) {
+  .mail-editor { grid-template-columns: minmax(0, 1fr); }
+  .mail-editor__preview { position: static; }
+}
+@media (max-width: 600px) {
+  .mail-row { grid-template-columns: auto minmax(0, 1fr); row-gap: 10px; }
+  .mail-row__actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .mail-tpl { grid-template-columns: minmax(0, 1fr); }
+  .mail-unsub { grid-template-columns: minmax(0, 1fr) auto; }
+  .mail-unsub > .mail-muted { display: none; }
+  .mail-bodyhead { flex-wrap: wrap; }
+}
+
+/* ══ Simulador de conversaciones (cajón «Probar agente») ══════
+   Una IA hace de cliente. Las burbujas van como en la bandeja: el cliente a la
+   izquierda, el agente a la derecha en cian hondo. Lo que mide (tokens) en mono. */
+.play-mode { margin: 12px 16px 0; align-self: flex-start; }
+.play-mode > button { display: inline-flex; align-items: center; gap: 6px; }
+.sim__foot { position: sticky; bottom: -16px; display: flex; flex-direction: column; gap: 10px; margin: 0 -16px -16px; padding: 12px 16px 16px; background: var(--panel-2); border-top: 1px solid var(--border); }
+.sim { display: flex; flex-direction: column; gap: 14px; }
+.sim__lead { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+.sim__list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.sim__list > legend { padding: 0; margin-bottom: 6px; }
+.sim__option { display: flex; align-items: flex-start; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; }
+.sim__option:hover { border-color: var(--border-strong); }
+.sim__option.is-on { border-color: rgba(0, 229, 255, 0.42); background: rgba(0, 229, 255, 0.06); }
+.sim__option input { margin-top: 3px; accent-color: var(--lemon); flex: none; }
+.sim__option input:disabled + .sim__option-main { opacity: 0.5; }
+.sim__option-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sim__option-main strong { font-size: 13.5px; }
+.sim__option-main span { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.sim__custom { resize: vertical; }
+.sim__turns { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sim__turns .label { margin: 0; }
+.sim__cost { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; border: 1px solid var(--border); background: var(--surface); font-size: 13px; line-height: 1.5; }
+.sim__cost > svg { flex: none; margin-top: 2px; color: var(--cyan); }
+.sim__cost strong,
+.sim__spent strong,
+.sim-meta { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.sim__bar { position: sticky; top: -16px; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -16px -16px 0; padding: 10px 16px; background: var(--panel-2); border-bottom: 1px solid var(--border); }
+.sim__spent { font-size: 13px; color: var(--muted); }
+.sim__spent strong { color: var(--text); }
+
+.sim-run { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); background: var(--panel); }
+.sim-run.is-running { border-color: rgba(0, 229, 255, 0.42); }
+.sim-run.is-error { border-color: var(--danger-border); }
+.sim-run.is-waiting { opacity: 0.6; }
+.sim-run__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.sim-run__head strong { font-size: 14px; }
+.sim-run__state { flex: none; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.sim-run.is-running .sim-run__state { color: var(--cyan); }
+.sim-run.is-escalated .sim-run__state { color: var(--warning); }
+.sim-run.is-error .sim-run__state { color: var(--danger); }
+.sim-run__error { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--danger); }
+.sim-msg { max-width: 86%; padding: 8px 11px; font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sim-msg--customer { align-self: flex-start; background: var(--bubble-in); }
+.sim-msg--agent { align-self: flex-end; background: var(--bubble-out); }
+.sim-msg--pending { align-self: flex-start; background: transparent; padding-left: 0; color: var(--muted); animation: chatPulse 1.4s ease-in-out infinite; }
+.sim-msg-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.sim-flag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--warning); text-align: right; }
+.sim-actions { margin: 0; padding: 7px 9px 7px 24px; max-width: 86%; border: 1px solid var(--warning-border); background: var(--warning-soft); color: var(--warning); font-size: 12px; line-height: 1.45; }
+.sim-meta { font-size: 11px; color: var(--muted); }
+.sim-run > .sim-meta { align-self: flex-end; }

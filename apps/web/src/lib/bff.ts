@@ -1,6 +1,19 @@
 "use client";
 
 import type {
+  EmailAccountDto,
+  EmailAccountPayload,
+  EmailComposeContext,
+  EmailDto,
+  EmailTemplateDto,
+  EmailTemplatePayload,
+  EmailUnsubscribeDto,
+  SendEmailPayload,
+  SimulateTurnPayload,
+  SimulateTurnReply,
+  UpdateEmailAccountPayload,
+} from "@crm/shared";
+import type {
   BookingDto,
   BookingServiceDto,
   BookingServiceInput,
@@ -2555,5 +2568,85 @@ export async function updateTikTokAccount(
 export async function deleteTikTokAccount(id: string): Promise<import("@crm/shared").TikTokAccountsResponse> {
   const res = await bffFetch(`/api/bff/tiktok/accounts/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo desconectar"));
+  return res.json();
+}
+
+// ── Correo (buzones propios, plantillas y envíos) ────────────
+async function emailJson<T>(path: string, fallback: string, init?: RequestInit): Promise<T> {
+  const res = await bffFetch(`/api/bff/email/${path}`, {
+    ...init,
+    headers: init?.body ? { "Content-Type": "application/json" } : undefined,
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, fallback));
+  return res.json();
+}
+
+export function fetchEmailAccounts(): Promise<EmailAccountDto[]> {
+  return emailJson("accounts", "No se pudieron cargar los buzones");
+}
+
+export function createEmailAccount(input: EmailAccountPayload): Promise<EmailAccountDto> {
+  return emailJson("accounts", "No se pudo conectar el buzón", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateEmailAccount(id: string, input: UpdateEmailAccountPayload): Promise<EmailAccountDto> {
+  return emailJson(`accounts/${id}`, "No se pudo guardar el buzón", { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteEmailAccount(id: string): Promise<{ ok: true }> {
+  return emailJson(`accounts/${id}`, "No se pudo desconectar el buzón", { method: "DELETE" });
+}
+
+/** Manda un correo de prueba al propio buzón. */
+export function testEmailAccount(id: string): Promise<{ ok: true; to: string }> {
+  return emailJson(`accounts/${id}/test`, "No se pudo enviar la prueba", { method: "POST" });
+}
+
+export function fetchEmailTemplates(): Promise<EmailTemplateDto[]> {
+  return emailJson("templates", "No se pudieron cargar las plantillas de correo");
+}
+
+export function createEmailTemplate(input: EmailTemplatePayload): Promise<EmailTemplateDto> {
+  return emailJson("templates", "No se pudo crear la plantilla", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateEmailTemplate(id: string, input: Partial<EmailTemplatePayload>): Promise<EmailTemplateDto> {
+  return emailJson(`templates/${id}`, "No se pudo guardar la plantilla", { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteEmailTemplate(id: string): Promise<{ ok: true }> {
+  return emailJson(`templates/${id}`, "No se pudo eliminar la plantilla", { method: "DELETE" });
+}
+
+/** Lo que hace falta para escribirle a un contacto: su correo, las variables y los buzones. */
+export function fetchEmailCompose(contactId: string): Promise<EmailComposeContext> {
+  return emailJson(`contacts/${contactId}/compose`, "No se pudo preparar el correo");
+}
+
+export function fetchContactEmails(contactId: string): Promise<EmailDto[]> {
+  return emailJson(`contacts/${contactId}`, "No se pudieron cargar los correos");
+}
+
+export function sendEmail(input: SendEmailPayload): Promise<EmailDto> {
+  return emailJson("send", "No se pudo enviar el correo", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function fetchEmailUnsubscribes(): Promise<EmailUnsubscribeDto[]> {
+  return emailJson("unsubscribes", "No se pudo cargar la lista de bajas");
+}
+
+export function deleteEmailUnsubscribe(id: string): Promise<{ ok: true }> {
+  return emailJson(`unsubscribes/${id}`, "No se pudo quitar de la lista de bajas", { method: "DELETE" });
+}
+
+// ── Simulador de conversaciones (una IA hace de cliente) ─────
+/** Un paso: el siguiente mensaje del cliente simulado y la respuesta del agente. */
+export async function simulateAgentTurn(input: SimulateTurnPayload): Promise<SimulateTurnReply> {
+  const res = await bffFetch("/api/bff/bots/simulate/turn", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo simular la conversación"));
   return res.json();
 }

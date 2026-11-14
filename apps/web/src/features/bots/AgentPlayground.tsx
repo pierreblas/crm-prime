@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import type { PlaygroundReply, PlaygroundTurn } from "@crm/shared";
 import { testAgent } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
+import { ConversationSimulator } from "./ConversationSimulator";
 
 type ChatMsg =
   | { role: "user"; content: string }
@@ -14,12 +15,17 @@ type ChatMsg =
 export function AgentPlayground({
   botId,
   botName,
+  promptChars,
   onClose,
 }: {
   botId?: string;
   botName?: string;
+  /** Largo de las instrucciones del agente: afina la estimación de tokens del simulador. */
+  promptChars?: number;
   onClose: () => void;
 }) {
+  // «manual»: escribes tú como cliente. «simulate»: una IA hace de cliente.
+  const [mode, setMode] = useState<"manual" | "simulate">("manual");
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [text, setText] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -89,7 +95,7 @@ export function AgentPlayground({
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            {messages.length > 0 && (
+            {mode === "manual" && messages.length > 0 && (
               <button onClick={() => setMessages([])} style={ghostBtn} title="Reiniciar">
                 Reiniciar
               </button>
@@ -100,6 +106,23 @@ export function AgentPlayground({
           </div>
         </header>
 
+        <div className="seg play-mode" role="tablist" aria-label="Cómo probar">
+          <button type="button" role="tab" aria-selected={mode === "manual"} className={mode === "manual" ? "is-active" : ""} onClick={() => setMode("manual")}>
+            <NavIcon name="message" size={13} />
+            Escribir yo
+          </button>
+          <button type="button" role="tab" aria-selected={mode === "simulate"} className={mode === "simulate" ? "is-active" : ""} onClick={() => setMode("simulate")} data-play-simulate>
+            <NavIcon name="sparkles" size={13} />
+            Simular clientes
+          </button>
+        </div>
+
+        {mode === "simulate" ? (
+          <div style={body}>
+            <ConversationSimulator botId={botId} promptChars={promptChars} />
+          </div>
+        ) : (
+        <>
         <div style={body}>
           {messages.length === 0 && !send.isPending && (
             <div style={empty}>
@@ -185,6 +208,8 @@ export function AgentPlayground({
             {send.isPending ? "…" : "Enviar"}
           </button>
         </form>
+        </>
+        )}
       </aside>
     </>,
     document.body,

@@ -12,6 +12,8 @@ import {
   createBotSchema,
   updateBotSchema,
   playgroundRequestSchema,
+  simulateTurnRequestSchema,
+  type SimulateTurnRequest,
   promptAssistantRequestSchema,
   Role,
   type CreateBotInput,
@@ -55,6 +57,18 @@ export class BotsController {
     // los datos (el simulador no persiste nada), así que se marca aquí.
     void this.onboarding.markDone("try_agent");
     return this.agent.playground(body);
+  }
+
+  // Simulador: un paso de una conversación con un cliente de mentira (solo admin).
+  @Post("simulate/turn")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  simulateTurn(
+    @Body(new ZodValidationPipe(simulateTurnRequestSchema))
+    body: SimulateTurnRequest,
+  ) {
+    void this.onboarding.markDone("try_agent");
+    return this.agent.simulateTurn(body);
   }
 
   // Asistente de redacción: propone instrucciones o mensajes; no guarda nada.

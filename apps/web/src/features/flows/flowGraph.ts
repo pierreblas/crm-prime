@@ -184,6 +184,9 @@ export function computeIssues(nodes: Node[], edges: Edge[]): Map<string, string[
       case "sendTemplate":
         if (!d.templateId) add(n.id, "Elige una plantilla aprobada");
         break;
+      case "sendEmail":
+        if (!d.emailTemplateId) add(n.id, "Elige una plantilla de correo");
+        break;
       case "askQuestion":
         if (!d.text?.trim()) add(n.id, "Falta la pregunta");
         if (!d.variable) add(n.id, "Falta la variable donde guardar la respuesta");

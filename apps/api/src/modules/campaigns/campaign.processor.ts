@@ -28,8 +28,6 @@ type CampaignJob =
   | { kind: "launch"; campaignId: string; orgId?: string }
   | { kind: "send"; campaignId: string; contactId: string; orgId?: string };
 
-const WINDOW_MS = 24 * 60 * 60 * 1000;
-
 // Throttling: como máximo 10 envíos por segundo (respeta rate limits de Meta).
 @Processor(QUEUE_CAMPAIGN, {
   concurrency: 5,
@@ -178,7 +176,9 @@ export class CampaignProcessor extends WorkerHost {
         contactId,
         channelId,
         status: "OPEN",
-        windowExpiresAt: new Date(Date.now() + WINDOW_MS),
+        // Una plantilla nuestra no abre la ventana de 24 h: la abre el cliente
+        // cuando escribe. Hasta entonces en este chat solo caben plantillas.
+        windowExpiresAt: null,
         lastMessageAt: new Date(),
       },
     });

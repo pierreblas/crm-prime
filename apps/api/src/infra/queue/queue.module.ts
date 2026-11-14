@@ -3,6 +3,7 @@ import { BullModule } from "@nestjs/bullmq";
 import {
   QUEUE_AI_REPLY,
   QUEUE_CAMPAIGN,
+  QUEUE_EMAIL,
   QUEUE_FLOW,
   QUEUE_INBOUND,
   QUEUE_META_LEADS,
@@ -122,6 +123,17 @@ import {
           // repetidos solo mientras uno espera o corre, no después.
           removeOnComplete: true,
           removeOnFail: 500,
+        },
+      },
+      {
+        // Correos automáticos de los flujos, por el buzón de la empresa. Los
+        // fallos pasajeros del servidor de correo se reintentan con espera.
+        name: QUEUE_EMAIL,
+        defaultJobOptions: {
+          attempts: 4,
+          backoff: { type: "exponential", delay: 30_000 },
+          removeOnComplete: 1000,
+          removeOnFail: 5000,
         },
       },
       {

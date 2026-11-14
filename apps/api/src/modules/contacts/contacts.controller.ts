@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -13,9 +14,11 @@ import {
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
+  CONTACT_EMAIL_KEY,
   contactCurrency,
   countryFromPhone,
   createContactSchema,
+  normalizeEmail,
   setContactTagsSchema,
   updateContactSchema,
   utmKeys,
@@ -274,12 +277,25 @@ export class ContactsController {
     const existing = await this.prisma.contact.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException("Contacto no encontrado");
 
+    // El correo es un campo como los demás, pero tiene que ser una dirección:
+    // de ahí salen los envíos. Vacío lo borra. Solo se comprueba si cambia: la
+    // ficha manda todos los campos al guardar, y un valor antiguo mal escrito
+    // no debe impedir guardar los otros.
+    const fields = body.fields ? { ...body.fields } : undefined;
+    const rawEmail = fields?.[CONTACT_EMAIL_KEY];
+    const emailChanged = rawEmail !== undefined && rawEmail !== (this.fieldsFrom(existing.metadata)[CONTACT_EMAIL_KEY] ?? "");
+    if (fields && emailChanged && rawEmail.trim()) {
+      const email = normalizeEmail(rawEmail);
+      if (!email) throw new BadRequestException("Ese correo no es una dirección válida");
+      fields[CONTACT_EMAIL_KEY] = email;
+    }
+
     // Campos personalizados: fusionar con la metadata existente.
     const metadata =
-      body.fields !== undefined
+      fields !== undefined
         ? ({
             ...this.fieldsFrom(existing.metadata),
-            ...body.fields,
+            ...fields,
           } as Prisma.InputJsonValue)
         : undefined;
 
@@ -311,6 +327,8 @@ export class ContactsController {
         { name: { contains: search, mode: "insensitive" as const } },
         { phone: { contains: search } },
         { waUsername: { contains: search.replace(/^@/, ""), mode: "insensitive" as const } },
+        // Por correo: es un campo del contacto (metadata.email), siempre en minúsculas.
+        { metadata: { path: [CONTACT_EMAIL_KEY], string_contains: search.trim().toLowerCase() } },
       ],
     };
   }

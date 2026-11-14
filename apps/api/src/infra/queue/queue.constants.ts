@@ -9,3 +9,4 @@ export const QUEUE_META_LEADS = "meta-leads"; // leads de formularios de Meta
 export const QUEUE_META_MESSAGING = "meta-messaging"; // mensajes de Messenger e Instagram (páginas de Facebook)
 export const QUEUE_TIKTOK = "tiktok-messaging"; // mensajes directos de TikTok
 export const QUEUE_PRODUCT_SYNC = "product-sync"; // lectura de catálogos conectados (WooCommerce, Shopify, hojas)
+export const QUEUE_EMAIL = "email-send"; // correos automáticos (bloque «Enviar correo» de los flujos)

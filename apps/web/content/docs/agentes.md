@@ -167,3 +167,15 @@ Cada respuesta registra sus tokens y su coste. En el agente ves el gasto del mes
 ## Playground
 
 Antes de activar un agente, pruébalo en el **Playground**: una conversación simulada donde ves la respuesta, las herramientas que usó, los tokens y el coste de cada turno.
+
+## Simulador de conversaciones
+
+En el mismo cajón de **Probar agente** hay dos modos. **Escribir yo** es el Playground de siempre. **Simular clientes** pone a una IA a hacer de cliente, para ver cómo responde tu agente sin escribir tú cada mensaje:
+
+1. Elige a qué clientes simular (hasta 5 por tanda): el que pregunta el precio, el que quiere agendar, el indeciso, el molesto, el que pide hablar con una persona, el que pregunta algo que no está previsto, o uno que describas tú.
+2. Elige cuántos mensajes escribirá el cliente en cada conversación (4, 6 u 8).
+3. Antes de empezar ves el **gasto estimado** en tokens; al terminar, lo que gastó de verdad.
+
+Las conversaciones corren una detrás de otra y se ven en vivo. En cada una ves lo que respondió el agente, las herramientas que usó, las acciones que habría hecho (no se aplican) y si pasó el chat a una persona. Con **Detener** se corta cuando quieras.
+
+No se envía nada por WhatsApp ni se crea o cambia ningún contacto. Sí **gasta tokens**, por los dos lados (el cliente simulado y tu agente): salen de tu IA de Driony o los cobra tu proveedor si usas tu clave, y aparecen en **Consumo de IA** como «Simulador de conversaciones».

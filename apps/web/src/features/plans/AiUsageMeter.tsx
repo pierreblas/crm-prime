@@ -6,6 +6,7 @@ import { aiIncludedTotal, formatTokens, aiQuotaLevel, type AiIncluded, type AiSt
 import { NavIcon } from "@/components/NavIcons";
 import { useLocale, useT } from "@/i18n/I18nProvider";
 import { useAiStatus } from "@/features/copilot/useAiStatus";
+import { ProgressRing } from "@/features/onboarding/ProgressRing";
 
 /**
  * Lo que lleva gastado la empresa de la IA de Driony este mes, en la cabecera
@@ -149,6 +150,59 @@ export function AiUsageMeter({ isAdmin }: { isAdmin: boolean }) {
         </div>
       )}
     </div>
+  );
+}
+
+const RING_SIZE = 36;
+const RING_STROKE = 2;
+/** Pista punteada en 18 tramos iguales: sin costura donde el círculo se cierra. */
+const RING_STEP = (2 * Math.PI * ((RING_SIZE - RING_STROKE) / 2)) / 18;
+const RING_DOTS = `${(RING_STEP * 0.38).toFixed(3)} ${(RING_STEP * 0.62).toFixed(3)}`;
+/** Cian mide; el ámbar y el rojo son los mismos avisos del medidor. */
+const RING_COLOR = { ok: "var(--cyan)", warn: "var(--warning)", high: "var(--warning)", full: "var(--danger)" } as const;
+
+/**
+ * La foto de la cabecera con el consumo de IA alrededor: el anillo se llena con
+ * los tokens de Driony gastados este mes. Con clave propia no hay cupo que
+ * llenar: el anillo va punteado y la cifra del mes sale al pasar el cursor. Sin
+ * IA, la foto sola. El detalle y las acciones siguen en el medidor de al lado,
+ * que además es el que lee un lector de pantalla.
+ */
+export function AiUsageRing({ initial }: { initial: string }) {
+  const t = useT();
+  const { data: ai } = useAiStatus();
+  const included = usesIncluded(ai) ? ai!.included : null;
+  const ownKey = !included && !!ai && (ai.source === "own" || ai.source === "platform");
+  const photo = <span className="avatar user-ring__photo">{initial}</span>;
+
+  if (included) {
+    const m = meterOf(included);
+    const level = aiQuotaLevel(included);
+    return (
+      <span
+        className="user-ring"
+        title={t("aiMeter.label", { used: formatTokens(m.used), total: formatTokens(m.total) })}
+        data-ai-ring={level}
+      >
+        <ProgressRing pct={m.pct} size={RING_SIZE} stroke={RING_STROKE} color={RING_COLOR[level]}>
+          {photo}
+        </ProgressRing>
+      </span>
+    );
+  }
+  if (ownKey) {
+    return (
+      <span className="user-ring" title={t("aiMeter.ownLabel", { n: formatTokens(ai!.ownTokens) })} data-ai-ring="own">
+        <ProgressRing pct={null} size={RING_SIZE} stroke={RING_STROKE} track="var(--border-strong)" trackDash={RING_DOTS}>
+          {photo}
+        </ProgressRing>
+      </span>
+    );
+  }
+  return (
+    <span className="user-ring" data-ai-ring="none">
+      {photo}
+    </span>
   );
 }
 

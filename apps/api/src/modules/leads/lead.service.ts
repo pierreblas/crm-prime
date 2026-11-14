@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Prisma } from "@prisma/client";
-import { fieldKeyFromLabel, phoneVariants, resolveFieldKeys, utmKeys } from "@crm/shared";
+import { CONTACT_EMAIL_KEY, fieldKeyFromLabel, phoneVariants, resolveFieldKeys, utmKeys } from "@crm/shared";
 import type {
   UnmappedField,
   CreateCustomFieldInput,
@@ -96,7 +96,8 @@ export class LeadService {
       GROUP BY k
       ORDER BY count(*) DESC
       LIMIT 200`;
-    const skip = new Set<string>(utmKeys as readonly string[]);
+    // El correo tiene su sitio fijo en la ficha: no hace falta crearle un campo.
+    const skip = new Set<string>([...(utmKeys as readonly string[]), CONTACT_EMAIL_KEY]);
     return rows.filter((r) => !defined.has(r.key) && !skip.has(r.key)).slice(0, 50);
   }
 

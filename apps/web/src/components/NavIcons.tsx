@@ -30,6 +30,7 @@ export type IconName =
   | "paperclip"
   | "sparkles"
   | "send"
+  | "mail"
   | "pause"
   | "image"
   | "file"
@@ -382,6 +383,13 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
         <svg {...p}>
           <path d="M12 3.5 13.6 8 18 9.6 13.6 11.2 12 15.7 10.4 11.2 6 9.6 10.4 8z" />
           <path d="M18.5 15.5l.7 1.9 1.8.7-1.8.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z" />
+        </svg>
+      );
+    case "mail":
+      return (
+        <svg {...p}>
+          <rect x="2.5" y="4.5" width="19" height="15" rx="2" />
+          <path d="m21.5 7.5-8.5 5.4a1.9 1.9 0 0 1-2 0L2.5 7.5" />
         </svg>
       );
     case "send":

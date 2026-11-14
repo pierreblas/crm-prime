@@ -26,6 +26,7 @@ import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { QUEUE_FLOW } from "../../infra/queue/queue.constants";
 import { MessagingService } from "../messaging/messaging.service";
+import { EmailService } from "../email/email.service";
 import { AutopilotService } from "./autopilot.service";
 import { parseTriggers } from "./flow.service";
 import { MediaUnderstandingService } from "./media-understanding.service";
@@ -102,6 +103,7 @@ export class FlowEngineService {
     private readonly autopilot: AutopilotService,
     @InjectQueue(QUEUE_FLOW) private readonly flowQueue: Queue,
     private readonly events: EventEmitter2,
+    private readonly email: EmailService,
   ) {}
 
   // ── Conversación nueva: ¿arranca un flujo "al iniciar"? ─────
@@ -805,6 +807,12 @@ export class FlowEngineService {
 
       if (node.type === "sendTemplate") {
         await this.sendTemplate(flow, conversationId, node, vars);
+        current = this.nextNodeId(flow.edges, node.id);
+        continue;
+      }
+
+      if (node.type === "sendEmail") {
+        await this.sendEmail(flow, conversationId, node, vars);
         current = this.nextNodeId(flow.edges, node.id);
         continue;
       }
@@ -1538,6 +1546,39 @@ export class FlowEngineService {
       const reason = (e as Error).message;
       this.logger.warn(`No se pudo enviar la plantilla en ${conversationId}: ${reason}`);
       await this.addNote(flow, conversationId, `no pudo enviar la plantilla «${template.name}»: ${reason}`).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Correo con una plantilla, por un buzón de la empresa. No depende de la
+   * ventana de WhatsApp. Sale por su cola; si no se puede ni encolar (el
+   * contacto no tiene correo, se dio de baja, no hay buzón), queda una nota
+   * con el motivo y el flujo sigue.
+   */
+  private async sendEmail(flow: FlowRow, conversationId: string, node: FlowNode, vars: Vars): Promise<void> {
+    const templateId = node.data.emailTemplateId;
+    if (!templateId) return;
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { contactId: true },
+    });
+    if (!convo) return;
+    // Las variables internas del motor (reintentos y demás) no son del correo.
+    const flowVars = Object.fromEntries(Object.entries(vars).filter(([k]) => !k.startsWith("__")));
+    try {
+      const res = await this.email.sendAutomated({
+        contactId: convo.contactId,
+        conversationId,
+        templateId,
+        account: node.data.emailAccountId,
+        vars: flowVars,
+        origin: `Flujo «${flow.name}»`,
+      });
+      if (!res.ok) await this.addNote(flow, conversationId, `no envió el correo: ${res.reason}`);
+    } catch (e) {
+      const reason = (e as Error).message;
+      this.logger.warn(`No se pudo encolar el correo en ${conversationId}: ${reason}`);
+      await this.addNote(flow, conversationId, `no pudo enviar el correo: ${reason}`).catch(() => undefined);
     }
   }
 

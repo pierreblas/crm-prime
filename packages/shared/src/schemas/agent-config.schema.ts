@@ -125,9 +125,28 @@ export const FOLLOW_UP_MAX_MINUTES = 30 * 24 * 60;
 /** Ventana de WhatsApp en minutos: pasada, solo se puede enviar plantilla. */
 export const WHATSAPP_WINDOW_MINUTES = 24 * 60;
 
+/**
+ * Cuándo sale un toque: tras un rato de silencio, o un rato antes de que se
+ * cierre la ventana (el último momento para escribir texto libre: si el
+ * cliente contesta, se abren otras 24 h).
+ */
+export const followUpTimings = ["after", "before_close"] as const;
+export type FollowUpTiming = (typeof followUpTimings)[number];
+
+/** Separación mínima entre un mensaje nuestro y el toque siguiente. */
+export const FOLLOW_UP_MIN_GAP_MINUTES = 5;
+/** «Antes del cierre»: como poco con este margen, para no llegar con la ventana recién cerrada. */
+export const FOLLOW_UP_BEFORE_CLOSE_MIN = 15;
+/** «Antes del cierre»: como mucho con esta antelación. */
+export const FOLLOW_UP_BEFORE_CLOSE_MAX = WHATSAPP_WINDOW_MINUTES - 60;
+
 export const followUpStepSchema = z.object({
-  /** Minutos de silencio del cliente desde el mensaje anterior (el nuestro o el toque previo). */
-  afterMinutes: z.number().int().min(5).max(FOLLOW_UP_MAX_MINUTES),
+  /** Lo guardado antes de existir «antes del cierre» no trae este campo: cuenta como «after». */
+  timing: z.enum(followUpTimings).default("after"),
+  /** timing=after: minutos de silencio del cliente desde el mensaje anterior (el nuestro o el toque previo). */
+  afterMinutes: z.number().int().min(FOLLOW_UP_MIN_GAP_MINUTES).max(FOLLOW_UP_MAX_MINUTES),
+  /** timing=before_close: minutos antes de que se cierre la ventana. */
+  beforeCloseMinutes: z.number().int().min(FOLLOW_UP_BEFORE_CLOSE_MIN).max(FOLLOW_UP_BEFORE_CLOSE_MAX).default(60),
   kind: z.enum(followUpKinds),
   /** kind=text: el mensaje. kind=ai: qué debe conseguir (opcional). */
   text: z.string().max(2000).default(""),
@@ -135,6 +154,39 @@ export const followUpStepSchema = z.object({
   templateId: z.string().nullable().default(null),
 });
 export type FollowUpStep = z.infer<typeof followUpStepSchema>;
+
+/** Dónde cae un toque contando desde el último mensaje del cliente. */
+export interface FollowUpMoment {
+  /** Minutos desde el último mensaje del cliente, como poco: nuestra respuesta sale algo después que el suyo. */
+  minutes: number;
+  /** Cae con la ventana ya cerrada: solo cabe plantilla. */
+  outside: boolean;
+  /** Un «antes del cierre» que no llega a salir: los toques anteriores ya pasan de ese momento. */
+  late: boolean;
+}
+
+/**
+ * La secuencia puesta sobre la ventana: en qué minuto cae cada toque y si
+ * queda dentro. La usan la validación y el editor, para que digan lo mismo.
+ * El envío real (follow-up.rules.ts en la API) cuenta además con la hora
+ * exacta de cierre y con el horario de atención.
+ */
+export function followUpTimeline(
+  steps: Pick<FollowUpStep, "timing" | "afterMinutes" | "beforeCloseMinutes">[],
+  windowMinutes: number = WHATSAPP_WINDOW_MINUTES,
+): FollowUpMoment[] {
+  let minutes = 0;
+  return steps.map((s) => {
+    if (s.timing === "before_close") {
+      const at = windowMinutes - s.beforeCloseMinutes;
+      const late = minutes + FOLLOW_UP_MIN_GAP_MINUTES > at;
+      minutes = Math.max(minutes, at);
+      return { minutes, outside: minutes >= windowMinutes, late };
+    }
+    minutes += s.afterMinutes;
+    return { minutes, outside: minutes >= windowMinutes, late: false };
+  });
+}
 
 /**
  * Secuencia de seguimientos de un agente. Se valida solo si está activada:
@@ -147,13 +199,26 @@ export const followUpsSchema = z
     steps: z.array(followUpStepSchema).max(FOLLOW_UP_MAX_STEPS).default([]),
     /** También en los chats que lleva una persona (por defecto, solo en los que atiende la IA). */
     includeHuman: z.boolean().default(false),
+    /**
+     * Un toque de texto o de IA que saldría con la ventana cerrada (lo normal:
+     * por esperar al horario de atención) se adelanta para que salga antes del
+     * cierre. Apagado en lo guardado antes de existir la opción; el editor lo
+     * enciende al activar los seguimientos por primera vez.
+     */
+    keepInWindow: z.boolean().default(false),
   })
   .superRefine((v, ctx) => {
     if (!v.enabled) return;
-    let minutes = 0;
-    v.steps.forEach((s, i) => {
-      minutes += s.afterMinutes;
-      if (minutes >= WHATSAPP_WINDOW_MINUTES && s.kind !== "template") {
+    followUpTimeline(v.steps).forEach((t, i) => {
+      const s = v.steps[i]!;
+      if (t.late) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["steps", i, "beforeCloseMinutes"],
+          message: "cuando le toca a este toque ya queda menos que eso para el cierre de la ventana: ponlo antes en la secuencia o acorta las esperas anteriores",
+        });
+      }
+      if (!t.late && t.outside && s.kind !== "template") {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["steps", i, "kind"],
@@ -169,7 +234,8 @@ export const followUpsSchema = z
     });
   });
 export type FollowUps = z.infer<typeof followUpsSchema>;
-export const DEFAULT_FOLLOW_UPS: FollowUps = { enabled: false, steps: [], includeHuman: false };
+/** Lo que trae un agente nuevo: apagado, y con los toques dentro de la ventana para cuando se active. */
+export const DEFAULT_FOLLOW_UPS: FollowUps = { enabled: false, steps: [], includeHuman: false, keepInWindow: true };
 
 // Configuración del agente que devuelve la API (compat: bot por defecto).
 export const agentConfigSchema = z.object({

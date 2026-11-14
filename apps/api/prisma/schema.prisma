@@ -184,6 +184,10 @@ model Organization {
   metaPages            MetaPage[]
   tiktokAccounts       TikTokAccount[]
   quickReplies         QuickReply[]
+  emailAccounts        EmailAccount[]
+  emailTemplates       EmailTemplate[]
+  emails               Email[]
+  emailUnsubscribes    EmailUnsubscribe[]
   aiSetting            AiSetting?
   integrationSetting   IntegrationSetting?
   onboarding           OnboardingState?
@@ -356,6 +360,8 @@ model User {
   staffSchedule         StaffSchedule?
   bookings              Booking[]             @relation("BookingStaff")
   bookingsCreated       Booking[]             @relation("BookingCreatedBy")
+  emailAccounts         EmailAccount[]        @relation("EmailAccountOwner")
+  emailsSent            Email[]               @relation("EmailSender")
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -504,6 +510,7 @@ model Contact {
   calls         Call[]
   metaLeads     MetaLead[]
   bookings      Booking[]
+  emails        Email[]
 
   org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   conversionEvents ConversionEvent[]
@@ -1037,6 +1044,107 @@ model QuickReply {
   @@map("quick_replies")
 }
 
+// ─────────────────────────────────────────────────────────────
+// Correo: buzones propios (SMTP), plantillas, enviados y bajas
+// ─────────────────────────────────────────────────────────────
+
+// Buzón que conecta la empresa. Driony no envía por su cuenta: el correo sale
+// por el servidor SMTP del negocio, con su dirección real.
+model EmailAccount {
+  id          String    @id @default(cuid())
+  orgId       String
+  // Dueño (buzón personal de un usuario); null = compartido por la empresa.
+  userId      String?
+  address     String
+  fromName    String?
+  provider    String    @default("smtp") // gmail | outlook | smtp: solo elige las ayudas en pantalla
+  smtpHost    String
+  smtpPort    Int
+  smtpUser    String
+  smtpPassEnc String // cifrada (secret-box); nunca sale por la API
+  signature   String?
+  dailyLimit  Int       @default(300) // correos al día: protege la reputación de la dirección
+  status      String    @default("ok") // ok | error (el servidor rechazó el último acceso)
+  lastError   String?
+  lastSentAt  DateTime?
+  verifiedAt  DateTime? // última vez que el servidor aceptó usuario y contraseña
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user   User?        @relation("EmailAccountOwner", fields: [userId], references: [id], onDelete: Cascade)
+  emails Email[]
+
+  @@unique([orgId, address])
+  @@index([userId])
+  @@map("email_accounts")
+}
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  subject     String
+  body        String // texto con {{variables}}; se pasa a HTML al enviar
+  attachments Json? // [{ ref: "storage://…", name, mimeType, size }]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  emails Email[]
+
+  @@unique([orgId, name])
+  @@map("email_templates")
+}
+
+// Un correo enviado (o por enviar) a un contacto. Es su historial de correo.
+model Email {
+  id             String    @id @default(cuid())
+  orgId          String
+  contactId      String
+  conversationId String? // chat donde queda la nota del envío, si lo hay
+  accountId      String?
+  templateId     String?
+  userId         String? // quién lo envió; null = automático
+  origin         String? // de dónde salió si fue automático («Flujo «Bienvenida»»)
+  fromAddress    String
+  fromName       String?
+  toAddress      String
+  subject        String
+  bodyText       String
+  attachments    Json?
+  automated      Boolean   @default(false) // lleva enlace de baja y respeta la lista de bajas
+  status         String    @default("queued") // queued | sent | failed
+  errorReason    String?
+  messageId      String? // Message-ID del correo: enlazará las respuestas cuando se reciban
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  org      Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact  Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  account  EmailAccount?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  template EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  user     User?          @relation("EmailSender", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, contactId, createdAt])
+  @@index([accountId, createdAt])
+  @@map("emails")
+}
+
+// Direcciones que pidieron no recibir más correos automáticos de esta empresa.
+model EmailUnsubscribe {
+  id        String   @id @default(cuid())
+  orgId     String
+  address   String
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, address])
+  @@map("email_unsubscribes")
+}
+
 model Campaign {
   id              String         @id @default(cuid())
   name            String
@@ -1216,7 +1324,7 @@ model AgentConfig {
   businessHoursEnabled Boolean @default(false)
   businessHours        Json? // { timezone, days, outOfHoursMessage }
   keywordTriggers      Json? // [{ keywords[], action, value? }]
-  followUps            Json? // { enabled, steps: [{ afterMinutes, kind, text, templateId }], includeHuman }
+  followUps            Json? // { enabled, steps: [{ timing, afterMinutes, beforeCloseMinutes, kind, text, templateId }], includeHuman, keepInWindow }
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

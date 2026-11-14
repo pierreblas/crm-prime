@@ -711,6 +711,9 @@ export function BotEditor({
                     enabled: v,
                     // Al activarlo por primera vez ya hay un toque listo: a las 2 h, lo redacta la IA.
                     steps: v && form.followUps.steps.length === 0 ? [defaultFollowUpStep(0)] : form.followUps.steps,
+                    // Una secuencia nueva nace con los toques dentro de la ventana; las que ya
+                    // estaban guardadas siguen como estaban hasta que su dueño lo marque.
+                    keepInWindow: v && form.followUps.steps.length === 0 ? true : form.followUps.keepInWindow,
                   })
                 }
                 label={form.followUps.enabled ? "Activado" : "Desactivado"}

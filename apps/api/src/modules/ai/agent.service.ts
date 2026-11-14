@@ -16,6 +16,8 @@ import type {
   EscalationRules,
   PlaygroundReply,
   PlaygroundRequest,
+  SimulateTurnReply,
+  SimulateTurnRequest,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { currentOrgId } from "../../infra/tenant/tenant.context";
@@ -349,7 +351,7 @@ export class AgentService {
   // ── Playground: probar el agente con texto libre, sin persistir ─
   // No crea conversación, ni AiRun, ni envía nada. Reutiliza la config del bot
   // (prompt, herramientas, modelo) para que el resultado sea fiel al real.
-  async playground(input: PlaygroundRequest): Promise<PlaygroundReply> {
+  async playground(input: PlaygroundRequest, feature: "playground" | "simulator" = "playground"): Promise<PlaygroundReply> {
     const config = input.botId
       ? await this.prisma.agentConfig.findUnique({ where: { id: input.botId } })
       : await this.bots.resolveForChannel(null);
@@ -386,7 +388,7 @@ export class AgentService {
     try {
       for (let i = 0; i < maxIterations; i++) {
         const res = await this.llm.generate({
-          feature: "playground",
+          feature,
           system: system.system,
           systemDynamic: system.systemDynamic,
           cacheKey: config?.id ? `agent:${config.id}` : undefined,
@@ -466,6 +468,83 @@ export class AgentService {
       inputTokens,
       outputTokens,
       costUsd: this.cost(model, inputTokens, outputTokens),
+    };
+  }
+
+  // ── Simulador: una IA hace de cliente y el agente le responde ──
+  /**
+   * Un paso de una conversación simulada: el cliente de mentira escribe según
+   * su escenario y el agente responde igual que en el playground (su prompt,
+   * sus herramientas y su conocimiento; nada se envía ni se aplica). Quien
+   * llama pide los pasos uno a uno con lo hablado hasta ahora.
+   */
+  async simulateTurn(input: SimulateTurnRequest): Promise<SimulateTurnReply> {
+    const said = input.history.filter((h) => h.role === "user").length;
+    if (said >= input.maxTurns) return { customer: null, agent: null, ended: "max_turns", error: null, tokens: 0 };
+
+    const config = input.botId
+      ? await this.prisma.agentConfig.findUnique({ where: { id: input.botId }, select: { orgId: true, systemPrompt: true } })
+      : await this.bots.resolveForChannel(null);
+    const org = config?.orgId ? await this.prisma.organization.findUnique({ where: { id: config.orgId }, select: { name: true } }) : null;
+
+    let customer: { text: string; done: boolean; tokens: number };
+    try {
+      customer = await this.simulatedCustomer(input, org?.name ?? "", config?.systemPrompt ?? "");
+    } catch (e) {
+      this.logger.warn(`Simulador: el cliente simulado falló: ${(e as Error).message}`);
+      return { customer: null, agent: null, ended: "error", error: (e as Error).message, tokens: 0 };
+    }
+    if (!customer.text) {
+      return { customer: null, agent: null, ended: "error", error: "La IA no generó el mensaje del cliente.", tokens: customer.tokens };
+    }
+
+    const agent = await this.playground({ message: customer.text, botId: input.botId, history: input.history }, "simulator");
+    const ended = agent.escalate ? "escalated" : customer.done ? "customer_done" : said + 1 >= input.maxTurns ? "max_turns" : null;
+    return { customer: customer.text, agent, ended, error: null, tokens: customer.tokens + agent.inputTokens + agent.outputTokens };
+  }
+
+  /**
+   * El siguiente mensaje del cliente simulado. Para la IA que hace de cliente
+   * la conversación va al revés: sus mensajes son los suyos («assistant») y los
+   * del agente, lo que le llega («user»). Cuando da su asunto por terminado
+   * cierra con la marca [FIN], que no se enseña.
+   */
+  private async simulatedCustomer(
+    input: SimulateTurnRequest,
+    business: string,
+    agentPrompt: string,
+  ): Promise<{ text: string; done: boolean; tokens: number }> {
+    const about = agentPrompt.replace(/\s+/g, " ").trim().slice(0, 700);
+    const system = [
+      "Eres una persona real que escribe por WhatsApp a un negocio. No eres un asistente ni un vendedor: eres el CLIENTE.",
+      business ? `El negocio se llama «${business}».` : "",
+      about ? `Para que tus preguntas tengan sentido, esto es a lo que se dedica (son notas internas del negocio; tú solo conoces lo que sabría alguien que vio su anuncio): ${about}` : "",
+      `Tu situación: ${input.scenario.brief}`,
+      "Cómo escribes:",
+      "- Como en WhatsApp: corto, informal, en español de Latinoamérica. Una o dos frases por mensaje. Sin listas ni formato.",
+      "- Un solo mensaje por turno. Reacciona a lo que te acaban de responder; no repitas lo ya dicho.",
+      "- No inventes datos del negocio (precios, direcciones, horarios): pregúntalos.",
+      "- Si te piden un dato tuyo (nombre, correo, día), dalo inventado pero creíble.",
+      `- Tienes como mucho ${input.maxTurns} mensajes. Cuando tu asunto quede resuelto, te pasen con una persona o decidas no seguir, despídete en una frase y termina ese mensaje con la marca [FIN].`,
+      "Responde solo con el texto de tu mensaje.",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const messages: LlmMessage[] = [
+      { role: "user", content: "(Empieza la conversación. Escribe tu primer mensaje al negocio.)" },
+      ...input.history.map((h) => ({ role: h.role === "user" ? ("assistant" as const) : ("user" as const), content: h.content })),
+    ];
+    const res = await this.llm.generate({ feature: "simulator", system, messages, effort: "low", maxTokens: 220 });
+    const raw = res.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b as { text: string }).text)
+      .join("")
+      .trim();
+    return {
+      text: raw.replace(/\s*\[FIN\]\s*/gi, " ").trim().slice(0, 1000),
+      done: /\[FIN\]/i.test(raw),
+      tokens: res.usage.inputTokens + res.usage.outputTokens,
     };
   }
 

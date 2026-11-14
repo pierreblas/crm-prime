@@ -15,12 +15,14 @@ import { AiUsageSettings } from "./AiUsageSettings";
 import { PipelinesSettings } from "./PipelinesSettings";
 import { CustomFieldsSettings, SourcesSettings } from "./SettingsPanels";
 import { AgendaSettings } from "@/features/agenda/AgendaSettings";
+import { EmailSettings } from "@/features/email/EmailSettings";
 
 type TabKey =
   | "plan"
   | "tags"
   | "quickReplies"
   | "channels"
+  | "email"
   | "sources"
   | "fields"
   | "stages"
@@ -36,6 +38,7 @@ const TABS: { key: TabKey; label: string; icon: IconName }[] = [
   { key: "tags", label: "Etiquetas", icon: "tag" },
   { key: "quickReplies", label: "Respuestas rápidas", icon: "zap" },
   { key: "channels", label: "Canales", icon: "globe" },
+  { key: "email", label: "Correo", icon: "mail" },
   { key: "sources", label: "Fuentes", icon: "target" },
   { key: "fields", label: "Campos personalizados", icon: "puzzle" },
   { key: "stages", label: "Embudos y etapas", icon: "pipeline" },
@@ -87,6 +90,7 @@ export function SettingsManager({ hub = false }: { hub?: boolean }) {
         {tab === "tags" && <TagsManager />}
         {tab === "quickReplies" && <QuickRepliesSettings />}
         {tab === "channels" && <ChannelsSettings hub={hub} />}
+        {tab === "email" && <EmailSettings />}
         {tab === "sources" && <SourcesSettings />}
         {tab === "fields" && <CustomFieldsSettings />}
         {tab === "stages" && <PipelinesSettings />}

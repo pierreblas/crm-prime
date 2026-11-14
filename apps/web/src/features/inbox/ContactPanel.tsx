@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  CONTACT_EMAIL_KEY,
+  contactEmailOf,
   formatMoney,
   type ContactListItem,
   type ConversationDto,
@@ -35,6 +37,7 @@ import { TagEditor } from "@/features/contacts/TagEditor";
 import { CopilotPanel } from "./CopilotPanel";
 import { OriginSection } from "./OriginSection";
 import { ContactBookings } from "@/features/agenda/ContactBookings";
+import { ContactEmails } from "@/features/email/ContactEmails";
 
 export type ContactPanelTab = "contact" | "copilot";
 
@@ -135,6 +138,17 @@ export function ContactPanel({
                 contact={{ id: contactId, name: conversation.contact.name, phone: conversation.contact.phone }}
                 conversationId={conversation.id}
               />
+              <ContactEmails
+                contact={
+                  contact
+                    ? {
+                        id: contactId,
+                        name: conversation.contact.name ?? phoneLabel(conversation.contact.phone, conversation.contact.waUsername),
+                        email: contactEmailOf(contact.fields),
+                      }
+                    : null
+                }
+              />
               <section className="cp-section">
                 <div className="cp-section__title">{t("inbox.tags")}</div>
                 <TagEditor contactId={contactId} applied={conversation.contact.tags} />
@@ -156,7 +170,7 @@ export function ContactPanel({
                   ))}
                 </select>
               </section>
-              <FieldsSection contact={contact ?? null} fields={fields} />
+              <FieldsSection contact={contact ?? null} fields={fields.filter((f) => f.key !== CONTACT_EMAIL_KEY)} />
               <NotesSection conversationId={conversation.id} notes={notes} loading={notesLoading} />
             </>
           )}
@@ -553,7 +567,9 @@ function FieldsSection({ contact, fields }: { contact: ContactListItem | null; f
   const dirty = fields.some((f) => (values[f.key] ?? "") !== (saved[f.key] ?? ""));
 
   const save = useMutation({
-    mutationFn: () => updateContact(contact!.id, { fields: values }),
+    // Sin el correo: se guarda en su bloque y aquí podría ir un valor viejo.
+    mutationFn: () =>
+      updateContact(contact!.id, { fields: Object.fromEntries(Object.entries(values).filter(([k]) => k !== CONTACT_EMAIL_KEY)) }),
     onSuccess: () => {
       toast.success(t("inbox.contactSaved"));
       queryClient.invalidateQueries({ queryKey: ["contacts"] });

@@ -16,10 +16,11 @@ import { CampaignWizard } from "./CampaignWizard";
 import { CampaignDetail } from "./CampaignDetail";
 import { takeCampaignPreset, type CampaignPreset } from "./preset";
 import { TemplatesPanel } from "./TemplatesPanel";
+import { EmailTemplatesPanel } from "@/features/email/EmailTemplatesPanel";
 import { PlanGate } from "@/features/plans/usePlan";
 import { box, ghostBtn, primaryBtn } from "./styles";
 
-type Tab = "campaigns" | "templates";
+type Tab = "campaigns" | "templates" | "emailTemplates";
 
 export const STATUS_LABEL: Record<CampaignDto["status"], string> = {
   DRAFT: "Borrador",
@@ -72,14 +73,17 @@ export function CampaignsManager() {
 
   return (
     <div style={{ maxWidth: 980, margin: "0 auto", padding: 24 }}>
-      <PlanGate feature="broadcasts" />
+      {tab !== "emailTemplates" && <PlanGate feature="broadcasts" />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", gap: 6 }}>
           <TabBtn active={tab === "campaigns"} onClick={() => setTab("campaigns")}>
             Difusiones
           </TabBtn>
           <TabBtn active={tab === "templates"} onClick={() => setTab("templates")}>
-            Plantillas
+            Plantillas de WhatsApp
+          </TabBtn>
+          <TabBtn active={tab === "emailTemplates"} onClick={() => setTab("emailTemplates")}>
+            Plantillas de correo
           </TabBtn>
         </div>
         {tab === "campaigns" && !wizard && (
@@ -90,7 +94,9 @@ export function CampaignsManager() {
       </div>
 
       <div style={{ marginTop: 20 }}>
-        {tab === "templates" ? (
+        {tab === "emailTemplates" ? (
+          <EmailTemplatesPanel />
+        ) : tab === "templates" ? (
           <TemplatesPanel />
         ) : wizard ? (
           <>

@@ -27,6 +27,7 @@ import {
   type VariableValue,
 } from "@crm/shared";
 import { TriggersEditor } from "./TriggersEditor";
+import { FlowEmailFields } from "@/features/email/FlowEmailFields";
 import { NavIcon } from "@/components/NavIcons";
 import { uploadMedia } from "@/lib/bff";
 import { toast } from "@/lib/toast";
@@ -311,6 +312,8 @@ export function NodeInspector({
       {node.type === "split" && <SplitFields splits={data.splits ?? []} onChange={(splits) => patch({ splits })} />}
 
       {node.type === "schedule" && <HoursFields hours={data.hours ?? defaultHours()} onChange={(hours) => patch({ hours })} />}
+
+      {node.type === "sendEmail" && <FlowEmailFields data={data} patch={patch} />}
 
       {node.type === "sendTemplate" && (
         <>

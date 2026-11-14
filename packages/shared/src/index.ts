@@ -21,6 +21,7 @@ export * from "./schemas/condition.schema.js";
 export * from "./schemas/flow.schema.js";
 export * from "./schemas/template.schema.js";
 export * from "./schemas/quick-reply.schema.js";
+export * from "./schemas/email.schema.js";
 export * from "./schemas/campaign.schema.js";
 export * from "./schemas/source.schema.js";
 export * from "./schemas/product.schema.js";

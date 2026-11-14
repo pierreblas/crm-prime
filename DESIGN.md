@@ -421,6 +421,33 @@ Dos series: cian (`--chart-1`) y lima (`--chart-2`). El verde solo para ventas
 ganadas, por significado. Mapa de calor y embudo en tintes de cian. Ejes, leyendas
 y rejilla en mono humo. Nunca otro color entre medias.
 
+### Correo
+Filas planas con filete, como Fuentes: la marca del buzón es un cuadro cian (mide y
+está en marcha) que pasa a rojo si el servidor rechazó el acceso. Los envíos de hoy,
+los pesos y las horas van en mono. Los avisos (hueco en blanco, persona dada de
+baja) son cajas ámbar. La **vista previa del correo va en claro** (papel blanco,
+tinta #1f2430): es lo único del panel que no es noir, porque enseña cómo lo verá
+quien lo reciba. Nada de editor con formato: el cuerpo es texto, y el HTML que sale
+son párrafos y enlaces.
+
+### Simulador de conversaciones
+Segundo modo del cajón «Probar agente». Los clientes a simular son filas con casilla
+(lavado y filete cian al marcarlas). El gasto estimado y el botón quedan pegados al
+pie del cajón. Las conversaciones se pintan como en la bandeja: cliente a la
+izquierda en Panel Alto, agente a la derecha en Burbuja Saliente; el estado de cada
+una en mono y mayúsculas (cian en curso, ámbar si pasó a una persona, rojo si falló).
+
+### Franja de ventana (seguimientos del agente)
+En el editor de seguimientos (`FollowUpsEditor.tsx`, clases `fu-*`), una franja
+de 36px que pone la secuencia sobre la ventana de 24 h de WhatsApp: el primer 68 %
+es la ventana (lavado cian y filete cian de 2px en el cierre) y el resto, lo que
+viene después (solo plantilla). Cada toque es una marca cuadrada de 22px con su
+número en mono: cian con tinta noir si cae dentro, Panel con filete si cae fuera
+con plantilla, rojo con tinta noir si tiene un problema. La misma marca encabeza la
+tarjeta del toque, para que franja y tarjeta se lean juntas. Dentro de la ventana
+las marcas van a escala y se separan lo justo para no pisarse; fuera van en orden,
+porque pueden ser días. Etiquetas de zona y eje en mono 11px.
+
 ### Inputs / Fields
 - **Style:** fondo Campo, filete #30365a, 0px, texto Tinta. Placeholder #7f8ea1. El
   select lleva su propia flecha y la lista desplegada es opaca (#12141f).
@@ -437,7 +464,9 @@ y rejilla en mono humo. Nunca otro color entre medias.
 - **Píxeles:** en pantallas de más de 1040px de alto asoman al pie del menú, en
   cian y filete, detrás de todo.
 - **Cabecera:** Panel opaco con filete abajo; título en la display; avatar lima con
-  Tinta Noir.
+  Tinta Noir. Alrededor del avatar va el consumo de IA del mes en un anillo de 2px:
+  cian mientras mide, ámbar desde el 80 %, rojo al tope; punteado en filete cuando la
+  empresa usa su propia clave (no hay cupo que llenar) y sin anillo si no hay IA.
 - **Móvil:** el menú se pliega y sale como cajón opaco (montado con portal).
 
 ### Marca

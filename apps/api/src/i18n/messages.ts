@@ -90,6 +90,17 @@ export const ES_TO_EN: Record<string, string> = {
   "Refresh token reutilizado. Sesión revocada por seguridad.":
     "Refresh token reused. The session was revoked for security.",
   "Respuesta rápida no encontrada": "Quick reply not found",
+  // Correo
+  "Buzón no encontrado": "Mailbox not found",
+  "Ese buzón ya está conectado": "That mailbox is already connected",
+  "Vuelve a escribir la contraseña del buzón para guardar el cambio": "Type the mailbox password again to save this change",
+  "Ese buzón es personal de otra persona del equipo": "That mailbox belongs to another team member",
+  "Esa persona no es de tu equipo": "That person is not on your team",
+  "Plantilla de correo no encontrada": "Email template not found",
+  "Ya hay una plantilla de correo con ese nombre": "There is already an email template with that name",
+  "Este contacto no tiene correo: escribe la dirección a la que enviar": "This contact has no email: type the address to send to",
+  "Esa dirección no está en la lista de bajas": "That address is not on the unsubscribe list",
+  "Ese correo no es una dirección válida": "That email is not a valid address",
   "Run de IA no encontrado": "AI run not found",
   "Sesión expirada": "Session expired",
   "Sesión no encontrada": "Session not found",

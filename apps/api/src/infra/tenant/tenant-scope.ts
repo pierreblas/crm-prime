@@ -50,6 +50,10 @@ const TENANT_MODELS = new Set<string>([
   "StaffSchedule",
   "Booking",
   "TikTokAccount",
+  "EmailAccount",
+  "EmailTemplate",
+  "Email",
+  "EmailUnsubscribe",
 ]);
 
 /**

@@ -274,6 +274,7 @@ export function BotsManager() {
         <AgentPlayground
           botId={testing.id}
           botName={testing.name}
+          promptChars={(testing.id ? bots.find((b) => b.id === testing.id) : bots.find((b) => b.isDefault))?.systemPrompt.length}
           onClose={() => setTesting(null)}
         />
       )}

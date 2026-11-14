@@ -123,6 +123,7 @@ export const NODE_PALETTE: NodeMeta[] = [
   { type: "carousel", label: "Carrusel", icon: "image", hint: "De 2 a 10 tarjetas con imagen o video, texto y un botón", color: "#2c5f7a", accent: "#8fc8e8", group: "Mensajes" },
   { type: "askQuestion", label: "Preguntar y guardar", icon: "question", hint: "Espera la respuesta, la valida y la guarda en una variable", color: "#7a5fb0", accent: "#cbb6ff", group: "Mensajes" },
   { type: "sendTemplate", label: "Enviar plantilla", icon: "template", hint: "Una plantilla aprobada por Meta: sirve aunque el contacto no haya escrito", color: "#2c6b7a", accent: "#8fd9e8", group: "Mensajes" },
+  { type: "sendEmail", label: "Enviar correo", icon: "mail", hint: "Una plantilla de correo, por un buzón de tu empresa. No depende de la ventana de WhatsApp", color: "#2c5a7a", accent: "#9cc9ee", group: "Mensajes" },
   { type: "condition", label: "Condición", icon: "branch", hint: "Ramifica según palabras clave", color: "#b08a3f", accent: "#ffd98a", group: "Lógica" },
   { type: "schedule", label: "Horario", icon: "clock", hint: "En horario de atención o fuera de él", color: "#8a6f3f", accent: "#ffcf8a", group: "Lógica" },
   { type: "split", label: "Dividir al azar", icon: "flask", hint: "Reparte entre variantes (A/B)", color: "#8a3f6f", accent: "#ffa8d6", group: "Lógica" },
@@ -261,6 +262,8 @@ export function defaultNodeData(type: FlowNodeType): FlowNodeData {
       return { text: "" };
     case "sendTemplate":
       return { templateId: "" };
+    case "sendEmail":
+      return { emailTemplateId: "", emailAccountId: "default" };
     case "askQuestion":
       return { text: "", variable: "", validate: "any", maxRetries: 2 };
     case "buttons":

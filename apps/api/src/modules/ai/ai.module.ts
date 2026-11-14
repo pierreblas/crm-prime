@@ -32,9 +32,10 @@ import { BusinessSetupService } from "./business-setup.service";
 import { MessagingModule } from "../messaging/messaging.module";
 import { KnowledgeModule } from "../knowledge/knowledge.module";
 import { OnboardingModule } from "../onboarding/onboarding.module";
+import { EmailModule } from "../email/email.module";
 
 @Module({
-  imports: [LlmModule, MessagingModule, KnowledgeModule, OnboardingModule],
+  imports: [LlmModule, MessagingModule, KnowledgeModule, OnboardingModule, EmailModule],
   controllers: [
     AiController,
     BotsController,

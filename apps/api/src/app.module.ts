@@ -17,6 +17,7 @@ import { AiModule } from "./modules/ai/ai.module";
 import { KnowledgeModule } from "./modules/knowledge/knowledge.module";
 import { CampaignsModule } from "./modules/campaigns/campaigns.module";
 import { QuickRepliesModule } from "./modules/quick-replies/quick-replies.module";
+import { EmailModule } from "./modules/email/email.module";
 import { MetaLeadsModule } from "./modules/meta-leads/meta-leads.module";
 import { TikTokModule } from "./modules/tiktok/tiktok.module";
 import { SourcesModule } from "./modules/sources/sources.module";
@@ -63,6 +64,7 @@ import { HealthController } from "./health.controller";
     AiModule,
     CampaignsModule,
     QuickRepliesModule,
+    EmailModule,
     OnboardingModule,
     PlansModule,
     PlatformModule,

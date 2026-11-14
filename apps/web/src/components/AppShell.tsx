@@ -11,7 +11,7 @@ import { AlertsBell } from "./AlertsBell";
 import { RealtimeProvider } from "./RealtimeProvider";
 import { CallProvider } from "@/features/calls/CallProvider";
 import { TourHost } from "@/features/onboarding/TourHost";
-import { AiQuotaNotice, AiUsageMeter } from "@/features/plans/AiUsageMeter";
+import { AiQuotaNotice, AiUsageMeter, AiUsageRing } from "@/features/plans/AiUsageMeter";
 import { AdminCopilot } from "@/features/copilot/AdminCopilot";
 import { platformConsoleUrl } from "@/lib/org";
 import { getTranslator } from "@/i18n/server";
@@ -98,7 +98,7 @@ export async function AppShell({
               style={{ ...userChip, color: "var(--text)" }}
               title={t("nav.myAccount")}
             >
-              <span className="avatar" style={avatar}>{(email[0] ?? "?").toUpperCase()}</span>
+              <AiUsageRing initial={(email[0] ?? "?").toUpperCase()} />
               <div className="user-chip__text" style={{ lineHeight: 1.2 }}>
                 <div style={{ fontSize: 13 }}>{email}</div>
                 <div style={{ fontSize: 11, color: "var(--muted)" }}>{role}</div>
@@ -167,16 +167,4 @@ const userChip: React.CSSProperties = {
   padding: "4px 6px",
   borderRadius: 9,
   transition: "background 0.12s ease",
-};
-
-const avatar: React.CSSProperties = {
-  width: 30,
-  height: 30,
-  borderRadius: "50%",
-  color: "#ffffff",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 13,
-  fontWeight: 700,
 };

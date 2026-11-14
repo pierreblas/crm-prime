@@ -15,6 +15,7 @@ const FEATURE_LABEL: Record<string, string> = {
   copilot: "Copiloto",
   admin_copilot: "Copiloto del administrador",
   playground: "Playground",
+  simulator: "Simulador de conversaciones",
   prompt_assistant: "Asistente de prompts",
   flow_assistant: "Asistente de flujos",
   knowledge_gaps: "Huecos de conocimiento",

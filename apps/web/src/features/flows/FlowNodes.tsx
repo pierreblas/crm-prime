@@ -288,6 +288,18 @@ export function SendTemplateNode({ id, data, selected }: NodeProps) {
   );
 }
 
+export function SendEmailNode({ id, data, selected }: NodeProps) {
+  const d = data as FlowNodeData;
+  return (
+    <Shell id={id} type="sendEmail" selected={selected}>
+      <InputHandle />
+      <Head type="sendEmail" />
+      <div style={body}>{d.emailTemplateName ? <Clamp>{d.emailTemplateName}</Clamp> : <i style={placeholder}>Elige la plantilla de correo en el panel…</i>}</div>
+      <OutputHandle nodeId={id} />
+    </Shell>
+  );
+}
+
 export function AskQuestionNode({ id, data, selected }: NodeProps) {
   const d = data as FlowNodeData;
   const validated = !!d.validate && d.validate !== "any";
@@ -753,6 +765,7 @@ export const nodeTypes = {
   schedule: ScheduleNode,
   sendMessage: SendMessageNode,
   sendTemplate: SendTemplateNode,
+  sendEmail: SendEmailNode,
   askQuestion: AskQuestionNode,
   condition: ConditionNode,
   action: ActionNode,
