@@ -192,16 +192,18 @@ export function Pricing() {
         </section>
 
         <section className="lp-cta-band">
-          <div className="lp-wrap lp-cta-band__inner">
-            <h2>Empieza hoy, paga cuando crezcas.</h2>
-            <p>Tu espacio en tu-empresa.driony.com en dos minutos. {TRIAL_DAYS} días de Pro gratis, sin tarjeta.</p>
-            <div className="lp-cta__row">
-              <Link href="/register" className="lp-btn lp-btn--white lp-btn--lg">
-                Probar {TRIAL_DAYS} días gratis <Arrow />
-              </Link>
-              <a href={`mailto:${CONTACT}?subject=Planes%20de%20Driony`} className="lp-btn lp-btn--outline lp-btn--lg">
-                Hablar con nosotros
-              </a>
+          <div className="lp-wrap">
+            <div className="lp-cta-band__inner">
+              <h2>Empieza hoy, paga cuando crezcas.</h2>
+              <p>Tu espacio en tu-empresa.driony.com en dos minutos. {TRIAL_DAYS} días de Pro gratis, sin tarjeta.</p>
+              <div className="lp-cta__row">
+                <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
+                  Probar {TRIAL_DAYS} días gratis <Arrow />
+                </Link>
+                <a href={`mailto:${CONTACT}?subject=Planes%20de%20Driony`} className="lp-btn lp-btn--ghost lp-btn--lg">
+                  Hablar con nosotros
+                </a>
+              </div>
             </div>
           </div>
         </section>

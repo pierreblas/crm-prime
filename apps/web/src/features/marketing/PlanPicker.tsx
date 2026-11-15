@@ -46,7 +46,7 @@ export function PlanPicker() {
   return (
     <div className="lp-picker" aria-live="polite">
       <form className="lp-picker__form" onSubmit={(e) => e.preventDefault()}>
-        <p className="lp-tag">[ Cuál me toca ]</p>
+        <p className="lp-tag">Cuál me toca</p>
         <label className="lp-picker__field">
           <span>Números de WhatsApp</span>
           <input type="range" min={1} max={6} value={numbers} onChange={(e) => setNumbers(Number(e.target.value))} aria-describedby={`${id}-n`} />
@@ -98,7 +98,7 @@ export function PlanPicker() {
           </li>
           <li>Sin cobro por conversación, por mensaje ni por contacto.</li>
         </ul>
-        <Link href="/register" className="lp-btn lp-btn--white">
+        <Link href="/register" className="lp-btn lp-btn--primary">
           Probar {TRIAL_DAYS} días gratis <Arrow />
         </Link>
       </div>

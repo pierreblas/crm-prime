@@ -243,8 +243,10 @@ export function HeroDemo() {
 
   return (
     <div className="lp-demo" data-hero-demo data-phase={phase} data-mode={mode}>
-      <div className="lp-hero__shot-bar lp-demo__bar">
-        <span aria-hidden="true">[ + ] Driony // Bandeja // Demo interactiva</span>
+      <div className="lp-demo__bar">
+        <span aria-hidden="true">
+          <b>Bandeja</b> Demo interactiva
+        </span>
         <span className="lp-demo__tag">Datos de ejemplo</span>
       </div>
 
@@ -389,7 +391,7 @@ export function HeroDemo() {
         {/* Los detalles: embudo, ficha y registro de lo que hizo el agente. */}
         <div className="lp-demo__crm" aria-live="polite">
           <div className="lp-demo__crm-head">
-            <span>Detalles // lo que hizo el agente</span>
+            <span>Detalles · lo que hizo el agente</span>
             <span>{acted ? `${logCount}/${sc.log.length}` : "—"}</span>
           </div>
           <div className="lp-demo__crm-body">

@@ -20,7 +20,7 @@ colors:
   danger: "#ff3355"
   danger-soft: "#ff33551f"
   bg: "#0a0b10"
-  bg-landing: "#08090b"
+  bg-landing: "#0a0b10"
   panel: "#12141f"
   panel-2: "#1a1d2e"
   line: "#25293e"
@@ -37,16 +37,16 @@ colors:
 typography:
   display:
     fontFamily: "Bricolage Grotesque, Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "clamp(2.6rem, 1.6rem + 4.2vw, 4.8rem)"
-    fontWeight: 800
-    lineHeight: 0.96
-    letterSpacing: "-0.01em"
+    fontSize: "clamp(2.4rem, 1.4rem + 3.1vw, 4rem)"
+    fontWeight: 700
+    lineHeight: 1.06
+    letterSpacing: "-0.02em"
   headline:
     fontFamily: "Bricolage Grotesque, Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "clamp(1.9rem, 1.3rem + 2.6vw, 3.1rem)"
-    fontWeight: 800
-    lineHeight: 0.96
-    letterSpacing: "-0.01em"
+    fontSize: "clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem)"
+    fontWeight: 700
+    lineHeight: 1.14
+    letterSpacing: "-0.015em"
   title:
     fontFamily: "Bricolage Grotesque, Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
     fontSize: "16px"
@@ -174,20 +174,22 @@ components:
 
 ## 1. Overview
 
-**Creative North Star: "Una marca en lima ácido, dos estilos cyberpunk"**
+**Creative North Star: "Una marca en lima ácido, un solo estilo: Noir telemetría"**
 
-Driony vende en la landing y opera en el panel, y las dos caras comparten un
-solo color de marca, el **Lima Ácido** (#e2f80d), sobre negro. Lo demás cambia a
-propósito para que no parezcan la misma pantalla.
+Driony vende en la landing y opera en el panel, y desde el 2026-11-14 las dos
+caras hablan el mismo idioma visual. La landing «Ácido» (bloques de lima a
+sangre, píxeles, titulares condensados en mayúsculas, botones mono con franja de
+peligro y sombra cian) se retiró porque saturaba: el usuario prefirió el panel,
+«limpio y hermoso». El **Lima Ácido** (#e2f80d) sigue siendo la marca, pero en la
+landing solo actúa (el botón principal, lo seleccionado, el foco) y pinta una
+sola palabra del titular, más el efecto de ARM (el sello del hero y las letras
+ARM con sombra cian), que el usuario pidió conservar.
 
-La **landing «Ácido»** es un póster: negro casi puro (#08090b), bloques de lima
-pleno con tinta noir (el hero, la banda, la primera tile de capacidades, el
-resultado de la calculadora, el plan destacado y el cierre), píxeles como motivo
-(lima y Verde Circuito), titulares en Bricolage condensada y en mayúsculas, y
-mono en botones, nav y rótulos. El cian aparece solo en lo que mide o está en
-marcha (la IA del hero, los chips de evento, las barras, las lecturas de la
-calculadora), nunca para actuar. Es el estilo de la referencia que eligió el
-usuario: la estructura la hace el color, no el acento.
+La **landing** usa el mismo noir con rejilla, los mismos paneles con filete, los
+mismos botones (Hanken 600, el primario con bisel) y titulares en Bricolage 700
+de ancho y caja normales. Explica con producto real: la demo de la bandeja, las
+capturas y las tarjetas de capacidades. Sin fotos de escenas, sin banda, sin
+rótulos sobre cada título.
 
 El **panel «Noir telemetría»** es un instrumento: negro azulado (#0a0b10) con una
 rejilla muy baja cada 24px, paneles planos (#12141f) separados por filete
@@ -203,9 +205,9 @@ plantilla**, lo **colorido/infantil** y lo **corporativo frío/anticuado**. Si u
 pantalla pudiera ser de cualquier otro SaaS, falló.
 
 **Key Characteristics:**
-- Un solo lima para las dos caras; el cian mide en el panel y, en la landing, solo marca lo que mide (IA en marcha, eventos, barras); el Verde Circuito es solo de los píxeles.
-- Landing: bloques de color pleno, píxeles, mayúsculas condensadas, mono en botones y rótulos, 0px.
-- Panel: noir con rejilla, paneles planos con filete, 0px, bisel en KPI y primario, mono para la telemetría.
+- Un solo lima y un solo estilo para las dos caras; el cian mide en las dos.
+- Landing y panel: noir con rejilla, paneles planos con filete, 0px, bisel en el primario (y en los KPI del panel), mono solo para la telemetría.
+- En la landing el lima es escaso a propósito: botones principales, lo seleccionado y la palabra clave del titular. Nunca bloques de color.
 - Lima actúa, cian mide, humo matiza. Un color no hace el trabajo de otro.
 - El verde sigue siendo señal de WhatsApp y de estado positivo; el Rojo Neón es peligro.
 - Tres familias con oficio: Bricolage titula, Hanken trabaja, JetBrains Mono mide.
@@ -219,7 +221,8 @@ quién va sobre quién, y las cifras de abajo están medidas.
 ### Primary
 - **Lima Ácido** (#e2f80d): acción y selección. Botón primario, ítem activo del
   menú, enlaces, foco, marcador de la fila activa, segunda serie de los gráficos,
-  el KPI que importa, y en la landing los bloques plenos. 17:1 sobre Noir.
+  el KPI que importa, y en la landing el primario, lo seleccionado y la palabra
+  clave del titular. 17:1 sobre Noir.
 - **Lima Claro** (#eefc4a) y **Lima Hundido** (#c9dd0a): hover y `:active` del
   botón primario. Nunca como colores sueltos.
 - **Tinta Noir** (#0a0b10): el texto que va encima de lima, cian y humo. Dentro de
@@ -229,16 +232,17 @@ quién va sobre quién, y las cifras de abajo están medidas.
 - **Cian Neón** (#00e5ff): datos, presencia y lo que está en marcha. Primera serie
   de los gráficos, KPI de volumen, pulso de «en vivo», botón suave (Copiloto,
   Asistente, Probar), foco de los campos, tintes de selección de datos. 12,8:1
-  sobre Noir: vale hasta como texto. En la landing solo en lo que mide: la
-  insignia «IA» y el modo Autopilot del hero, los ticks del registro, los chips
-  de evento, las barras y los valores de la calculadora. **Nunca para actuar.**
+  sobre Noir: vale hasta como texto. En la landing, igual: la insignia «IA», el
+  borrador sugerido, la etapa del embudo de la demo, los chips de evento, las
+  barras, las capacidades del simulador y las lecturas del selector de plan.
+  **Nunca para actuar.**
 - **Cian Tenue** (cian al 10 %): fondo del botón suave y de lo seleccionado en listas.
 - **Burbuja Saliente** (#0b3a45): cian hondo, para leer largo: blanco 9:1.
 - **Humo** (#8e9eaf): texto secundario, etiquetas y neutros, 6,9:1 sobre Noir. Las
   Capas 1/2/3 son humo al 7 %, 12 % y 18 %. También el tercer bloque de KPI, con
   tinta noir encima.
-- **Verde Circuito** (#1f6b3b): el segundo tono de los píxeles de la landing y de
-  la tinta de las tiles verdes. Nunca como texto ni como acción.
+- **Verde Circuito** (#1f6b3b): era el segundo tono de los píxeles de la landing,
+  retirados el 2026-11-14. Nunca como texto ni como acción.
 - **Verde WhatsApp** (#25d366): exclusivo de lo que es WhatsApp. Es herencia, no acento.
 - **Verde Vital** (#7ee2a8) y **Verde Tenue**: estado positivo (entregado, ganado, opt-in).
 
@@ -248,7 +252,8 @@ quién va sobre quién, y las cifras de abajo están medidas.
 
 ### Neutral
 - **Noir** (#0a0b10): el lienzo del panel, con la rejilla de telemetría encima.
-- **Negro Ácido** (#08090b): el lienzo de la landing, casi puro.
+- La landing usa el mismo Noir y la misma rejilla desde el 2026-11-14 (el Negro
+  Ácido #08090b se retiró con el estilo «Ácido»).
 - **Panel** (#12141f): tarjetas, barras, cajones y diálogos, opacos. **Panel Alto**
   (#1a1d2e) para filas en hover y burbuja entrante.
 - **Filete** (#25293e) y **Filete Fuerte** (#3b4160): hairline de toda superficie;
@@ -277,11 +282,11 @@ elige el usuario: el texto encima lo decide `readableInk()` (`lib/readable-ink.t
 nunca un color fijo.
 
 **La Regla del Verde Reservado.** El verde solo dice dos cosas: «esto es WhatsApp»
-o «esto salió bien». El Verde Circuito es exclusivo de los píxeles de la landing.
+o «esto salió bien». En la landing, «hecho» es Verde Vital (los checks de las pruebas,
+de los planes y del registro de la demo).
 
 **La Regla del Cian que Mide.** El cian nunca actúa: ni botones, ni enlaces, ni
-selección. En la landing aparece solo en lo que mide o está en marcha (IA,
-eventos, barras, lecturas); el resto es lima y negro, como la referencia.
+selección. En la landing, igual que en el panel.
 
 **La Regla del Estado Doble.** Ningún estado se comunica solo con color: siempre
 color **+** icono o palabra.
@@ -289,13 +294,14 @@ color **+** icono o palabra.
 ## 3. Typography
 
 **Display Font:** Bricolage Grotesque, variable con ejes `opsz` y `wdth`. Titula
-en toda la web; en la landing va a 800, condensada (`font-stretch: 82 %`) y en
-mayúsculas.
+en toda la web, a 700, ancho normal y en caja normal (la landing dejó la
+condensada en mayúsculas el 2026-11-14).
 **Body Font:** Hanken Grotesk (400/500/600/700). Todo lo que no es titular ni
 telemetría.
 **Mono Font:** JetBrains Mono (400/500/700). La telemetría del panel (etiquetas de
-KPI, horas, estados, ejes, chips de la consola) y, en la landing, botones, nav,
-rótulos de tile, chips y banda. Siempre en mayúsculas con tracking 0.06–0.12em.
+KPI, horas, estados, ejes, chips de la consola) y, en la landing, solo el sello
+CRM/ARM, el subtítulo de ARM y la telemetría de la demo (horas, iniciales,
+registro). Botones, nav y chips de la landing van en Hanken.
 
 **Character:** tres familias cargadas una vez en `app/fonts.ts` y expuestas como
 `--font-display`, `--font-sans` y `--font-mono`. La display aparece solo donde hay
@@ -304,11 +310,11 @@ que el paso de la landing a `/register` no cambie de voz. Si la descarga falla e
 el build, el CSS cae al stack del sistema sin romper nada.
 
 ### Hierarchy
-- **Display** (800, condensada 82 %, mayúsculas, clamp(2.6rem, 1.6rem + 4.2vw, 4.8rem),
-  0.96, -0.01em): el titular del hero de la landing. La palabra clave va marcada en
-  un bloque de tinta con texto lima.
-- **Headline** (800, condensada 82 %, mayúsculas, clamp(1.9rem, 1.3rem + 2.6vw, 3.1rem)):
-  títulos de sección de la landing. Los h3 de tiles y planes a 700 y 88 %.
+- **Display** (700, clamp(2.4rem, 1.4rem + 3.1vw, 4rem), 1.06, -0.02em): el titular
+  del hero de la landing, en dos líneas a 1440px. La palabra clave («venden») en lima,
+  sin bloque.
+- **Headline** (700, clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem), 1.14, -0.015em): títulos de
+  sección de la landing. Los h3 de tarjetas y planes a 650, 1.1–1.3rem.
 - **Title** (700, 16px, 1.25, -0.01em): título de página en la cabecera de la app,
   títulos de tarjeta y de cajón. En la app la escala es fija, no fluida y sin mayúsculas.
 - **Body** (400, 14px, 1.5): texto general, mensajes, filas. Prosa a 65–75ch; en la
@@ -317,8 +323,6 @@ el build, el CSS cae al stack del sistema sin romper nada.
   tabla, chips de la consola, leyendas y ejes.
 - **Overline** (600, 10.5px, +1.2px, mayúsculas): **solo** los rótulos de grupo de
   la barra lateral («Ventas», «Automatización»).
-- **Mono** (700, 12.5px, 0.08em, mayúsculas): botones y nav de la landing; en la
-  banda, 0.12em.
 
 ### Named Rules
 **La Regla de las Tres Familias.** Bricolage titula, Hanken trabaja, JetBrains Mono
@@ -327,11 +331,10 @@ párrafos; prohibida Hanken en el h1 del hero.
 
 **La Regla del Overline Confinado.** En la app, las mayúsculas tracked viven en los
 rótulos de grupo del nav y en la telemetría; no son un eyebrow para poner sobre
-cada sección. En la landing la mono va en botones, nav, rótulos de tile y banda,
-no como eyebrow de cada título.
+cada sección. En la landing tampoco: los títulos de sección van sin rótulo encima.
 
-**La Regla del Titular Sólido.** Los titulares se enfatizan con peso, tamaño, un
-bloque de tinta o un solo color plano. Nunca con degradado en el texto.
+**La Regla del Titular Sólido.** Los titulares se enfatizan con peso, tamaño o un
+solo color plano (una palabra en lima). Nunca con degradado en el texto.
 
 ## 4. Elevation
 
@@ -374,8 +377,7 @@ foco enciende un anillo cian en campos y un contorno lima en lo pulsable. Sin
 floritura; una herramienta que responde.
 
 ### Buttons
-- **Shape:** 0px en todo; el primario con bisel. En la landing, 0px y letra mono
-  en mayúsculas (12.5px, 0.08em).
+- **Shape:** 0px en todo; el primario con bisel, también en la landing.
 - **Primary:** lima plano con Tinta Noir, peso 600, padding 9px 16px, bisel. Hover:
   Lima Claro con destello; `:active` Lima Hundido. En la app muchos botones llevan
   el fondo inline (`background: var(--accent)`); `globals.css` los reconoce por ese
@@ -390,12 +392,12 @@ floritura; una herramienta que responde.
   contorno noir por dentro.
 - **Disabled:** Capa 2 con texto humo en el primario (Regla del Lavado Bajo); 55 %
   de opacidad en el resto.
-- **Landing:** primario lima con tinta; dentro de un bloque lima (hero, calculadora,
-  plan destacado, cierre) se invierte (noir con texto lima) y el secundario es
-  contorno noir.
+- **Landing:** los mismos botones, en Hanken 600 a 14,5px (15,5px los grandes):
+  primario lima con tinta y bisel, secundario fantasma. Sin bloques lima ya no
+  hay botón invertido.
 
 ### Chips
-- **Style:** 0px, mono 11px en mayúsculas en la consola y en la landing; en la app
+- **Style:** 0px, mono 11px en mayúsculas en la consola; en la app y en la landing
   11–13px Hanken. Neutro = Capa 3 con texto Tinta. Positivo = Verde Tenue + Verde
   Vital. Advertencia = Ámbar Tenue + Ámbar. Etiquetas y fuentes = su color propio a
   tono pleno, con `readableInk()`.
@@ -484,10 +486,9 @@ una loseta noir redondeada para verse en pestañas claras. Se lee como «Driony�
 (`role="img"`). El producto se sigue escribiendo «Driony» en el texto corrido.
 
 ### Píxeles
-El único adorno de la marca: un racimo de cuadrados (32px, o 24px en el menú) en
-lima y Verde Circuito sobre negro, en tinta y verde sobre lima, y en cian y filete
-en el panel. Se dibuja con gradientes CSS (`.lp-pix`, `.lp-hero__demo::after`,
-`.lp-cta-band::before`, `.side-nav::after`), sin imagen. Nunca detrás de texto.
+Un racimo de cuadrados al pie del menú del panel, en cian y filete
+(`.side-nav::after`), dibujado con gradientes CSS. En la landing se retiraron el
+2026-11-14 junto con los bloques lima. Nunca detrás de texto.
 
 ### Burbuja de mensaje
 El corazón de la bandeja. Saliente = Burbuja Saliente (cian hondo) con texto
@@ -495,100 +496,79 @@ blanco, a la derecha; entrante = Panel Alto, a la izquierda; 0px. Estado de
 entrega con icono (check, doble check, reloj); leído en lima. Fila de conversación:
 avatar con iniciales, vista previa, contador lima con Tinta Noir y chip de espera
 que pasa a ámbar a la hora; la fila activa lleva lavado de cian y el marcador lima
-de 3px. En el hero de la landing el negocio habla en lima pleno con tinta, la
-insignia «IA» es cian con tinta y el registro del CRM marca cada paso en cian.
+de 3px. La demo del hero de la landing usa las mismas burbujas (cian hondo y
+Panel Alto), la insignia «IA» en cian tenue y el registro con checks en Verde Vital.
 
-### Banda y cierre (landing)
-Marquesina a todo ancho en lima con letra mono noir en mayúsculas (se pausa al
-pasar el cursor y se detiene con `prefers-reduced-motion`). El cierre es la pareja:
-lima a sangre con Tinta Noir, botón invertido y los píxeles en tinta arriba a la
-derecha.
+### Cierre (landing)
+Sin banda: la marquesina lima se retiró el 2026-11-14. El cierre es un panel
+centrado (Panel con filete) con el titular, el lede en humo, el primario y un
+fantasma, y las garantías con check en Verde Vital. La página de precios usa el
+mismo cierre.
 
 ### Hero (landing)
-Dos bloques pegados y centrados. Arriba el lima a todo el ancho con el
-argumento: el **rótulo ARM** (un punto hexagonal, «CRM» tachado en un marco de
-tinta y «ARM» sellado en tinta con texto lima y sombra dura cian, seguido de
-«Agentic Relationship Management» en mono), el titular condensado en dos líneas
-con la palabra clave marcada en tinta («venden»), el sub, los botones invertidos
-y las garantías en mono; desde 1280px, **píxeles en tinta y verde** en las dos
-esquinas superiores. En el celular todo va a la izquierda. El sello «ARM» cae
-con `lp-stamp` después de que suba el rótulo.
+Sobre noir, sin bloque de color. Arriba, centrado: el **rótulo ARM** en una píldora
+de Panel con filete («CRM» tachado en humo y el sello «ARM» en lima pleno con tinta
+y sombra dura cian, en mono, que cae con `lp-stamp` cuando termina de subir el rótulo; seguido de «Agentic Relationship Management» en Hanken humo), el titular en
+dos líneas con «venden» en lima, el sub en humo, el primario y un fantasma
+(«Cómo funciona», a la sección ARM) y las cuatro garantías con check en Verde
+Vital. En el celular todo va a la izquierda.
 
-Debajo, sobre la costura lima/noir y con sombra dura cian, la **demo de la
-bandeja** (`HeroDemo.tsx`): tres columnas con la forma de la bandeja real. A la
-izquierda las conversaciones (tres casos B2B; cada fila con su estado, «Sin
+Debajo, con su filete y sin sombra, la **demo de la bandeja** (`HeroDemo.tsx`):
+una barra de título como la cabecera del panel («**Bandeja** Demo interactiva» y la
+etiqueta cian «Datos de ejemplo») y tres columnas con la forma de la bandeja real.
+A la izquierda las conversaciones (tres casos B2B; cada fila con su estado, «Sin
 responder» o «Atendido», y su etapa; la abierta lleva lavado cian y marcador
-lima). Al centro el chat, con el contador de espera y el selector Autopilot /
-Copilot en la cabecera y la acción pegada al último mensaje. A la derecha
-«Detalles // lo que hizo el agente»: el embudo, la ficha y el registro en mono
-cian. Bajo 1024px la lista pasa a una fila de chips y bajo 760px las columnas se
+lima, como en la bandeja). Al centro el chat, con el contador de espera y el
+segmentado Autopilot / Copilot (el activo en Capa 2, como el segmentado del
+panel) y la acción pegada al último mensaje: es el único lima de la demo. A la
+derecha «Detalles · lo que hizo el agente»: el embudo (la etapa actual en cian),
+la ficha y el registro. Bajo 1024px la lista pasa a una fila de chips y bajo 760px las columnas se
 apilan. La demo es guionada y lleva la etiqueta «Datos de ejemplo»; nada corre
 solo y las alturas son fijas para que nada salte. Debajo quedan el distintivo de
 Meta y la nota de que en la cuenta real responde la IA.
 
-### Sección «00 // Qué es ARM» (landing)
-La primera sección tras la banda define el término en el que se basa el
-producto: a la izquierda las letras **ARM** gigantes (display 800, condensada,
-hasta 12rem, lima con sombra dura cian) y debajo «Agentic // Relationship //
-Management» en mono cian; a la derecha la etiqueta «[ 00 // Qué es ARM ]», el h2
-(«Un CRM guarda lo que pasó con el cliente. Un ARM pone agentes a atenderlo.») y
-el lede. Debajo, las tres claves **A · Agentes, R · Relación, M · Mando** en una
-fila separada por filetes (sin tarjetas): la letra grande en lima, el título
-condensado y el texto en Tinta tenue a 34ch. En columna (≤900px) se apilan con
-filete arriba. El «00» es deliberado: es la definición, no un paso más de la
-secuencia 01–06. ARM aparece además en el nav («Qué es ARM»), la banda, la
-cabecera de la comparativa («ARM con Driony»), la primera pregunta del FAQ, el
-pie (bajo la marca, en mono) y los metadatos de la portada.
+### Sección «Qué es ARM» (landing)
+La primera sección tras el hero define el término en el que se basa el
+producto: a la izquierda las letras **ARM** grandes (display 800 condensada al 82 %,
+hasta 10rem, en lima con sombra dura cian de 0.045em que se despega al entrar con el
+scroll: es el efecto que el usuario pidió conservar y el único bloque grande de lima)
+y debajo «Agentic // Relationship // Management» en mono cian;
+a la derecha el h2 («Un CRM guarda lo que pasó con el cliente. Un ARM pone
+agentes a atenderlo.») y el lede. Debajo, las tres claves **A · Agentes,
+R · Relación, M · Mando** en una fila separada por filetes (sin tarjetas): la
+letra en lima, el título en display 650 y el texto en humo a 36ch. En columna
+(≤900px) se apilan con filete arriba. ARM aparece además en el nav («Qué es ARM»),
+la cabecera de la comparativa («ARM con Driony»), la primera pregunta del FAQ, el
+pie y los metadatos de la portada.
 
-### Tiles de capacidades (landing)
-Rejilla de seis columnas con tiles biseladas numeradas por CSS (`counter`,
-«[ + ] 01, 02…»), como en la referencia. La primera es lima pleno con la captura
-del producto y chips en tinta; el resto, Capa 1 con filete. Los h3 van
-condensados en mayúsculas. Las tiles 02 y 03 son el **copiloto** en sus dos
-caras: en el chat (`.lp-suggest`: la respuesta sugerida sobre fondo negro, las
-acciones pendientes como chips y los botones mono Enviar/Editar/Descartar, el
-primero en lima) y para quien administra (`.lp-trace--qa`: una pregunta con
-marca «TÚ» y la respuesta con marca «IA» en cian).
+### Tarjetas de capacidades (landing)
+Rejilla de seis columnas con tarjetas del panel (Panel con filete, sin número,
+sin bisel, sin cruceta). La primera, a todo el ancho, pone el texto a la izquierda
+y la captura del editor de agentes a la derecha. Los h3 van en caja normal. Las
+tarjetas 02 y 03 son el **copiloto** en sus dos caras: en el chat (`.lp-suggest`:
+la respuesta sugerida en cian hondo con filete discontinuo cian, las acciones
+pendientes como chips y los botones Enviar/Editar/Descartar, el primero lima con
+bisel) y para quien administra (`.lp-trace--qa`: una pregunta con marca «TÚ» y la
+respuesta con marca «IA» en cian).
 
 ### Planes (landing)
-La sección 06 responde al «cobro por conversación» de la competencia sin
-nombrarla. Arriba de las tarjetas, tres celdas con filete (`.lp-pay`): «Pagas»
-en lima pleno con la cifra en condensada mayúscula, «No pagas» y «Aparte, y no
-pasa por Driony» en Capa 1, con rótulo mono cian. Debajo de las tarjetas, el
-selector «Cuál me toca» (`.lp-picker`): formulario a la izquierda (rangos con
-`accent-color` lima y salida mono en lima) y resultado a la derecha en lima con
-bisel `--cut-md`, nombre del plan en condensada, precio en mono y hechos con
-prefijo `//`. El plan sale de `PLANS`: el bloque enseña que sumar gente no mueve
-la cifra, nunca una promesa escrita a mano.
+La sección de planes responde al «cobro por conversación» de la competencia sin
+nombrarla. Arriba de las tarjetas, un panel de tres celdas separadas por filete
+(`.lp-pay`): «Pagas» (rótulo en lima), «No pagas» y «Aparte, y no pasa por
+Driony», cada una con su cifra en display 700. El plan recomendado lleva filete
+lima doble y su rótulo en lima tenue, como el KPI que importa; ningún plan va en
+lima pleno. Debajo, el selector «Cuál me toca» (`.lp-picker`): formulario a la
+izquierda (rangos con `accent-color` lima y lecturas mono en cian) y resultado a
+la derecha en Capa más honda, con el nombre del plan en display, el precio y los
+hechos con un cuadrito cian. El plan sale de `PLANS`: nunca una promesa escrita a
+mano.
 
-### Kit HUD (landing y panel)
-Los elementos de la referencia de Stitch, pedidos por el usuario, encima de los
-bloques lima (nunca en su lugar):
-- **Biseles** (`--cut-sm/md/lg`: esquinas cortadas arriba a la izquierda y abajo
-  a la derecha, 6/12/18px) en botones, campos, chips, tarjetas y consolas.
-- **Puntos hexagonales** (`--hex`) como indicador: arriba a la derecha de cada
-  panel (lima, cian en los pares y dentro de los bloques lima), al lado de la
-  etiqueta de sección, en la banda y latiendo en la consola del hero.
-- **Crucetas «[ + ]»** en mono humo (`--hud` #6a7d96) arriba a la izquierda de
-  cada panel; en los bloques lima, en tinta.
-- **Etiquetas de sección** `.lp-tag` («[ 02 // Capacidades ] >>>») en mono cian
-  con «>>>» en lima, encima de cada h2 de la landing. Es la única excepción a la
-  regla del eyebrow, porque es parte del estilo elegido.
-- **Primario con franja de peligro y sombra dura en cian**: el botón es
-  transparente y dibuja su cara (`::after`, con la franja de rayas a la
-  izquierda) y su sombra (`::before`, desplazada 4px, cian) con
-  pseudoelementos biselados, porque un `clip-path` en el propio botón se comería
-  la sombra. Dentro de un bloque lima la cara es tinta y la franja lima.
-- **Consola de comparación**: el antes/después va en un panel biselado grande
-  con cabeceras mono, «X» rojo para lo manual y «>» lima para Driony.
-- **Rejilla de telemetría** en el fondo de la landing (puntos cian cada 28px y
-  malla cada 56px) y líneas de barrido sobre la demo del hero.
-- En el panel: cruceta en las tarjetas y punto hexagonal en tarjetas y KPI
-  (abajo a la derecha, porque el bisel corta la esquina de arriba).
-
-El auditor de contraste del scratchpad no ve las caras dibujadas con
-pseudoelementos y marca el primario como «lima sobre lima»: es un falso
-positivo; el texto va sobre la cara (17:1).
+### Kit HUD (solo panel)
+En el panel quedan la cruceta «[ + ]» en las tarjetas y el punto hexagonal en
+tarjetas y KPI (abajo a la derecha, porque el bisel corta la esquina de arriba).
+En la landing el kit (biseles en todo, puntos hexagonales, crucetas, etiquetas
+«[ 02 // … ] >>>», primario con franja de peligro y sombra cian, consola de
+comparación, rejilla de puntos y líneas de barrido) se retiró el 2026-11-14.
 
 ## 6. Do's and Don'ts
 
@@ -610,19 +590,16 @@ positivo; el texto va sobre la cara (17:1).
 - **Do** usar iconos SVG de línea (18px, trazo 1.75); los emojis solo dentro de los mensajes.
 - **Do** respetar `prefers-reduced-motion`: toda animación tiene alternativa.
 - **Do** mover con el scroll desde CSS (`animation-timeline: view()` / `scroll()`) y dejar el
-  observador de JS solo como respaldo: el hilo de progreso lima bajo la barra y los reveals
+  observador de JS solo como respaldo: el hilo de progreso cian bajo la barra y los reveals
   de cada bloque. Nunca librerías de scroll suave.
-- **Do** fotografía solo donde cuenta el dolor (sección «Lo que pasa hoy»): escenas ilustrativas de
-  negocios latinoamericanos hechas con IA (Magnific), gradadas hacia noir (saturación 0,82 y velo
-  inferior), con la hora en un sello lima y la nota «Escenas ilustrativas, creadas con IA». Nunca
-  como testimonio, cliente o prueba.
-- **Do** hero centrado: el argumento arriba en el bloque lima (titular en dos líneas, botones y
-  pruebas centrados; a la izquierda en el celular) y debajo la demo (`HeroDemo.tsx`) a todo el
-  ancho, montada sobre la costura lima/noir con sombra dura en cian. La demo tiene la forma de la
-  bandeja real en tres columnas: conversaciones (el visitante elige el caso), chat (Autopilot
-  responde solo; Copilot sugiere y él edita, envía o descarta) y detalles (embudo, ficha y
-  registro en mono cian). Guionada, con la etiqueta «Datos de ejemplo»; nada corre solo; alturas
-  fijas; la acción va pegada al último mensaje para que el primer botón quede a la vista sin bajar.
+- **Do** hero centrado sobre noir (titular en dos líneas, botones y pruebas centrados; a la
+  izquierda en el celular) y debajo la demo (`HeroDemo.tsx`) a todo el ancho, con su filete. La
+  demo tiene la forma de la bandeja real en tres columnas: conversaciones (el visitante elige el
+  caso), chat (Autopilot responde solo; Copilot sugiere y él edita, envía o descarta) y detalles
+  (embudo, ficha y registro). Guionada, con la etiqueta «Datos de ejemplo»; nada corre solo;
+  alturas fijas; la acción va pegada al último mensaje para que el primer botón quede a la vista.
+- **Do** explicar la landing con producto real (capturas y la demo). El orden es: hero, Qué es
+  ARM, Capacidades, Arma tu agente, Puesta en marcha, Antes y después, Planes, cierre.
 
 ### Don't:
 - **Don't** caer en **SaaS genérico de plantilla**: rejillas de tarjetas idénticas o todo gris.
@@ -635,8 +612,10 @@ positivo; el texto va sobre la cara (17:1).
 - **Don't** usar cristal (`backdrop-filter`) ni sombras difusas en ninguna superficie.
 - **Don't** redondear nada: 0px es la regla; los círculos solo en avatares y puntos de estado.
 - **Don't** usar degradado en el texto de titulares ni en la marca.
-- **Don't** repetir eyebrows en mayúsculas sobre cada sección de la landing; la mono vive en
-  botones, nav, rótulos de tile y banda.
+- **Don't** poner rótulos sobre los títulos de sección de la landing (ni numerados ni en mono):
+  el h2 y el lede bastan.
+- **Don't** volver a llenar la landing de lima (bloques a sangre, banda, plan en lima pleno) ni
+  a poner fotos de escenas: se retiraron el 2026-11-14 porque saturaban y «se veía mal».
 - **Don't** usar `border-left`/`border-right` mayor de 1px como raya decorativa. Las únicas
   son el marcador de la fila activa de la bandeja y la cita dentro de una burbuja.
 - **Don't** usar el verde en botones primarios, titulares o adornos, ni el cian para actuar.

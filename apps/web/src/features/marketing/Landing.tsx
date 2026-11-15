@@ -4,66 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { formatAiIncluded, formatPlanLimit, formatTokens, PLAN_KEYS, PLANS, TRIAL_AI_TOKENS, TRIAL_DAYS } from "@crm/shared";
 import "./landing.css";
-import { Arrow, Check, GITHUB, IconGit, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV, Pause, Play } from "./chrome";
+import { Arrow, Check, GITHUB, IconGit, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV } from "./chrome";
 import { HeroDemo } from "./HeroDemo";
 import { PlanPicker } from "./PlanPicker";
 import { AgentSimulator } from "./AgentSimulator";
 
-// La página argumenta en este orden: el dolor (un día en su WhatsApp), ese mismo
-// día ya resuelto, la respuesta (ARM), lo que Driony hace, si sirve para su
-// rubro, cuánto tarda, qué cambia, cuánto cuesta y qué pasa si no le convence.
-// Cada sección cierra una objeción.
-
-// Un día cualquiera en el WhatsApp de un negocio: tres escenas, cada una con su
-// foto (ilustrativa, hecha con IA en Magnific; no son clientes) y la hora en que pasa.
-const PAIN = [
-  {
-    time: "23:04",
-    img: "/landing/dolor-noche.webp",
-    alt: "Una oficina comercial vacía y a oscuras de noche, con un celular que se ilumina solo sobre un escritorio",
-    title: "Te escriben cuando tu equipo ya se fue.",
-    text: "Un gerente de compras ve tu anuncio a las once de la noche y pide una cotización. Tu oficina está vacía y el mensaje se queda esperando. Tu competidor sí contesta.",
-  },
-  {
-    time: "08:47",
-    img: "/landing/dolor-manana.webp",
-    alt: "Un ejecutivo comercial recién llegado a la oficina mira preocupado su celular lleno de chats sin responder de la noche anterior",
-    title: "Respondes con ganas. Ya no contesta.",
-    text: "Lo primero del día: los chats de anoche. Al prospecto que más prometía le mandas la propuesta completa, pero ya cerró con otro proveedor. Y el anuncio que lo trajo lo pagaste tú.",
-  },
-  {
-    time: "15:30",
-    img: "/landing/dolor-punta.webp",
-    alt: "Una gerente comercial agobiada en medio de una sala donde cada ejecutivo atiende por su cuenta, sin mirarse",
-    title: "Cada ejecutivo por su cuenta y nadie al mando.",
-    text: "Cada ejecutivo con su teléfono. El cliente pregunta dos veces y recibe dos cotizaciones, o ninguna. Gerencia no ve quién atiende a quién, y si alguien renuncia, se lleva la cartera en su celular.",
-  },
-];
-
-// Las mismas tres horas, con un agente atendiendo (fotos ilustrativas, como las de PAIN).
-const WON = [
-  {
-    time: "23:04",
-    img: "/landing/con-noche.webp",
-    alt: "Un ejecutivo lee tranquilo en el sofá de su casa junto a su familia mientras su celular, sobre la mesa, muestra un chat que se está respondiendo",
-    title: "El agente responde. Tú descansas.",
-    text: "Cotiza desde tu catálogo, califica al prospecto y deja la oportunidad en tu embudo. Mañana la encuentras lista.",
-  },
-  {
-    time: "08:47",
-    img: "/landing/con-manana.webp",
-    alt: "Una ejecutiva comercial llega a la oficina sonriendo, con un café en una mano y el celular en la otra",
-    title: "Llegas con reuniones agendadas, no con pendientes.",
-    text: "Lo de anoche ya está atendido: quién escribió, qué se le cotizó y quién agendó reunión. Tu primera hora es para cerrar.",
-  },
-  {
-    time: "15:30",
-    img: "/landing/con-tarde.webp",
-    alt: "Un gerente comercial y su equipo revisan juntos una sola pantalla en una sala de reuniones",
-    title: "Una sola bandeja y todos al mando.",
-    text: "Cada cuenta con su responsable, el copiloto sugiere la respuesta y gerencia ve quién atiende a quién. Si alguien se va, la cartera se queda en la empresa.",
-  },
-];
+// La página explica en este orden: qué es (la demo y ARM), lo que Driony hace,
+// cómo atendería en su rubro, cuánto tarda en arrancar, qué cambia, cuánto
+// cuesta y qué pasa si no le convence. El estilo es el del panel.
 
 // Antes y después, emparejados: cada problema al lado de lo que lo resuelve.
 const COMPARE = [
@@ -76,23 +24,6 @@ const COMPARE = [
   ["Leads que se enfrían sin que nadie se dé cuenta", "Cada conversación entra al embudo y un flujo la retoma si pasan días"],
   ["Anuncios que optimizan a clics y traen curiosos", "Meta aprende de tus ventas reales y trae gente que compra"],
   ["Pagar por usuario y dudar antes de sumar a alguien", "Precio por empresa: invitas a tu equipo sin que suba la factura"],
-];
-
-// Frases de la banda de color. Se pintan dos veces para que la marquesina
-// haga un bucle sin salto.
-const BAND_ITEMS = [
-  `${TRIAL_DAYS} días de Pro gratis`,
-  "Agentic Relationship Management",
-  "Sin tarjeta",
-  "Responde en segundos",
-  "Desde tu propio número",
-  "Meta Business Partner",
-  "IA incluida en el plan",
-  "La IA sugiere, tú apruebas",
-  "Precio por empresa, no por usuario",
-  "Sin cobro por conversación ni por mensaje",
-  "Lee fotos y comprobantes",
-  "Código abierto",
 ];
 
 const STEPS = [
@@ -190,7 +121,6 @@ const FAQ = [
 
 export function Landing() {
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const [paused, setPaused] = useState(false);
   const [active, setActive] = useState<string | null>(null);
 
   // Reveals y sección activa. El contenido es visible por defecto (sin JS);
@@ -244,164 +174,61 @@ export function Landing() {
       <MarketingHeader active={active} home />
 
       <main id="contenido">
-        {/* ── Hero centrado: el argumento arriba, en lima; debajo, a todo el ancho, una demo que el visitante maneja ── */}
-        <section className="lp-hero lp-hero--center">
-          <div className="lp-hero__top">
-            <div className="lp-wrap">
-              <div className="lp-hero__copy">
-                {/* El rótulo tacha CRM y sella ARM: la categoría en un vistazo. */}
-                <p className="lp-hero__kicker lp-anim" style={{ animationDelay: "0.02s" }}>
-                  <span className="lp-arm" role="img" aria-label="De CRM a ARM">
-                    <s>CRM</s>
-                    <b>ARM</b>
-                  </span>
-                  <span>Agentic Relationship Management</span>
-                </p>
-                <h1 className="lp-anim" style={{ animationDelay: "0.08s" }}>
-                  Agentes de IA que <span className="lp-hero__accent">venden</span> por tu WhatsApp. Tú mandas.
-                </h1>
-                <p className="lp-hero__sub lp-anim" style={{ animationDelay: "0.16s" }}>
-                  En tu propio número: responden en segundos, cotizan, leen comprobantes y retoman al que se enfrió, también a las 11 de la noche. Tu equipo supervisa y cierra.
-                </p>
-                <div className="lp-hero__cta lp-anim" style={{ animationDelay: "0.24s" }}>
-                  <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
-                    Probar {TRIAL_DAYS} días gratis <Arrow />
-                  </Link>
-                  <a href="#dolor" className="lp-btn lp-btn--ghost lp-btn--lg">
-                    Mira lo que pasa hoy en tu WhatsApp
-                  </a>
-                </div>
-                <ul className="lp-hero__proofs lp-anim" style={{ animationDelay: "0.32s" }} aria-label="Lo que incluye la prueba">
-                  <li>
-                    <Check /> Sin tarjeta
-                  </li>
-                  <li>
-                    <Check /> Sin cobro por conversación
-                  </li>
-                  <li>
-                    <Check /> Listo en 2 minutos
-                  </li>
-                  <li>
-                    <Check /> IA incluida o tu propia clave
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* La demo va montada sobre la costura: media en lima, media en noir. */}
-          <div className="lp-hero__stage">
-            <div className="lp-wrap">
-              <div className="lp-hero__console lp-anim" style={{ animationDelay: "0.3s" }}>
-                <HeroDemo />
-              </div>
-              <div className="lp-hero__under">
-                <div className="lp-partner" title="Driony forma parte del programa de partners de Meta">
-                  <MetaMark />
-                  <span>
-                    <b>Meta Business Partner</b>
-                    <span className="lp-partner__sub">API oficial de WhatsApp Business</span>
-                  </span>
-                </div>
-                <p>Demo con datos de ejemplo. En tu cuenta responde la IA con tu catálogo, tu agenda y tus reglas.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Banda de color a todo ancho, en marquesina ── */}
-        <section className="lp-band" data-paused={paused} aria-label="Lo que incluye Driony">
-          <div className="lp-band__track">
-            {[0, 1].map((copy) => (
-              <div className="lp-band__group" key={copy} aria-hidden={copy === 1}>
-                {BAND_ITEMS.map((t) => (
-                  <span className="lp-band__item" key={t}>
-                    {t}
-                    <i className="lp-band__dot" />
-                  </span>
-                ))}
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="lp-band__pause"
-            aria-pressed={paused}
-            aria-label={paused ? "Reanudar el movimiento de la banda" : "Pausar el movimiento de la banda"}
-            onClick={() => setPaused((v) => !v)}
-          >
-            {paused ? <Play /> : <Pause />}
-          </button>
-        </section>
-
-        {/* ── El dolor: un día cualquiera en tu WhatsApp, en tres escenas; la cuenta viene justo después ── */}
-        <section className="lp-section lp-pain-sec" id="dolor">
+        {/* ── Hero: el argumento centrado y, debajo, una demo que el visitante maneja ── */}
+        <section className="lp-hero">
           <div className="lp-wrap">
-            <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 01 // Lo que pasa hoy ]</p>
-              <h2>Un día normal en tu WhatsApp. Y las ventas que se van sin que lo notes.</h2>
-              <p className="lp-lede">
-                No es falta de ganas: tu equipo comercial responde todo lo que puede. Pero los clientes escriben de noche, se enfrían de un día para otro y llegan todos a la vez.
+            <div className="lp-hero__copy">
+              {/* El rótulo tacha CRM y sella ARM: la categoría en un vistazo. */}
+              <p className="lp-hero__kicker lp-anim" style={{ animationDelay: "0.02s" }}>
+                <span className="lp-arm" role="img" aria-label="De CRM a ARM">
+                  <s>CRM</s>
+                  <b>ARM</b>
+                </span>
+                <span>Agentic Relationship Management</span>
               </p>
-            </div>
-            <ol className="lp-pain">
-              {PAIN.map((s, i) => (
-                <li key={s.time} className={`lp-pain__scene lp-reveal${i === 0 ? " lp-pain__scene--lead" : ""}`}>
-                  <figure className="lp-pain__img">
-                    <img src={s.img} alt={s.alt} width={1440} height={1075} loading="lazy" decoding="async" />
-                    <time className="lp-pain__time">{s.time}</time>
-                  </figure>
-                  <div className="lp-pain__copy">
-                    <h3>{s.title}</h3>
-                    <p>{s.text}</p>
-                  </div>
+              <h1 className="lp-anim" style={{ animationDelay: "0.08s" }}>
+                Agentes de IA que <span className="lp-hero__accent">venden</span> por tu WhatsApp. Tú mandas.
+              </h1>
+              <p className="lp-hero__sub lp-anim" style={{ animationDelay: "0.16s" }}>
+                En tu propio número: responden en segundos, cotizan, leen comprobantes y retoman al que se enfrió, también a las 11 de la noche. Tu equipo supervisa y cierra.
+              </p>
+              <div className="lp-hero__cta lp-anim" style={{ animationDelay: "0.24s" }}>
+                <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
+                  Probar {TRIAL_DAYS} días gratis <Arrow />
+                </Link>
+                <a href="#arm" className="lp-btn lp-btn--ghost lp-btn--lg">
+                  Cómo funciona
+                </a>
+              </div>
+              <ul className="lp-hero__proofs lp-anim" style={{ animationDelay: "0.32s" }} aria-label="Lo que incluye la prueba">
+                <li>
+                  <Check /> Sin tarjeta
                 </li>
-              ))}
-            </ol>
-            <div className="lp-pain__close lp-reveal">
-              <p>
-                Ninguna de estas ventas aparece en tu reporte. <b>Por eso nadie las reclama.</b>
-              </p>
-              <a href="#con-driony" className="lp-btn lp-btn--ghost">
-                El mismo día, con Driony <Arrow />
-              </a>
+                <li>
+                  <Check /> Sin cobro por conversación
+                </li>
+                <li>
+                  <Check /> Listo en 2 minutos
+                </li>
+                <li>
+                  <Check /> IA incluida o tu propia clave
+                </li>
+              </ul>
             </div>
-          </div>
-        </section>
 
-        {/* ── El mismo día, con un agente atendiendo: las tres horas del dolor, resueltas ── */}
-        <section className="lp-section" id="con-driony">
-          <div className="lp-wrap">
-            <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 02 // El mismo día, con Driony ]</p>
-              <h2>Las mismas tres horas. Ahora alguien responde.</h2>
-              <p className="lp-lede">
-                No cambia tu empresa ni tu número de WhatsApp. Cambia quién atiende cuando tú no puedes, y que por fin ves todo en un solo sitio.
-              </p>
+            <div className="lp-hero__console lp-anim" style={{ animationDelay: "0.3s" }}>
+              <HeroDemo />
             </div>
-            <ol className="lp-pain lp-pain--won">
-              {WON.map((s) => (
-                <li key={s.time} className="lp-pain__scene lp-reveal">
-                  <figure className="lp-pain__img">
-                    <img src={s.img} alt={s.alt} width={1440} height={1075} loading="lazy" decoding="async" />
-                    <time className="lp-pain__time">{s.time}</time>
-                  </figure>
-                  <div className="lp-pain__copy">
-                    <h3>{s.title}</h3>
-                    <p>{s.text}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            <div className="lp-pain__close lp-reveal">
-              <p>
-                Es el mismo WhatsApp de siempre, <b>con un agente y con mando.</b>
-              </p>
-              <Link href="/register" className="lp-btn lp-btn--primary">
-                Probar {TRIAL_DAYS} días gratis <Arrow />
-              </Link>
+            <div className="lp-hero__under">
+              <div className="lp-partner" title="Driony forma parte del programa de partners de Meta">
+                <MetaMark />
+                <span>
+                  <b>Meta Business Partner</b>
+                  <span className="lp-partner__sub">API oficial de WhatsApp Business</span>
+                </span>
+              </div>
+              <p>Demo con datos de ejemplo. En tu cuenta responde la IA con tu catálogo, tu agenda y tus reglas.</p>
             </div>
-            <p className="lp-pain__note">Escenas ilustrativas, creadas con IA.</p>
           </div>
         </section>
 
@@ -414,7 +241,6 @@ export function Landing() {
                 <span className="lp-arm-def__sub">Agentic // Relationship // Management</span>
               </div>
               <div className="lp-head">
-                <p className="lp-tag">[ 03 // La respuesta: ARM ]</p>
                 <h2>Un CRM guarda lo que pasó con el cliente. Un ARM pone agentes a atenderlo.</h2>
                 <p className="lp-lede">
                   Agentic Relationship Management: la relación con cada cliente la trabajan agentes de IA desde tu propio WhatsApp, y tu equipo la supervisa. Driony está construido así: bandeja, embudo, flujos y agentes son un solo sistema.
@@ -439,7 +265,6 @@ export function Landing() {
         <section className="lp-section" id="capacidades">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 04 // Capacidades ]</p>
               <h2>Todo lo que hace Driony mientras tú cierras.</h2>
               <p className="lp-lede">
                 Deja de saltar entre el celular, hojas de cálculo y notas sueltas. Conversaciones, embudo y agentes en una sola pantalla, con cada lead a la vista.
@@ -653,7 +478,6 @@ export function Landing() {
         <section className="lp-section" id="rubros">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 05 // Arma tu agente ]</p>
               <h2>Arma tu agente en 30 segundos y mira cómo atiende.</h2>
               <p className="lp-lede">
                 Elige tu rubro, su misión y su tono. Lo que ves es un ejemplo escrito a mano; en tu cuenta lo hace la IA con tus precios, tus horarios y tus reglas, y arranca con esta misma configuración.
@@ -669,7 +493,6 @@ export function Landing() {
         <section className="lp-section" id="como">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 06 // Puesta en marcha ]</p>
               <h2>Empiezas hoy, no en tres semanas.</h2>
               <p className="lp-lede">Sin migraciones ni implementaciones eternas. Creas tu espacio, conectas tu número y el agente atiende el primer chat el mismo día.</p>
             </div>
@@ -698,7 +521,6 @@ export function Landing() {
         <section className="lp-section" id="porque">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 07 // Antes y después ]</p>
               <h2>Lo que cambia desde la primera semana.</h2>
             </div>
             <div className="lp-vs lp-reveal" role="table" aria-label="WhatsApp a mano frente a Driony">
@@ -726,7 +548,6 @@ export function Landing() {
         <section className="lp-section" id="planes">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
-              <p className="lp-tag">[ 08 // Planes ]</p>
               <h2>Precio por empresa. Nunca por conversación.</h2>
               <p className="lp-lede">
                 Todos empiezan igual: {TRIAL_DAYS} días de Pro gratis, sin tarjeta. Después sigues en Gratis o eliges el plan que te toca. Invitar a alguien de tu equipo no sube la factura, y que te escriban más tampoco.
@@ -829,33 +650,35 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ── Cierre: color de acción a todo ancho ── */}
+        {/* ── Cierre: un panel centrado con la acción ── */}
         <section className="lp-cta-band">
-          <div className="lp-wrap lp-cta-band__inner lp-reveal">
-            <h2>Tu próximo lead escribe esta noche. ¿Quién le responde?</h2>
-            <p>Pon un agente en tu número, dale tu catálogo y tus reglas, y deja de perder ventas en WhatsApp. Hoy, en dos minutos.</p>
-            <div className="lp-cta__row">
-              <Link href="/register" className="lp-btn lp-btn--white lp-btn--lg">
-                Probar {TRIAL_DAYS} días gratis <Arrow />
-              </Link>
-              <Link href="/login" className="lp-btn lp-btn--outline lp-btn--lg">
-                Iniciar sesión
-              </Link>
+          <div className="lp-wrap">
+            <div className="lp-cta-band__inner lp-reveal">
+              <h2>Tu próximo lead escribe esta noche. ¿Quién le responde?</h2>
+              <p>Pon un agente en tu número, dale tu catálogo y tus reglas, y deja de perder ventas en WhatsApp. Hoy, en dos minutos.</p>
+              <div className="lp-cta__row">
+                <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
+                  Probar {TRIAL_DAYS} días gratis <Arrow />
+                </Link>
+                <Link href="/login" className="lp-btn lp-btn--ghost lp-btn--lg">
+                  Iniciar sesión
+                </Link>
+              </div>
+              <ul className="lp-cta-band__proof" aria-label="Sin riesgo">
+                <li>
+                  <Check /> Sin tarjeta
+                </li>
+                <li>
+                  <Check /> Sin permanencia
+                </li>
+                <li>
+                  <Check /> Sigues en Gratis al terminar
+                </li>
+                <li>
+                  <Check /> Tus datos son tuyos
+                </li>
+              </ul>
             </div>
-            <ul className="lp-cta-band__proof" aria-label="Sin riesgo">
-              <li>
-                <Check /> Sin tarjeta
-              </li>
-              <li>
-                <Check /> Sin permanencia
-              </li>
-              <li>
-                <Check /> Sigues en Gratis al terminar
-              </li>
-              <li>
-                <Check /> Tus datos son tuyos
-              </li>
-            </ul>
           </div>
         </section>
       </main>

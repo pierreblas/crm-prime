@@ -473,11 +473,11 @@
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Titulares de la landing: Bricolage Grotesque 800, condensada (font-stretch 82 %) y en mayúsculas; techo 4.8rem."
+        "purpose": "Titulares de la landing: Bricolage Grotesque 700, ancho y caja normales, -0.02em; techo 4rem (desde 2026-11-14, como el panel)."
       },
       "headline": {
         "displayName": "Headline",
-        "purpose": "Títulos de sección de la landing (mayúsculas condensadas) y de los docs."
+        "purpose": "Títulos de sección de la landing (700, caja normal) y de los docs."
       },
       "title": {
         "displayName": "Title",
@@ -497,7 +497,7 @@
       },
       "mono": {
         "displayName": "Mono",
-        "purpose": "JetBrains Mono: la telemetría. Etiquetas de KPI, horas, estados, ejes de gráfico, chips y, en la landing, botones, nav y rótulos; en mayúsculas con tracking 0.06–0.12em."
+        "purpose": "JetBrains Mono: la telemetría. Etiquetas de KPI, horas, estados, ejes de gráfico y chips de la consola; en la landing solo el sello CRM/ARM y la telemetría de la demo. Botones y nav van en Hanken."
       }
     },
     "shadows": [
@@ -552,11 +552,6 @@
         "name": "content-fade",
         "value": "200ms ease (opacity .35 → 1)",
         "purpose": "Entrada del contenido al navegar entre secciones."
-      },
-      {
-        "name": "marquee",
-        "value": "40s linear infinite (translateX 0 → -50%)",
-        "purpose": "Banda de la landing; se pausa en hover y con prefers-reduced-motion."
       }
     ],
     "breakpoints": [
@@ -649,17 +644,17 @@
     }
   ],
   "narrative": {
-    "northStar": "Una marca en lima ácido, dos estilos cyberpunk: landing «Ácido», panel «Noir telemetría»",
-    "overview": "Driony vende en la landing y opera en el panel, y las dos caras comparten un solo color de marca, el **Lima Ácido** (#e2f80d), sobre negro. Lo demás cambia a propósito para que no parezcan la misma pantalla.\n\nLa **landing «Ácido»** es un póster: negro casi puro (#08090b), bloques de lima pleno con tinta noir (el hero, la banda, la primera tile, el resultado de la calculadora, el plan destacado y el cierre), píxeles como motivo (lima y Verde Circuito #1f6b3b), titulares en Bricolage condensada y en mayúsculas, y mono en botones, nav y rótulos. El cian aparece solo en lo que mide o está en marcha (la IA del hero, los chips de evento, las barras, las lecturas de la calculadora), nunca para actuar.\n\nEl **panel «Noir telemetría»** es un instrumento: negro azulado (#0a0b10) con una rejilla muy baja, paneles planos (#12141f) separados por filete (#25293e), nada de cristal ni sombras difusas, esquinas a 0 px y bisel en KPI y botón primario. El lima solo actúa (botón, ítem activo, foco, el KPI que importa); el **Cian Neón** (#00e5ff) pinta datos, presencia y lo que está en marcha (gráficos, IA activa, Copiloto, foco de campos); el **Humo** (#8e9eaf) es el texto secundario y los neutros. Etiquetas, horas, estados y ejes van en JetBrains Mono en mayúsculas.\n\nEl sistema sigue siendo **denso pero legible** y rechaza el SaaS genérico de plantilla, lo colorido/infantil y lo corporativo frío. Si una pantalla pudiera ser de cualquier otro SaaS, falló.",
+    "northStar": "Una marca en lima ácido, un solo estilo: Noir telemetría (la landing dejó «Ácido» el 2026-11-14)",
+    "overview": "Driony vende en la landing y opera en el panel, y desde el 2026-11-14 las dos caras hablan el mismo idioma visual, con un solo color de marca, el **Lima Ácido** (#e2f80d).\n\nLa **landing** usa el noir del panel: la misma rejilla, paneles con filete, botones de Hanken 600 (el primario con bisel) y titulares en Bricolage 700 de caja normal. El lima solo actúa (el primario, lo seleccionado) y pinta una palabra del titular; el cian mide. La landing «Ácido» (bloques lima a sangre, banda, píxeles, mayúsculas condensadas, fotos de escenas) se retiró porque saturaba.\n\nEl **panel «Noir telemetría»** es un instrumento: negro azulado (#0a0b10) con una rejilla muy baja, paneles planos (#12141f) separados por filete (#25293e), nada de cristal ni sombras difusas, esquinas a 0 px y bisel en KPI y botón primario. El lima solo actúa (botón, ítem activo, foco, el KPI que importa); el **Cian Neón** (#00e5ff) pinta datos, presencia y lo que está en marcha (gráficos, IA activa, Copiloto, foco de campos); el **Humo** (#8e9eaf) es el texto secundario y los neutros. Etiquetas, horas, estados y ejes van en JetBrains Mono en mayúsculas.\n\nEl sistema sigue siendo **denso pero legible** y rechaza el SaaS genérico de plantilla, lo colorido/infantil y lo corporativo frío. Si una pantalla pudiera ser de cualquier otro SaaS, falló.",
     "keyCharacteristics": [
-      "Un solo lima para las dos caras; el cian mide en el panel y, en la landing, solo marca lo que mide (IA en marcha, eventos, barras); el Verde Circuito es solo de los píxeles.",
-      "Landing: bloques de color pleno, píxeles, mayúsculas condensadas, mono en botones y rótulos, 0 px.",
+      "Un solo lima y un solo estilo para las dos caras; el cian mide en las dos.",
+      "Landing: el noir del panel, paneles con filete, titulares en caja normal y el lima solo en el primario, lo seleccionado y una palabra del titular. Sin bloques de color, banda, píxeles ni fotos de escenas.",
       "Panel: noir con rejilla, paneles planos con filete, 0 px, bisel en KPI y primario, mono para la telemetría.",
       "Lima actúa, cian mide, humo matiza. Un color no hace el trabajo de otro.",
       "El verde sigue siendo señal de WhatsApp y de estado positivo; el rojo neón (#ff3355) es peligro.",
       "Tres familias con oficio: Bricolage titula, Hanken trabaja, JetBrains Mono mide.",
       "Estados siempre explícitos (color + icono o palabra), nunca solo color.",
-      "Kit HUD de la referencia de Stitch encima de los bloques: biseles, puntos hexagonales, crucetas «[ + ]», etiquetas mono por sección, primario con franja de peligro y sombra dura en cian, consola de comparación."
+      "Kit HUD solo en el panel (cruceta y punto hexagonal en tarjetas y KPI); retirado de la landing el 2026-11-14."
     ],
     "rules": [
       {
@@ -689,12 +684,12 @@
       },
       {
         "name": "La Regla del Verde Reservado",
-        "body": "El verde solo dice dos cosas: «esto es WhatsApp» o «esto salió bien». El Verde Circuito es exclusivo de los píxeles de la landing.",
+        "body": "El verde solo dice dos cosas: «esto es WhatsApp» o «esto salió bien». En la landing, «hecho» es Verde Vital.",
         "section": "colors"
       },
       {
         "name": "La Regla del Cian que Mide",
-        "body": "El cian nunca actúa: ni botones, ni enlaces, ni selección. En la landing aparece solo en lo que mide o está en marcha (IA, eventos, barras, lecturas); el resto es lima y negro, como la referencia.",
+        "body": "El cian nunca actúa: ni botones, ni enlaces, ni selección. En la landing, igual que en el panel.",
         "section": "colors"
       },
       {
@@ -704,7 +699,7 @@
       },
       {
         "name": "La Regla de las Tres Familias",
-        "body": "Bricolage titula (en la landing, condensada y en mayúsculas), Hanken trabaja, JetBrains Mono mide: etiquetas, horas, estados, ejes y, en la landing, botones y nav. Prohibida la display en campos o datos; prohibida la mono en párrafos.",
+        "body": "Bricolage titula (700, caja normal, también en la landing), Hanken trabaja (incluidos los botones y el nav de la landing), JetBrains Mono mide: etiquetas, horas, estados y ejes. Prohibida la display en campos o datos; prohibida la mono en párrafos.",
         "section": "typography"
       },
       {
