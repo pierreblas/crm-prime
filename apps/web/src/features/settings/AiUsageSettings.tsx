@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import type { AiUsagePeriod, AiUsageReport } from "@crm/shared";
+import { aiQuotaLevel, formatTokens, type AiUsagePeriod, type AiUsageReport } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { fetchAiUsage } from "@/lib/bff";
+import { useAiStatus } from "@/features/copilot/useAiStatus";
+import { keyKind, meterOf, usdOf } from "@/features/plans/AiUsageMeter";
 
 const PERIODS: { key: AiUsagePeriod; label: string }[] = [
   { key: "month", label: "Este mes" },
@@ -45,8 +47,8 @@ export function AiUsageSettings() {
         <div>
           <h3>Consumo de IA</h3>
           <p>
-            Tokens y coste estimado de todo lo que hace la IA en tu empresa. Con tu clave lo pagas directamente a
-            tu proveedor; la IA incluida en tu plan no te cuesta nada aparte, dentro de su cupo.
+            Cuántos tokens gasta la IA de tu empresa y en qué. La IA incluida en tu plan no te cuesta nada aparte
+            mientras te queden tokens; con tu propia clave, lo pagas directamente a tu proveedor.
           </p>
         </div>
         <div className="seg" role="tablist" aria-label="Periodo">
@@ -57,6 +59,8 @@ export function AiUsageSettings() {
           ))}
         </div>
       </header>
+
+      <MonthCounter />
 
       {isError && (
         <p style={{ color: "var(--danger)" }}>
@@ -69,6 +73,68 @@ export function AiUsageSettings() {
       {isPending && <div className="skeleton" style={{ height: 260, borderRadius: 12 }} />}
       {data && <Report data={data} />}
     </div>
+  );
+}
+
+/**
+ * El contador del mes, encima del informe: lo que te queda de la IA de Driony
+ * (como la ficha de la cabecera y el círculo de tu foto) o, con tu clave, lo que
+ * llevas y lo que cuesta, que Driony no limita. No depende del periodo elegido.
+ */
+function MonthCounter() {
+  const { data: ai } = useAiStatus();
+  if (!ai) return null;
+  const date = (iso: string) => new Date(iso).toLocaleDateString("es", { day: "numeric", month: "long", timeZone: "UTC" });
+
+  const included = ai.included && (ai.source === "included" || (ai.source === "none" && ai.included.exhausted)) ? ai.included : null;
+  if (included) {
+    const m = meterOf(included);
+    const level = aiQuotaLevel(included);
+    return (
+      <section className={`usage__counter is-${level}`} data-usage-counter={level}>
+        <div className="usage__counter-main">
+          <span>Tokens de IA de Driony · este mes</span>
+          <strong>
+            Te quedan {formatTokens(m.left)} <small>de {formatTokens(m.total)}</small>
+          </strong>
+          <span className="usage__counter-track" aria-hidden="true">
+            <i style={{ transform: `scaleX(${m.leftPct})` }} />
+          </span>
+          <small>
+            Usados: {formatTokens(m.used)} · se recargan el {date(included.resetsAt)}. La ficha de arriba y el círculo
+            de tu foto muestran lo mismo: llenos al empezar el mes, se vacían a medida que la IA trabaja.
+          </small>
+        </div>
+        <Link href="/settings?tab=plan#extra" className="btn btn-ghost btn-sm">
+          Tokens extra
+        </Link>
+      </section>
+    );
+  }
+
+  if (ai.source !== "own" && ai.source !== "platform") return null;
+  const kind = keyKind(ai);
+  const cost = kind !== "platform" && ai.ownCostUsd !== null && ai.ownTokens > 0 ? usdOf(ai.ownCostUsd, "es") : null;
+  return (
+    <section className="usage__counter is-own" data-usage-counter={kind}>
+      <div className="usage__counter-main">
+        <span>
+          {kind === "platform" ? "IA del servidor de Driony" : kind === "server" ? "IA con la clave del servidor" : "IA con tu propia clave"}{" "}
+          · este mes
+        </span>
+        <strong>
+          {formatTokens(ai.ownTokens)} tokens usados {cost && <small>≈ USD {cost}</small>}
+        </strong>
+        <small>
+          {kind === "platform"
+            ? "Driony no le pone límite de tokens. Cada agente conserva su tope mensual."
+            : "Sin límite de Driony: lo paga tu proveedor directamente. Para frenar el gasto, pon un tope mensual a cada agente."}
+        </small>
+      </div>
+      <Link href="/agentes" className="btn btn-ghost btn-sm">
+        Topes por agente
+      </Link>
+    </section>
   );
 }
 
@@ -227,9 +293,9 @@ function Report({ data }: { data: AiUsageReport }) {
 
       {onlyIncluded ? (
         <p className="usage__note">
-          Todo este consumo corrió con la IA incluida en tu plan: no te cuesta nada aparte. Lo que cuenta es el cupo de
-          conversaciones, en <Link href="/settings?tab=plan">Ajustes › Plan</Link>. Si conectas tu propia clave, aquí
-          verás lo que te cobraría tu proveedor.
+          Todo este consumo corrió con la IA incluida en tu plan: no te cuesta nada aparte. Lo que cuenta es cuántos
+          tokens te quedan este mes (arriba); para sumar más, ve a <Link href="/settings?tab=plan#extra">Ajustes › Plan</Link>.
+          Si conectas tu propia clave, aquí verás lo que te cobraría tu proveedor.
         </p>
       ) : (
         <p className="usage__note">

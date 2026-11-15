@@ -363,14 +363,21 @@ export class AiSettingsService {
     const viaIncluded =
       !own.apiKey && row.provider !== "fake" && modeOf(row) !== "BYOK" ? this.includedCreds(included) : null;
     const active = viaIncluded ?? own;
+    const source = viaIncluded ? "included" : !used?.key ? "none" : used.source === "db" ? "own" : "platform";
+    const saas = tenancyMode === "multi";
+    // La clave del servidor prestada en SaaS se registra como MANAGED (fila
+    // `platform`); la de la empresa, y la del servidor en una instalación
+    // propia, como `own`. Se enseña lo gastado con la que está en uso.
+    const keyUsage = await this.usage.keyUsageThisMonth(this.tenant.orgId(), saas && source === "platform" ? "platform" : "own");
     return {
       ready: active.provider !== "fake" && !!active.apiKey,
       provider: active.provider,
       model: active.model,
-      source: viaIncluded ? "included" : !used?.key ? "none" : used.source === "db" ? "own" : "platform",
-      saas: tenancyMode === "multi",
+      source,
+      saas,
       included,
-      ownTokens: await this.usage.ownTokensThisMonth(this.tenant.orgId()),
+      ownTokens: keyUsage.tokens,
+      ownCostUsd: keyUsage.costUsd,
       copilotFree: await this.copilotFree(),
     };
   }

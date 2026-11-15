@@ -139,13 +139,29 @@ export class AiUsageService {
     return { tokens, conversations: Number(convs[0]?.count ?? 0), costUsd };
   }
 
-  /** Tokens del mes en curso (UTC) con la clave propia de la empresa (o la del servidor): sin cupo, pero se enseñan. */
-  async ownTokensThisMonth(orgId: string): Promise<number> {
-    const agg = await this.prisma.aiUsage.aggregate({
-      where: { orgId, source: "own", createdAt: { gte: monthStart() } },
+  /**
+   * Tokens del mes en curso (UTC) con una clave sin límite de Driony y lo que
+   * costarían a precio de lista. `own` es la clave de la empresa (o la del
+   * servidor en una instalación propia); `platform` es la clave del servidor
+   * que el operador presta en SaaS (AI_SHARED_KEYS). El coste es null si ningún
+   * modelo tiene precio conocido.
+   */
+  async keyUsageThisMonth(orgId: string, source: "own" | "platform"): Promise<{ tokens: number; costUsd: number | null }> {
+    const byModel = await this.prisma.aiUsage.groupBy({
+      by: ["model"],
+      where: { orgId, source, createdAt: { gte: monthStart() } },
       _sum: { inputTokens: true, outputTokens: true },
     });
-    return (agg._sum.inputTokens ?? 0) + (agg._sum.outputTokens ?? 0);
+    let tokens = 0;
+    let costUsd: number | null = null;
+    for (const r of byModel) {
+      const input = r._sum.inputTokens ?? 0;
+      const output = r._sum.outputTokens ?? 0;
+      tokens += input + output;
+      const cost = estimateAiCost(r.model, input, output);
+      if (cost !== null) costUsd = (costUsd ?? 0) + cost;
+    }
+    return { tokens, costUsd };
   }
 
   async report(period: AiUsagePeriod): Promise<AiUsageReport> {

@@ -458,7 +458,7 @@ export function Landing() {
               <article className="lp-card lp-card--two-thirds lp-reveal">
                 <h3>IA incluida en el plan, sin sorpresas en la factura</h3>
                 <p>
-                  Tu plan trae <b>tokens de IA incluidos</b> cada mes, sin claves ni configuración, y de ahí sale todo lo que hace la IA. Cuando quieras más, conectas OpenAI, Claude o cualquier API compatible con <b>tu</b> clave y eliges el modelo <b>por agente</b>, sin cupo y sin recargo. Cada respuesta registra lo que costó y cada agente tiene su <b>tope</b> mensual: al llegar, la IA se detiene y la conversación pasa a tu equipo.
+                  Tu plan trae <b>tokens de IA incluidos</b> cada mes, sin claves ni configuración, y de ahí sale todo lo que hace la IA. Cuando quieras más, conectas OpenAI, Claude o cualquier API compatible con <b>tu</b> clave y eliges el modelo <b>por agente</b>, sin límite de tokens y sin recargo. Cada respuesta registra lo que costó y cada agente tiene su <b>tope</b> mensual: al llegar, la IA se detiene y la conversación pasa a tu equipo.
                 </p>
                 <div className="lp-meter" aria-hidden="true">
                   <div className="lp-meter__head">
@@ -572,7 +572,7 @@ export function Landing() {
                 <h3>Aparte, y no pasa por Driony</h3>
                 <p>
                   <span className="lp-pay__big">Lo de Meta</span>
-                  Los mensajes de WhatsApp los cobra Meta a tu cuenta, con un cupo gratis al mes por número. Sin billetera intermedia ni recargo. La IA va en el plan; con tu clave, sin cupo.
+                  Los mensajes de WhatsApp los cobra Meta a tu cuenta, con un cupo gratis al mes por número. Sin billetera intermedia ni recargo. La IA va en el plan; con tu clave, sin límite de tokens.
                 </p>
               </div>
             </div>

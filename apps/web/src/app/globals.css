@@ -1352,7 +1352,7 @@ code {
   transform-origin: left center;
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
-/* Clave propia: cifra sin barra, no hay cupo que llenar. */
+/* Clave propia: cifra sin barra, Driony no pone límite que vaciar. */
 .ai-meter.is-own {
   color: var(--muted);
 }
@@ -3099,6 +3099,22 @@ code {
 .usage__kpi span { font-size: 12px; color: var(--muted); }
 .usage__kpi strong { font-size: 24px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .usage__kpi small { font-size: 12px; color: var(--muted); }
+/* Contador del mes: lo que queda (IA de Driony) o lo llevado con tu clave. */
+.usage__counter { display: flex; align-items: center; gap: 16px; padding: 16px 18px; border: 1px solid rgba(0, 229, 255, 0.48); background: var(--panel); box-shadow: var(--shadow-card); }
+.usage__counter-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.usage__counter-main > span:first-child { font-size: 12px; color: var(--muted); }
+.usage__counter-main > strong { font-size: 26px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.usage__counter-main > strong small { font-size: 14px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.usage__counter-main > small { font-size: 12.5px; line-height: 1.5; color: var(--muted); max-width: 70ch; }
+.usage__counter-track { display: block; height: 6px; background: var(--border); overflow: hidden; max-width: 520px; }
+.usage__counter-track > i { display: block; height: 100%; background: var(--cyan); transform-origin: left center; transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+.usage__counter.is-warn, .usage__counter.is-high { border-color: var(--warning); }
+.usage__counter.is-warn .usage__counter-track > i, .usage__counter.is-high .usage__counter-track > i { background: var(--warning); }
+.usage__counter.is-full { border-color: color-mix(in srgb, var(--danger) 55%, transparent); }
+.usage__counter.is-full .usage__counter-track > i { background: var(--danger); }
+.usage__counter.is-own { border-color: var(--border); }
+@media (max-width: 640px) { .usage__counter { flex-direction: column; align-items: stretch; } }
+@media (prefers-reduced-motion: reduce) { .usage__counter-track > i { transition: none; } }
 .usage__panel { padding: 14px 16px; border-radius: 0; border: 1px solid var(--border); background: var(--panel); min-width: 0; }
 .usage__panel h4 { margin: 0 0 10px; font-size: 14px; }
 .usage__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }

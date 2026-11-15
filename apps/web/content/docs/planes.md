@@ -30,12 +30,14 @@ Al terminar la prueba tu empresa sigue en el plan **Gratis**, sin cortar ni borr
 
 Sin configurar nada, el agente usa la **IA de Driony** con el cupo de tu plan. Se mide en **tokens**, los mismos que Driony paga al proveedor: sin créditos inventados ni cobro por conversación. Todo lo que hace la IA sale del mismo cupo: el agente y sus seguimientos, el copiloto del chat, los asistentes de redacción y de flujos, las preguntas sin respuesta, y los audios e imágenes de los clientes (un minuto de audio son unos 25.000 tokens). La única excepción es el copiloto de ayuda (abajo). Entrada y salida cuentan por igual. De media, una conversación atendida por el agente gasta unos 20.000 tokens. El cupo vuelve a empezar el día 1 de cada mes.
 
-Lo llevado del mes se ve **arriba a la derecha, junto a tu foto**: «IA 1,2 M/2,5 M». Con tu propia clave, el mismo sitio enseña lo gastado con ella («IA 14 mil»), sin cupo. Se pone ámbar al 80 %, más al 95 % y rojo al gastarlo; al pulsarlo ves cuándo se renueva y, si eres administrador, cómo ampliarlo. Al 80 %, al 95 % y al tope, los administradores ven también un aviso debajo de la cabecera.
+Lo que te queda del mes se ve **arriba a la derecha, junto a tu foto**: «Quedan 7,7 M». Funciona como una batería: la barra de esa ficha y el **círculo alrededor de tu foto** empiezan llenos el día 1 y se vacían a medida que la IA trabaja. Se ponen ámbar cuando queda el 20 %, más al 5 % y rojo al acabarse; al pulsar la ficha ves cuánto te queda, cuánto usaste, cuándo se recarga y, si eres administrador, cómo ampliarlo. Cuando queda el 20 %, el 5 % y al acabarse, los administradores ven también un aviso debajo de la cabecera. El mismo contador está arriba de **Ajustes › Consumo de IA**.
+
+Con tu propia clave Driony no pone límite: la ficha dice lo que llevas con ella («Tu clave: 2,1 M») y, al pulsarla, lo que cuesta a precio de lista. Tu foto va sin círculo, porque no hay nada que se acabe.
 
 Al gastar el cupo, el agente **termina las conversaciones que ya atendía** ese mes (hasta un 5 % por encima del cupo) y las nuevas pasan a tu equipo hasta el día 1; el copiloto y los asistentes se detienen. Nadie se queda a medias. Para que la IA siga tienes tres caminos:
 
 - **Tokens extra.** Paquetes de **20 M por USD 12** o **60 M por USD 29**, que se pagan una vez. Valen **6 meses** y se gastan solo cuando se acaba el cupo de tu plan, el que vence antes primero. Los pides en **Ajustes › Plan › Tokens extra** y los ves allí con lo que te queda y cuándo vencen.
-- **Tu propia clave.** Conecta tu clave de OpenAI, Anthropic o cualquier API compatible en **Ajustes › Inteligencia Artificial**: no hay cupo, eliges el modelo de cada agente y pagas a tu proveedor a su precio, sin margen nuestro.
+- **Tu propia clave.** Conecta tu clave de OpenAI, Anthropic o cualquier API compatible en **Ajustes › Inteligencia Artificial**: Driony no le pone límite de tokens, eliges el modelo de cada agente y pagas a tu proveedor a su precio, sin margen nuestro.
 - **Un plan mayor**, con más tokens incluidos.
 
 ### El copiloto de ayuda: 200 preguntas gratis al mes
@@ -54,7 +56,7 @@ Una sola modalidad por empresa: **IA incluida** (sin clave propia) o **tu propia
 
 | Función | Con la IA incluida | Con tu propia clave |
 |---|---|---|
-| Agente automático y seguimientos que redacta la IA | Clave de Driony con su modelo fijo; sus tokens salen del cupo | Tu clave y el modelo que elijas en cada agente; sin cupo |
+| Agente automático y seguimientos que redacta la IA | Clave de Driony con su modelo fijo; sus tokens salen del cupo | Tu clave y el modelo que elijas en cada agente; sin límite de tokens de Driony |
 | Copiloto del chat, asistentes de redacción y de flujos, preguntas sin respuesta, memoria del cliente | Clave de Driony; sus tokens salen del cupo | Tu clave |
 | Copiloto de ayuda (botón de la cabecera) | Las primeras 200 preguntas del mes, gratis con la clave de Driony; después, del cupo | Las primeras 200 del mes, gratis con la clave de Driony; después, tu clave |
 | Indexar y buscar en el conocimiento, transcribir audios, describir imágenes | Clave de OpenAI de Driony; sus tokens salen del cupo (indexar sigue aunque esté gastado) | Tu clave de **OpenAI**. Si solo tienes clave de Anthropic, estas tres funciones siguen usando la de Driony y gastan tu cupo: es la única mezcla entre las dos modalidades |

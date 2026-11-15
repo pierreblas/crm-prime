@@ -117,7 +117,7 @@ export function AiSettings() {
       title="Inteligencia Artificial"
       subtitle={
         included
-          ? "Tu plan trae IA incluida, con un cupo de tokens al mes del que sale todo: el agente, el copiloto, los asistentes, los audios y las imágenes, sin que configures nada. Aquí puedes conectar tu propia clave para elegir el modelo y no tener cupo."
+          ? "Tu plan trae IA incluida, con un cupo de tokens al mes del que sale todo: el agente, el copiloto, los asistentes, los audios y las imágenes, sin que configures nada. Aquí puedes conectar tu propia clave para elegir el modelo; Driony no le pone límite y la pagas a tu proveedor."
           : saas
           ? "Las API keys con las que trabajan tus agentes, el copilot del inbox y el asistente de flujos. Son tuyas: se guardan cifradas, solo las usa tu empresa y el consumo se carga a tu cuenta del proveedor."
           : "La API key que usarán los agentes IA, el copilot del inbox y el asistente de flujos. Se guarda cifrada; si la dejas vacía se usa la del archivo .env."
@@ -129,7 +129,7 @@ export function AiSettings() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <strong>
               {conClavePropia
-                ? "Usas tu propia clave: sin cupo y con el modelo que elijas."
+                ? "Usas tu propia clave: Driony no le pone límite y eliges el modelo."
                 : included.exhausted
                   ? "La IA incluida en tu plan llegó a su límite de uso este mes."
                   : included.full

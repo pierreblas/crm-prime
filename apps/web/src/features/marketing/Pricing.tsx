@@ -28,7 +28,7 @@ import { Arrow, Check, CONTACT, GITHUB, IconGit, MarketingFooter, MarketingHeade
 /** Lo que llevan todos los planes de la nube, también el gratis. */
 const INCLUDED = [
   "Bandeja en tiempo real, multi-número",
-  "Agente de IA incluido, o con tu propia clave sin cupo",
+  "Agente de IA incluido, o con tu propia clave sin límite de tokens",
   "Embudos con automatizaciones por etapa",
   "Flujos y respuestas por palabra clave",
   "Catálogo con precios en varias monedas",
