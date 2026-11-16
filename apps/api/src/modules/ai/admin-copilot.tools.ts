@@ -371,6 +371,16 @@ export class AdminCopilotTools {
       }),
     ]);
 
+    // Lo elegido en el agente no siempre es lo que responde: con la IA de Driony
+    // va su modelo fijo en «low», y con clave propia un modelo de un proveedor
+    // sin clave cae en la otra clave con el modelo de Ajustes (como el enrutador).
+    const viaDriony = ai.source === "included";
+    const modelInUse = (model: string): string => {
+      if (viaDriony) return ai.model;
+      const p = /^claude/i.test(model) ? "anthropic" : /^(gpt-|o[134]|chatgpt)/i.test(model) ? "openai" : null;
+      return p && ai.keys && !ai.keys[p] ? ai.model : model;
+    };
+
     return {
       clave: {
         lista: ai.ready,
@@ -388,7 +398,9 @@ export class AdminCopilotTools {
         numero: a.channel ? (a.channel.label ?? a.channel.displayPhoneNumber) : "todos los números sin agente propio",
         embudos: a.pipelines.map((p) => p.name),
         modelo: a.model,
+        modeloEnUso: modelInUse(a.model),
         esfuerzo: a.effort,
+        esfuerzoEnUso: viaDriony ? "low" : a.effort,
         respondeSoloEnChatsNuevos: a.autopilotByDefault,
         esperaAntesDeResponderSeg: a.replyDelaySec,
         bienvenida: a.welcomeEnabled,

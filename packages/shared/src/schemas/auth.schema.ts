@@ -60,6 +60,58 @@ export const changePasswordSchema = z.object({
 });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
+// ── Recuperar la contraseña ──────────────────────────────────
+/** Lo que vale el enlace que llega por correo: quien lo pidió está delante. */
+export const PASSWORD_RESET_EMAIL_MINUTES = 30;
+/** Lo que vale el enlace que genera un administrador: se manda por WhatsApp y puede tardar en abrirse. */
+export const PASSWORD_RESET_LINK_HOURS = 24;
+
+/** «¿Olvidaste tu contraseña?»: el correo y la empresa del subdominio (la pone el servidor). */
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email().max(200),
+  orgSlug: z.string().max(63).optional(),
+  /** Idioma de quien lo pide, para escribirle el correo en el suyo. */
+  locale: z.enum(["es", "en"]).optional(),
+});
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+const resetTokenSchema = z.string().min(20).max(200);
+export const passwordResetCheckSchema = z.object({ token: resetTokenSchema });
+export type PasswordResetCheckInput = z.infer<typeof passwordResetCheckSchema>;
+
+export const resetPasswordSchema = z.object({
+  token: resetTokenSchema,
+  password: z.string().min(8).max(200),
+  /** Idioma del aviso «se cambió tu contraseña». */
+  locale: z.enum(["es", "en"]).optional(),
+});
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+/** Qué caminos hay en este servidor: sin correo configurado, solo el del administrador. */
+export interface PasswordResetOptions {
+  email: boolean;
+}
+
+/** Lo que enseña la pantalla del enlace antes de pedir la contraseña nueva. */
+export interface PasswordResetCheck {
+  email: string;
+  orgName: string;
+  expiresAt: string;
+}
+
+/** Contraseña cambiada: adónde volver a entrar. */
+export interface PasswordResetDone {
+  email: string;
+  orgSlug: string;
+}
+
+/** Enlace que genera un administrador (o el operador) para que alguien elija contraseña nueva. */
+export interface PasswordResetLink {
+  url: string;
+  email: string;
+  expiresAt: string;
+}
+
 // ── Respuestas ───────────────────────────────────────────────
 export const publicUserSchema = z.object({
   // Subdominio de la empresa del usuario. La web lo guarda en la sesión para

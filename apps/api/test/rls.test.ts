@@ -2300,3 +2300,206 @@ test("copiloto gratis: con el rol restringido no entra al cupo ni al informe, se
     }
   }
 });
+
+test("la API pública (fuera de /api/v1) atiende con la empresa de su clave, por HTTP y con el rol restringido", async () => {
+  // El 2026-11-16, en la nube, toda la API pública respondía 500 («sin
+  // organización en contexto»): Nest no le aplica TenantMiddleware porque va
+  // fuera del prefijo global, y el interceptor no tenía dónde escribir la
+  // empresa de la clave. Las pruebas de servicio no lo veían (corren dentro de
+  // runInOrg); esta levanta Nest con el prefijo de main.ts, el guardián de la
+  // clave y el middleware e interceptor de verdad.
+  const { NestFactory, Reflector, APP_INTERCEPTOR } = await import("@nestjs/core");
+  const { Controller, Get, Module, UseGuards } = await import("@nestjs/common");
+  const { GLOBAL_PREFIX, GLOBAL_PREFIX_OPTIONS } = await import("../src/common/global-prefix");
+  const { TenantInterceptor } = await import("../src/infra/tenant/tenant.interceptor");
+  const { TenantMiddleware, TENANT_MIDDLEWARE_ROUTES } = await import("../src/infra/tenant/tenant.middleware");
+  const { ApiKeyGuard } = await import("../src/common/guards/api-key.guard");
+  const { ApiKeyService } = await import("../src/modules/api-keys/api-key.service");
+  const { createHash, randomBytes } = await import("node:crypto");
+
+  // A mano y no por inyección: tsx no emite los tipos de los constructores.
+  const guard = new ApiKeyGuard(new Reflector(), new ApiKeyService({} as any, prisma, { orgId: () => ctx.currentOrgId() } as any));
+  const loQueVe = async () => ({
+    org: ctx.currentOrgId(),
+    products: await prisma.product.count(),
+    contactOrgs: [...new Set((await prisma.contact.findMany({ select: { orgId: true } })).map((c: { orgId: string }) => c.orgId))],
+  });
+
+  // Decoradores aplicados como funciones: el tsconfig solo incluye src/, y
+  // aquí tsx compilaría la sintaxis @ como decoradores estándar, no los de Nest.
+  const controlador = (path: string) => {
+    class Probe {
+      probe() {
+        return loQueVe();
+      }
+    }
+    Get("probe")(Probe.prototype, "probe", Object.getOwnPropertyDescriptor(Probe.prototype, "probe")!);
+    UseGuards(guard)(Probe);
+    Controller(path)(Probe);
+    return Probe;
+  };
+  class Prueba {
+    configure(consumer: any) {
+      consumer.apply(TenantMiddleware).forRoutes(TENANT_MIDDLEWARE_ROUTES);
+    }
+  }
+  Module({
+    controllers: [controlador("api/public/v1"), controlador("")],
+    providers: [{ provide: APP_INTERCEPTOR, useClass: TenantInterceptor }],
+  })(Prueba);
+
+  const crearClave = async (orgId: string) => {
+    const prefix = `crm_${randomBytes(4).toString("hex")}`;
+    const secret = `${prefix}_${randomBytes(24).toString("hex")}`;
+    await ctx.runInOrg(orgId, () =>
+      prisma.apiKey.create({
+        data: { orgId, name: "prueba-api-publica", prefix, secretHash: createHash("sha256").update(secret).digest("hex"), scopes: ["products:read"] },
+      }),
+    );
+    return secret;
+  };
+
+  const app = await NestFactory.create(Prueba, { logger: false });
+  app.setGlobalPrefix(GLOBAL_PREFIX, GLOBAL_PREFIX_OPTIONS);
+  await app.listen(0, "127.0.0.1");
+  const base = `http://127.0.0.1:${app.getHttpServer().address().port}`;
+  const pide = async (path: string, clave?: string) => {
+    const r = await fetch(`${base}${path}`, { headers: clave ? { Authorization: `Bearer ${clave}` } : {} });
+    return { status: r.status, body: (await r.json()) as any };
+  };
+  try {
+    const claveA = await crearClave("o_a");
+    const claveB = await crearClave("o_b");
+    const productosA = await ctx.runInOrg("o_a", () => prisma.product.count());
+
+    const a = await pide("/api/public/v1/probe", claveA);
+    assert.equal(a.status, 200, `la API pública no debe fallar: ${JSON.stringify(a.body)}`);
+    assert.equal(a.body.org, "o_a", "la empresa es la de la clave");
+    assert.equal(a.body.products, productosA);
+    assert.deepEqual(a.body.contactOrgs.filter((o: string) => o !== "o_a"), [], "solo ve los contactos de su empresa");
+
+    // Dos empresas a la vez: cada petición con su propio contexto.
+    const [ra, rb] = await Promise.all([pide("/api/public/v1/probe", claveA), pide("/api/public/v1/probe", claveB)]);
+    assert.deepEqual([ra.status, rb.status, ra.body.org, rb.body.org], [200, 200, "o_a", "o_b"]);
+
+    // La interna (bajo /api/v1, con middleware) sigue igual.
+    const interna = await pide("/api/v1/probe", claveB);
+    assert.deepEqual([interna.status, interna.body.org], [200, "o_b"]);
+
+    // Sin clave no entra, y una clave inventada tampoco.
+    assert.equal((await pide("/api/public/v1/probe")).status, 401);
+    assert.equal((await pide("/api/public/v1/probe", "crm_00000000_ffff")).status, 401);
+  } finally {
+    await app.close();
+    await ctx.runUnscoped("test: limpiar claves", () => prisma.apiKey.deleteMany({ where: { name: "prueba-api-publica" } }));
+  }
+});
+
+test("recuperar la contraseña: por correo, por el administrador y por el operador, con el rol restringido y sin cruzar empresas", async () => {
+  // «¿Olvidaste tu contraseña?» llega sin empresa en contexto (solo el
+  // subdominio) y el enlace se canjea igual: las dos búsquedas van por
+  // runUnscoped. Con el rol de producción, cualquier hueco sale aquí.
+  process.env.JWT_ACCESS_SECRET ??= "secreto-de-prueba";
+  const saasAntes = process.env.SAAS_BASE_DOMAIN;
+  process.env.SAAS_BASE_DOMAIN = "driony.test";
+  const { JwtService } = await import("@nestjs/jwt");
+  const { OrganizationService } = await import("../src/modules/organizations/organization.service");
+  const { AuthService } = await import("../src/modules/auth/auth.service");
+  const { PasswordResetService } = await import("../src/modules/auth/password-reset.service");
+  const { SystemMailer } = await import("../src/modules/auth/system-mailer");
+  const { TenantService } = await import("../src/infra/tenant/tenant.service");
+  const jwt = new JwtService({ secret: process.env.JWT_ACCESS_SECRET });
+  const orgs = new OrganizationService(prisma, jwt);
+  const tenant = new TenantService(prisma);
+  const auth = new AuthService(prisma, tenant, orgs, jwt);
+  const sent: Array<{ to: string; subject: string; text: string; html: string }> = [];
+  const resets = new PasswordResetService(prisma, tenant, orgs, new SystemMailer({ sendMail: async (m: any) => sent.push(m) }));
+  const flush = () => new Promise((r) => setTimeout(r, 30));
+  const tokenOf = (url: string) => new URL(url).searchParams.get("token")!;
+
+  const slug = `clave-${Date.now()}`;
+  const otro = `${slug}-b`;
+  const email = `ana@${slug}.test`;
+  try {
+    await orgs.register({ companyName: "Clave de prueba", slug, adminName: "Ana", adminEmail: email, password: "clave-vieja-123" }, "127.0.0.1");
+    await orgs.register({ companyName: "Otra empresa", slug: otro, adminName: "Beto", adminEmail: `beto@${otro}.test`, password: "clave-de-beto-1" }, "127.0.0.1");
+    const orgA = (await orgs.resolveSlug(slug))!;
+    const orgB = (await orgs.resolveSlug(otro))!;
+    const ana = await ctx.runUnscoped("test", () => prisma.user.findFirst({ where: { orgId: orgA.id, email } }));
+    const vendedor = await ctx.runInOrg(orgA.id, () =>
+      prisma.user.create({ data: { orgId: orgA.id, email: `vende@${slug}.test`, name: "Vera", passwordHash: "x", role: "AGENT" } }),
+    );
+    const sesionVieja = await auth.login({ email, password: "clave-vieja-123", orgSlug: slug }, { platform: "WEB" });
+
+    // 1 · Por correo: un correo que no existe no manda nada y responde igual.
+    assert.deepEqual(resets.options(), { email: true });
+    await resets.requestByEmail({ email: `nadie@${slug}.test`, orgSlug: slug });
+    await resets.requestByEmail({ email: email.toUpperCase(), orgSlug: slug, locale: "es" });
+    await flush();
+    assert.equal(sent.length, 1, "solo la cuenta que existe recibe correo");
+    assert.equal(sent[0].to, email);
+    assert.match(sent[0].subject, /contraseña nueva/);
+    const url = /https:\/\/[^\s]+/.exec(sent[0].text)![0];
+    assert.ok(url.startsWith(`https://${slug}.driony.test/login/reset?token=`), "el enlace va al subdominio de su empresa");
+    assert.ok(sent[0].html.includes("Clave de prueba"), "el correo dice la empresa");
+
+    // El enlace se ve sin empresa en contexto, y en la base solo hay su hash.
+    const check = await resets.check(tokenOf(url));
+    assert.deepEqual([check.email, check.orgName], [email, "Clave de prueba"]);
+    const filas: any[] = await ctx.runInOrg(orgA.id, () => prisma.$queryRawUnsafe(`SELECT "tokenHash", via FROM password_resets`));
+    assert.equal(filas.length, 1);
+    assert.equal(filas[0].via, "email");
+    assert.ok(!filas[0].tokenHash.includes(tokenOf(url)), "nunca se guarda el enlace");
+    await ctx.runInOrg(orgB.id, async () => {
+      const ajenas: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM password_resets`);
+      assert.equal(ajenas.length, 0, "otra empresa no ve los enlaces, ni con SQL crudo");
+    });
+
+    // Contraseña nueva: entra con la nueva, no con la vieja, y la sesión abierta se cierra.
+    const done = await resets.reset(tokenOf(url), "clave-nueva-456");
+    assert.deepEqual(done, { email, orgSlug: slug });
+    await assert.rejects(auth.login({ email, password: "clave-vieja-123", orgSlug: slug }, { platform: "WEB" }), /inválidas/);
+    assert.ok((await auth.login({ email, password: "clave-nueva-456", orgSlug: slug }, { platform: "WEB" })).accessToken);
+    await assert.rejects(auth.refresh(sesionVieja.refreshToken), "la sesión que entraba con la vieja ya no se renueva");
+    await flush();
+    assert.equal(sent.length, 2, "se avisa del cambio");
+    assert.match(sent[1].subject, /Se cambió tu contraseña/);
+    await assert.rejects(resets.reset(tokenOf(url), "otra-clave-789"), /ya no sirve/, "el enlace sirve una sola vez");
+
+    // 2 · Por el administrador: enlace de 24 h para alguien de su equipo, sin correo.
+    const deAna = await ctx.runInOrg(orgA.id, () => resets.linkForTeamMember(vendedor.id, ana.id));
+    assert.equal(deAna.email, vendedor.email);
+    const horas = (new Date(deAna.expiresAt).getTime() - Date.now()) / 3_600_000;
+    assert.ok(horas > 23.9 && horas <= 24, "vale 24 horas");
+    // Uno nuevo anula el anterior.
+    const otroDeAna = await ctx.runInOrg(orgA.id, () => resets.linkForTeamMember(vendedor.id, ana.id));
+    await assert.rejects(resets.check(tokenOf(deAna.url)), /ya no sirve/);
+    assert.equal((await resets.check(tokenOf(otroDeAna.url))).email, vendedor.email);
+    // Un administrador de otra empresa no puede pedirlo para ella.
+    await assert.rejects(ctx.runInOrg(orgB.id, () => resets.linkForTeamMember(vendedor.id, "admin-b")), /no encontrado/);
+
+    // 3 · Por el operador: el administrador que la olvidó. La persona tiene que ser de esa empresa.
+    const delOperador = await resets.linkFor(orgA.id, ana.id, "platform", "operador@driony.test");
+    assert.equal(delOperador.email, email);
+    await assert.rejects(resets.linkFor(orgB.id, ana.id, "platform", "operador@driony.test"), /no encontrado/);
+    await resets.reset(tokenOf(delOperador.url), "clave-del-operador-1", "en");
+    assert.ok((await auth.login({ email, password: "clave-del-operador-1", orgSlug: slug }, { platform: "WEB" })).accessToken);
+    await flush();
+    assert.match(sent.at(-1)!.subject, /password was changed/, "el aviso sale en el idioma de quien la cambió");
+
+    // Desactivado: ni correo ni enlace.
+    await ctx.runInOrg(orgA.id, () => prisma.user.update({ where: { id: vendedor.id }, data: { isActive: false } }));
+    await assert.rejects(resets.check(tokenOf(otroDeAna.url)), /ya no sirve/, "el enlace de alguien desactivado no sirve");
+    await assert.rejects(ctx.runInOrg(orgA.id, () => resets.linkForTeamMember(vendedor.id, ana.id)), /desactivado/);
+    const antes = sent.length;
+    await resets.requestByEmail({ email: vendedor.email, orgSlug: slug });
+    await flush();
+    assert.equal(sent.length, antes, "a alguien desactivado no le llega correo");
+  } finally {
+    for (const s of [slug, otro]) {
+      await ctx.runUnscoped("test: limpiar", () => prisma.organization.deleteMany({ where: { slug: s } }));
+    }
+    if (saasAntes === undefined) delete process.env.SAAS_BASE_DOMAIN;
+    else process.env.SAAS_BASE_DOMAIN = saasAntes;
+  }
+});

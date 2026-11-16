@@ -2,7 +2,7 @@
 
 import { readableInk } from "@/lib/readable-ink";
 import { NavIcon } from "@/components/NavIcons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiScopeHints,
@@ -51,6 +51,8 @@ export function ApiKeysSettings() {
         </p>
       </header>
 
+      <ApiAddress />
+
       {justCreated && (
         <NewKeyBanner
           created={justCreated}
@@ -90,6 +92,49 @@ export function ApiKeysSettings() {
   );
 }
 
+/**
+ * La dirección de la API de esta empresa: la misma que la del panel, como en
+ * Kommo (flyteek.driony.com/api/public/v1). La web la reenvía a la API.
+ */
+function useApiBase(): string {
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  return origin ? `${origin}/api/public/v1` : "";
+}
+
+function ApiAddress() {
+  const base = useApiBase();
+  const [copied, setCopied] = useState(false);
+  if (!base) return null;
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(base);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("No se pudo copiar; selecciónala a mano");
+    }
+  }
+  return (
+    <div style={{ ...card, display: "flex", flexDirection: "column", gap: 8 }} data-api-address>
+      <strong style={{ fontSize: 13 }}>Dirección de la API de tu empresa</strong>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <code style={{ ...secretBox, flex: "1 1 260px" }}>{base}</code>
+        <button onClick={() => void copy()} style={ghostBtn}>
+          {copied ? "Copiada" : "Copiar"}
+        </button>
+      </div>
+      <span style={{ ...muted, fontSize: 12.5 }}>
+        Es la dirección de tu panel con <code>/api/public/v1</code>: cada empresa tiene la suya. La clave dice de qué empresa
+        son los datos, y una clave de otra empresa no funciona en esta dirección.{" "}
+        <a href="/docs/api" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-text)" }}>
+          Ver la documentación
+        </a>
+      </span>
+    </div>
+  );
+}
+
 // El secreto no se puede recuperar: hay que dejarlo muy claro.
 function NewKeyBanner({
   created,
@@ -99,6 +144,7 @@ function NewKeyBanner({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const base = useApiBase();
 
   async function copy() {
     try {
@@ -129,15 +175,24 @@ function NewKeyBanner({
         <summary style={{ cursor: "pointer", fontSize: 13 }}>
           Cómo usarla
         </summary>
+        <p style={{ ...muted, fontSize: 12, margin: "8px 0 4px" }}>Comprueba que funciona:</p>
+        <pre style={code} data-api-example>
+{`curl ${base}/ping \\
+  -H "Authorization: Bearer ${created.secret}"`}
+        </pre>
+        <p style={{ ...muted, fontSize: 12, margin: "8px 0 4px" }}>Mandar un lead (permiso «Crear leads y contactos»):</p>
         <pre style={code}>
-{`curl -X POST ${typeof window !== "undefined" ? window.location.origin : ""}/api/bff/... \\
+{`curl -X POST ${base.replace(/\/api\/public\/v1$/, "")}/api/v1/webhooks/lead \\
   -H "Authorization: Bearer ${created.secret}" \\
   -H "Content-Type: application/json" \\
   -d '{"phone":"+51999888777","name":"Ana","source":"Facebook Ads"}'`}
         </pre>
         <p style={{ ...muted, fontSize: 12 }}>
-          El endpoint de leads es <code>POST /api/v1/webhooks/lead</code> en tu
-          API. También se acepta la cabecera <code>x-api-key</code>.
+          También se acepta la cabecera <code>x-api-key</code>. Todos los endpoints, en la{" "}
+          <a href="/docs/api" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-text)" }}>
+            documentación de la API
+          </a>
+          .
         </p>
       </details>
     </div>

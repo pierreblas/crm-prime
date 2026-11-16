@@ -33,7 +33,7 @@ Debajo, cinco pestañas:
 - **Respuestas por palabra clave**: si el mensaje contiene alguna de las palabras («medios de pago», «cuenta», «transferencia»), el agente responde ese texto exacto sin pasar por la IA: ideal para cuentas bancarias, direcciones o políticas que no deben cambiar ni una letra. Cada respuesta admite **versiones con condiciones**, las mismas del bloque «Condición» de los flujos: país del cliente (por el prefijo de su teléfono: +51 Perú, +52 México…), etiqueta, etapa de su oportunidad, fuente, número de WhatsApp, un campo del contacto… Se prueban en orden y gana la primera que se cumple; quien no cumpla ninguna recibe el texto general. Las palabras se comparan sin distinguir mayúsculas; una respuesta por palabra tiene prioridad sobre todo lo demás y no mueve la conversación.
 - **Cuándo te pasa el chat**: palabras que lo pasan a tu equipo al momento, cuánta señal necesita para apartarse por su cuenta (con «Nunca por su cuenta» intenta responderlo todo y solo se retira con esas palabras o si tú se lo pides en las instrucciones) y **qué le dice al cliente** al retirarse (para que no se quede en silencio). El chat queda como *Pendiente* y en él aparece una nota interna con el motivo.
 - **Si cierras una conversación** («Cerrar y siguiente») y el cliente vuelve a escribir, se abre una nueva que hereda el modo de la IA de la anterior, y el agente sigue viendo los mensajes de los últimos 30 días del contacto para no perder el hilo.
-- **Modelo y gasto**: qué IA usa, con lo que cuesta cada 1.000 respuestas, y un **límite de gasto al mes en dólares**. En *Ajustes avanzados*, cuánto piensa antes de responder y cuántas consultas puede hacer por respuesta.
+- **Modelo y gasto**: qué IA usa, con lo que cuesta cada 1.000 respuestas con tu clave, y un **límite de gasto al mes**. En *Ajustes avanzados*, cuánto piensa antes de responder y cuántas consultas puede hacer por respuesta. Con la **IA de Driony** (sin clave propia) todos tus agentes responden con el mismo modelo de Driony y en modo «Rápido»: el modelo y el nivel que elijas quedan guardados y se usan cuando conectes tu clave, y la pantalla te lo dice. Con tu clave, cada modelo necesita la de su proveedor (los GPT, la de OpenAI; los Claude, la de Anthropic): si eliges uno sin esa clave, el agente responde con la clave que sí tienes y el modelo de Ajustes › Inteligencia Artificial, nunca con la IA de Driony, y la pantalla lo avisa. «Cuánto piensa» solo cambia algo en los modelos que razonan (los Claude y los GPT-5).
 
 La barra de abajo te dice si hay **cambios sin guardar**, y al guardar lo confirma. Ctrl+S (Cmd+S en Mac) guarda desde cualquier pestaña. Si cambias de agente con cambios pendientes, Driony te avisa antes de perderlos.
 
@@ -162,7 +162,10 @@ En **Conocimiento** subes documentos (precios, condiciones, preguntas frecuentes
 
 ## Límite de gasto
 
-Cada respuesta registra sus tokens y su coste. En el agente ves el gasto del mes y puedes poner un **tope mensual**: al alcanzarlo, la IA deja de responder con ese agente y las conversaciones pasan a tu equipo. Sin sorpresas en la factura del proveedor.
+Cada respuesta registra sus tokens y su coste. En el agente ves el gasto del mes y puedes poner un **tope mensual**: al alcanzarlo, la IA deja de responder con ese agente hasta el día 1 y las conversaciones pasan a tu equipo.
+
+- **Con tu propia clave** el tope se elige en dólares (USD 5, 20, 50 al mes u otra cantidad) y se convierte a tokens según el modelo: sin sorpresas en la factura del proveedor.
+- **Con la IA de Driony** se elige en tokens, como parte de los de tu plan (10 %, 25 % o 50 %, u otra cantidad), y sirve para **repartirlos entre agentes**: si uno llega a su tope, los demás siguen con el resto. Sin tope, un agente puede usar todos los tokens del plan.
 
 ## Playground
 

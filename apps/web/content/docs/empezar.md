@@ -29,6 +29,15 @@ En **Vendedores** (menú lateral) creas los usuarios de tu equipo con un correo 
 
 Un administrador no puede desactivarse a sí mismo ni quitarse el rol: siempre queda alguien con la llave.
 
+### Si alguien olvida su contraseña
+
+Hay dos caminos y los dos acaban en un **enlace para elegir contraseña nueva**. El enlace sirve una sola vez, y al usarlo se cierra la sesión en todos los dispositivos que entraban con la contraseña anterior. Si se pide otro, el anterior deja de servir.
+
+- **Por correo.** En la pantalla de acceso de tu empresa, pulsa **«¿Olvidaste tu contraseña?»** y escribe tu correo. Si tiene cuenta, te llega un enlace que **vale 30 minutos**; la pantalla dice lo mismo exista o no la cuenta, para que nadie pueda averiguar quién trabaja en tu empresa. Al cambiarla te llega otro correo avisando del cambio.
+- **Por tu administrador.** En **Vendedores**, el botón **«Enlace de contraseña»** de cada persona genera un enlace que **vale 24 horas**. Se ve una sola vez, con el mensaje listo para copiarlo o abrirlo en WhatsApp. No hace falta que esa persona reciba correo.
+
+Si quien la olvidó es **el único administrador**, escríbenos: desde la consola de Driony te generamos el enlace.
+
 ### Fuentes y reparto
 
 Las **fuentes** (Ajustes › Fuentes) dicen por dónde llegó cada contacto: WhatsApp, un anuncio, una web, un referido. Puedes asignar vendedores a cada fuente; con eso:

@@ -24,6 +24,8 @@ import {
   normalizeKeywordTrigger,
   DEFAULT_FOLLOW_UPS,
   type FollowUps,
+  AI_TOKENS_PER_CONVERSATION,
+  formatTokens,
 } from "@crm/shared";
 import type { PromptAssistantTarget } from "@crm/shared";
 import { createBot, fetchAgents, fetchCustomFields, fetchProductFields, fetchSources, fetchStages, fetchTags, fetchWhatsappChannels, updateBot } from "@/lib/bff";
@@ -40,10 +42,13 @@ import { useAiStatus } from "@/features/copilot/useAiStatus";
 import {
   EFFORT_LABEL,
   MODEL_OPTIONS,
+  PROVIDER_LABEL,
   TIMEZONES,
   TOOL_COPY,
   costPerReply,
   isGenericPrompt,
+  modelReasons,
+  providerOfModel,
   tokensForUsd,
   usd,
   usdForTokens,
@@ -290,6 +295,15 @@ export function BotEditor({
   const [justSaved, setJustSaved] = useState(false);
   const isNew = !bot;
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
+  // Con qué responde de verdad este agente: la IA de Driony (modelo fijo, «Rápido»),
+  // su modelo, o, si falta la clave de ese proveedor, la otra clave con el modelo
+  // de Ajustes (el enrutador de la API nunca le presta la de Driony).
+  const viaDriony = aiStatus?.source === "included";
+  const modelProvider = providerOfModel(form.model);
+  const missingKey =
+    !viaDriony && !!aiStatus?.ready && !!aiStatus.keys && !!modelProvider && !aiStatus.keys[modelProvider];
+  const effectiveModel = (viaDriony || missingKey) && aiStatus ? aiStatus.model : form.model;
+  const fallbackProvider = aiStatus?.provider === "openai" || aiStatus?.provider === "anthropic" ? aiStatus.provider : null;
 
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
   useEffect(() => {
@@ -790,10 +804,33 @@ export function BotEditor({
         {tab === "gasto" && (
           <>
             <Card title="Qué IA usa" subtitle="Todas sirven para vender por WhatsApp. Empieza por la económica y sube solo si notas que se queda corta.">
+              {viaDriony && aiStatus && (
+                <div className="agent-callout" data-agent-ai="driony">
+                  <NavIcon name="sparkles" size={16} />
+                  <span>
+                    <strong>Ahora responde con la IA de Driony</strong>, con los tokens de tu plan: el modelo {aiStatus.model}, el
+                    mismo para todos tus agentes. El que elijas aquí queda guardado y se usa cuando conectes tu propia clave en
+                    Ajustes › Inteligencia Artificial.
+                  </span>
+                </div>
+              )}
+              {missingKey && aiStatus && modelProvider && (
+                <div className="agent-callout is-warn" data-agent-ai="missing-key">
+                  <NavIcon name="alert" size={16} />
+                  <span>
+                    <strong>No hay clave de {PROVIDER_LABEL[modelProvider]} conectada.</strong> Este agente responde con la de{" "}
+                    {fallbackProvider ? PROVIDER_LABEL[fallbackProvider] : "tu otro proveedor"} y el modelo {aiStatus.model}. Elige
+                    un modelo de {fallbackProvider ? PROVIDER_LABEL[fallbackProvider] : "ese proveedor"} o conecta una clave de{" "}
+                    {PROVIDER_LABEL[modelProvider]} en Ajustes › Inteligencia Artificial.
+                  </span>
+                </div>
+              )}
               <div className="agent-models">
                 {MODEL_OPTIONS.map((m) => {
                   const on = form.model === m.value;
                   const per1000 = costPerReply(m.value);
+                  const provider = m.provider === "OpenAI" ? "openai" : "anthropic";
+                  const noKey = !viaDriony && !!aiStatus?.keys && !aiStatus.keys[provider];
                   return (
                     <label key={m.value} className={`agent-model${on ? " is-on" : ""}`}>
                       <input type="radio" name="model" checked={on} onChange={() => set("model", m.value)} />
@@ -805,7 +842,9 @@ export function BotEditor({
                         <small>{m.desc}</small>
                         <span className="agent-model__meta">
                           {m.provider} · {m.value}
-                          {per1000 !== null && ` · ≈ ${usd(per1000 * 1000)} por 1.000 respuestas`}
+                          {per1000 !== null &&
+                            ` · ${viaDriony ? "con tu clave, " : ""}≈ ${usd(per1000 * 1000)} por 1.000 respuestas`}
+                          {noKey && <span className="agent-model__nokey"> · Sin clave de {m.provider}</span>}
                         </span>
                       </span>
                     </label>
@@ -817,12 +856,7 @@ export function BotEditor({
                   </p>
                 )}
               </div>
-              {aiStatus?.source === "included" ? (
-                <Hint>
-                  Ahora tu agente usa la IA incluida en tu plan, con el modelo {aiStatus.model}. El modelo que elijas aquí se usa
-                  cuando conectes tu clave de OpenAI o Anthropic (Ajustes › Inteligencia Artificial).
-                </Hint>
-              ) : (
+              {!viaDriony && !aiStatus?.keys && (
                 <Hint>Los modelos de OpenAI necesitan tu clave de OpenAI; los Claude, tu clave de Anthropic (Ajustes › Inteligencia Artificial).</Hint>
               )}
             </Card>
@@ -830,13 +864,20 @@ export function BotEditor({
             <Card
               title="Límite de gasto al mes"
               subtitle={
-                aiStatus?.source === "included"
-                  ? "Con la IA incluida no pagas por uso: lo que cuenta es el cupo de conversaciones de tu plan. Este límite sirve sobre todo con tu propia clave."
+                viaDriony
+                  ? "Cuenta los tokens que gasta este agente. Sirve para repartir los tokens de tu plan: al llegar al límite, este agente deja de responder hasta el día 1 y sus chats pasan a tu equipo; los demás agentes siguen."
                   : "Al llegar al límite deja de responder hasta el mes siguiente y sus chats pasan a tu equipo. El gasto se corta de verdad."
               }
             >
-              <BudgetPicker model={form.model} value={form.monthlyTokenBudget} onChange={(v) => set("monthlyTokenBudget", v)} />
-              {!isNew && bot && <BudgetMeter bot={bot} limit={form.monthlyTokenBudget} model={form.model} />}
+              <BudgetPicker
+                model={effectiveModel}
+                planTokens={viaDriony ? aiStatus?.included?.limit ?? null : null}
+                value={form.monthlyTokenBudget}
+                onChange={(v) => set("monthlyTokenBudget", v)}
+              />
+              {!isNew && bot && (
+                <BudgetMeter bot={bot} limit={form.monthlyTokenBudget} model={effectiveModel} inTokens={viaDriony} />
+              )}
             </Card>
 
             <details className="agent-advanced">
@@ -861,6 +902,17 @@ export function BotEditor({
                       );
                     })}
                   </div>
+                  {viaDriony ? (
+                    <Hint>
+                      Con la IA de Driony responde siempre en «{EFFORT_LABEL.low?.title ?? "Rápido"}». Lo que elijas aquí se usa cuando conectes
+                      tu propia clave.
+                    </Hint>
+                  ) : !modelReasons(effectiveModel) ? (
+                    <Hint>
+                      Con {effectiveModel} esto no cambia nada: solo lo usan los modelos que razonan antes de responder (los Claude y
+                      los GPT-5).
+                    </Hint>
+                  ) : null}
                 </div>
                 <div style={field}>
                   <span style={lbl}>
@@ -1114,9 +1166,27 @@ function ToolRow({ tool, checked, onToggle }: { tool: AgentToolInfo; checked: bo
   );
 }
 
-/** Presupuesto en dólares, convertido a tokens según el modelo. */
-function BudgetPicker({ model, value, onChange }: { model: string; value: number; onChange: (v: number) => void }) {
+/** Partes de los tokens del plan que se ofrecen como límite de un agente con la IA de Driony. */
+const BUDGET_PLAN_SHARES = [0.1, 0.25, 0.5] as const;
+
+/**
+ * Límite de tokens del agente. Con su propia clave se elige en dólares (es lo
+ * que paga) y se convierte a tokens según el modelo; con la IA de Driony, en
+ * tokens, como parte de los del plan (en dólares no paga nada).
+ */
+function BudgetPicker({
+  model,
+  planTokens,
+  value,
+  onChange,
+}: {
+  model: string;
+  planTokens: number | null;
+  value: number;
+  onChange: (v: number) => void;
+}) {
   const [custom, setCustom] = useState(false);
+  if (planTokens) return <PlanTokenBudget planTokens={planTokens} value={value} onChange={onChange} />;
   const priced = costPerReply(model) !== null;
   const presets = BUDGET_USD.map((u) => ({ usd: u, tokens: tokensForUsd(model, u) }));
   const current = usdForTokens(model, value);
@@ -1159,9 +1229,75 @@ function BudgetPicker({ model, value, onChange }: { model: string; value: number
   );
 }
 
+function PlanTokenBudget({ planTokens, value, onChange }: { planTokens: number; value: number; onChange: (v: number) => void }) {
+  const presets = BUDGET_PLAN_SHARES.map((share) => ({
+    share,
+    tokens: Math.max(100_000, Math.round((planTokens * share) / 100_000) * 100_000),
+  }));
+  const [custom, setCustom] = useState(() => value > 0 && !presets.some((p) => p.tokens === value));
+  const pct = Math.round((value / planTokens) * 100);
+  const conversations = Math.max(1, Math.round(value / AI_TOKENS_PER_CONVERSATION));
+  return (
+    <div style={field} data-budget="tokens">
+      <div className="agent-chips">
+        <button type="button" className={`agent-chip${value === 0 && !custom ? " is-on" : ""}`} onClick={() => { setCustom(false); onChange(0); }}>
+          Sin límite
+        </button>
+        {presets.map((p) => (
+          <button
+            key={p.share}
+            type="button"
+            title={`${Math.round(p.share * 100)} % de los tokens de tu plan`}
+            className={`agent-chip${!custom && value === p.tokens ? " is-on" : ""}`}
+            onClick={() => { setCustom(false); onChange(p.tokens); }}
+          >
+            {formatTokens(p.tokens)} al mes
+          </button>
+        ))}
+        <button type="button" className={`agent-chip${custom ? " is-on" : ""}`} onClick={() => setCustom((c) => !c)}>
+          Otra cantidad
+        </button>
+      </div>
+      {custom && (
+        <div className="agent-custom">
+          <input type="number" min={0} step={100000} className="field" value={value} onChange={(e) => onChange(Number(e.target.value))} />
+          <span className="agent-hint">tokens al mes (0 = sin límite). Una conversación atendida usa unos {formatTokens(AI_TOKENS_PER_CONVERSATION)}.</span>
+        </div>
+      )}
+      <Hint>
+        {value <= 0
+          ? `Sin límite: este agente puede usar todos los tokens de tu plan (${formatTokens(planTokens)} al mes).`
+          : `Hasta ${formatTokens(value)} de tokens al mes, el ${pct} % de los ${formatTokens(planTokens)} de tu plan: unas ${conversations.toLocaleString("es")} conversaciones.`}
+      </Hint>
+    </div>
+  );
+}
+
 /** Consumo real del mes frente al presupuesto. Sin esto el número es ciego. */
-function BudgetMeter({ bot, limit, model }: { bot: BotDto; limit: number; model: string }) {
+function BudgetMeter({ bot, limit, model, inTokens }: { bot: BotDto; limit: number; model: string; inTokens: boolean }) {
   const spent = bot.tokensThisMonth;
+  if (inTokens) {
+    // Con la IA de Driony no paga en dólares: lo que cuenta son los tokens.
+    if (limit <= 0) return <span className="agent-hint">Este mes lleva {formatTokens(spent)} tokens.</span>;
+    const pctT = Math.min(100, Math.round((spent / limit) * 100));
+    const overT = spent >= limit;
+    return (
+      <div style={{ marginTop: 6 }}>
+        <div style={meterTrack}>
+          <div
+            style={{
+              ...meterFill,
+              transform: `scaleX(${pctT / 100})`,
+              background: overT ? "var(--danger)" : pctT > 80 ? "var(--warning)" : "var(--accent)",
+            }}
+          />
+        </div>
+        <span className="agent-hint" style={{ color: overT ? "var(--danger)" : undefined }}>
+          Este mes: {formatTokens(spent)} de {formatTokens(limit)} tokens · {pctT} %{overT ? " · límite alcanzado, este agente no responde hasta el día 1" : ""}
+        </span>
+      </div>
+    );
+  }
   const spentUsd = usdForTokens(model, spent);
   const spentText = spentUsd !== null ? `≈ ${usd(spentUsd)}` : `${spent.toLocaleString("es")} tokens`;
   if (limit <= 0) {

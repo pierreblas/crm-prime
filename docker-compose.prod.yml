@@ -67,6 +67,16 @@ services:
       API_PUBLIC_URL: ${API_PUBLIC_URL:-}
       # Correo al que escriben para cambiar de plan (Ajustes › Plan).
       NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-}
+      # Correo del sistema: «¿Olvidaste tu contraseña?» y el aviso de cambio.
+      # Sin MAIL_SMTP_HOST no se manda nada y el acceso remite al administrador.
+      MAIL_SMTP_HOST: ${MAIL_SMTP_HOST:-}
+      MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-587}
+      MAIL_SMTP_USER: ${MAIL_SMTP_USER:-}
+      MAIL_SMTP_PASS: ${MAIL_SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      # En una instalación propia sin SAAS_BASE_DOMAIN: dirección de la web
+      # para el enlace del correo (https://crm.tu-empresa.com).
+      WEB_PUBLIC_URL: ${WEB_PUBLIC_URL:-}
       # Row-Level Security. Solo sirve si DATABASE_URL apunta a un rol que NO
       # sea dueño de las tablas (ver scripts/create-app-role.sql).
       DB_RLS: ${DB_RLS:-}

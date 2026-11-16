@@ -38,12 +38,14 @@ const row = {
 const prisma = {
   aiSetting: { upsert: async () => row, update: async () => row },
   organization: { findUnique: async () => ({ plan }) },
+  // Preguntas gratis del copiloto del administrador este mes (las cuenta status()).
+  adminCopilotQuestion: { count: async () => 0 },
 };
 const tenant = { orgId: () => "org_a" };
 const usage = {
   includedUsage: async () => ({ tokens, conversations: Math.round(tokens / 20_000), costUsd }),
   countedThisMonth: async () => counted,
-  ownTokensThisMonth: async () => 0,
+  keyUsageThisMonth: async () => ({ tokens: 0, costUsd: null }),
   invalidate: () => undefined,
 };
 

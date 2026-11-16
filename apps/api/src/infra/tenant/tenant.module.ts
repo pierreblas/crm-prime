@@ -3,11 +3,10 @@ import {
   MiddlewareConsumer,
   Module,
   NestModule,
-  RequestMethod,
 } from "@nestjs/common";
 import { APP_INTERCEPTOR } from "@nestjs/core";
 import { TenantService } from "./tenant.service";
-import { TenantMiddleware } from "./tenant.middleware";
+import { TENANT_MIDDLEWARE_ROUTES, TenantMiddleware } from "./tenant.middleware";
 import { TenantInterceptor } from "./tenant.interceptor";
 
 @Global()
@@ -20,8 +19,6 @@ import { TenantInterceptor } from "./tenant.interceptor";
 })
 export class TenantModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer
-      .apply(TenantMiddleware)
-      .forRoutes({ path: "*", method: RequestMethod.ALL });
+    consumer.apply(TenantMiddleware).forRoutes(TENANT_MIDDLEWARE_ROUTES);
   }
 }

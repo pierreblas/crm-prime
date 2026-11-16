@@ -189,6 +189,7 @@ model Organization {
   emails               Email[]
   emailUnsubscribes    EmailUnsubscribe[]
   adminCopilotQuestions AdminCopilotQuestion[]
+  passwordResets       PasswordReset[]
   aiSetting            AiSetting?
   integrationSetting   IntegrationSetting?
   onboarding           OnboardingState?
@@ -384,6 +385,7 @@ model User {
   emailAccounts         EmailAccount[]        @relation("EmailAccountOwner")
   emailsSent            Email[]               @relation("EmailSender")
   adminCopilotQuestions AdminCopilotQuestion[]
+  passwordResets        PasswordReset[]
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -440,6 +442,29 @@ model RefreshToken {
 
   @@index([sessionId])
   @@map("refresh_tokens")
+}
+
+// Enlaces para elegir contraseña nueva: el que pide la persona por correo
+// («¿Olvidaste tu contraseña?»), el que genera un administrador de su empresa y
+// el que genera el operador desde la consola. Se guarda el hash, nunca el
+// enlace; sirve una vez, caduca, y uno nuevo anula los anteriores de esa persona.
+model PasswordReset {
+  id        String    @id @default(cuid())
+  orgId     String
+  userId    String
+  tokenHash String    @unique
+  via       String // email | admin | platform
+  createdBy String? // id del administrador o correo del operador; null si lo pidió la persona
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([orgId])
+  @@map("password_resets")
 }
 
 // Dispositivos para notificaciones push (FCM/APNs). Independiente de Session:

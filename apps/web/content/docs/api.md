@@ -31,7 +31,7 @@ curl https://tu-empresa.driony.com/api/public/v1/ping \
 
 ## La dirección de tu empresa
 
-Base: **`https://tu-empresa.driony.com/api/public/v1`** (también responde `https://api.driony.com/api/public/v1`). Autenticación por `Authorization: Bearer crm_…` (también se acepta `x-api-key`).
+Base: **`https://tu-empresa.driony.com/api/public/v1`**: cada empresa tiene su API en su propia dirección, la misma de su panel, y la tienes para copiar arriba de **Ajustes › Claves de API**. También responde `https://api.driony.com/api/public/v1`. Autenticación por `Authorization: Bearer crm_…` (también se acepta `x-api-key`).
 
 **La clave decide de qué empresa son los datos**, nunca la dirección. Una clave creada en el panel de Acme solo alcanza los datos de Acme; usada contra la dirección de otra empresa responde `403`, para que un error de copia y pega no pase desapercibido.
 

@@ -618,6 +618,11 @@ export class PlatformService {
   }
 
   // ── Diario del operador ─────────────────────────────────────
+  /** Para lo que el operador hace desde otro servicio (enlace para cambiar la contraseña). */
+  recordAudit(actor: string, action: string, orgId: string | null, details: unknown): Promise<void> {
+    return this.audit(actor, action, orgId, details);
+  }
+
   private async audit(actor: string, action: string, orgId: string | null, details: unknown): Promise<void> {
     await this.prisma.platformAuditLog.create({
       data: { actorEmail: actor, action, orgId, details: details === null || details === undefined ? undefined : (details as object) },

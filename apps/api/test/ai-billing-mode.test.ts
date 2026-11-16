@@ -7,7 +7,8 @@
  *    cada paso queda en el historial sin la clave en claro;
  *  - una empresa BYOK sin clave utilizable NO cae sola en la IA de Driony;
  *  - lo que solo OpenAI hace (audio, embeddings) sí usa la IA de Driony cuando
- *    la empresa tiene solo Anthropic: facturación mixta, declarada;
+ *    la empresa tiene solo Anthropic: facturación mixta, declarada; el chat no:
+ *    un agente con un modelo GPT responde con su clave de Anthropic;
  *  - «Probar conexión» deja el estado de la clave (valid / invalid / exhausted);
  *  - el consumo copia la modalidad de la credencial y no duplica una respuesta;
  *  - en SaaS la URL base solo puede apuntar a hosts conocidos, por https.
@@ -101,7 +102,7 @@ function empresa(row: Row = {}) {
   const usage = {
     includedUsage: async () => ({ tokens: 60_000, conversations: 3, costUsd: 0.01 }),
     countedThisMonth: async () => false,
-    ownTokensThisMonth: async () => 0,
+    keyUsageThisMonth: async () => ({ tokens: 0, costUsd: null }),
   };
   const packs = {
     extra: async () => ({ remaining: 0, usedThisMonth: 0, nextExpiresAt: null }),
@@ -294,6 +295,50 @@ test("facturación mixta declarada: con solo Anthropic, audio y embeddings van c
   const nada = await sinNada.svc.resolveFor("openai");
   assert.equal(nada.apiKey, null, "una empresa BYOK sin ninguna clave no recibe la de Driony");
   assert.equal(nada.billingMode, "BYOK");
+});
+
+test("el chat de una empresa con su clave nunca recibe la de Driony; sin clave, sí", async () => {
+  const soloAnthropic = empresa({ anthropicKeyEnc: secrets.encryptSecret("sk-ant-2222"), billingMode: "BYOK", credentialStatus: "valid" });
+  const chat = await soloAnthropic.svc.resolveFor("openai", { purpose: "chat" });
+  assert.equal(chat.apiKey, null, "con solo Anthropic, el chat de OpenAI no recibe la clave de Driony");
+  assert.equal(chat.included, undefined);
+  assert.equal(chat.billingMode, "BYOK");
+  assert.deepEqual((await soloAnthropic.svc.status()).keys, { openai: false, anthropic: true }, "el editor del agente sabe qué claves hay");
+
+  const gestionada = empresa();
+  const g = await gestionada.svc.resolveFor("openai", { purpose: "chat" });
+  assert.equal(g.included, true, "sin clave propia, el chat va con la IA de Driony");
+  assert.equal(g.model, "gpt-5-mini");
+  assert.deepEqual((await gestionada.svc.status()).keys, { openai: false, anthropic: false });
+});
+
+test("enrutador: el modelo del agente elige proveedor solo entre las claves de quien paga", async () => {
+  const { RoutingLLMProvider } = await import("../src/modules/ai/providers/routing-llm.provider");
+  const llamadas: string[] = [];
+  const adaptador = (name: string) => ({
+    name,
+    generate: async () => {
+      llamadas.push(name);
+      return { model: `${name}-model`, content: [], stopReason: "end_turn", usage: { inputTokens: 1, outputTokens: 1 }, billingMode: "BYOK" };
+    },
+    classify: async () => ({ intent: "general", sentiment: "neutral", urgency: "low", requiresHuman: false }),
+  });
+  const enrutador = (svc: unknown) =>
+    new RoutingLLMProvider(svc as never, adaptador("openai") as never, adaptador("anthropic") as never, adaptador("fake") as never, { record: () => {} } as never);
+  const pide = (svc: unknown, model: string) =>
+    enrutador(svc).generate({ system: "s", messages: [{ role: "user", content: "hola" }], model });
+
+  // Solo Anthropic y un agente con un modelo GPT: responde con su clave de Anthropic.
+  const soloAnthropic = empresa({ anthropicKeyEnc: secrets.encryptSecret("sk-ant-2222"), billingMode: "BYOK", credentialStatus: "valid" });
+  await pide(soloAnthropic.svc, "gpt-4.1-mini");
+  // Con las dos claves, el modelo del agente manda.
+  const dos = empresa({ openaiKeyEnc: secrets.encryptSecret("sk-a-1111"), anthropicKeyEnc: secrets.encryptSecret("sk-ant-2222"), billingMode: "BYOK", credentialStatus: "valid" });
+  await pide(dos.svc, "claude-sonnet-4-6");
+  await pide(dos.svc, "gpt-4.1-mini");
+  // IA de Driony y un agente con un modelo Claude: la IA de Driony (OpenAI), no un fallo.
+  await pide(empresa().svc, "claude-sonnet-4-6");
+
+  assert.deepEqual(llamadas, ["anthropic", "anthropic", "openai", "openai"]);
 });
 
 test("el consumo copia la modalidad de la credencial y no registra dos veces la misma respuesta", async () => {

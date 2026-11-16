@@ -29,6 +29,13 @@ export const aiStatusSchema = z.object({
    * modelo usado tiene precio conocido (entonces no se inventa una cifra).
    */
   ownCostUsd: z.number().nullable().default(null),
+  /**
+   * Con qué proveedores hay clave que no es la IA de Driony (la de la empresa,
+   * o la del servidor donde se presta). Un agente con un modelo de un proveedor
+   * sin clave responde con la otra; el editor del agente lo avisa. Null si la
+   * API es anterior y no lo dice.
+   */
+  keys: z.object({ openai: z.boolean(), anthropic: z.boolean() }).nullable().default(null),
   /** Preguntas gratis del copiloto del administrador este mes; null donde no aplica (sin IA de Driony). */
   copilotFree: adminCopilotFreeSchema.nullable().default(null),
 });

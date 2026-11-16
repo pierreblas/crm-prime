@@ -9,6 +9,7 @@ import { FindCompany } from "./FindCompany";
 import { safeCallbackUrl } from "@/lib/session-token";
 import { getTranslator } from "@/i18n/server";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { authBtn as btn, authCard as card, authFoot as pieTexto, authInput as input, authLabel as label } from "./styles";
 
 export default async function LoginPage({
   searchParams,
@@ -18,10 +19,11 @@ export default async function LoginPage({
     expired?: string;
     callbackUrl?: string;
     slug?: string;
+    reset?: string;
   }>;
 }) {
   const t = await getTranslator();
-  const { error, expired, callbackUrl: rawCallback, slug } = await searchParams;
+  const { error, expired, callbackUrl: rawCallback, slug, reset } = await searchParams;
   const callbackUrl = safeCallbackUrl(rawCallback);
   const session = await auth();
 
@@ -140,6 +142,10 @@ export default async function LoginPage({
               ? t("auth.handoffExpired")
               : t("auth.invalidCredentials")}
           </p>
+        ) : reset ? (
+          <p role="status" style={{ color: "var(--accent-text)", lineHeight: 1.5 }} data-reset-done>
+            {t("auth.resetDone")}
+          </p>
         ) : expired ? (
           <p style={{ color: "var(--muted)" }}>{t("auth.sessionExpired")}</p>
         ) : null}
@@ -157,6 +163,9 @@ export default async function LoginPage({
 
         <label style={label}>{t("auth.password")}</label>
         <input name="password" type="password" required style={input} />
+        <Link href="/login/forgot" style={forgotLink} data-forgot-link>
+          {t("auth.forgotLink")}
+        </Link>
 
         <button type="submit" style={btn}>
           {t("auth.signIn")}
@@ -194,45 +203,9 @@ export default async function LoginPage({
   );
 }
 
-const card: React.CSSProperties = {
-  width: 360,
-  padding: 28,
-  background: "var(--panel)",
-  border: "1px solid var(--border)",
-  borderRadius: 12,
-  display: "flex",
-  flexDirection: "column",
-};
-
-const label: React.CSSProperties = {
+const forgotLink: React.CSSProperties = {
+  alignSelf: "flex-end",
+  marginTop: 8,
   fontSize: 13,
-  color: "var(--muted)",
-  marginTop: 14,
-  marginBottom: 6,
-};
-
-const input: React.CSSProperties = {
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "var(--field)",
-  color: "var(--text)",
-};
-
-const btn: React.CSSProperties = {
-  marginTop: 22,
-  padding: "11px 14px",
-  borderRadius: 8,
-  border: "none",
-  background: "var(--accent)",
-  color: "var(--accent-ink)",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const pieTexto: React.CSSProperties = {
-  color: "var(--muted)",
-  fontSize: 13,
-  marginTop: 18,
-  textAlign: "center",
+  color: "var(--accent-text)",
 };

@@ -29,6 +29,7 @@ O solo verlo funcionar, sin instalar nada: `npm run demo` levanta todo en conten
 - `DATABASE_URL`, `REDIS_URL`, secretos JWT y `APP_ENCRYPTION_KEY` (cifra tokens y claves guardadas).
 - `WHATSAPP_*`: tu app de Meta. El número se conecta desde **Ajustes › Canales** con su token; el webhook de Meta apunta a `https://tu-dominio/api/v1/whatsapp/webhook`.
 - Las API keys de IA se ponen desde Ajustes › Inteligencia Artificial (o en el `.env` como respaldo).
+- `MAIL_SMTP_*` y `MAIL_FROM` (opcional): el buzón que manda el enlace de «¿Olvidaste tu contraseña?», con `WEB_PUBLIC_URL` para que el enlace apunte a tu web. Sin él, el administrador genera el enlace en **Vendedores** y lo manda por WhatsApp.
 
 ```bash
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build

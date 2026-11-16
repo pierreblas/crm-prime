@@ -1,22 +1,20 @@
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
-import { Logger, RequestMethod } from "@nestjs/common";
+import { Logger } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { I18nExceptionFilter } from "./common/filters/i18n-exception.filter";
 import { PublicApiModule } from "./modules/public-api/public-api.module";
 import { corsOrigin } from "./common/utils/cors-origin";
+import { GLOBAL_PREFIX, GLOBAL_PREFIX_OPTIONS } from "./common/global-prefix";
 
 async function bootstrap() {
   // rawBody: true expone req.rawBody para validar la firma del webhook de Meta.
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
-  // Versionado de API: todo cuelga de /api/v1.
-  // La API pública queda fuera: lleva su propia versión en la ruta
-  // (/api/public/v1) para poder evolucionar sin arrastrar la interna.
-  app.setGlobalPrefix("api/v1", {
-    exclude: [{ path: "api/public/v1/(.*)", method: RequestMethod.ALL }],
-  });
+  // Versionado de API: todo cuelga de /api/v1, salvo la API pública
+  // (/api/public/v1), que lleva su propia versión. Ver common/global-prefix.ts.
+  app.setGlobalPrefix(GLOBAL_PREFIX, GLOBAL_PREFIX_OPTIONS);
 
   // Traduce los mensajes de error según el idioma del cliente.
   app.useGlobalFilters(new I18nExceptionFilter());

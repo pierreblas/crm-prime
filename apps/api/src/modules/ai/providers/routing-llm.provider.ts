@@ -58,8 +58,10 @@ export class RoutingLLMProvider implements LLMProvider {
     return provider.classify(text);
   }
 
-  // El modelo pedido por el bot puede decidir el proveedor cuando la
-  // configuración está en "auto" y hay más de una credencial disponible.
+  // El modelo pedido por el bot puede decidir el proveedor cuando hay más de
+  // una credencial disponible. Nunca cambia de quién paga: una empresa con su
+  // clave de Anthropic y un agente con un modelo GPT sigue con su clave (y el
+  // modelo de Ajustes), no con la IA de Driony.
   private async pick(requestedModel?: string): Promise<LLMProvider> {
     const resolved = await this.settings.resolve();
     let target = resolved.provider;
@@ -71,8 +73,8 @@ export class RoutingLLMProvider implements LLMProvider {
           ? "openai"
           : null;
       if (wants && wants !== target) {
-        const alt = await this.settings.resolveFor(wants);
-        if (alt.apiKey) target = wants;
+        const alt = await this.settings.resolveFor(wants, { purpose: "chat" });
+        if (alt.apiKey && !!alt.included === !!resolved.included) target = wants;
       }
     }
 

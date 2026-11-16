@@ -106,10 +106,12 @@ export interface ConnectionTestOutcome {
  * utilizable (cifrado roto, clave borrada) NO vuelve sola a la IA de Driony:
  * el agente para con «Falta la clave de IA» hasta que alguien decida.
  *
- * Facturación mixta, declarada: lo que solo OpenAI hace (audio, visión,
- * embeddings) corre con la IA de Driony si la empresa no tiene clave de OpenAI
- * aunque tenga la de Anthropic, dentro de su tope en dólares. Está escrito en
- * la documentación de planes.
+ * Facturación mixta, declarada: lo que solo OpenAI hace (audio, embeddings)
+ * corre con la IA de Driony si la empresa no tiene clave de OpenAI aunque
+ * tenga la de Anthropic, dentro de su tope en dólares. Está escrito en la
+ * documentación de planes. El chat (agente, copiloto, asistentes) nunca: un
+ * agente con un modelo GPT en una empresa con solo Anthropic responde con su
+ * clave de Anthropic y el modelo de Ajustes.
  *
  * Se cachea unos segundos para no golpear la BD en cada llamada al LLM;
  * al guardar desde Ajustes la caché se invalida al instante.
@@ -378,6 +380,7 @@ export class AiSettingsService {
       included,
       ownTokens: keyUsage.tokens,
       ownCostUsd: keyUsage.costUsd,
+      keys: { openai: !!openai.key, anthropic: !!anthropic.key },
       copilotFree: await this.copilotFree(),
     };
   }
@@ -416,22 +419,28 @@ export class AiSettingsService {
     };
   }
 
-  // Credenciales de un proveedor concreto (para "Probar conexión").
+  /**
+   * Credenciales de un proveedor concreto. `purpose: "chat"` es el agente, el
+   * copiloto y los asistentes (lo que responde con texto): ahí una empresa con
+   * su propia clave nunca recibe la de Driony, aunque el agente tenga elegido un
+   * modelo del otro proveedor; el enrutador se queda entonces con su clave.
+   */
   async resolveFor(
     provider: Exclude<LlmProviderName, "auto">,
-    opts: { purpose?: "embeddings" } = {},
+    opts: { purpose?: "embeddings" | "chat" } = {},
   ): Promise<ResolvedCredentials> {
     const row = await this.load();
     if (provider === "fake") return this.fakeCreds(row);
     if (provider === "openai") {
       const openai = this.keyFor("openai", row);
       if (!openai.key) {
-        // Facturación mixta, declarada: lo que solo OpenAI hace (audio, visión,
+        // Facturación mixta, declarada: lo que solo OpenAI hace (audio,
         // embeddings) corre con la IA de Driony si la empresa no tiene clave de
         // OpenAI, también cuando es BYOK con solo Anthropic. Una empresa BYOK sin
-        // ninguna clave no recibe nada: ahí sí sería un cambio de factura a escondidas.
+        // ninguna clave no recibe nada, y el chat de una BYOK tampoco: ahí sí
+        // sería un cambio de factura a escondidas.
         const hasOtherKey = !!this.keyFor("anthropic", row).key;
-        if (modeOf(row) !== "BYOK" || hasOtherKey) {
+        if (modeOf(row) !== "BYOK" || (hasOtherKey && opts.purpose !== "chat")) {
           const included = this.includedCreds(await this.included(), opts.purpose === "embeddings");
           if (included) return included;
         }

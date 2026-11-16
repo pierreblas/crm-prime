@@ -101,6 +101,20 @@ export const MODEL_OPTIONS: { value: string; title: string; desc: string; provid
   { value: "claude-opus-4-8", title: "Claude máximo (reciente)", desc: "La última versión del más capaz.", provider: "Anthropic" },
 ];
 
+export const PROVIDER_LABEL = { openai: "OpenAI", anthropic: "Anthropic" } as const;
+
+/** De qué proveedor es un modelo, o null si no se sabe (uno escrito a mano). Misma regla que el enrutador de la API. */
+export function providerOfModel(model: string): "openai" | "anthropic" | null {
+  if (/^claude/i.test(model)) return "anthropic";
+  if (/^(gpt-|o[134]|chatgpt)/i.test(model)) return "openai";
+  return null;
+}
+
+/** Si el modelo razona antes de responder: solo a esos les afecta «Cuánto piensa». */
+export function modelReasons(model: string): boolean {
+  return /^claude/i.test(model) || /^(gpt-5|o[134])/i.test(model);
+}
+
 export const EFFORT_LABEL: Record<string, { title: string; desc: string }> = {
   low: { title: "Rápido", desc: "Responde enseguida. Suficiente para preguntas sencillas." },
   medium: { title: "Equilibrado", desc: "Recomendado. Piensa lo justo antes de responder." },

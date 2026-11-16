@@ -55,6 +55,7 @@ const TENANT_MODELS = new Set<string>([
   "Email",
   "EmailUnsubscribe",
   "AdminCopilotQuestion",
+  "PasswordReset",
 ]);
 
 /**

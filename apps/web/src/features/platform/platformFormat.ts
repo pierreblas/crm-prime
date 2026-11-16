@@ -78,6 +78,8 @@ export function describeAudit(e: PlatformAuditEntry): string {
       return "Editó las notas internas";
     case "login_as":
       return `Entró al panel como ${d.email ?? "administrador"}`;
+    case "password_reset_link":
+      return `Generó un enlace para que ${d.email ?? "alguien"} elija contraseña nueva`;
     // Antes de noviembre de 2026 los paquetes eran conversaciones: se leen como tokens.
     case "ai_pack_added":
       return `Añadió ${formatTokens(packTokens(d))} de tokens extra${d.priceUsd === null || d.priceUsd === undefined ? " (regalo)" : ` (USD ${d.priceUsd})`}`;

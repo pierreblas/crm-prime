@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -23,6 +24,7 @@ import {
   type UpdateSourceInput,
   type UpdateUserInput,
   type AccessTokenClaims,
+  type PasswordResetLink,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -30,11 +32,15 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { SourceService } from "./source.service";
+import { PasswordResetService } from "../auth/password-reset.service";
 
 @Controller()
 @UseGuards(JwtAuthGuard)
 export class SourcesController {
-  constructor(private readonly sources: SourceService) {}
+  constructor(
+    private readonly sources: SourceService,
+    private readonly passwordResets: PasswordResetService,
+  ) {}
 
   // ── Fuentes ────────────────────────────────────────────────
   @Get("sources")
@@ -105,6 +111,21 @@ export class SourcesController {
     @Body(new ZodValidationPipe(updateUserSchema)) body: UpdateUserInput,
   ) {
     return this.sources.updateUser(id, body, user.sub);
+  }
+
+  /**
+   * Enlace de 24 horas para que alguien del equipo elija contraseña nueva. El
+   * administrador se lo manda por WhatsApp; no necesita correo del sistema.
+   */
+  @Post("users/:id/password-reset-link")
+  @HttpCode(200)
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  passwordResetLink(
+    @CurrentUser() user: AccessTokenClaims,
+    @Param("id") id: string,
+  ): Promise<PasswordResetLink> {
+    return this.passwordResets.linkForTeamMember(id, user.sub);
   }
 
   // ── Fuente de un contacto ──────────────────────────────────

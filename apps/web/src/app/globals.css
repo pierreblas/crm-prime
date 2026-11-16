@@ -3268,7 +3268,8 @@ code {
 .agent-callout { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-radius: 0; border: 1px solid rgba(0, 229, 255, 0.42); background: var(--accent-soft); font-size: 13px; line-height: 1.45; }
 .agent-callout > svg { color: var(--accent-text); flex-shrink: 0; }
 .agent-callout > span { flex: 1; min-width: 220px; }
-.agent-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); }
+.agent-callout.is-warn { border-color: rgba(240, 180, 90, 0.4); background: var(--warning-soft); }
+.agent-callout.is-warn > svg { color: var(--warning); }.agent-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); }
 .agent-checklist li { display: inline-flex; align-items: center; gap: 5px; }
 .agent-checklist svg { color: var(--positive); }
 
@@ -3316,6 +3317,16 @@ code {
 .agent-model__title { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 600; font-size: 13.5px; }
 .agent-model__body small { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
 .agent-model__meta { font-size: 11.5px; color: var(--muted); opacity: 0.85; }
+.agent-model__nokey { color: var(--warning); }
+
+/* Enlace para elegir contraseña nueva (Vendedores y consola): se ve una sola vez. */
+.reset-link { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding: 12px 14px; border: 1px solid rgba(0, 229, 255, 0.42); background: var(--accent-soft); font-size: 13px; line-height: 1.45; }
+.reset-link__head { display: flex; align-items: center; gap: 8px; }
+.reset-link__head > svg { color: var(--accent-text); flex-shrink: 0; }
+.reset-link__head strong { flex: 1; min-width: 0; }
+.reset-link__text { margin: 0; color: var(--muted); }
+.reset-link__url { width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); background: var(--field); color: var(--text); font: inherit; font-size: 12.5px; font-family: var(--font-mono, ui-monospace, monospace); }
+.reset-link__actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* Presupuesto */
 .agent-chips { display: flex; flex-wrap: wrap; gap: 8px; }

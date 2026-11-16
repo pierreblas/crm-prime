@@ -56,7 +56,7 @@ Una sola modalidad por empresa: **IA incluida** (sin clave propia) o **tu propia
 
 | Función | Con la IA incluida | Con tu propia clave |
 |---|---|---|
-| Agente automático y seguimientos que redacta la IA | Clave de Driony con su modelo fijo; sus tokens salen del cupo | Tu clave y el modelo que elijas en cada agente; sin límite de tokens de Driony |
+| Agente automático y seguimientos que redacta la IA | Clave de Driony con su modelo fijo (el mismo para todos los agentes, en modo «Rápido»); sus tokens salen del cupo | Tu clave y el modelo que elijas en cada agente; sin límite de tokens de Driony. Si el modelo es de un proveedor del que no tienes clave, responde con tu otra clave y el modelo de Ajustes, nunca con la de Driony |
 | Copiloto del chat, asistentes de redacción y de flujos, preguntas sin respuesta, memoria del cliente | Clave de Driony; sus tokens salen del cupo | Tu clave |
 | Copiloto de ayuda (botón de la cabecera) | Las primeras 200 preguntas del mes, gratis con la clave de Driony; después, del cupo | Las primeras 200 del mes, gratis con la clave de Driony; después, tu clave |
 | Indexar y buscar en el conocimiento, transcribir audios, describir imágenes | Clave de OpenAI de Driony; sus tokens salen del cupo (indexar sigue aunque esté gastado) | Tu clave de **OpenAI**. Si solo tienes clave de Anthropic, estas tres funciones siguen usando la de Driony y gastan tu cupo: es la única mezcla entre las dos modalidades |

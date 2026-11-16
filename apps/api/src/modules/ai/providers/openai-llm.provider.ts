@@ -66,7 +66,8 @@ export class OpenAILLMProvider implements LLMProvider {
   }> {
     // Una pregunta gratis del copiloto del administrador va con la IA de Driony,
     // y si no la hay se dice: nunca cae en la clave de la empresa sin avisar.
-    const c = courtesy ? this.settings.courtesyCreds() : await this.settings.resolveFor("openai");
+    // Este adaptador es el chat: con clave propia nunca se le presta la de Driony.
+    const c = courtesy ? this.settings.courtesyCreds() : await this.settings.resolveFor("openai", { purpose: "chat" });
     if (!c) throw new Error("La IA gratis del copiloto no está disponible en este servidor.");
     if (!c.apiKey) {
       throw new Error(

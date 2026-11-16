@@ -14,6 +14,7 @@ import {
   permissionActions,
   permissionSections,
   visibilityScopes,
+  type PasswordResetLink,
   type PermissionPreset,
   type Role,
   type SellerDto,
@@ -22,6 +23,7 @@ import {
 } from "@crm/shared";
 import {
   assignSellerSources,
+  createPasswordResetLink,
   createSource,
   createUser,
   deleteSource,
@@ -29,6 +31,7 @@ import {
   updateUser,
 } from "@/lib/bff";
 import { PasswordStrength, scorePassword } from "@/components/PasswordStrength";
+import { ResetLinkBox } from "@/components/ResetLinkBox";
 
 /**
  * Equipo: las personas de la empresa, qué ve cada una (alcance), qué
@@ -273,6 +276,13 @@ function SellerRow({ seller, sources, onSaved }: { seller: SellerDto; sources: S
     onSuccess: onSaved,
     onError: (e) => toast.error((e as Error).message),
   });
+  // Enlace para elegir contraseña nueva: se enseña una vez, aquí mismo.
+  const [resetLink, setResetLink] = useState<PasswordResetLink | null>(null);
+  const makeResetLink = useMutation({
+    mutationFn: () => createPasswordResetLink(seller.id),
+    onSuccess: setResetLink,
+    onError: (e) => toast.error((e as Error).message),
+  });
   const toggleSource = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const isAdmin = seller.role === "ADMIN";
   const stats = seller.stats;
@@ -324,12 +334,24 @@ function SellerRow({ seller, sources, onSaved }: { seller: SellerDto; sources: S
         >
           {seller.isActive ? "Desactivar" : "Reactivar"}
         </button>
+        <button
+          onClick={() => makeResetLink.mutate()}
+          disabled={makeResetLink.isPending || !seller.isActive}
+          style={ghostBtn}
+          title={seller.isActive ? "Un enlace de 24 horas para que elija contraseña nueva. Se lo mandas tú." : "Reactívalo antes"}
+          aria-label={`Enlace de contraseña para ${seller.name ?? seller.email}`}
+          data-reset-link-btn
+        >
+          {makeResetLink.isPending ? "Generando…" : "Enlace de contraseña"}
+        </button>
         {!isAdmin && (
           <button onClick={() => setOpen((v) => !v)} style={ghostBtn} aria-expanded={open} aria-label={`Permisos de ${seller.name ?? seller.email}`}>
             Permisos {open ? "▴" : "▾"}
           </button>
         )}
       </div>
+
+      {resetLink && <ResetLinkBox link={resetLink} name={seller.name} onClose={() => setResetLink(null)} />}
 
       {isAdmin ? (
         <p style={{ ...muted, fontSize: 13, margin: "10px 0 0" }}>Es administrador: ve todas las conversaciones y gestiona la configuración.</p>

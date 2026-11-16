@@ -37,9 +37,11 @@ import {
   type PlatformOrgDetail,
   type PlatformOverview,
   type UpdatePlatformOrgInput,
+  type PasswordResetLink,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { verifyPlatformAdmin } from "../../common/utils/platform-admin";
+import { PasswordResetService } from "../auth/password-reset.service";
 import { PlatformAdminGuard, type PlatformClaims } from "./platform-admin.guard";
 import { PlatformService } from "./platform.service";
 
@@ -58,6 +60,7 @@ export class PlatformController {
   constructor(
     private readonly platform: PlatformService,
     private readonly jwt: JwtService,
+    private readonly passwordResets: PasswordResetService,
   ) {}
 
   /**
@@ -151,6 +154,25 @@ export class PlatformController {
   @HttpCode(200)
   loginAs(@Param("id") id: string, @Req() req: Request): Promise<PlatformLoginAsResult> {
     return this.platform.loginAs(id, this.actor(req));
+  }
+
+  /**
+   * Enlace de 24 horas para que una persona de la empresa elija contraseña
+   * nueva; sobre todo, el administrador que la olvidó y no tiene a quién
+   * pedírsela. El operador se lo manda; queda en el diario.
+   */
+  @Post("orgs/:id/users/:userId/password-reset-link")
+  @UseGuards(PlatformAdminGuard)
+  @HttpCode(200)
+  async passwordResetLink(
+    @Param("id") id: string,
+    @Param("userId") userId: string,
+    @Req() req: Request,
+  ): Promise<PasswordResetLink> {
+    const actor = this.actor(req);
+    const link = await this.passwordResets.linkFor(id, userId, "platform", actor);
+    await this.platform.recordAudit(actor, "password_reset_link", id, { userId, email: link.email });
+    return link;
   }
 
   @Get("orgs")

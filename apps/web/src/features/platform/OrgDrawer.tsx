@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatTokens, AI_PACKS, AI_PACK_MONTHS, PLANS, PLAN_KEYS, planFor, type GrantAiPackInput, type PlatformOrgDetail, type UpdatePlatformOrgInput } from "@crm/shared";
+import { formatTokens, AI_PACKS, AI_PACK_MONTHS, PLANS, PLAN_KEYS, planFor, type GrantAiPackInput, type PasswordResetLink, type PlatformOrgDetail, type UpdatePlatformOrgInput } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
+import { ResetLinkBox } from "@/components/ResetLinkBox";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
-import { fetchPlatformOrgDetail, grantPlatformAiPack, platformLoginAs, removePlatformAiPack, updatePlatformOrg } from "@/lib/bff";
+import { fetchPlatformOrgDetail, grantPlatformAiPack, platformLoginAs, platformPasswordResetLink, removePlatformAiPack, updatePlatformOrg } from "@/lib/bff";
 import { date, dateTime, describeAudit, expiry, fromDateInput, money, orgAiCapUsd, relative, toDateInput } from "./platformFormat";
 
 const FEATURE_LABEL: Record<string, string> = {
@@ -55,6 +56,18 @@ export function OrgDrawer({ id, myOrgSlug, onClose }: { id: string; myOrgSlug?: 
     onSuccess: (r) => {
       toast.success(`Pase emitido: entras como ${r.email}`);
       void queryClient.invalidateQueries({ queryKey: ["platform"] });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+  // Enlace para que alguien de la empresa elija contraseña nueva (sobre todo, el
+  // administrador que la olvidó). Se enseña una vez; queda en el diario.
+  const [resetLink, setResetLink] = useState<{ link: PasswordResetLink; name: string | null } | null>(null);
+  const makeResetLink = useMutation({
+    mutationFn: (u: { id: string; name: string | null }) =>
+      platformPasswordResetLink(id, u.id).then((link) => ({ link, name: u.name })),
+    onSuccess: (r) => {
+      setResetLink(r);
+      void queryClient.invalidateQueries({ queryKey: ["platform", "org", id] });
     },
     onError: (e) => toast.error((e as Error).message),
   });
@@ -210,12 +223,13 @@ export function OrgDrawer({ id, myOrgSlug, onClose }: { id: string; myOrgSlug?: 
               {/* Equipo */}
               <section className="pc-section">
                 <h3>Equipo · {d.users.length}</h3>
+                {resetLink && <ResetLinkBox link={resetLink.link} name={resetLink.name} onClose={() => setResetLink(null)} />}
                 {d.users.length === 0 ? (
                   <p className="pc-empty">Sin usuarios.</p>
                 ) : (
                   <table className="pc-table is-compact">
                     <thead>
-                      <tr><th>Correo</th><th>Nombre</th><th>Rol</th><th>Último acceso</th><th>Estado</th></tr>
+                      <tr><th>Correo</th><th>Nombre</th><th>Rol</th><th>Último acceso</th><th>Estado</th><th>Contraseña</th></tr>
                     </thead>
                     <tbody>
                       {d.users.map((u) => (
@@ -225,6 +239,24 @@ export function OrgDrawer({ id, myOrgSlug, onClose }: { id: string; myOrgSlug?: 
                           <td>{u.role === "ADMIN" ? "Admin" : "Vendedor"}</td>
                           <td title={u.lastSeenAt ?? undefined}>{relative(u.lastSeenAt)}</td>
                           <td>{u.isActive ? <span className="pc-ok">activo</span> : <span className="pc-muted">inactivo</span>}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              disabled={!u.isActive || !org.isActive || makeResetLink.isPending}
+                              title={
+                                !org.isActive
+                                  ? "La empresa está suspendida"
+                                  : u.isActive
+                                    ? "Enlace de 24 horas para que elija contraseña nueva. Se lo mandas tú; queda en el diario."
+                                    : "Está desactivado"
+                              }
+                              onClick={() => makeResetLink.mutate({ id: u.id, name: u.name })}
+                              data-platform-reset={u.email}
+                            >
+                              <NavIcon name="key" size={13} /> Enlace
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

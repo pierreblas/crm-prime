@@ -1424,6 +1424,13 @@ export async function updateUser(
   return res.json();
 }
 
+/** Enlace de 24 h para que alguien del equipo elija contraseña nueva (solo administradores). */
+export async function createPasswordResetLink(userId: string): Promise<import("@crm/shared").PasswordResetLink> {
+  const res = await bffFetch(`/api/bff/users/${encodeURIComponent(userId)}/password-reset-link`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo generar el enlace"));
+  return res.json();
+}
+
 // ── Perfil / cuenta ──────────────────────────────────────────
 export async function fetchMe(): Promise<PublicUser> {
   const res = await bffFetch("/api/bff/auth/me");
@@ -2141,6 +2148,16 @@ export async function fetchPlatformAudit(limit = 100): Promise<PlatformAuditEntr
 export async function platformLoginAs(id: string): Promise<PlatformLoginAsResult> {
   const res = await bffFetch(`/api/bff/platform/orgs/${id}/login-as`, { method: "POST" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo generar el pase"));
+  return res.json();
+}
+
+/** Enlace de 24 h para que alguien de una empresa elija contraseña nueva. Queda en el diario. */
+export async function platformPasswordResetLink(orgId: string, userId: string): Promise<import("@crm/shared").PasswordResetLink> {
+  const res = await bffFetch(
+    `/api/bff/platform/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/password-reset-link`,
+    { method: "POST" },
+  );
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo generar el enlace"));
   return res.json();
 }
 

@@ -21,6 +21,15 @@ import {
   logoutSchema,
   updateProfileSchema,
   changePasswordSchema,
+  forgotPasswordSchema,
+  passwordResetCheckSchema,
+  resetPasswordSchema,
+  type ForgotPasswordInput,
+  type PasswordResetCheck,
+  type PasswordResetCheckInput,
+  type PasswordResetDone,
+  type PasswordResetOptions,
+  type ResetPasswordInput,
   type LoginInput,
   type RegisterInput,
   type RefreshInput,
@@ -35,10 +44,14 @@ import { hostDe, subdominioDe } from "../../common/utils/subdomain";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { AuthService } from "./auth.service";
+import { PasswordResetService } from "./password-reset.service";
 
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly passwordResets: PasswordResetService,
+  ) {}
 
   /**
    * Alta de usuario dentro de una empresa que ya existe.
@@ -105,6 +118,43 @@ export class AuthController {
       userAgent: req.headers["user-agent"],
       ipAddress: req.ip,
     });
+  }
+
+  // ── Recuperar la contraseña (público: quien lo usa no puede entrar) ──
+  /** Qué caminos hay: sin correo del sistema, la pantalla manda a pedírselo al administrador. */
+  @Get("password/options")
+  passwordOptions(): PasswordResetOptions {
+    return this.passwordResets.options();
+  }
+
+  /** «¿Olvidaste tu contraseña?». Responde lo mismo exista o no la cuenta. */
+  @Post("password/forgot")
+  @HttpCode(202)
+  async forgotPassword(
+    @Body(new ZodValidationPipe(forgotPasswordSchema)) body: ForgotPasswordInput,
+    @Req() req: Request,
+  ): Promise<{ ok: true }> {
+    // El subdominio, como en el login: del cuerpo (lo pone la web) o del Host.
+    const orgSlug = body.orgSlug ?? subdominioDe(hostDe(req.headers));
+    await this.passwordResets.requestByEmail({ ...body, orgSlug });
+    return { ok: true };
+  }
+
+  /** El token va en el cuerpo y no en la URL: así no queda en los registros del proxy. */
+  @Post("password/check")
+  @HttpCode(200)
+  checkPasswordReset(
+    @Body(new ZodValidationPipe(passwordResetCheckSchema)) body: PasswordResetCheckInput,
+  ): Promise<PasswordResetCheck> {
+    return this.passwordResets.check(body.token);
+  }
+
+  @Post("password/reset")
+  @HttpCode(200)
+  resetPassword(
+    @Body(new ZodValidationPipe(resetPasswordSchema)) body: ResetPasswordInput,
+  ): Promise<PasswordResetDone> {
+    return this.passwordResets.reset(body.token, body.password, body.locale);
   }
 
   @Post("refresh")
