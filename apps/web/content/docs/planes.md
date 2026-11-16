@@ -52,7 +52,7 @@ Además del cupo hay un **tope de seguridad en dólares** que protege de bucles 
 
 ### Qué credencial usa cada función
 
-Una sola modalidad por empresa: **IA incluida** (sin clave propia) o **tu propia clave**. Guardar una clave en **Ajustes › Inteligencia Artificial** pasa a tu clave; borrarla vuelve a la incluida. Cada cambio queda en el historial de esa pantalla, con quién lo hizo. Se puede en todos los planes, Gratis incluido.
+Una sola modalidad por empresa: **IA incluida** (sin clave propia) o **tu propia clave**. Guardar una clave en **Ajustes › Inteligencia Artificial** pasa a tu clave. Para volver a la incluida, pulsa **«Volver a la IA de Driony»** en esa misma pantalla: antes de cambiar te dice cuántos tokens trae tu plan y cuántos te quedan este mes, y borra tus claves (si luego quieres usarlas otra vez, tendrás que pegarlas de nuevo). Tus agentes pasan al modelo de Driony. El botón solo aparece si la IA de Driony está disponible, para que el agente nunca se quede sin IA. Cada cambio queda en el historial de esa pantalla, con quién lo hizo. Se puede en todos los planes, Gratis incluido.
 
 | Función | Con la IA incluida | Con tu propia clave |
 |---|---|---|

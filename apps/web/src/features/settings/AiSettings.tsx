@@ -21,6 +21,7 @@ import {
 import { fetchAiSettingEvents, fetchAiSettings, testAiConnection, updateAiSettings } from "@/lib/bff";
 import { resetLabel } from "@/features/copilot/useAiStatus";
 import { toast } from "@/lib/toast";
+import { confirmDialog } from "@/lib/confirm";
 import { ghostBtn as ghostBase, primaryBtn, smBtn } from "@/components/ui";
 
 const ghostBtn: React.CSSProperties = { ...ghostBase, ...smBtn };
@@ -75,6 +76,26 @@ export function AiSettings() {
     onError: (e) => toast.error((e as Error).message),
   });
 
+  // Volver a la IA de Driony: borra las claves propias guardadas (las dos, si
+  // hay dos). La modalidad sigue a la clave, así que sin ninguna la empresa
+  // pasa sola a los tokens de su plan y el cambio queda en el historial.
+  const backToDriony = useMutation({
+    mutationFn: (keys: { openai: boolean; anthropic: boolean }) =>
+      updateAiSettings({
+        ...(keys.openai ? { openaiKey: "" } : {}),
+        ...(keys.anthropic ? { anthropicKey: "" } : {}),
+      }),
+    onSuccess: (fresh: AiSettingsDto) => {
+      queryClient.setQueryData(["ai-settings"], fresh);
+      void queryClient.invalidateQueries({ queryKey: ["ai-settings-events"] });
+      // La ficha de la cabecera y el círculo de la foto cambian de modo.
+      void queryClient.invalidateQueries({ queryKey: ["ai-status"] });
+      setTest(null);
+      toast.success("Listo: tu IA vuelve a usar los tokens de Driony de tu plan");
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
   const check = useMutation({
     mutationFn: testAiConnection,
     onSuccess: (r) => {
@@ -112,6 +133,35 @@ export function AiSettings() {
   // Lo que hay este mes: el cupo del plan más los tokens extra.
   const totalIncluida = included ? included.limit + included.extraUsed + included.extraRemaining : 0;
 
+  /**
+   * Antes de borrar, se dice en palabras qué cambia: cuántos tokens trae el
+   * plan y cuántos quedan este mes, que la clave se borra (no se pausa) y que
+   * los agentes pasan al modelo de Driony. Solo se ofrece con la IA de Driony
+   * encendida (`included`): sin ella, borrar la clave dejaría al agente sin IA.
+   */
+  async function askBackToDriony() {
+    if (!included) return;
+    const left = Math.max(0, totalIncluida - included.tokens);
+    const keys = { openai: data!.openaiKey.source === "db", anthropic: data!.anthropicKey.source === "db" };
+    const both = keys.openai && keys.anthropic;
+    const month =
+      included.exhausted || left === 0
+        ? `Ojo: este mes ya no te quedan tokens de Driony, así que hasta ${resetLabel(included)} el agente no atenderá chats nuevos (pasan a tu equipo).`
+        : `Este mes te quedan ${formatTokens(left)} de ${formatTokens(totalIncluida)}.`;
+    const ok = await confirmDialog({
+      title: "¿Volver a la IA de Driony?",
+      message:
+        `Tu plan trae ${formatTokens(included.limit)} de tokens de IA al mes, sin costo aparte. ${month} ` +
+        (both
+          ? "Se borran tus dos claves: si luego quieres usarlas otra vez, tendrás que pegarlas de nuevo. "
+          : "Se borra tu clave: si luego quieres usarla otra vez, tendrás que pegarla de nuevo. ") +
+        "Tus agentes pasan a usar el modelo de Driony en vez del que elegiste.",
+      confirmLabel: "Volver a la IA de Driony",
+      cancelLabel: "Seguir con mi clave",
+    });
+    if (ok) backToDriony.mutate(keys);
+  }
+
   return (
     <Panel
       title="Inteligencia Artificial"
@@ -138,13 +188,26 @@ export function AiSettings() {
             </strong>
             <span>
               {conClavePropia
-                ? `Pagas a tu proveedor a precio de lista. Si quitas tu clave, el agente vuelve a usar la IA de Driony (${formatTokens(included.limit)} de tokens al mes en tu plan).`
+                ? `Pagas a tu proveedor a precio de lista. Cuando quieras, vuelves a la IA de Driony con el botón de abajo: tu plan trae ${formatTokens(included.limit)} de tokens al mes.`
                 : included.exhausted
                   ? `Hasta ${resetLabel(included)}, el agente no responde y los chats en autopilot pasan a tu equipo. Conecta tu clave de OpenAI o Anthropic abajo para seguir ya, o cambia de plan en Ajustes › Plan.`
                   : included.full
                     ? `El agente termina las conversaciones que ya atendía; los chats nuevos pasan a tu equipo hasta ${resetLabel(included)}. Conecta tu clave abajo para que atienda también los nuevos, o suma tokens extra o cambia de plan en Ajustes › Plan.`
-                    : `Tu agente responde sin que configures nada. Todo lo que hace la IA sale del mismo cupo de tokens, entrada y salida por igual; el cupo vuelve ${resetLabel(included)}. Si conectas tu clave de OpenAI o Anthropic, eliges el modelo, no hay cupo y pagas a tu proveedor a precio de lista, sin recargo.`}
+                    : `Tu agente responde sin que configures nada. Todo lo que hace la IA sale del mismo cupo de tokens, entrada y salida por igual; el cupo vuelve ${resetLabel(included)}. Si conectas tu clave de OpenAI o Anthropic, eliges el modelo, Driony no le pone límite y pagas a tu proveedor a precio de lista, sin recargo.`}
             </span>
+            {conClavePropia && (
+              <div style={{ marginTop: 10 }}>
+                <button
+                  type="button"
+                  style={ghostBtn}
+                  onClick={() => void askBackToDriony()}
+                  disabled={backToDriony.isPending || save.isPending}
+                  data-back-to-driony
+                >
+                  {backToDriony.isPending ? "Cambiando…" : "Volver a la IA de Driony"}
+                </button>
+              </div>
+            )}
             {!conClavePropia && (
               <div className="byok__meter" aria-label="Tokens de IA de Driony este mes">
                 <span className="byok__bar">
