@@ -14,6 +14,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { ProductSourceService } from "../products/product-source.service";
 import { ProductSyncService } from "../products/product-sync.service";
+import { ProductCatalogService } from "../products/product-catalog.service";
 
 interface Page<T> {
   data: T[];
@@ -37,24 +38,15 @@ export class PublicProductsService {
     private readonly tenant: TenantService,
     private readonly sources: ProductSourceService,
     private readonly sync: ProductSyncService,
+    private readonly catalog: ProductCatalogService,
   ) {}
 
   async list(q: ListProductsQuery): Promise<Page<PublicProduct>> {
-    const where: Prisma.ProductWhereInput = {};
-    if (q.search) {
-      where.OR = [{ name: { contains: q.search, mode: "insensitive" } }, { sku: { contains: q.search, mode: "insensitive" } }];
-    }
-    if (q.sku) where.sku = q.sku;
-    if (q.active !== undefined) where.isActive = q.active === "true";
-    if (q.updatedSince) where.updatedAt = { gte: new Date(q.updatedSince) };
-
-    const rows = await this.prisma.product.findMany({
-      where,
-      orderBy: { id: "desc" },
-      take: q.limit + 1,
-      ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
-      include: WITH,
-    });
+    // Filtros (también por campos propios) y cursor en SQL; el detalle, con Prisma.
+    const ids = await this.catalog.publicIds(q, q.limit + 1);
+    const found = ids.length ? await this.prisma.product.findMany({ where: { id: { in: ids } }, include: WITH }) : [];
+    const pos = new Map(ids.map((id, i) => [id, i]));
+    const rows = found.sort((a, b) => pos.get(a.id)! - pos.get(b.id)!);
     const hasMore = rows.length > q.limit;
     const page = hasMore ? rows.slice(0, q.limit) : rows;
     return {

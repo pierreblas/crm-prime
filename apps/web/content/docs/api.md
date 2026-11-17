@@ -122,7 +122,7 @@ curl -X POST https://tu-empresa.driony.com/api/public/v1/messages \
 Para que tu ERP, tu tienda o un n8n mantengan los productos que el agente de IA cotiza. La llave es el **SKU**: con él se actualiza en vez de duplicar.
 
 ```bash
-# Listar (filtros: search, sku, active=true|false, updatedSince=ISO)
+# Listar (filtros: search, sku, active=true|false, updatedSince=ISO y fields[clave]; ver abajo)
 curl "https://tu-empresa.driony.com/api/public/v1/products?active=true&limit=100" \
   -H "Authorization: Bearer $CRM_KEY"
 
@@ -156,6 +156,28 @@ curl -X PUT https://tu-empresa.driony.com/api/public/v1/products/bulk \
 - Un SKU que ya existía se actualiza aunque sea de otra conexión; si viene de una tienda conectada, esa tienda lo volverá a pisar en su siguiente lectura.
 - `fields` acepta la clave del campo (la ves y la copias en **Productos › Campos**) o su nombre visible (`"talla"` o `"Talla"`); una clave que no es de ningún campo se guarda igual y aparece cuando crees el campo.
 - Tras cada carga en bloque se dispara el webhook saliente `catalog.synced`.
+
+### Filtrar por tus campos
+
+Añade `fields[clave]=valor` a la lista, con la clave o el nombre visible del campo. Se pueden combinar varios y con los demás filtros (`search`, `sku`, `active`, `updatedSince`).
+
+```bash
+curl -G https://tu-empresa.driony.com/api/public/v1/products \
+  -H "Authorization: Bearer $CRM_KEY" \
+  --data-urlencode "fields[talla]=M" \
+  --data-urlencode "fields[talla]=L" \
+  --data-urlencode "fields[peso]=1..5" \
+  --data-urlencode "fields[envio_gratis]=si"
+```
+
+| Tipo de campo | Cómo se escribe | Qué devuelve |
+|---|---|---|
+| Lista o varias opciones | `fields[talla]=M` (repite el parámetro para varias) | Los que tienen cualquiera de esas opciones |
+| Número, fecha u hora | `7`, `10..50`, `10..` o `..50`; fechas `2026-01-01..2026-01-31`; horas `09:00..13:00` | Valor exacto o dentro del rango |
+| Sí/no | `si` o `no` | `no` incluye los que no tienen el campo puesto |
+| Texto o enlace | `fields[marca]=Nike` | Igual al valor, sin distinguir mayúsculas ni tildes |
+
+Un número o una fecha que no se entiende no devuelve nada, para que un error de formato no pase por un filtro que funcionó.
 
 ## Métricas
 

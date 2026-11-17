@@ -1,6 +1,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 // Lo mismo que hace el SQL con cada campo.
 import { fold } from "../../common/utils/fold";
+import { foldSql } from "../../common/utils/fold-sql";
 
 /**
  * Búsqueda del catálogo para el agente de IA.
@@ -41,10 +42,7 @@ export function tokens(query: string): string[] {
   return [...new Set(fold(query).split(" ").filter((t) => t.length >= 2))].slice(0, 8);
 }
 
-// Quita tildes en SQL igual que `fold`, para comparar ambos lados sin extensiones.
-const ACCENTS = "áéíóúàèìòùâêîôûäëïöüãõñçÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜÃÕÑÇ";
-const PLAIN = "aeiouaeiouaeiouaeiouaoncAEIOUAEIOUAEIOUAEIOUAONC";
-const f = (col: Prisma.Sql) => Prisma.sql`lower(translate(coalesce(${col}, ''), ${ACCENTS}, ${PLAIN}))`;
+const f = foldSql;
 
 export async function searchProducts(
   prisma: PrismaClient,

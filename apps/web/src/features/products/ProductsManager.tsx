@@ -1,25 +1,34 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavIcon } from "@/components/NavIcons";
+import { FiltersToggle } from "@/components/Filters";
+import { Pagination } from "@/components/Pagination";
+import { DebouncedInput } from "@/components/DebouncedInput";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
 import {
   CURRENCIES,
-  formatFieldValue,
-  formatMoney,
+  PRODUCT_PAGE_SIZES,
+  PRODUCT_SORTS,
+  PRODUCT_SORT_LABELS,
+  countProductFilters,
+  productListQueryToParams,
   type CreateProductInput,
+  type ProductBulkAction,
   type ProductDto,
   type ProductFieldDto,
+  type ProductSort,
 } from "@crm/shared";
 import {
+  bulkProducts,
   createProduct,
   deleteProduct,
   fetchProductFields,
-  fetchProducts,
+  fetchProductPage,
   fetchProductSources,
   updateProduct,
 } from "@/lib/bff";
@@ -27,6 +36,9 @@ import { dangerBtn, ghostBtn, input, label, primaryBtn, smBtn } from "@/componen
 import { ImportProductsDialog } from "./ImportProductsDialog";
 import { ProductSourceMark, ProductSourcesDialog } from "./ProductSourcesDialog";
 import { ProductFieldInput, ProductFieldsDialog } from "./ProductFieldsDialog";
+import { ActiveProductFilters, ProductFiltersPanel } from "./ProductFilters";
+import { ProductBulkBar, ProductGrid, ProductTable, type ProductView } from "./ProductResults";
+import { useProductListUrl } from "./useProductListUrl";
 
 // Al pegar una imagen es fácil olvidar el esquema ("midominio.com/foto.jpg").
 // Se añade https:// para que no lo rechace la validación de URL.
@@ -36,16 +48,27 @@ function normalizeUrl(raw: string): string | null {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
-type Filter = "all" | "active" | "inactive";
+const VIEW_KEY = "products.view";
+
+const DONE: Record<ProductBulkAction, [string, string]> = {
+  activate: ["activado", "activados"],
+  deactivate: ["desactivado", "desactivados"],
+  delete: ["eliminado", "eliminados"],
+};
+
+const howMany = (n: number) => (n === 1 ? "1 producto" : `${n.toLocaleString("es")} productos`);
 
 export function ProductsManager() {
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const { query, apiQuery, filterQuery, update } = useProductListUrl();
   const [editing, setEditing] = useState<ProductDto | "new" | null>(null);
   const [importing, setImporting] = useState(false);
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [view, setView] = useState<ProductView>("grid");
+  const resultsRef = useRef<HTMLDivElement>(null);
+
   // La vuelta desde Mercado Libre: ?stores=mercadolibre&connected=1 o &error=… (el API redirige aquí).
   const params = useSearchParams();
   useEffect(() => {
@@ -56,11 +79,32 @@ export function ProductsManager() {
     setSourcesOpen(true);
     window.history.replaceState(null, "", window.location.pathname);
   }, [params]);
+
+  // Cuadrícula o tabla: una preferencia de quien mira, no un filtro.
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(VIEW_KEY);
+      if (v === "grid" || v === "table") setView(v);
+    } catch {
+      /* sin almacenamiento: cuadrícula */
+    }
+  }, []);
+  const changeView = (v: ProductView) => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* nada */
+    }
+  };
+
   const { data: fields = [] } = useQuery({ queryKey: ["product-fields"], queryFn: fetchProductFields });
 
-  const { data: products, isPending, isError } = useQuery({
-    queryKey: ["products", search],
-    queryFn: () => fetchProducts(search),
+  const { data, isPending, isError, isFetching, isPlaceholderData } = useQuery({
+    queryKey: ["products", apiQuery],
+    queryFn: () => fetchProductPage(apiQuery),
+    // Al cambiar de página o de filtro se queda la lista anterior hasta que llega la nueva: sin parpadeo.
+    placeholderData: keepPreviousData,
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["products"] });
 
@@ -83,63 +127,174 @@ export function ProductsManager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reading]);
 
-  const list = (products ?? []).filter((p) =>
-    filter === "all" ? true : filter === "active" ? p.isActive : !p.isActive,
+  // Si la página pedida ya no existe (se borraron productos), el servidor sirve la última: la URL se pone al día.
+  useEffect(() => {
+    if (data && !isPlaceholderData && data.page !== query.page) update((q) => ({ ...q, page: data.page }), { keepPage: true });
+  }, [data, isPlaceholderData, query.page, update]);
+
+  // La página siguiente se pide por adelantado: pasar de página es inmediato.
+  useEffect(() => {
+    if (!data || isPlaceholderData || data.page * data.pageSize >= data.total) return;
+    const next = productListQueryToParams({ ...query, page: data.page + 1 }).toString();
+    void queryClient.prefetchQuery({ queryKey: ["products", next], queryFn: () => fetchProductPage(next), staleTime: 30_000 });
+  }, [data, isPlaceholderData, query, queryClient]);
+
+  // ── Selección ──────────────────────────────────────────────
+  // id → viene de una tienda (para avisar antes de desactivar o borrar).
+  const [selected, setSelected] = useState<Map<string, boolean>>(() => new Map());
+  const [allMatching, setAllMatching] = useState(false);
+  useEffect(() => {
+    setSelected(new Map());
+    setAllMatching(false);
+  }, [filterQuery]);
+
+  const products = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const shownSelected = useMemo(
+    () => (allMatching ? new Set(products.map((p) => p.id)) : new Set(selected.keys())),
+    [allMatching, products, selected],
   );
-  const activeCount = (products ?? []).filter((p) => p.isActive).length;
+  const pageOn = products.filter((p) => shownSelected.has(p.id)).length;
+  const pageChecked: "all" | "some" | "none" = products.length > 0 && pageOn === products.length ? "all" : pageOn > 0 ? "some" : "none";
+  const selectedCount = allMatching ? total : selected.size;
+
+  const toggle = (p: ProductDto) => {
+    setSelected((m) => {
+      const n = allMatching ? new Map(products.map((x) => [x.id, !!x.source] as const)) : new Map(m);
+      if (n.has(p.id)) n.delete(p.id);
+      else n.set(p.id, !!p.source);
+      return n;
+    });
+    setAllMatching(false);
+  };
+  const togglePage = () => {
+    setSelected((m) => {
+      const n = new Map(m);
+      if (pageChecked === "all") products.forEach((p) => n.delete(p.id));
+      else products.forEach((p) => n.set(p.id, !!p.source));
+      return n;
+    });
+    setAllMatching(false);
+  };
+  const clearSelection = () => {
+    setSelected(new Map());
+    setAllMatching(false);
+  };
+
+  const bulk = useMutation({
+    mutationFn: async (action: ProductBulkAction) => {
+      if (allMatching) return bulkProducts({ action, query: filterQuery });
+      const ids = [...selected.keys()];
+      let count = 0;
+      for (let i = 0; i < ids.length; i += 1000) count += (await bulkProducts({ action, ids: ids.slice(i, i + 1000) })).count;
+      return { count };
+    },
+    onSuccess: (r, action) => {
+      const [one, many] = DONE[action];
+      toast.success(`${howMany(r.count)} ${r.count === 1 ? one : many}`);
+      clearSelection();
+      refresh();
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const runBulk = (action: ProductBulkAction) => {
+    const what = howMany(selectedCount);
+    const stores = allMatching ? (data?.fromStores ?? 0) : [...selected.values()].filter(Boolean).length;
+    const storesWho = stores === 1 ? "Uno viene" : `${stores.toLocaleString("es")} vienen`;
+    if (action === "delete") {
+      void confirmDialog({
+        title: "Eliminar productos",
+        message:
+          `Se eliminarán ${what}. No se puede deshacer.` +
+          (stores ? ` ${storesWho} de una tienda conectada: si siguen en la tienda, volverán en su próxima lectura.` : ""),
+        confirmLabel: "Eliminar",
+        danger: true,
+      }).then((ok) => ok && bulk.mutate(action));
+      return;
+    }
+    const storeNote = stores ? ` ${storesWho} de una tienda conectada: la tienda vuelve a poner su estado en cada lectura.` : "";
+    if (allMatching || stores) {
+      void confirmDialog({
+        title: action === "activate" ? "Activar productos" : "Desactivar productos",
+        message:
+          action === "activate"
+            ? `Se activarán ${what}: el agente de IA podrá ofrecerlos.${storeNote}`
+            : `Se desactivarán ${what}: el agente de IA deja de ofrecerlos.${storeNote}`,
+        confirmLabel: action === "activate" ? "Activar" : "Desactivar",
+      }).then((ok) => ok && bulk.mutate(action));
+      return;
+    }
+    bulk.mutate(action);
+  };
+
+  // ── Navegación ─────────────────────────────────────────────
+  const filtersCount = countProductFilters(query);
+  const filtering = !!query.q || query.status !== "all" || filtersCount > 0;
+  const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const from = data && total ? (data.page - 1) * data.pageSize + 1 : 0;
+  const to = from ? from + products.length - 1 : 0;
+
+  const goPage = (page: number) => {
+    update((q) => ({ ...q, page }), { keepPage: true, push: true });
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    resultsRef.current?.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+  };
+  const clearAll = () => update((q) => ({ ...q, q: "", status: "all", source: null, price: null, currency: null, fields: {} }));
 
   return (
     <div style={page}>
       <div style={toolbar}>
-        <label style={searchBox}>
-          <NavIcon name="search" size={16} />
-          <input
-            style={searchInput}
-            value={search}
-            placeholder="Buscar por nombre o SKU"
+        <label className="kb-search prod-search">
+          <NavIcon name="search" size={14} />
+          <DebouncedInput
+            value={query.q}
+            onCommit={(v) => update((q) => ({ ...q, q: v.trim() }))}
+            placeholder="Buscar por nombre, SKU o campos"
             aria-label="Buscar productos"
-            onChange={(e) => setSearch(e.target.value)}
+            data-product-search
           />
-        </label>
-        <div className="seg" role="tablist" aria-label="Filtrar productos">
-          {(
-            [
-              ["all", `Todos · ${products?.length ?? 0}`],
-              ["active", `Activos · ${activeCount}`],
-              ["inactive", `Inactivos · ${(products?.length ?? 0) - activeCount}`],
-            ] as const
-          ).map(([k, text]) => (
-            <button key={k} role="tab" aria-selected={filter === k} onClick={() => setFilter(k)}>
-              {text}
+          {query.q && (
+            <button type="button" className="prod-search__clear" onClick={() => update((q) => ({ ...q, q: "" }))} aria-label="Limpiar búsqueda">
+              <NavIcon name="x" size={12} />
             </button>
-          ))}
-        </div>
+          )}
+        </label>
+        <FiltersToggle open={filtersOpen} count={filtersCount} onClick={() => setFiltersOpen((v) => !v)} />
         <div style={{ flex: 1 }} />
-        <button onClick={() => setFieldsOpen(true)} style={ghostBtn} title="Los datos que guardas de cada producto, servicio o taller">
-          <NavIcon name="tag" size={15} /> Campos{fields.length > 0 ? ` · ${fields.length}` : ""}
+        <button onClick={() => setFieldsOpen(true)} style={ghostBtn} className="prod-tool" title="Los datos que guardas de cada producto, servicio o taller" aria-label="Campos">
+          <NavIcon name="tag" size={15} /> <span className="prod-tool__text">Campos{fields.length > 0 ? ` · ${fields.length}` : ""}</span>
         </button>
-        <button onClick={() => setSourcesOpen(true)} style={ghostBtn} data-tour="products-connect" title="Conectar WooCommerce, Shopify, Mercado Libre o una hoja de Google">
-          <NavIcon name="store" size={15} /> Tiendas{sources.length > 0 ? ` · ${sources.length}` : ""}
+        <button
+          onClick={() => setSourcesOpen(true)}
+          style={ghostBtn}
+          className="prod-tool"
+          data-tour="products-connect"
+          title="Conectar WooCommerce, Shopify, Mercado Libre o una hoja de Google"
+          aria-label="Tiendas"
+        >
+          <NavIcon name="store" size={15} /> <span className="prod-tool__text">Tiendas{sources.length > 0 ? ` · ${sources.length}` : ""}</span>
           {reading > 0 && <span style={{ fontSize: 12, color: "var(--muted)" }}>leyendo…</span>}
           {sourceErrors > 0 && <span style={errorDot} title={`${sourceErrors} con error`} />}
         </button>
-        <button onClick={() => setImporting(true)} style={ghostBtn} data-tour="products-import">
-          <NavIcon name="file" size={15} /> Importar
+        <button onClick={() => setImporting(true)} style={ghostBtn} className="prod-tool" data-tour="products-import" aria-label="Importar" title="Importar desde Excel o CSV">
+          <NavIcon name="file" size={15} /> <span className="prod-tool__text">Importar</span>
         </button>
         <button onClick={() => setEditing("new")} style={primaryBtn} data-tour="products-new">
           <NavIcon name="plus" size={15} /> Nuevo producto
         </button>
       </div>
 
+      {filtersOpen && (
+        <ProductFiltersPanel query={query} fields={fields} sources={sources} currencies={data?.currencies ?? []} update={update} />
+      )}
+      <ActiveProductFilters query={query} fields={fields} sources={sources} update={update} onClearAll={clearAll} />
+
       {fieldsOpen && <ProductFieldsDialog fields={fields} onClose={() => setFieldsOpen(false)} />}
       {sourcesOpen && <ProductSourcesDialog sources={sources} loading={sourcesPending} onClose={() => setSourcesOpen(false)} />}
 
       {importing && (
-        <ImportProductsDialog
-          onClose={() => setImporting(false)}
-          onImported={refresh}
-          suggestedCurrency={mostUsedCurrency(products ?? [])}
-        />
+        <ImportProductsDialog onClose={() => setImporting(false)} onImported={refresh} suggestedCurrency={data?.currencies[0] ?? "USD"} />
       )}
 
       {editing && (
@@ -157,85 +312,131 @@ export function ProductsManager() {
         />
       )}
 
+      {data && data.catalogTotal > 0 && (
+        <div className="prod-bar" ref={resultsRef}>
+          <div className="prod-bar__left">
+            <div className="seg" role="tablist" aria-label="Filtrar por estado">
+              {(
+                [
+                  ["all", "Todos", data.counts.all],
+                  ["active", "Activos", data.counts.active],
+                  ["inactive", "Inactivos", data.counts.inactive],
+                ] as const
+              ).map(([k, text, n]) => (
+                <button key={k} role="tab" aria-selected={query.status === k} onClick={() => update((q) => ({ ...q, status: k }))} data-status={k}>
+                  {`${text} · ${n.toLocaleString("es")}`}
+                </button>
+              ))}
+            </div>
+            <span className="prod-bar__count" aria-live="polite" data-results-count>
+              {total === 0 ? "Ningún producto" : `${from.toLocaleString("es")}–${to.toLocaleString("es")} de ${howMany(total)}`}
+            </span>
+          </div>
+          <div className="prod-bar__tools">
+            <label className="prod-bar__sort">
+              <span>Ordenar</span>
+              <select className="field field-sm" value={query.sort} onChange={(e) => update((q) => ({ ...q, sort: e.target.value as ProductSort }))} aria-label="Ordenar productos">
+                {PRODUCT_SORTS.map((s) => (
+                  <option key={s} value={s}>
+                    {PRODUCT_SORT_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="seg seg-sm" role="tablist" aria-label="Vista">
+              <button type="button" role="tab" aria-selected={view === "grid"} onClick={() => changeView("grid")} title="Cuadrícula" aria-label="Cuadrícula">
+                <NavIcon name="grid" size={14} />
+              </button>
+              <button type="button" role="tab" aria-selected={view === "table"} onClick={() => changeView("table")} title="Tabla" aria-label="Tabla" data-view-table>
+                <NavIcon name="rows" size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isPending && (
-        <div style={grid}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="skeleton" style={{ height: 210, borderRadius: 12 }} />
+        <div className="prod-grid" style={{ marginTop: 18 }}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="skeleton" style={{ height: 230 }} />
           ))}
         </div>
       )}
       {isError && <p style={{ color: "var(--danger)" }}>No se pudieron cargar los productos.</p>}
 
-      {!isPending && list.length === 0 && (
+      {data && total === 0 && (
         <div style={empty}>
           <NavIcon name="package" size={32} />
-          <strong style={{ color: "var(--text)" }}>
-            {search || filter !== "all" ? "Nada coincide con la búsqueda" : "Aún no tienes productos"}
-          </strong>
-          <span>
-            {search || filter !== "all"
-              ? "Prueba con otro nombre o SKU."
-              : "Crea el primero, importa tu catálogo desde Excel o CSV, o conecta tu tienda. El agente de IA los usa para dar precios."}
-          </span>
+          {data.catalogTotal === 0 && !filtering ? (
+            <>
+              <strong style={{ color: "var(--text)" }}>Aún no tienes productos</strong>
+              <span>Crea el primero, importa tu catálogo desde Excel o CSV, o conecta tu tienda. El agente de IA los usa para dar precios.</span>
+            </>
+          ) : (
+            <>
+              <strong style={{ color: "var(--text)" }}>Nada coincide con la búsqueda</strong>
+              <span>Prueba con otras palabras o quita algún filtro.</span>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={clearAll} style={{ marginTop: 4 }}>
+                Limpiar filtros
+              </button>
+            </>
+          )}
         </div>
       )}
 
-      <div style={grid} data-tour="products-grid">
-        {list.map((p) => (
-          <ProductCard key={p.id} product={p} fields={fields} onOpen={() => setEditing(p)} />
-        ))}
+      <div className="prod-results" data-tour="products-grid" aria-busy={isFetching && isPlaceholderData}>
+        {products.length > 0 &&
+          (view === "table" ? (
+            <ProductTable
+              products={products}
+              fields={fields}
+              selected={shownSelected}
+              selecting={selectedCount > 0}
+              onToggle={toggle}
+              onOpen={(p) => setEditing(p)}
+              pageChecked={pageChecked}
+              onTogglePage={togglePage}
+            />
+          ) : (
+            <ProductGrid products={products} fields={fields} selected={shownSelected} selecting={selectedCount > 0} onToggle={toggle} onOpen={(p) => setEditing(p)} />
+          ))}
       </div>
-    </div>
-  );
-}
 
-function ProductCard({ product: p, fields, onOpen }: { product: ProductDto; fields: ProductFieldDto[]; onOpen: () => void }) {
-  const [broken, setBroken] = useState(false);
-  const details = fields.filter((f) => f.showOnCard && p.attributes[f.key]).slice(0, 4);
-  return (
-    <button type="button" onClick={onOpen} style={card} className="product-card" aria-label={`Editar ${p.name}`}>
-      <div style={thumb}>
-        {p.imageUrl && !broken ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={p.imageUrl}
-            alt=""
-            onError={() => setBroken(true)}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        ) : (
-          <span style={{ color: "var(--muted)", opacity: 0.6 }}>
-            <NavIcon name={broken ? "alert" : "package"} size={26} />
-          </span>
-        )}
-        {!p.isActive && <span style={inactiveBadge}>Inactivo</span>}
-        {p.source && <ProductSourceMark kind={p.source.kind} name={p.source.name} style={sourceBadge} />}
-      </div>
-      <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-        <strong style={cardTitle}>{p.name}</strong>
-        <span style={{ fontSize: 12, color: "var(--muted)" }}>{p.sku ? `SKU ${p.sku}` : "Sin SKU"}</span>
-        <span style={cardPrice}>{formatMoney(p.price, p.currency)}</span>
-        {p.prices.length > 0 && (
-          <span style={priceChips}>
-            {p.prices.map((x) => (
-              <span key={x.currency} style={priceChip}>
-                {formatMoney(x.amount, x.currency)}
-              </span>
-            ))}
-          </span>
-        )}
-        {details.length > 0 && (
-          <span className="pf-chips">
-            {details.map((f) => (
-              <span key={f.key} className="pf-chip">
-                <span>{f.label}</span> {formatFieldValue(f, p.attributes[f.key]!)}
-              </span>
-            ))}
-          </span>
-        )}
-        {broken && <span style={{ fontSize: 12, color: "var(--warning)" }}>La imagen no carga</span>}
-      </div>
-    </button>
+      {data && total > PRODUCT_PAGE_SIZES[0] && (
+        <div className="prod-foot">
+          <Pagination page={data.page} pages={pages} onPage={goPage} label="Páginas de productos" />
+          <label className="prod-foot__size">
+            <span>Mostrar</span>
+            <select
+              className="field field-sm"
+              value={query.pageSize}
+              onChange={(e) => update((q) => ({ ...q, pageSize: Number(e.target.value) }))}
+              aria-label="Productos por página"
+            >
+              {PRODUCT_PAGE_SIZES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <span>por página</span>
+          </label>
+        </div>
+      )}
+
+      {selectedCount > 0 && (
+        <ProductBulkBar
+          count={selectedCount}
+          total={total}
+          allMatching={allMatching}
+          canSelectAll={!allMatching && pageChecked === "all" && total > selected.size}
+          busy={bulk.isPending}
+          onSelectAll={() => setAllMatching(true)}
+          onClear={clearSelection}
+          onRun={runBulk}
+        />
+      )}
+    </div>
   );
 }
 
@@ -575,76 +776,12 @@ const toolbar: React.CSSProperties = {
   flexWrap: "wrap",
 };
 
-const searchBox: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "0 12px",
-  minWidth: 240,
-  flex: "0 1 320px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "var(--field)",
-  color: "var(--muted)",
-};
 
-const searchInput: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  padding: "9px 0",
-  border: "none",
-  background: "transparent",
-  color: "var(--text)",
-  fontSize: 14,
-  outline: "none",
-  boxShadow: "none",
-};
 
-const grid: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-  gap: 14,
-  marginTop: 18,
-};
 
-const card: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  padding: 0,
-  textAlign: "left",
-  font: "inherit",
-  color: "var(--text)",
-  background: "var(--panel)",
-  border: "1px solid var(--border)",
-  borderRadius: 12,
-  overflow: "hidden",
-  cursor: "pointer",
-};
 
-const thumb: React.CSSProperties = {
-  position: "relative",
-  aspectRatio: "4 / 3",
-  background: "var(--field)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderBottom: "1px solid var(--border)",
-};
 
-const inactiveBadge: React.CSSProperties = {
-  position: "absolute",
-  top: 8,
-  left: 8,
-  fontSize: 11,
-  fontWeight: 600,
-  padding: "2px 8px",
-  borderRadius: 999,
-  background: "var(--panel-2)",
-  border: "1px solid var(--border)",
-  color: "var(--muted)",
-};
 
-const sourceBadge: React.CSSProperties = { position: "absolute", bottom: 8, left: 8 };
 
 const errorDot: React.CSSProperties = {
   width: 8,
@@ -667,31 +804,9 @@ const syncNotice: React.CSSProperties = {
   color: "var(--muted)",
 };
 
-const cardTitle: React.CSSProperties = {
-  fontSize: 14.5,
-  lineHeight: 1.3,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
 
-const cardPrice: React.CSSProperties = {
-  marginTop: 6,
-  fontSize: 18,
-  fontWeight: 700,
-  fontVariantNumeric: "tabular-nums",
-};
 
-const priceChips: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 5, marginTop: 2 };
 
-const priceChip: React.CSSProperties = {
-  fontSize: 11.5,
-  padding: "2px 7px",
-  borderRadius: 999,
-  background: "var(--surface-3)",
-  color: "var(--text)",
-  fontVariantNumeric: "tabular-nums",
-};
 
 const empty: React.CSSProperties = {
   display: "flex",
@@ -782,13 +897,3 @@ const priceRow: React.CSSProperties = { display: "flex", gap: 8, alignItems: "ce
 const priceRowLabel: React.CSSProperties = { width: 36, fontSize: 12, color: "var(--muted)", flexShrink: 0 };
 
 const toggleRow: React.CSSProperties = { display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" };
-
-/** La moneda que más se repite en el catálogo (USD si está vacío). */
-function mostUsedCurrency(products: { currency: string }[]): string {
-  const count = new Map<string, number>();
-  for (const p of products) count.set(p.currency, (count.get(p.currency) ?? 0) + 1);
-  let best = "USD";
-  let n = 0;
-  for (const [cur, c] of count) if (c > n) [best, n] = [cur, c];
-  return best;
-}

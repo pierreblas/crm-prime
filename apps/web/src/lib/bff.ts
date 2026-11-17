@@ -149,6 +149,9 @@ import type {
   UpdateProfileInput,
   ChangePasswordInput,
   ProductDto,
+  ProductPage,
+  ProductBulkInput,
+  ProductBulkResult,
   CreateProductInput,
   UpdateProductInput,
   ImportProductsInput,
@@ -1632,10 +1635,21 @@ export async function deleteProductField(id: string): Promise<void> {
 }
 
 // ── Productos ────────────────────────────────────────────────
-export async function fetchProducts(search = ""): Promise<ProductDto[]> {
-  const qs = search ? `?search=${encodeURIComponent(search)}` : "";
-  const res = await bffFetch(`/api/bff/products${qs}`);
+/** Una página del catálogo. `query` es la cadena de la URL de la pantalla (filtros, orden, página). */
+export async function fetchProductPage(query: string): Promise<ProductPage> {
+  const res = await bffFetch(`/api/bff/products${query ? `?${query}` : ""}`);
   if (!res.ok) throw new Error("No se pudieron cargar los productos");
+  return res.json();
+}
+
+/** Activar, desactivar o borrar varios: los elegidos o todos los que cumplen los filtros. */
+export async function bulkProducts(input: ProductBulkInput): Promise<ProductBulkResult> {
+  const res = await bffFetch("/api/bff/products/bulk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo completar la acción"));
   return res.json();
 }
 

@@ -93,7 +93,9 @@ export type IconName =
   // Agenda
   | "calendar"
   | "chevron-left"
-  | "chevron-right";
+  | "chevron-right"
+  | "grid"
+  | "rows";
 
 export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) {
   const p = {
@@ -711,6 +713,21 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
       return (
         <svg {...p}>
           <path d="m15 18-6-6 6-6" />
+        </svg>
+      );
+    case "grid":
+      return (
+        <svg {...p}>
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+        </svg>
+      );
+    case "rows":
+      return (
+        <svg {...p}>
+          <path d="M3 6h18M3 12h18M3 18h18" />
         </svg>
       );
     case "chevron-right":

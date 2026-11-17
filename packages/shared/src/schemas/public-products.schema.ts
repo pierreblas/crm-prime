@@ -41,6 +41,24 @@ export const listProductsQuerySchema = pageQuerySchema.extend({
   active: z.enum(["true", "false"]).optional(),
   /** ISO 8601: solo productos modificados a partir de esta fecha. */
   updatedSince: z.string().datetime().optional(),
+  /**
+   * Por campo propio, con su clave o su nombre visible: `fields[talla]=M`.
+   * Listas: tiene esa opción (repetir el parámetro para varias: vale cualquiera).
+   * Número, fecha u hora: valor exacto o rango `10..50` (`10..`, `..50`).
+   * Sí/no: `si` o `no`. Texto: igual, sin distinguir mayúsculas ni tildes.
+   */
+  fields: z
+    .record(z.union([z.string().max(120), z.array(z.string().max(120)).max(50)]))
+    .optional()
+    .transform((v) => {
+      if (!v) return undefined;
+      const out: Record<string, string[]> = {};
+      for (const [k, raw] of Object.entries(v).slice(0, 20)) {
+        const list = (Array.isArray(raw) ? raw : [raw]).map((x) => x.trim()).filter(Boolean);
+        if (k.trim() && list.length) out[k.trim()] = list;
+      }
+      return Object.keys(out).length ? out : undefined;
+    }),
 });
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
 

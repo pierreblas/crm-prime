@@ -1847,6 +1847,7 @@ test("la API pública carga productos por SKU ligados a su clave, y el webhook d
   const { ProductSyncService } = await import("../src/modules/products/product-sync.service");
   const { ProductSourceService } = await import("../src/modules/products/product-source.service");
   const { PublicProductsService } = await import("../src/modules/public-api/public-products.service");
+  const { ProductCatalogService } = await import("../src/modules/products/product-catalog.service");
   const { createHmac } = await import("node:crypto");
   process.env.APP_ENCRYPTION_KEY ??= "clave-de-prueba-para-cifrar-secretos";
   // Sin dirección pública: los webhooks de la tienda no se pueden registrar (y así no se sale a internet).
@@ -1866,7 +1867,7 @@ test("la API pública carga productos por SKU ligados a su clave, y el webhook d
       const webhooks = { emit: async (event: string) => void avisos.push(event) } as any;
       const sync = new ProductSyncService(prisma, queue, webhooks);
       const sources = new ProductSourceService(prisma, { orgId: () => orgId } as any, sync);
-      const api = new PublicProductsService(prisma, { orgId: () => orgId } as any, sources, sync);
+      const api = new PublicProductsService(prisma, { orgId: () => orgId } as any, sources, sync, new ProductCatalogService(prisma, { orgId: () => orgId } as any));
 
       // 1 · La carga en bloque crea los productos y los liga a la conexión «api» de la clave.
       const r1 = await api.bulk(
@@ -1947,6 +1948,157 @@ test("la API pública carga productos por SKU ligados a su clave, y el webhook d
         await prisma.productField.deleteMany({ where: { orgId } });
         await prisma.productSource.deleteMany({ where: { orgId } });
         await prisma.organization.delete({ where: { id: orgId } });
+      }),
+    );
+});
+
+test("la lista del catálogo pagina, cuenta y filtra por campos propios con el rol restringido, y las acciones en bloque no salen de la empresa", async () => {
+  const { ProductCatalogService } = await import("../src/modules/products/product-catalog.service");
+  const { ProductSyncService } = await import("../src/modules/products/product-sync.service");
+  const { ProductSourceService } = await import("../src/modules/products/product-source.service");
+  const { PublicProductsService } = await import("../src/modules/public-api/public-products.service");
+  const { parseProductListQuery } = await import("@crm/shared");
+  const { Prisma } = await import("@prisma/client");
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_cat_${suf}`;
+  const otraId = `o_cat2_${suf}`;
+  await ctx.runUnscoped("prueba: empresas del catálogo", async () => {
+    await prisma.organization.create({ data: { id: orgId, slug: `cat-${suf}`, name: "Catálogo" } });
+    await prisma.organization.create({ data: { id: otraId, slug: `cat2-${suf}`, name: "Otra" } });
+  });
+  const q = (s: string) => parseProductListQuery(new URLSearchParams(s));
+
+  await ctx
+    .runInOrg(orgId, async () => {
+      const tenant = { orgId: () => orgId } as any;
+      const svc = new ProductCatalogService(prisma, tenant);
+      const field = (key: string, label: string, type: string, options: string[] = []) =>
+        prisma.productField.create({ data: { orgId, key, label, type, options } });
+      await field("talla", "Talla", "select", ["S", "M", "L"]);
+      await field("colores", "Colores", "multiselect", ["Rojo", "Azul", "Verde"]);
+      await field("peso", "Peso", "number");
+      await field("inicio", "Inicio", "date");
+      await field("hora", "Hora", "time");
+      await field("envio", "Envío gratis", "boolean");
+      await field("marca", "Marca", "text");
+      const tienda = await prisma.productSource.create({
+        data: { orgId, kind: "woocommerce", name: "Tienda W", target: "https://w.example", status: "idle", syncEvery: 60 },
+      });
+
+      // 60 productos de relleno (30 activos) y 6 con datos para filtrar.
+      await prisma.product.createMany({
+        data: Array.from({ length: 60 }, (_, i) => ({
+          orgId,
+          name: `Relleno ${String(i).padStart(2, "0")}`,
+          sku: `R-${i}`,
+          price: 100 + i,
+          currency: "PEN",
+          isActive: i % 2 === 0,
+          attributes: { talla: "S" },
+        })),
+      });
+      const mk = (data: any) => prisma.product.create({ data: { orgId, currency: "PEN", ...data } });
+      const camion = await mk({ name: "Camión rojo", sku: "C-1", price: 50, attributes: { talla: "M", colores: "Rojo, Azul", peso: "3.5", inicio: "2026-01-15", hora: "9:30", envio: "Sí", marca: "Nike Air" } });
+      await mk({ name: "Árbol de juguete", sku: "C-2", price: 20, attributes: { talla: "L", colores: "Verde", peso: "7", inicio: "2026-02-10", envio: "No", marca: "Lego" } });
+      await mk({ name: "Banco", sku: "C-3", price: 80, attributes: { talla: "m", peso: "2,5", envio: "true" }, sourceId: tienda.id });
+      const caja = await mk({ name: "Caja", sku: "C-4", price: 15, currency: "USD", attributes: { peso: "pesado" } });
+      await prisma.productPrice.create({ data: { orgId, productId: camion.id, currency: "USD", amount: 14 } });
+      await mk({ name: "Raro", sku: "C-5", price: 1, attributes: Prisma.JsonNull });
+
+      // La otra empresa, con un producto que coincidiría con casi todo.
+      await ctx.runInOrg(otraId, () =>
+        prisma.product.create({ data: { orgId: otraId, name: "Camión rojo ajeno", sku: "C-1", price: 50, currency: "PEN", attributes: { talla: "M", colores: "Rojo", peso: "3", envio: "Sí", marca: "Nike" } } }),
+      );
+
+      // 1 · Páginas y recuentos.
+      const p1 = await svc.page(q("size=12"));
+      assert.equal(p1.data.length, 12);
+      assert.equal(p1.total, 65);
+      assert.equal(p1.catalogTotal, 65);
+      assert.deepEqual(p1.counts, { all: 65, active: 35, inactive: 30 });
+      assert.equal(p1.fromStores, 1);
+      assert.deepEqual(p1.currencies, ["PEN", "USD"], "de la más usada a la menos");
+      const lejos = await svc.page(q("size=12&page=99"));
+      assert.equal(lejos.page, 6, "una página que ya no existe sirve la última");
+      assert.equal(lejos.data.length, 5);
+      const vistos = new Set<string>();
+      for (let page = 1; page <= 6; page++) for (const p of (await svc.page(q(`size=12&page=${page}`))).data) vistos.add(p.id);
+      assert.equal(vistos.size, 65, "recorrer las páginas da todos, sin repetir");
+      const inactivos = await svc.page(q("status=inactive"));
+      assert.equal(inactivos.total, 30);
+      assert.equal(inactivos.counts.all, 65, "las pestañas cuentan sin el filtro de estado");
+
+      // 2 · Búsqueda: sin tildes, en campos, todas las palabras.
+      assert.deepEqual((await svc.page(q("q=camion"))).data.map((p) => p.sku), ["C-1"]);
+      assert.deepEqual((await svc.page(q("q=NIKE"))).data.map((p) => p.sku), ["C-1"], "busca en los valores de los campos");
+      assert.equal((await svc.page(q("q=camion azul"))).total, 1, "«azul» está en sus colores");
+      assert.equal((await svc.page(q("q=camion verde"))).total, 0, "todas las palabras tienen que estar");
+      assert.equal((await svc.page(q("q=camion rojo"))).total, 1);
+      assert.equal((await svc.page(q("q=%25"))).total, 0, "un % no es comodín");
+
+      // 3 · Campos propios, por tipo.
+      const skus = async (s: string) => (await svc.page(q(s))).data.map((p) => p.sku).sort();
+      assert.deepEqual(await skus("f.talla=M"), ["C-1", "C-3"], "lista: sin distinguir mayúsculas");
+      assert.deepEqual(await skus("f.talla=M&f.talla=L"), ["C-1", "C-2", "C-3"], "varias opciones: vale cualquiera");
+      assert.deepEqual(await skus("f.colores=azul"), ["C-1"], "varias opciones guardadas: tiene la elegida");
+      assert.deepEqual(await skus("f.peso=2..4"), ["C-1", "C-3"], "rango numérico, con coma decimal; «pesado» no rompe");
+      assert.deepEqual(await skus("f.peso=5.."), ["C-2"]);
+      assert.deepEqual(await skus("f.peso=7"), ["C-2"], "número exacto");
+      assert.equal((await svc.page(q("f.peso=abc"))).total, 0, "un número que no se entiende no deja pasar nada");
+      assert.deepEqual(await skus("f.inicio=2026-01-01..2026-01-31"), ["C-1"]);
+      assert.deepEqual(await skus("f.hora=09:00..10:00"), ["C-1"], "hora sin cero delante también cuenta");
+      assert.deepEqual(await skus("f.envio=si"), ["C-1", "C-3"]);
+      assert.equal((await svc.page(q("f.envio=no"))).total, 63, "«no» incluye los que no lo tienen puesto");
+      assert.deepEqual(await skus("f.marca=nik"), ["C-1"], "texto: contiene");
+      assert.deepEqual(await skus("f.talla=M&f.envio=si&f.peso=3..4"), ["C-1"], "los filtros se suman");
+
+      // 4 · Precio (en una moneda: base o adicional), origen y orden.
+      assert.deepEqual(await skus("price=10..20&currency=USD"), ["C-1", "C-4"], "14 USD adicional y 15 USD base");
+      assert.deepEqual(await skus("price=..20"), ["C-2", "C-4", "C-5"], "sin moneda: el precio base");
+      assert.deepEqual(await skus(`source=${tienda.id}`), ["C-3"]);
+      assert.equal((await svc.page(q("source=manual"))).total, 64);
+      const porNombre = (await svc.page(q("sort=name"))).data.slice(0, 3).map((p) => p.name);
+      assert.deepEqual(porNombre, ["Árbol de juguete", "Banco", "Caja"], "la Á va con la A");
+      assert.equal((await svc.page(q("sort=price_desc"))).data[0].sku, "R-59");
+      assert.equal((await svc.page(q("sort=price_asc"))).data[0].sku, "C-5");
+
+      // 5 · Acciones en bloque: por filtros y por elegidos; nunca fuera de la empresa.
+      const off = await svc.bulk({ action: "deactivate", query: "f.talla=M" });
+      assert.equal(off.count, 2);
+      assert.equal((await svc.page(q("status=inactive&f.talla=M"))).total, 2);
+      const ajeno = await ctx.runInOrg(otraId, () => prisma.product.findFirst({ where: { sku: "C-1" } }));
+      const del = await svc.bulk({ action: "delete", ids: [caja.id, ajeno.id] });
+      assert.equal(del.count, 1, "el producto de otra empresa no se toca");
+      assert.ok(await ctx.runInOrg(otraId, () => prisma.product.findUnique({ where: { id: ajeno.id } })), "sigue en su empresa");
+      assert.equal((await svc.page(q(""))).total, 64);
+
+      // 6 · API pública: fields[...] por clave o por nombre visible, igualdad en texto, cursor.
+      const sync = new ProductSyncService(prisma, { add: async () => undefined } as any, { emit: async () => undefined } as any);
+      const sources = new ProductSourceService(prisma, tenant, sync);
+      const api = new PublicProductsService(prisma, tenant, sources, sync, svc);
+      assert.deepEqual((await api.list({ limit: 10, fields: { Talla: ["M"] } })).data.map((p) => p.sku).sort(), ["C-1", "C-3"]);
+      assert.equal((await api.list({ limit: 10, fields: { marca: ["nik"] } })).data.length, 0, "en la API el texto es igual, no contiene");
+      assert.equal((await api.list({ limit: 10, fields: { marca: ["NIKE AIR"] } })).data.length, 1);
+      assert.equal((await api.list({ limit: 10, fields: { peso: ["2..4"] }, active: "false" })).data.length, 2);
+      const todos: string[] = [];
+      let cursor: string | undefined;
+      do {
+        const pg = await api.list({ limit: 25, cursor });
+        todos.push(...pg.data.map((p) => p.id));
+        cursor = pg.nextCursor ?? undefined;
+      } while (cursor);
+      assert.equal(todos.length, 64, "el cursor recorre todo el catálogo una vez");
+      assert.equal(new Set(todos).size, 64);
+    })
+    .finally(() =>
+      ctx.runUnscoped("prueba: limpiar catálogo filtrado", async () => {
+        for (const id of [orgId, otraId]) {
+          await prisma.productPrice.deleteMany({ where: { orgId: id } });
+          await prisma.product.deleteMany({ where: { orgId: id } });
+          await prisma.productField.deleteMany({ where: { orgId: id } });
+          await prisma.productSource.deleteMany({ where: { orgId: id } });
+          await prisma.organization.delete({ where: { id } });
+        }
       }),
     );
 });

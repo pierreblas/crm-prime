@@ -9,10 +9,11 @@ import { MercadoLibreClient } from "./connectors/mercadolibre.client";
 import { ProductSourceService } from "./product-source.service";
 import { ProductSyncService } from "./product-sync.service";
 import { ProductSyncProcessor } from "./product-sync.processor";
+import { ProductCatalogService } from "./product-catalog.service";
 
 @Module({
   controllers: [ProductsController, ProductFieldsController, ProductSourcesController, ProductSourceHooksController, ProductSourceOAuthController],
-  providers: [ProductSyncService, ProductSourceService, ProductSyncProcessor, MercadoLibreClient, MercadoLibreConnectService],
-  exports: [ProductSourceService, ProductSyncService],
+  providers: [ProductCatalogService, ProductSyncService, ProductSourceService, ProductSyncProcessor, MercadoLibreClient, MercadoLibreConnectService],
+  exports: [ProductSourceService, ProductSyncService, ProductCatalogService],
 })
 export class ProductsModule {}

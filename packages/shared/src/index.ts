@@ -26,6 +26,7 @@ export * from "./schemas/campaign.schema.js";
 export * from "./schemas/source.schema.js";
 export * from "./schemas/product.schema.js";
 export * from "./schemas/product-source.schema.js";
+export * from "./schemas/product-list.schema.js";
 export * from "./schemas/onboarding.schema.js";
 export * from "./schemas/business-setup.schema.js";
 export * from "./schemas/platform.schema.js";

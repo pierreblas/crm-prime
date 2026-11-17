@@ -14,26 +14,20 @@ import {
 import {
   createProductSchema,
   importProductsSchema,
+  parseProductListQuery,
+  productBulkSchema,
   updateProductSchema,
   type CreateProductInput,
   type ImportProductsInput,
   type ImportProductsResult,
+  type ProductBulkInput,
+  type ProductBulkResult,
   type ProductDto,
+  type ProductPage,
   type UpdateProductInput,
 } from "@crm/shared";
 import type { Prisma } from "@prisma/client";
-
-/** Valores de campos personalizados sin vacíos, solo texto. */
-function clean(raw: unknown): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-      if (typeof v === "string" && v.trim()) out[k] = v.trim();
-      else if (typeof v === "number") out[k] = String(v);
-    }
-  }
-  return out;
-}
+import { ProductCatalogService, cleanAttributes as clean } from "./product-catalog.service";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -46,24 +40,23 @@ export class ProductsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
+    private readonly catalog: ProductCatalogService,
   ) {}
 
+  /**
+   * Una página del catálogo con búsqueda, filtros (estado, origen, precio y
+   * campos propios: f.<clave>=…) y orden. Recibe la misma cadena que la URL
+   * de la pantalla.
+   */
   @Get()
-  async list(@Query("search") search?: string): Promise<ProductDto[]> {
-    const rows = await this.prisma.product.findMany({
-      where: search
-        ? {
-            OR: [
-              { name: { contains: search, mode: "insensitive" } },
-              { sku: { contains: search, mode: "insensitive" } },
-            ],
-          }
-        : undefined,
-      orderBy: { createdAt: "desc" },
-      take: 500,
-      include: { prices: { orderBy: { currency: "asc" } }, source: { select: { id: true, kind: true, name: true } } },
-    });
-    return rows.map((p) => this.toDto(p));
+  list(@Query() query: Record<string, unknown>): Promise<ProductPage> {
+    return this.catalog.page(parseProductListQuery(query));
+  }
+
+  /** Activar, desactivar o borrar varios: los elegidos o todos los que cumplen los filtros. */
+  @Post("bulk")
+  bulk(@Body(new ZodValidationPipe(productBulkSchema)) body: ProductBulkInput): Promise<ProductBulkResult> {
+    return this.catalog.bulk(body);
   }
 
   @Post()
@@ -269,41 +262,7 @@ export class ProductsController {
     }
   }
 
-  private async dtoById(id: string): Promise<ProductDto> {
-    const p = await this.prisma.product.findUniqueOrThrow({
-      where: { id },
-      include: { prices: { orderBy: { currency: "asc" } }, source: { select: { id: true, kind: true, name: true } } },
-    });
-    return this.toDto(p);
-  }
-
-  private toDto(p: {
-    id: string;
-    name: string;
-    sku: string | null;
-    description: string | null;
-    price: Prisma.Decimal;
-    currency: string;
-    prices?: { currency: string; amount: Prisma.Decimal }[];
-    attributes?: Prisma.JsonValue | null;
-    imageUrl: string | null;
-    isActive: boolean;
-    createdAt: Date;
-    source?: { id: string; kind: string; name: string } | null;
-  }): ProductDto {
-    return {
-      id: p.id,
-      name: p.name,
-      sku: p.sku,
-      description: p.description,
-      price: Number(p.price),
-      currency: p.currency,
-      prices: (p.prices ?? []).map((x) => ({ currency: x.currency, amount: Number(x.amount) })),
-      attributes: clean(p.attributes),
-      imageUrl: p.imageUrl,
-      isActive: p.isActive,
-      createdAt: p.createdAt.toISOString(),
-      source: p.source ?? null,
-    };
+  private dtoById(id: string): Promise<ProductDto> {
+    return this.catalog.dtoById(id);
   }
 }

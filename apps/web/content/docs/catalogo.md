@@ -11,6 +11,24 @@ El catálogo es lo que el agente de IA consulta para cotizar, recomendar y envia
 - **Campos propios.** Los datos que necesite tu negocio: talla, color, duración, modalidad, fecha, cupos. Se crean en Productos › Campos y cada uno dice si lo ve el agente y si se muestra en la tarjeta. Cada campo tiene una **clave** (`talla`, `fecha_de_inicio`…): Driony la propone a partir del nombre, puedes cambiarla al crear el campo y después es fija aunque lo renombres, para que ninguna integración se rompa. La ves y la copias en Productos › Campos, y es la que usan la [API](/docs/api) (`fields`), la importación por archivo y las tiendas conectadas.
 - **Activo.** Los inactivos siguen en el catálogo, pero el agente no los ofrece.
 
+## Buscar, filtrar y ordenar
+
+La pantalla de Productos va por páginas de 48 (puedes elegir 24 o 96) y arriba dice cuántos hay: «1–48 de 2.340 productos».
+
+- **Buscar** encuentra por nombre, SKU, descripción y los valores de tus campos, sin importar tildes ni mayúsculas: «camion» encuentra «Camión». Con varias palabras, salen los productos que tienen todas.
+- **Activos e Inactivos** cuentan sobre los filtros que tengas puestos.
+- **Filtros** abre los filtros por origen (a mano o importados, o cada tienda y cada clave de API), por precio y por cada campo propio, según su tipo: en una lista eliges una o varias opciones; en sí/no, una de las dos; en números, fechas y horas, un rango; en texto, lo que debe contener. Con varias monedas, el filtro de precio cuenta el precio base o el precio en la moneda que elijas.
+- Cada filtro puesto aparece como una etiqueta: la cierras para quitarlo, o usas **Limpiar todo**.
+- **Ordenar** por más recientes, últimos modificados, nombre o precio.
+- Lo que eliges queda en la dirección de la página: si la recargas o la compartes con tu equipo, se ve igual.
+- **Cuadrícula o tabla.** La tabla es más compacta para catálogos grandes. Driony recuerda la vista que elegiste.
+
+### Varios a la vez
+
+Marca la casilla de cada producto (en la tabla, la de arriba marca la página entera) y usa la barra de abajo para **activar, desactivar o eliminar**. Si marcaste toda la página y hay más resultados, puedes **elegir todos los que cumplen los filtros**, aunque estén en otras páginas. Antes de eliminar, o de cambiar productos de otras páginas, Driony te pide confirmación.
+
+Los productos que vienen de una tienda conectada siguen lo que diga la tienda: si los desactivas o los borras aquí y siguen activos allí, vuelven en la próxima lectura.
+
 ## Importar desde Excel o CSV
 
 En Productos › Importar sube un .xlsx o un CSV (por ejemplo, exportado de Google Sheets). El archivo se lee en tu navegador y verás una vista previa antes de importar nada.

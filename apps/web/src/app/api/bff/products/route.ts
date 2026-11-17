@@ -1,9 +1,8 @@
 import { apiForward, relay } from "@/lib/api";
 
+// Filtros, orden y página tal cual vienen de la URL de la pantalla.
 export async function GET(req: Request) {
-  const search = new URL(req.url).searchParams.get("search") ?? "";
-  const qs = search ? `?search=${encodeURIComponent(search)}` : "";
-  return relay(await apiForward(`/products${qs}`));
+  return relay(await apiForward(`/products${new URL(req.url).search}`));
 }
 
 export async function POST(req: Request) {
