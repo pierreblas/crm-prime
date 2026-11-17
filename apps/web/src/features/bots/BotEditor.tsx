@@ -36,7 +36,8 @@ import { smBtn } from "@/components/ui";
 import { PromptAssistant } from "./PromptAssistant";
 import { PromptOverlay, PromptStatusLine } from "./PromptOverlay";
 import { useTextHistory } from "./useTextHistory";
-import { BUILTIN_VARS } from "./promptMarks";
+import { BUILTIN_VARS, type PromptVar } from "./promptMarks";
+import { VarTextarea } from "./VarTextarea";
 import { FollowUpsEditor, defaultFollowUpStep } from "./FollowUpsEditor";
 import { useAiStatus } from "@/features/copilot/useAiStatus";
 import {
@@ -680,18 +681,18 @@ export function BotEditor({
             <Card title="Saludo automático" subtitle="Un mensaje fijo al primer mensaje del cliente, al instante y sin usar IA.">
               <Switch checked={form.welcomeEnabled} onChange={(v) => set("welcomeEnabled", v)} label={form.welcomeEnabled ? "Activado" : "Desactivado"} />
               {form.welcomeEnabled && (
-                <>
-                  <textarea
-                    className="field"
-                    style={{ minHeight: 70, resize: "vertical", fontFamily: "inherit" }}
-                    value={form.welcomeMessage}
-                    maxLength={MAX_TEXT}
-                    onChange={(e) => set("welcomeMessage", e.target.value)}
-                    placeholder="¡Hola! Gracias por escribirnos…"
-                  />
+                <VarTextarea
+                  value={form.welcomeMessage}
+                  onChange={(v) => set("welcomeMessage", v)}
+                  vars={contactVars}
+                  minHeight={70}
+                  maxLength={MAX_TEXT}
+                  placeholder="¡Hola {{nombre}}! Gracias por escribirnos…"
+                  ariaLabel="Saludo automático"
+                >
                   <Counter value={form.welcomeMessage} max={MAX_TEXT} />
-                  <AssistButton onClick={() => setAssist("welcomeMessage")} align="end" />
-                </>
+                  <AssistButton onClick={() => setAssist("welcomeMessage")} />
+                </VarTextarea>
               )}
             </Card>
 
@@ -702,7 +703,7 @@ export function BotEditor({
                 label={form.businessHoursEnabled ? "Solo en horario" : "Responde a cualquier hora"}
               />
               {form.businessHoursEnabled && (
-                <BusinessHoursEditor value={form.businessHours} onChange={(h) => set("businessHours", h)} onAssist={() => setAssist("outOfHoursMessage")} />
+                <BusinessHoursEditor value={form.businessHours} onChange={(h) => set("businessHours", h)} onAssist={() => setAssist("outOfHoursMessage")} vars={contactVars} />
               )}
             </Card>
 
@@ -710,7 +711,7 @@ export function BotEditor({
               title="Respuestas por palabra clave"
               subtitle="Si el mensaje del cliente contiene una palabra, hace algo fijo antes que la IA. Útil para «precios», «ubicación» o «baja»."
             >
-              <KeywordTriggersEditor value={form.keywordTriggers} onChange={(t) => set("keywordTriggers", t)} />
+              <KeywordTriggersEditor value={form.keywordTriggers} onChange={(t) => set("keywordTriggers", t)} vars={contactVars} />
             </Card>
 
             <Card
@@ -732,7 +733,7 @@ export function BotEditor({
                 }
                 label={form.followUps.enabled ? "Activado" : "Desactivado"}
               />
-              {form.followUps.enabled && <FollowUpsEditor value={form.followUps} onChange={(v) => set("followUps", v)} />}
+              {form.followUps.enabled && <FollowUpsEditor value={form.followUps} onChange={(v) => set("followUps", v)} vars={contactVars} />}
             </Card>
           </>
         )}
@@ -783,14 +784,13 @@ export function BotEditor({
 
             <div style={field}>
               <span style={lbl}>Qué le dice al cliente cuando te pasa el chat</span>
-              <textarea
-                className="field"
-                style={{ minHeight: 60, resize: "vertical", fontFamily: "inherit" }}
+              <VarTextarea
                 value={form.handoffMessage}
+                onChange={(v) => set("handoffMessage", v)}
+                vars={contactVars}
                 maxLength={1000}
-                placeholder="Un momento, por favor: te paso con una persona del equipo…"
-                onChange={(e) => set("handoffMessage", e.target.value)}
-                aria-label="Mensaje al pasar el chat"
+                placeholder="Un momento, {{nombre}}: te paso con una persona del equipo…"
+                ariaLabel="Mensaje al pasar el chat"
               />
               <Hint>
                 Así el cliente no se queda en silencio mientras alguien responde. Déjalo vacío si prefieres que no diga
@@ -1116,7 +1116,7 @@ function ToolNamesHelp({
                 , <code title={f.label}>{`{{${f.key}}}`}</code>
               </span>
             ))}
-            .
+            . Si a un cliente le falta el dato, el agente lee «(sin dato)» y no se lo inventa.
           </p>
         </div>
       )}
@@ -1323,7 +1323,7 @@ function BudgetMeter({ bot, limit, model, inTokens }: { bot: BotDto; limit: numb
   );
 }
 
-function BusinessHoursEditor({ value, onChange, onAssist }: { value: BusinessHours; onChange: (h: BusinessHours) => void; onAssist?: () => void }) {
+function BusinessHoursEditor({ value, onChange, onAssist, vars }: { value: BusinessHours; onChange: (h: BusinessHours) => void; onAssist?: () => void; vars: PromptVar[] }) {
   function setDay(d: Weekday, range: { from: string; to: string } | null) {
     onChange({ ...value, days: { ...value.days, [d]: range } });
   }
@@ -1367,20 +1367,21 @@ function BusinessHoursEditor({ value, onChange, onAssist }: { value: BusinessHou
           <span style={lbl}>Mensaje fuera de horario</span>
           {onAssist && <AssistButton onClick={onAssist} />}
         </div>
-        <textarea
-          className="field"
-          style={{ minHeight: 60, resize: "vertical", fontFamily: "inherit" }}
+        <VarTextarea
           value={value.outOfHoursMessage ?? ""}
+          onChange={(v) => onChange({ ...value, outOfHoursMessage: v })}
+          vars={vars}
           maxLength={MAX_TEXT}
-          onChange={(e) => onChange({ ...value, outOfHoursMessage: e.target.value })}
-        />
-        <Counter value={value.outOfHoursMessage ?? ""} max={MAX_TEXT} />
+          ariaLabel="Mensaje fuera de horario"
+        >
+          <Counter value={value.outOfHoursMessage ?? ""} max={MAX_TEXT} />
+        </VarTextarea>
       </div>
     </div>
   );
 }
 
-function KeywordTriggersEditor({ value, onChange }: { value: KeywordTrigger[]; onChange: (t: KeywordTrigger[]) => void }) {
+function KeywordTriggersEditor({ value, onChange, vars }: { value: KeywordTrigger[]; onChange: (t: KeywordTrigger[]) => void; vars: PromptVar[] }) {
   // Lo que se está escribiendo en «Si el cliente escribe», sin normalizar
   // hasta salir del campo: si no, el espacio de «medios de pago» desaparecía.
   const [drafts, setDrafts] = useState<Record<number, string>>({});
@@ -1446,22 +1447,24 @@ function KeywordTriggersEditor({ value, onChange }: { value: KeywordTrigger[]; o
             <>
               <div style={field}>
                 <span style={lbl}>{(t.variants ?? []).length ? "Texto general (los demás países)" : "Texto que se responde"}</span>
-                <textarea
-                  className="field"
-                  style={{ minHeight: 50, resize: "vertical", fontFamily: "inherit" }}
+                <VarTextarea
                   value={t.value ?? ""}
+                  onChange={(v) => update(i, { value: v })}
+                  vars={vars}
+                  minHeight={50}
                   maxLength={MAX_TEXT}
                   placeholder="Ej. Puedes pagar por transferencia a la cuenta… o con Yape al…"
-                  onChange={(e) => update(i, { value: e.target.value })}
-                  aria-label={`Respuesta ${i + 1}: texto general`}
-                />
+                  ariaLabel={`Respuesta ${i + 1}: texto general`}
+                >
+                  <Counter value={t.value ?? ""} max={MAX_TEXT} />
+                </VarTextarea>
               </div>
-              <Counter value={t.value ?? ""} max={MAX_TEXT} />
               <KeywordVariantsEditor
                 index={i}
                 value={t.variants ?? []}
                 onChange={(variants) => update(i, { variants })}
                 lookups={lookups}
+                vars={vars}
               />
             </>
           )}
@@ -1505,11 +1508,13 @@ function KeywordVariantsEditor({
   value,
   onChange,
   lookups,
+  vars,
 }: {
   index: number;
   value: KeywordVariant[];
   onChange: (v: KeywordVariant[]) => void;
   lookups: RuleLookups;
+  vars: PromptVar[];
 }) {
   const rulesOf = (v: KeywordVariant): FlowRule[] => (Array.isArray(v.rules) ? v.rules : []);
   const usedCountries = new Set(value.flatMap((v) => rulesOf(v).filter((r) => r.field === "country" && r.op === "is").map((r) => r.value ?? "")));
@@ -1564,16 +1569,17 @@ function KeywordVariantsEditor({
           >
             + Añadir condición
           </button>
-          <textarea
-            className="field"
-            style={{ minHeight: 50, resize: "vertical", fontFamily: "inherit" }}
+          <VarTextarea
             value={v.value}
+            onChange={(text) => update(i, { value: text })}
+            vars={vars}
+            minHeight={50}
             maxLength={MAX_TEXT}
             placeholder="Texto solo para quien cumpla estas condiciones…"
-            onChange={(e) => update(i, { value: e.target.value })}
-            aria-label={`Respuesta ${index + 1}: texto de la versión ${i + 1}`}
-          />
-          <Counter value={v.value} max={MAX_TEXT} />
+            ariaLabel={`Respuesta ${index + 1}: texto de la versión ${i + 1}`}
+          >
+            <Counter value={v.value} max={MAX_TEXT} />
+          </VarTextarea>
         </div>
       ))}
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>

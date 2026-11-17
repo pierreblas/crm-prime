@@ -33,6 +33,8 @@ test("la bandeja atiende los mensajes de una conversación de uno en uno y en or
     flows as never,
     {} as never,
     { enrichLatest: async () => undefined } as never,
+    // Respuestas a recordatorios de cita: aquí ninguna.
+    { onInbound: async () => false } as never,
   );
   await Promise.all([
     svc.onInbound({ conversationId: "cv1", messageId: "m1" }),

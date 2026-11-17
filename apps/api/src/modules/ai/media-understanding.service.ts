@@ -17,6 +17,8 @@ import { AiUsageService } from "./ai-usage.service";
 const MEDIA_TYPES = ["AUDIO", "IMAGE", "STICKER"] as const;
 const MAX_BYTES = 20 * 1024 * 1024;
 const TIMEOUT_MS = 25_000;
+/** Lo que queda de un audio en el que no se oye a nadie hablar. */
+const SILENT = "(audio sin voz reconocible)";
 
 const LABEL: Record<string, string> = {
   AUDIO: "audio transcrito",
@@ -149,8 +151,30 @@ export class MediaUnderstandingService {
     return text || null;
   }
 
+  /**
+   * El audio que graba o sube quien arma un agente («cuéntame tu negocio»).
+   * Cuenta como «Asistente de redacción», igual que lo que redacta el
+   * asistente. Devuelve el texto, o por qué no se pudo.
+   */
+  async transcribeForAssistant(file: ReadFile): Promise<{ text: string } | { error: "no_ai" | "rejected" | "silent" }> {
+    if (!(await this.settings.resolveFor("openai")).apiKey) return { error: "no_ai" };
+    // Un fallo pasajero del proveedor (red, saturación) sale como excepción.
+    const text = await this.transcribe(file, null, {
+      feature: "prompt_assistant",
+      // Ayuda a acertar con nombres, precios y horarios.
+      prompt: "Un dueño de negocio explica cómo debe atender su asistente de WhatsApp: qué vende, a quién, precios, horarios, envíos y formas de pago.",
+    });
+    if (!text) return { error: "rejected" };
+    if (text === SILENT) return { error: "silent" };
+    return { text };
+  }
+
   // ── Audio → texto (OpenAI) ──────────────────────────────────
-  private async transcribe(file: ReadFile, conversationId: string): Promise<string | null> {
+  private async transcribe(
+    file: ReadFile,
+    conversationId: string | null,
+    opts: { feature?: "media" | "prompt_assistant"; prompt?: string } = {},
+  ): Promise<string | null> {
     const creds = await this.settings.resolveFor("openai");
     if (!creds.apiKey) {
       this.logger.log("Sin clave de OpenAI: los audios no se transcriben");
@@ -164,6 +188,7 @@ export class MediaUnderstandingService {
     form.append("file", new Blob([new Uint8Array(file.buffer)], { type: mime }), fileNameFor(mime));
     form.append("model", model);
     form.append("response_format", "json");
+    if (opts.prompt) form.append("prompt", opts.prompt);
 
     const res = await aiFetch(
       `${base}/audio/transcriptions`,
@@ -180,7 +205,7 @@ export class MediaUnderstandingService {
       usage?: { input_tokens?: number; output_tokens?: number; seconds?: number };
     };
     this.usage.record({
-      feature: "media",
+      feature: opts.feature ?? "media",
       model,
       inputTokens: data.usage?.input_tokens ?? Math.round((data.usage?.seconds ?? 0) * 50),
       outputTokens: data.usage?.output_tokens ?? 0,
@@ -188,7 +213,7 @@ export class MediaUnderstandingService {
       billingMode: creds.billingMode,
     });
     const text = (data.text ?? "").trim();
-    return text || "(audio sin voz reconocible)";
+    return text || SILENT;
   }
 
   // ── Imagen o sticker → descripción (proveedor activo) ───────
@@ -320,7 +345,15 @@ function fileNameFor(mime: string): string {
     "audio/aac": "aac",
     "audio/amr": "amr",
     "audio/wav": "wav",
+    "audio/x-wav": "wav",
     "audio/webm": "webm",
+    "audio/x-m4a": "m4a",
+    "audio/mp3": "mp3",
+    "audio/flac": "flac",
+    // Una nota de voz exportada de WhatsApp («.opus») es Ogg por dentro.
+    "audio/opus": "ogg",
+    "video/mp4": "mp4",
+    "video/webm": "webm",
   };
   return `audio.${ext[mime] ?? "ogg"}`;
 }

@@ -4551,14 +4551,16 @@ code {
 }
 .prompt-editor__backdrop { overflow: hidden; color: var(--text); pointer-events: none; }
 .prompt-editor__text { color: transparent; -webkit-text-fill-color: transparent; caret-color: var(--text); resize: none; outline: none; overflow: auto; }
-.prompt-editor__text::selection { background: var(--accent-soft); }
+/* La selección tiene que verse: el texto del cuadro es transparente y debajo está el resaltado. */
+.prompt-editor__text::selection { background: rgba(226, 248, 13, 0.3); color: transparent; -webkit-text-fill-color: transparent; }
 /* Las marcas solo cambian color y fondo: la métrica del texto debe ser la misma que la del textarea. */
 .pm { color: inherit; background: transparent; border-radius: 0; padding: 0; font: inherit; }
 .pm-pending { color: var(--warning); background: var(--warning-soft); box-shadow: 0 0 0 1px rgba(240, 180, 90, 0.45); }
-.pm-tool { color: var(--accent-text); background: var(--accent-soft); }
+/* Una acción nombrada: el texto se lee normal, con un subrayado de marca. */
+.pm-tool { color: var(--text); background: rgba(226, 248, 13, 0.06); box-shadow: inset 0 -2px 0 rgba(226, 248, 13, 0.75); }
 .pm-tool-off { color: var(--warning); background: var(--warning-soft); text-decoration: underline wavy var(--warning); text-underline-offset: 3px; }
-/* Variables {{…}}: las que existen, en tinta de marca; las que no, en ámbar ondulado. */
-.pm-var { color: var(--accent-text); text-decoration: underline dotted var(--accent-text); text-underline-offset: 3px; }
+/* Variables {{…}}: son datos del cliente, en cian; las que no existen, en ámbar ondulado. */
+.pm-var { color: var(--cyan); background: rgba(0, 229, 255, 0.07); }
 .pm-var-off { color: var(--warning); background: var(--warning-soft); text-decoration: underline wavy var(--warning); text-underline-offset: 3px; }
 .prompt-chip--var { border-style: dashed; }
 /* Tras aplicar lo del asistente: avisa y deja deshacer. */
@@ -4566,13 +4568,13 @@ code {
 .prompt-applied > svg { color: var(--accent-text); flex-shrink: 0; }
 .prompt-applied > span { flex: 1; }
 /* Lo recién insertado: un destello que se apaga solo. */
-.pm-flash { color: var(--accent-ink); background: var(--accent); box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.54); animation: pm-flash 1.8s ease-out both; }
-@keyframes pm-flash { 0%, 55% { background: var(--accent); box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.54); } 100% { background: var(--accent-soft); box-shadow: 0 0 0 0 transparent; color: var(--accent-text); } }
+.pm-flash { color: var(--accent-ink); background: var(--accent); animation: pm-flash 1.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes pm-flash { 0%, 45% { background: var(--accent); color: var(--accent-ink); } 100% { background: var(--accent-soft); color: var(--text); } }
 /* Se pidió elegir dónde insertar: el cuadro se señala. */
 .prompt-editor.is-asking { border-color: var(--warning); box-shadow: 0 0 0 3px var(--warning-soft); }
 .prompt-rail__ask { display: flex; gap: 6px; align-items: flex-start; margin: 0 0 8px; padding: 8px 10px; border-radius: 0; background: var(--warning-soft); color: var(--warning); line-height: 1.4; font-size: 12.5px; }
 .prompt-rail__ask > svg { flex-shrink: 0; margin-top: 1px; }
-@media (prefers-reduced-motion: reduce) { .pm-flash { animation: none; background: var(--accent-soft); color: var(--accent-text); } }
+@media (prefers-reduced-motion: reduce) { .pm-flash { animation: none; background: var(--accent-soft); color: var(--text); } }
 .pm-head { color: var(--text); text-decoration: underline; text-decoration-color: var(--border-strong); text-decoration-thickness: 2px; text-underline-offset: 5px; }
 .prompt-rail { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 16px; padding-right: 2px; font-size: 12.5px; }
 .prompt-rail h4 { margin: 0 0 7px; font-size: 12.5px; font-weight: 700; color: var(--text); }
@@ -4583,8 +4585,6 @@ code {
 .prompt-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 4px 9px; border-radius: 0; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12px; line-height: 1.3; cursor: pointer; text-align: left; }
 .prompt-chip:hover { border-color: var(--border-strong); background: var(--surface-2); }
 .prompt-chip--pending { color: var(--warning); border-color: rgba(240, 180, 90, 0.4); }
-.prompt-chip--tool { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; color: var(--accent-text); }
-.prompt-chip--tool.is-used { border-color: rgba(0, 229, 255, 0.54); background: var(--accent-soft); }
 .prompt-rail__sections { display: flex; flex-direction: column; gap: 2px; }
 .prompt-rail__sections button { display: block; width: 100%; text-align: left; padding: 5px 8px; border-radius: 0; border: 0; background: transparent; color: var(--text); font-size: 12.5px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .prompt-rail__sections button:hover { background: var(--surface-2); }
@@ -4599,6 +4599,83 @@ code {
   .prompt-rail { display: none; }
   .prompt-overlay__body.is-rail-open .prompt-rail { display: flex; }
   .prompt-overlay__body.is-rail-open .prompt-editor { display: none; }
+}
+
+/* ── «Cómo debe atender» en grande: acciones del agente ──
+   Una fila por acción: su nombre para personas, el técnico en pequeño y si ya
+   se nombra. Todas cambian igual al pasar el ratón; el lima solo marca la acción. */
+.prompt-acts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.prompt-act { display: flex; align-items: stretch; border: 1px solid var(--border); background: var(--surface); transition: border-color 0.12s ease-out, background-color 0.12s ease-out; }
+.prompt-act:hover,
+.prompt-act:focus-within { border-color: var(--border-strong); background: var(--surface-2); }
+.prompt-act__main { flex: 1; min-width: 0; display: flex; gap: 9px; align-items: flex-start; padding: 8px 10px; border: 0; border-radius: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.prompt-act__main > svg { flex: none; margin-top: 2px; color: var(--muted); }
+.prompt-act__text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.prompt-act__text strong { font-size: 12.5px; font-weight: 600; line-height: 1.3; }
+.prompt-act__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: 11px; color: var(--muted); }
+.prompt-act__meta code { padding: 0; background: none; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10.5px; color: var(--muted); overflow-wrap: anywhere; }
+.prompt-act__state { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.prompt-act:not(.is-used) .prompt-act__main:hover .prompt-act__state { color: var(--accent-text); }
+.prompt-act.is-used .prompt-act__state { color: var(--text); }
+.prompt-act.is-used .prompt-act__state svg { color: var(--accent-text); }
+.prompt-act__more { flex: none; width: 32px; display: grid; place-items: center; border: 0; border-left: 1px solid var(--border); border-radius: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.prompt-act__more:hover { color: var(--accent-text); background: var(--accent-soft); }
+.prompt-act__main:focus-visible,
+.prompt-act__more:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ── Agente: contarlo en un audio ── */
+.voice-input { display: flex; flex-direction: column; gap: 6px; }
+.voice-input__row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.voice-input__btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--border-strong); border-radius: 0; background: var(--surface); color: var(--text); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: border-color 0.12s ease-out, color 0.12s ease-out; }
+.voice-input__btn:hover:not(:disabled) { border-color: var(--accent); }
+.voice-input__btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.voice-input__btn:disabled { opacity: 0.5; cursor: default; }
+.voice-input__btn--quiet { border-color: var(--border); color: var(--muted); font-weight: 500; }
+.voice-input__btn--quiet:hover:not(:disabled) { border-color: var(--border-strong); color: var(--text); }
+.voice-input__status { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.voice-input__status:empty { display: none; }
+.voice-input__status.is-error { color: var(--warning); }
+.voice-input.is-recording { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 8px 6px 10px; border: 1px solid var(--border-strong); background: var(--field); }
+.voice-input__dot { flex: none; width: 8px; height: 8px; background: var(--danger); animation: voice-dot 1.2s ease-in-out infinite; }
+.voice-input__time { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--text); }
+.voice-input__meter { flex: 1; display: inline-flex; align-items: center; gap: 2px; min-width: 60px; max-width: 180px; height: 20px; }
+.voice-input__meter > span { flex: 1; height: 100%; background: var(--cyan); transform-origin: center; transition: transform 90ms linear; }
+.voice-input__left { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; color: var(--warning); }
+.voice-input__actions { display: inline-flex; gap: 6px; margin-left: auto; }
+.voice-input__square { display: inline-block; width: 8px; height: 8px; background: currentColor; }
+.voice-input__spin { flex: none; width: 11px; height: 11px; border: 2px solid var(--border-strong); border-top-color: var(--cyan); animation: voice-spin 0.8s linear infinite; }
+@keyframes voice-dot { 50% { opacity: 0.3; } }
+@keyframes voice-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .voice-input__dot, .voice-input__spin { animation: none; }
+  .voice-input__meter > span { transition: none; }
+}
+
+/* ── Agente: mensajes fijos con datos del cliente ({{nombre}}) ── */
+.var-field { display: flex; flex-direction: column; gap: 6px; }
+.var-field__box { position: relative; }
+.var-field__box > textarea { width: 100%; }
+.var-field__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+.var-field__insert { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 1px dashed var(--border-strong); border-radius: 0; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
+.var-field__insert > span { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--cyan); }
+.var-field__insert:hover,
+.var-field__insert[aria-expanded="true"] { border-color: var(--cyan); color: var(--text); }
+.var-field__insert:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.var-field__extra { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+.var-field__extra:empty { display: none; }
+.var-menu { position: absolute; left: 0; top: calc(100% + 4px); z-index: 40; min-width: 220px; max-width: min(340px, 100%); max-height: 240px; overflow: auto; margin: 0; padding: 4px; list-style: none; border: 1px solid var(--border-strong); background: var(--panel); box-shadow: 0 8px 8px rgba(0, 0, 0, 0.35); }
+.var-menu button { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 8px; border: 0; border-radius: 0; background: transparent; color: var(--text); font-size: 12.5px; text-align: left; cursor: pointer; }
+.var-menu button.is-active { background: var(--surface-2); }
+.var-menu code { padding: 0; background: none; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; color: var(--cyan); }
+.var-preview { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--border); background: var(--surface); font-size: 12.5px; }
+.var-preview__row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.var-preview__label { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10.5px; letter-spacing: 0.02em; text-transform: uppercase; color: var(--muted); }
+.var-preview__row > p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); line-height: 1.5; }
+.var-preview__row > p em { color: var(--muted); }
+.var-preview mark { padding: 0 1px; background: rgba(0, 229, 255, 0.1); color: var(--cyan); }
+.var-preview__warn { margin: 0; color: var(--warning); line-height: 1.4; }
+@media (max-width: 560px) {
+  .var-preview__row { grid-template-columns: minmax(0, 1fr); gap: 2px; }
 }
 
 /* ── Agente de IA: versiones por país de una respuesta fija ── */

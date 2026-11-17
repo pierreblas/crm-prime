@@ -89,6 +89,29 @@ export const TOOL_COPY: Record<string, { title: string; desc: string; icon: Icon
   },
 };
 
+/**
+ * Una frase lista para «Cómo debe atender» que le dice al agente cuándo usar
+ * cada acción. Se inserta desde la ventana grande y se ajusta a mano; lo que
+ * va [ENTRE CORCHETES] queda marcado como «por rellenar».
+ */
+export const TOOL_SNIPPET: Record<string, string> = {
+  search_products: "Cuando pregunten por un producto, un precio o si hay stock, consúltalo con search_products y responde solo con lo que encuentres.",
+  search_knowledge: "Para envíos, garantías, horarios o formas de pago, busca primero con search_knowledge y responde con esa información.",
+  search_contact: "Antes de preguntarle algo al cliente, revisa su ficha con search_contact para no repetir preguntas.",
+  handoff_to_human: "Si el cliente pide hablar con una persona, se molesta o no sabes la respuesta, despídete con amabilidad y usa handoff_to_human.",
+  send_product_image: "Si el cliente quiere ver un producto, envíale la foto con send_product_image.",
+  add_tag: "Cuando el cliente muestre interés claro en comprar, ponle la etiqueta [ETIQUETA] con add_tag.",
+  remove_tag: "Si una etiqueta ya no aplica (por ejemplo, el cliente ya compró), quítasela con remove_tag.",
+  move_deal_stage: "Cuando el cliente pida precio o una cotización, muévelo a la etapa [ETAPA] con move_deal_stage.",
+  update_contact: "Cuando el cliente te cuente su nombre, su ciudad o lo que busca, guárdalo en su ficha con update_contact.",
+  assign_to_seller: "Cuando el cliente esté listo para comprar, asígnale un vendedor con assign_to_seller.",
+  schedule_followup: "Si el cliente dice que lo pensará, programa un seguimiento para dentro de dos días con schedule_followup.",
+  check_availability: "Antes de ofrecer horarios, consulta las horas libres con check_availability.",
+  book_appointment: "Cuando el cliente elija una hora, resérvala con book_appointment y confírmale el día y la hora.",
+  reschedule_appointment: "Si el cliente no puede ir a su cita, ofrécele otra hora libre y cámbiala con reschedule_appointment.",
+  cancel_appointment: "Si el cliente quiere cancelar su cita, ofrécele antes otra hora; si insiste, cancélala con cancel_appointment.",
+};
+
 /** Modelos con nombre para personas. El valor es el que usa la API. */
 export const MODEL_OPTIONS: { value: string; title: string; desc: string; provider: "OpenAI" | "Anthropic"; recommended?: boolean }[] = [
   { value: "gpt-4o-mini", title: "Rápido y económico", desc: "Ideal para empezar. Responde al instante y cuesta muy poco.", provider: "OpenAI", recommended: true },

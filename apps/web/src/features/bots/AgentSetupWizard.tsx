@@ -9,6 +9,7 @@ import { NavIcon, type IconName } from "@/components/NavIcons";
 import { toast } from "@/lib/toast";
 import { askPromptAssistant, createBot, fetchAiStatus, updateBot } from "@/lib/bff";
 import { TOOL_COPY } from "./agentCopy";
+import { VoiceInput, appendDictation } from "./VoiceInput";
 
 /**
  * Asistente paso a paso para armar un agente sin saber de prompts: una
@@ -241,6 +242,10 @@ export function AgentSetupWizard({
                     placeholder="Ej: vendemos planes de internet para hogares en Lima, a familias y pequeños negocios"
                     onChange={(e) => set("business", e.target.value)}
                   />
+                  <VoiceInput
+                    onText={(text) => setA((x) => ({ ...x, business: appendDictation(x.business, text) }))}
+                    hint="¿Prefieres hablar? Cuéntalo como se lo contarías a alguien nuevo en tu equipo. Luego revisas el texto."
+                  />
                   {!a.business && (
                     <div className="aw-examples">
                       <span>Ejemplos:</span>
@@ -303,6 +308,7 @@ export function AgentSetupWizard({
                       onChange={(e) => set("extra", e.target.value)}
                     />
                   </label>
+                  <VoiceInput label="Dictar los detalles" onText={(text) => setA((x) => ({ ...x, extra: appendDictation(x.extra, text) }))} />
                 </section>
               )}
 

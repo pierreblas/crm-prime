@@ -24,6 +24,7 @@ import { SmtpError } from "../src/modules/email/email.transport";
 import { EmailAccountsService } from "../src/modules/email/email-accounts.service";
 import { EmailService } from "../src/modules/email/email.service";
 import { encryptSecret } from "../src/common/utils/secret-box";
+import { changedEmail, resetEmail } from "../src/modules/auth/password-reset-emails";
 
 // ── Reglas ────────────────────────────────────────────────────
 
@@ -401,4 +402,30 @@ test("redactar: la pantalla recibe el correo del contacto, sus variables y los b
   assert.equal(forLuis.unsubscribed, false);
   assert.deepEqual(forLuis.accounts.map((a) => a.id), ["acc_shared", "acc_luis"]);
   assert.deepEqual((await s.service.compose("ct1", s.marta)).accounts.map((a) => a.id), ["acc_shared"]);
+});
+
+test("correos del sistema: la plantilla escapa lo que escribe la gente, lleva texto plano y el logo de la web", () => {
+  const before = process.env.SAAS_BASE_DOMAIN;
+  process.env.SAAS_BASE_DOMAIN = "driony.test";
+  try {
+    const url = "https://acme.driony.test/login/reset?token=abc_123";
+    const reset = resetEmail("es", { name: "<b>Ana</b>", email: "ana@acme.test", orgName: 'Acme "<script>"', url });
+    assert.match(reset.subject, /contraseña nueva/);
+    assert.ok(!reset.html.includes("<script>") && !reset.html.includes("<b>Ana</b>"), "nombre y empresa van escapados");
+    assert.ok(reset.html.includes("Acme &quot;&lt;script&gt;&quot;"));
+    assert.ok(reset.html.includes(`href="${url}"`), "el botón lleva el enlace");
+    assert.ok(reset.html.includes('src="https://driony.test/email/driony-logo.png"'), "el logo sale de la web");
+    assert.ok(reset.html.includes('alt="Driony"'), "sin imágenes queda el nombre");
+    assert.equal(/https:\/\/\S+/.exec(reset.text)![0], url, "en el texto plano, el primer enlace es el del cambio");
+    assert.match(reset.text, /Vale 30 minutos/);
+
+    const changed = changedEmail("es", { name: null, email: "ana@acme.test", orgName: "Acme", forgotUrl: "https://acme.driony.test/login/forgot" });
+    assert.match(changed.subject, /Se cambió tu contraseña/);
+    assert.match(changed.text, /^Acme\n\nHola:/, "sin nombre, «Hola:»");
+    assert.ok(changed.html.includes('href="https://acme.driony.test/login/forgot"'), "«Recuperar mi cuenta» lleva a pedir otro enlace");
+    assert.match(changedEmail("en", { name: "Ana", email: "a@b.c", orgName: "Acme", forgotUrl: "https://x" }).html, /Get my account back/);
+  } finally {
+    if (before === undefined) delete process.env.SAAS_BASE_DOMAIN;
+    else process.env.SAAS_BASE_DOMAIN = before;
+  }
 });

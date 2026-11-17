@@ -108,6 +108,7 @@ import type {
   FlowAssistantReply,
   PromptAssistantRequest,
   PromptAssistantReply,
+  AssistantTranscript,
   AiSettingEventDto,
   AiSettingsDto,
   UpdateAiSettingsInput,
@@ -791,6 +792,15 @@ export async function askFlowAssistant(
 }
 
 // Asistente de redacción: propone instrucciones o mensajes para un agente.
+/** Una nota de voz de quien arma el agente, en texto. */
+export async function transcribeAssistantAudio(audio: Blob, fileName: string): Promise<string> {
+  const form = new FormData();
+  form.append("file", audio, fileName);
+  const res = await bffFetch("/api/bff/bots/transcribe", { method: "POST", body: form });
+  if (!res.ok) throw new Error(await errorMessage(res, "No pudimos pasar el audio a texto. Inténtalo de nuevo."));
+  return ((await res.json()) as AssistantTranscript).text;
+}
+
 export async function askPromptAssistant(
   input: PromptAssistantRequest,
 ): Promise<PromptAssistantReply> {

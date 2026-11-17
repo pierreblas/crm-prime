@@ -22,6 +22,7 @@ import { socialUserId } from "@crm/shared";
 import { AgentService } from "./agent.service";
 import { AiSettingsService } from "./ai-settings.service";
 import { BotService } from "./bot.service";
+import { customerTextFor } from "./contact-vars";
 import { WebhookOutService } from "../webhooks-out/webhook-out.service";
 import {
   WHATSAPP_PROVIDER,
@@ -207,7 +208,7 @@ export class AutopilotService {
       });
       const bot = await this.bots.resolveForConversation(convo);
       const rules = (bot?.escalationRules as { handoffMessage?: string } | null) ?? null;
-      const text = (rules?.handoffMessage ?? DEFAULT_HANDOFF_MESSAGE).trim();
+      const text = await customerTextFor(this.prisma, conversationId, (rules?.handoffMessage ?? DEFAULT_HANDOFF_MESSAGE).trim());
       const already = text
         ? await this.prisma.message.findFirst({
             where: { conversationId, direction: "OUTBOUND", author: MessageAuthor.AI, content: text },

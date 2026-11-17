@@ -22,6 +22,7 @@ import { MediaUnderstandingService } from "./media-understanding.service";
 import { FlowEngineService } from "./flow-engine.service";
 import { StageAutomationsService } from "./stage-automations.service";
 import { BookingNotificationsService } from "../bookings/booking-notifications.service";
+import { customerText, customerTextFor } from "./contact-vars";
 
 // getDay(): 0=domingo … 6=sábado.
 
@@ -97,15 +98,11 @@ export class AutomationService {
       if (!bot) return false;
 
       if (bot.welcomeEnabled && bot.welcomeMessage?.trim()) {
-        await this.messaging.queueOutbound(
-          {
-            conversationId,
-            type: MessageType.TEXT,
-            text: bot.welcomeMessage.trim(),
-          },
-          MessageAuthor.AI,
-        );
-        this.logger.log(`Bienvenida enviada en ${conversationId}`);
+        const text = await customerText(this.prisma, convo.contact, bot.welcomeMessage.trim());
+        if (text) {
+          await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text }, MessageAuthor.AI);
+          this.logger.log(`Bienvenida enviada en ${conversationId}`);
+        }
       }
       return false;
     } catch (e) {
@@ -197,15 +194,11 @@ export class AutomationService {
       if (bot?.businessHoursEnabled && bot.businessHours) {
         const hours = bot.businessHours as BusinessHours;
         if (!this.isWithinHours(hours)) {
-          if (hours.outOfHoursMessage?.trim()) {
-            await this.messaging.queueOutbound(
-              {
-                conversationId,
-                type: MessageType.TEXT,
-                text: hours.outOfHoursMessage.trim(),
-              },
-              MessageAuthor.AI,
-            );
+          const notice = hours.outOfHoursMessage?.trim()
+            ? await customerText(this.prisma, convo.contact, hours.outOfHoursMessage.trim())
+            : "";
+          if (notice) {
+            await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text: notice }, MessageAuthor.AI);
           }
           if (convo.status !== ConversationStatus.PENDING) {
             await this.messaging.setStatus(
@@ -259,6 +252,7 @@ export class AutomationService {
           break;
         }
       }
+      text = await customerTextFor(this.prisma, conversationId, text);
     }
     if (trigger.action === "reply" && text) {
       // Con «varios mensajes cortos», una línea en blanco en el texto fijo = mensaje aparte.

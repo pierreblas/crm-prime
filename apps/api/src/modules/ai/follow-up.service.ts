@@ -12,6 +12,7 @@ import { AiSettingsService } from "./ai-settings.service";
 import { BotService } from "./bot.service";
 import { FOLLOW_UP_CANCELLED, followUpAllowed, parseFollowUps, planFollowUp, type FollowUpPlan } from "./follow-up.rules";
 import type { MessageOutboundEvent } from "./flow-triggers.service";
+import { customerTextFor } from "./contact-vars";
 
 const SWEEP_EVERY_MS = 60_000;
 const BATCH = 50;
@@ -287,7 +288,7 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
     if (step.kind === "ai" && !(await this.aiSettings.status()).ready) return "la empresa no tiene la IA configurada";
-    const text = step.kind === "ai" ? await this.agent.draftFollowUp(conversationId, step.text) : step.text;
+    const text = step.kind === "ai" ? await this.agent.draftFollowUp(conversationId, step.text) : await customerTextFor(this.prisma, conversationId, step.text ?? "");
     if (!text?.trim()) return step.kind === "ai" ? "la IA no redactó el mensaje (cupo agotado o respuesta vacía)" : "no tiene texto";
     await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text: text.trim() }, MessageAuthor.AI);
     return null;

@@ -16,12 +16,13 @@ import {
   type PasswordResetLink,
   type PasswordResetOptions,
 } from "@crm/shared";
-import { env } from "../../common/utils/env";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { runInOrg, runUnscoped, tenancyMode } from "../../infra/tenant/tenant.context";
 import { OrganizationService } from "../organizations/organization.service";
 import { SystemMailer } from "./system-mailer";
+import { orgWebUrl } from "./system-email";
+import { changedEmail, resetEmail } from "./password-reset-emails";
 
 type Via = "email" | "admin" | "platform";
 type Locale = "es" | "en";
@@ -164,7 +165,12 @@ export class PasswordResetService {
     });
 
     if (this.mailer.enabled()) {
-      const mail = changedEmail(locale, { name: row.user.name, email: row.user.email, orgName: row.org.name });
+      const mail = changedEmail(locale, {
+        name: row.user.name,
+        email: row.user.email,
+        orgName: row.org.name,
+        forgotUrl: `${orgWebUrl(row.org.slug)}/login/forgot`,
+      });
       void this.mailer.send({ to: row.user.email, ...mail }).catch((e: Error) =>
         this.logger.warn(`No se pudo avisar del cambio de contraseña: ${e.message}`),
       );
@@ -216,13 +222,9 @@ export class PasswordResetService {
     return org?.slug ?? "";
   }
 
-  /** El panel de la empresa: su subdominio en el SaaS, o la web configurada en una instalación propia. */
+  /** El enlace, en el panel de la empresa: su subdominio en el SaaS, o la web configurada en una instalación propia. */
   private resetUrl(slug: string, raw: string): string {
-    const base = env("SAAS_BASE_DOMAIN");
-    const web = base
-      ? `${base.startsWith("localhost") ? "http" : "https"}://${slug}.${base}`
-      : (env("WEB_PUBLIC_URL") ?? env("WEB_ORIGIN") ?? "http://localhost:3000").replace(/\/+$/, "");
-    return `${web}/login/reset?token=${encodeURIComponent(raw)}`;
+    return `${orgWebUrl(slug)}/login/reset?token=${encodeURIComponent(raw)}`;
   }
 
   private allow(key: string, max: number, windowMs: number): boolean {
@@ -243,62 +245,4 @@ export class PasswordResetService {
 
 function hash(raw: string): string {
   return createHash("sha256").update(raw).digest("hex");
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-}
-
-/** Párrafos, el enlace como botón (con la dirección debajo, por si el botón no se ve) y lo que va después. */
-function htmlOf(before: string[], link?: { url: string; label: string }, after: string[] = []): string {
-  const p = (t: string) => `<p style="margin:0 0 14px">${escapeHtml(t)}</p>`;
-  const button = link
-    ? `<p style="margin:20px 0"><a href="${escapeHtml(link.url)}" style="display:inline-block;background:#e2f80d;color:#0b0d10;padding:11px 18px;text-decoration:none;font-weight:600">${escapeHtml(link.label)}</a></p><p style="margin:0 0 14px;color:#666;font-size:13px;word-break:break-all">${escapeHtml(link.url)}</p>`
-    : "";
-  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#111;max-width:520px">${before.map(p).join("")}${button}${after.map(p).join("")}</div>`;
-}
-
-function resetEmail(locale: Locale, d: { name: string | null; email: string; orgName: string; url: string }) {
-  const minutes = PASSWORD_RESET_EMAIL_MINUTES;
-  if (locale === "en") {
-    const lines = [
-      `Hi${d.name ? ` ${d.name}` : ""},`,
-      `Someone (probably you) asked to change the password of ${d.email} at ${d.orgName}.`,
-      `To choose a new one, open this link. It works for ${minutes} minutes and only once.`,
-    ];
-    const after = "If you didn't ask for it, ignore this email: your password stays the same.";
-    return {
-      subject: "Choose a new password for Driony",
-      text: `${lines.join("\n\n")}\n\n${d.url}\n\n${after}`,
-      html: htmlOf(lines, { url: d.url, label: "Choose a new password" }, [after]),
-    };
-  }
-  const lines = [
-    `Hola${d.name ? ` ${d.name}` : ""}:`,
-    `Alguien (seguramente tú) pidió cambiar la contraseña de ${d.email} en ${d.orgName}.`,
-    `Para elegir una nueva, abre este enlace. Vale ${minutes} minutos y sirve una sola vez.`,
-  ];
-  const after = "Si no lo pediste, ignora este correo: tu contraseña sigue igual.";
-  return {
-    subject: "Elige una contraseña nueva para Driony",
-    text: `${lines.join("\n\n")}\n\n${d.url}\n\n${after}`,
-    html: htmlOf(lines, { url: d.url, label: "Elegir contraseña nueva" }, [after]),
-  };
-}
-
-function changedEmail(locale: Locale, d: { name: string | null; email: string; orgName: string }) {
-  if (locale === "en") {
-    const lines = [
-      `Hi${d.name ? ` ${d.name}` : ""},`,
-      `The password of ${d.email} at ${d.orgName} was just changed, and every device signed in with the old one was signed out.`,
-      "If it wasn't you, tell whoever manages your company's account right away.",
-    ];
-    return { subject: "Your Driony password was changed", text: lines.join("\n\n"), html: htmlOf(lines) };
-  }
-  const lines = [
-    `Hola${d.name ? ` ${d.name}` : ""}:`,
-    `Se acaba de cambiar la contraseña de ${d.email} en ${d.orgName}, y se cerró la sesión en todos los dispositivos que entraban con la anterior.`,
-    "Si no fuiste tú, avísale enseguida a quien administra tu empresa.",
-  ];
-  return { subject: "Se cambió tu contraseña de Driony", text: lines.join("\n\n"), html: htmlOf(lines) };
 }

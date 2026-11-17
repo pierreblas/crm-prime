@@ -16,6 +16,8 @@ import {
 import { fetchTemplates } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { field, label as lbl, ghostBtn } from "./styles";
+import { VarTextarea } from "./VarTextarea";
+import { BUILTIN_VARS, type PromptVar } from "./promptMarks";
 
 const KIND_LABEL: Record<FollowUpKind, string> = {
   ai: "Lo redacta la IA",
@@ -107,7 +109,7 @@ function markPositions(moments: FollowUpMoment[]): number[] {
 }
 
 /** La secuencia de seguimientos de un agente: hasta cuatro toques, cada uno con su momento y su contenido. */
-export function FollowUpsEditor({ value, onChange }: { value: FollowUps; onChange: (v: FollowUps) => void }) {
+export function FollowUpsEditor({ value, onChange, vars = BUILTIN_VARS }: { value: FollowUps; onChange: (v: FollowUps) => void; vars?: PromptVar[] }) {
   const { data: templates = [] } = useQuery({ queryKey: ["templates"], queryFn: fetchTemplates });
   const approved = templates.filter((t) => t.status === "APPROVED");
   const update = (i: number, patch: Partial<FollowUpStep>) =>
@@ -278,14 +280,13 @@ export function FollowUpsEditor({ value, onChange }: { value: FollowUps; onChang
             {s.kind === "text" && (
               <div style={field}>
                 <span style={lbl}>Mensaje</span>
-                <textarea
-                  className="field"
-                  style={{ minHeight: 60, resize: "vertical", fontFamily: "inherit" }}
+                <VarTextarea
                   value={s.text}
+                  onChange={(text) => update(i, { text })}
+                  vars={vars}
                   maxLength={2000}
-                  placeholder="Ej. ¡Hola! ¿Pudiste ver la información que te envié? Cualquier duda, aquí estoy."
-                  aria-label={`Toque ${i + 1}: mensaje`}
-                  onChange={(e) => update(i, { text: e.target.value })}
+                  placeholder="Ej. ¡Hola {{nombre}}! ¿Pudiste ver la información que te envié? Cualquier duda, aquí estoy."
+                  ariaLabel={`Toque ${i + 1}: mensaje`}
                 />
               </div>
             )}

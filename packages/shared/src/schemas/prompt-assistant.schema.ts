@@ -22,7 +22,8 @@ export const promptAssistantTurnSchema = z.object({
 export type PromptAssistantTurn = z.infer<typeof promptAssistantTurnSchema>;
 
 export const promptAssistantRequestSchema = z.object({
-  prompt: z.string().min(1).max(4000),
+  // Hasta 8000: lo dictado por audio (unos cinco minutos) cabe entero.
+  prompt: z.string().min(1).max(8000),
   target: z.enum(promptAssistantTargets).default("systemPrompt"),
   // Texto que hay ahora en el campo: si existe, el asistente lo mejora en
   // lugar de partir de cero.
@@ -44,3 +45,14 @@ export const promptAssistantReplySchema = z.object({
   provider: z.string(),
 });
 export type PromptAssistantReply = z.infer<typeof promptAssistantReplySchema>;
+
+/**
+ * Audio para armar el agente: quien lo configura graba o sube una nota de voz
+ * contando su negocio y se convierte en texto, que revisa antes de enviarlo.
+ */
+export const ASSISTANT_AUDIO_MAX_BYTES = 20 * 1024 * 1024;
+/** Lo que dura como mucho una grabación hecha en la pantalla. */
+export const ASSISTANT_AUDIO_MAX_SECONDS = 300;
+export interface AssistantTranscript {
+  text: string;
+}

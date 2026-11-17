@@ -13,6 +13,8 @@
  * Sin React ni DOM: solo posiciones en el texto, para poder probarlo solo.
  */
 
+import { BUILTIN_CONTACT_VARS, CONTACT_VAR_RE, parseVar, varKey, type ContactVarDef } from "@crm/shared";
+
 export interface PromptTool {
   name: string;
   title: string;
@@ -21,19 +23,11 @@ export interface PromptTool {
 
 export type MarkKind = "pending" | "tool" | "tool-off" | "var" | "var-off" | "head" | "flash";
 
-/** Una variable del contacto que se reemplaza en las instrucciones. */
-export interface PromptVar {
-  key: string;
-  label: string;
-}
+/** Una variable del contacto que se reemplaza en las instrucciones y en los mensajes fijos. */
+export type PromptVar = ContactVarDef;
 
 /** Las que existen siempre (las rellena el servidor al responder). */
-export const BUILTIN_VARS: PromptVar[] = [
-  { key: "nombre", label: "Nombre" },
-  { key: "telefono", label: "Teléfono" },
-  { key: "pais", label: "País" },
-  { key: "moneda", label: "Moneda" },
-];
+export const BUILTIN_VARS: PromptVar[] = BUILTIN_CONTACT_VARS;
 
 /**
  * Lo que trae cada producto al consultarlo con search_products, además de
@@ -88,18 +82,17 @@ export function findHeadings(text: string): Mark[] {
   return out;
 }
 
-const VAR_RE = /\{\{\s*([^{}\n]{1,40}?)\s*\}\}/g;
-
 /**
- * Variables {{…}} del texto. Existen si coinciden (sin mayúsculas) con la clave
- * o el nombre de una variable, igual que al reemplazarlas en el servidor.
+ * Variables {{…}} del texto. Existen si coinciden (sin mayúsculas ni tildes)
+ * con la clave o el nombre de una variable, igual que al reemplazarlas en el
+ * servidor. En {{nombre|amigo}} cuenta el nombre, no lo de tras la barra.
  */
 export function findVars(text: string, vars: PromptVar[]): Mark[] {
-  const known = new Set(vars.flatMap((v) => [v.key.toLowerCase(), v.label.toLowerCase()]));
+  const known = new Set(vars.flatMap((v) => [varKey(v.key), varKey(v.label)]));
   const out: Mark[] = [];
-  for (const m of text.matchAll(VAR_RE)) {
-    const name = m[1]!.trim();
-    out.push({ start: m.index!, end: m.index! + m[0].length, kind: known.has(name.toLowerCase()) ? "var" : "var-off", text: name });
+  for (const m of text.matchAll(CONTACT_VAR_RE)) {
+    const { name } = parseVar(m[1]!);
+    out.push({ start: m.index!, end: m.index! + m[0].length, kind: known.has(varKey(name)) ? "var" : "var-off", text: name });
   }
   return out;
 }

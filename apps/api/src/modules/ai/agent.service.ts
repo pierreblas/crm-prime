@@ -2,8 +2,10 @@ import { Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import {
   contactCurrency,
+  contactVarValues,
   countryFromPhone,
   estimateAiCost,
+  fillInstructions,
   formatFieldValue,
   HANDOFF_REASON_AI_INCLUDED_FULL,
   HANDOFF_REASON_MEDIA,
@@ -896,22 +898,10 @@ export class AgentService {
     const contactFields = (extra.contactFields ?? [])
       .map((f) => ({ ...f, value: meta[f.key] == null ? "" : String(meta[f.key]).trim() }))
       .filter((f) => f.value);
-    // {{nombre}}, {{telefono}}, {{pais}}, {{moneda}} y {{clave o nombre de un campo}} en las instrucciones.
-    const vars: Record<string, string> = {
-      nombre: contact.name ?? "",
-      telefono: contact.phone,
-      pais: country?.name ?? "",
-      moneda: currency ?? "",
-    };
-    for (const f of contactFields) {
-      vars[f.key.toLowerCase()] = f.value;
-      vars[f.label.toLowerCase()] = f.value;
-    }
-    const fill = (text: string) =>
-      text.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (m, k: string) => {
-        const v = vars[k.toLowerCase()];
-        return v === undefined ? m : v;
-      });
+    // {{nombre}}, {{telefono}}, {{pais}}, {{moneda}} y {{clave o nombre de un campo}} en las
+    // instrucciones. Si falta el dato, la IA lee «(sin dato)», nunca las llaves.
+    const vars = contactVarValues(contact, extra.contactFields ?? []);
+    const fill = (text: string) => fillInstructions(text, vars);
     const where = [
       country ? ` País: ${country.name}.` : "",
       currency ? ` Cotiza en ${currency}.` : "",

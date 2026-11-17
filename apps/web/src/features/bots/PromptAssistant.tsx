@@ -12,6 +12,7 @@ import { askPromptAssistant } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { ghostBtn, input as inputStyle, primaryBtn, smBtn } from "@/components/ui";
 import { toast } from "@/lib/toast";
+import { VoiceInput, appendDictation } from "./VoiceInput";
 
 // Un turno del chat. La propuesta se guarda en el propio mensaje para poder
 // aplicarla (o ignorarla) sin perder el hilo.
@@ -258,10 +259,10 @@ export function PromptAssistant({
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(draft);
             }}
           />
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 11, color: "var(--muted)", flex: 1 }}>
-              Ctrl/⌘ + Enter para enviar
-            </span>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <VoiceInput label="Dictar" onText={(text) => setDraft((d) => appendDictation(d, text))} disabled={ask.isPending} hint="Ctrl/⌘ + Enter para enviar" />
+            </div>
             <button
               onClick={() => send(draft)}
               disabled={!draft.trim() || ask.isPending}
@@ -318,15 +319,21 @@ function StarterForm({
         herramientas, límites y ejemplos. Luego las ajustamos en el chat.
       </p>
 
-      <label style={fieldLabel}>
-        Qué vendes y a quién
-        <textarea
-          style={{ ...inputStyle, minHeight: 64, resize: "vertical", fontFamily: "inherit" }}
-          value={business}
-          placeholder="Ej: planes de internet para hogares en Lima; vendemos a familias y pequeños negocios"
-          onChange={(e) => setBusiness(e.target.value)}
+      <div style={fieldLabel}>
+        <label style={fieldLabel}>
+          Qué vendes y a quién
+          <textarea
+            style={{ ...inputStyle, minHeight: 64, resize: "vertical", fontFamily: "inherit" }}
+            value={business}
+            placeholder="Ej: planes de internet para hogares en Lima; vendemos a familias y pequeños negocios"
+            onChange={(e) => setBusiness(e.target.value)}
+          />
+        </label>
+        <VoiceInput
+          onText={(text) => setBusiness((b) => appendDictation(b, text))}
+          hint="¿Prefieres hablar? Cuéntalo como se lo contarías a alguien nuevo: qué vendes, a quién, precios, horarios, envíos."
         />
-      </label>
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <label style={fieldLabel}>
@@ -363,13 +370,15 @@ function StarterForm({
         <span>
           Detalles y límites <span style={{ color: "var(--muted)" }}>(opcional)</span>
         </span>
-        <input
-          style={inputStyle}
+        <textarea
+          style={{ ...inputStyle, minHeight: 44, resize: "vertical", fontFamily: "inherit" }}
+          rows={2}
           value={extra}
           placeholder="Horarios, envíos, medios de pago, lo que no debe prometer…"
           onChange={(e) => setExtra(e.target.value)}
         />
       </label>
+      <VoiceInput label="Dictar los detalles" onText={(text) => setExtra((x) => appendDictation(x, text))} />
 
       <button
         onClick={compose}

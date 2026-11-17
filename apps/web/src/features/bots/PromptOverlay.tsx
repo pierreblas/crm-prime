@@ -7,6 +7,7 @@ import { smBtn } from "@/components/ui";
 import { ghostBtn } from "./styles";
 import { collectMarks, findHeadings, pendingSummary, segments, PRODUCT_BASE_FIELDS, type Mark, type PromptTool, type PromptVar } from "./promptMarks";
 import type { TextHistory } from "./useTextHistory";
+import { TOOL_COPY, TOOL_SNIPPET } from "./agentCopy";
 
 /**
  * «Cómo debe atender» a pantalla grande. El mismo texto, con sitio para
@@ -132,29 +133,14 @@ export function PromptOverlay({
     t.scrollTop = b.scrollTop;
   }, []);
 
-  /** Inserta un texto donde la persona dejó el cursor (con espacios alrededor si hace falta). */
-  const insert = useCallback(
-    (token: string) => {
+  /** Tras insertar: lo nuevo se ilumina, el cursor queda detrás y la vista lo centra. */
+  const settle = useCallback(
+    (start: number, end: number, next: number) => {
       const t = ta.current;
-      const at = caret.current;
-      if (!t || !at) {
-        // Sin sitio elegido no se adivina: se pide, y el cuadro se señala.
-        setNeedCaret(true);
-        setRailOpen(false);
-        return;
-      }
-      const before = value.slice(0, at.start);
-      const after = value.slice(at.end);
-      const padL = before && !/\s$/.test(before) ? " " : "";
-      const padR = after && !/^[\s.,;:)»]/.test(after) ? " " : "";
-      onChange(`${before}${padL}${token}${padR}${after}`, "edit");
-      const start = at.start + padL.length;
-      const end = start + token.length;
-      const next = end + padR.length;
+      if (!t) return;
       caret.current = { start: next, end: next };
       setFlash({ start, end });
       setRailOpen(false);
-      // Tras pintar el texto nuevo: cursor detrás de lo insertado y vista centrada en ello.
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {
           const scroll = backdrop.current?.scrollTop ?? t.scrollTop;
@@ -165,7 +151,63 @@ export function PromptOverlay({
         }),
       );
     },
-    [value, onChange, reveal],
+    [reveal],
+  );
+
+  /** Dónde dejó el cursor; si no hizo clic en el texto, se le pide (no se adivina). */
+  const where = useCallback(() => {
+    if (ta.current && caret.current) return caret.current;
+    setNeedCaret(true);
+    setRailOpen(false);
+    return null;
+  }, []);
+
+  /** Inserta un texto donde la persona dejó el cursor (con espacios alrededor si hace falta). */
+  const insert = useCallback(
+    (token: string) => {
+      const at = where();
+      if (!at) return;
+      const before = value.slice(0, at.start);
+      const after = value.slice(at.end);
+      const padL = before && !/\s$/.test(before) ? " " : "";
+      const padR = after && !/^[\s.,;:)»]/.test(after) ? " " : "";
+      onChange(`${before}${padL}${token}${padR}${after}`, "edit");
+      const start = at.start + padL.length;
+      settle(start, start + token.length, start + token.length + padR.length);
+    },
+    [value, onChange, where, settle],
+  );
+
+  /**
+   * Inserta una frase entera en su propia línea, debajo de la línea donde está
+   * el cursor: así no parte por la mitad la frase que había.
+   */
+  const insertLine = useCallback(
+    (sentence: string) => {
+      const at = where();
+      if (!at) return;
+      const eol = value.indexOf("\n", at.end);
+      const pos = eol === -1 ? value.length : eol;
+      const before = value.slice(0, pos);
+      const lineSoFar = before.slice(before.lastIndexOf("\n") + 1);
+      const lead = lineSoFar.trim() ? "\n" : "";
+      onChange(`${before}${lead}${sentence}${value.slice(pos)}`, "edit");
+      const start = pos + lead.length;
+      settle(start, start + sentence.length, start + sentence.length);
+    },
+    [value, onChange, where, settle],
+  );
+
+  /** Lleva a la siguiente mención de una acción (y vuelve a la primera tras la última). */
+  const nextMention = useCallback(
+    (name: string) => {
+      const all = marks.filter((m) => (m.kind === "tool" || m.kind === "tool-off") && m.text === name);
+      if (!all.length) return;
+      const from = ta.current?.selectionEnd ?? 0;
+      const m = all.find((x) => x.start >= from) ?? all[0]!;
+      goTo(m.start, m.end);
+    },
+    [marks, goTo],
   );
 
   const nextPending = useCallback(() => {
@@ -274,15 +316,57 @@ export function PromptOverlay({
               )}
               {enabledTools.length ? (
                 <>
-                  <div className="prompt-rail__list">
-                    {enabledTools.map((t) => (
-                      <button key={t.name} type="button" className={`prompt-chip prompt-chip--tool${mentioned.has(t.name) ? " is-used" : ""}`} onMouseDown={(e) => e.preventDefault()} onClick={() => insert(t.name)} title={`${t.title}. Clic para insertar el nombre donde está el cursor.`}>
-                        {mentioned.has(t.name) && <NavIcon name="check" size={11} />}
-                        {t.name}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="prompt-rail__hint">Haz clic en el texto donde quieras nombrarla y luego en la acción. Con ✓, ya la nombras.</p>
+                  <ul className="prompt-acts">
+                    {enabledTools.map((t) => {
+                      const used = mentioned.has(t.name);
+                      const sentence = TOOL_SNIPPET[t.name] ?? `Usa ${t.name} cuando [CUÁNDO USARLA].`;
+                      return (
+                        <li key={t.name} className={`prompt-act${used ? " is-used" : ""}`}>
+                          <button
+                            type="button"
+                            className="prompt-act__main"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => (used ? nextMention(t.name) : insertLine(sentence))}
+                            title={used ? "Ir a donde la nombras" : `Añade: «${sentence}»`}
+                          >
+                            <NavIcon name={TOOL_COPY[t.name]?.icon ?? "bolt"} size={14} />
+                            <span className="prompt-act__text">
+                              <strong>{t.title}</strong>
+                              <span className="prompt-act__meta">
+                                <code>{t.name}</code>
+                                <span className="prompt-act__state">
+                                  {used ? (
+                                    <>
+                                      <NavIcon name="check" size={11} /> Ya la usas
+                                    </>
+                                  ) : (
+                                    <>
+                                      <NavIcon name="plus" size={11} /> Añadir frase
+                                    </>
+                                  )}
+                                </span>
+                              </span>
+                            </span>
+                          </button>
+                          {used && (
+                            <button
+                              type="button"
+                              className="prompt-act__more"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => insertLine(sentence)}
+                              aria-label={`Añadir otra frase con «${t.title}»`}
+                              title={`Añadir otra frase: «${sentence}»`}
+                            >
+                              <NavIcon name="plus" size={13} />
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <p className="prompt-rail__hint">
+                    Haz clic en el texto, en la parte donde encaje, y elige una acción: se añade una frase lista para ajustar a tu negocio. Las que ya nombras te llevan a donde aparecen.
+                  </p>
                 </>
               ) : (
                 <p className="prompt-rail__hint">Sin acciones activadas. Se activan en «Qué puede hacer».</p>
@@ -338,12 +422,14 @@ export function PromptOverlay({
                   </button>
                 ))}
               </div>
-              <p className="prompt-rail__hint">Se reemplazan por el dato de cada cliente al responder: «Hola {"{{nombre}}"}».</p>
+              <p className="prompt-rail__hint">
+                El agente lee el dato de cada cliente: «trátalo por su nombre, {"{{nombre}}"}». Si no lo tenemos, lee «(sin dato)» y no se lo inventa.
+              </p>
               {unknownVars.length > 0 && (
                 <p className="prompt-rail__warn">
                   <NavIcon name="alert" size={13} />
                   <span>
-                    {unknownVars.map((v) => `{{${v}}}`).join(", ")} no {unknownVars.length === 1 ? "es una variable: no se reemplazará" : "son variables: no se reemplazarán"}. Créala como campo del contacto o quítala.
+                    {unknownVars.map((v) => `{{${v}}}`).join(", ")} no {unknownVars.length === 1 ? "es un dato del cliente: el agente leerá" : "son datos del cliente: el agente leerá"} «(sin dato)». Créalo como campo del contacto o quítalo.
                   </span>
                 </p>
               )}

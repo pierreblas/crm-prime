@@ -37,7 +37,9 @@ Debajo, cinco pestañas:
 
 La barra de abajo te dice si hay **cambios sin guardar**, y al guardar lo confirma. Ctrl+S (Cmd+S en Mac) guarda desde cualquier pestaña. Si cambias de agente con cambios pendientes, Driony te avisa antes de perderlos.
 
-**Ampliar** abre «Cómo debe atender» en grande, con lo importante señalado sobre el texto: los marcadores por rellenar como `[HORARIO]` (en ámbar), las acciones del agente que nombras (en amarillo; subrayadas si están desactivadas) y los títulos de sección (líneas en MAYÚSCULAS). El panel de la derecha lista esos elementos: un clic lleva al sitio, inserta el nombre de una acción donde está el cursor, y «Siguiente por rellenar» recorre los marcadores uno a uno. Bajo el cuadro pequeño, una línea resume cuántos quedan.
+**Ampliar** abre «Cómo debe atender» en grande, con lo importante señalado sobre el texto: los marcadores por rellenar como `[HORARIO]` (en ámbar), las acciones del agente que nombras (subrayadas; en ámbar ondulado si están desactivadas), los datos del cliente como `{{nombre}}` (en cian) y los títulos de sección (líneas en MAYÚSCULAS). El panel de la derecha lista esos elementos y «Siguiente por rellenar» recorre los marcadores uno a uno. Bajo el cuadro pequeño, una línea resume cuántos quedan.
+
+En **Acciones del agente** cada acción aparece con su nombre en español y, debajo, el técnico. Haz clic en el texto, en la parte donde encaje, y elige una acción: se añade en su propia línea una frase lista para ajustar, por ejemplo «Si el cliente pide hablar con una persona, se molesta o no sabes la respuesta, despídete con amabilidad y usa handoff_to_human». Lo que la frase no puede saber por ti queda `[ENTRE CORCHETES]`, como la etiqueta o la etapa. Las que ya nombras dicen **Ya la usas**: un clic te lleva a donde aparecen (otro clic, a la siguiente) y el **+** añade otra frase.
 
 ## Asistente de redacción
 
@@ -48,6 +50,12 @@ No hace falta saber escribir un *system prompt*. Junto al campo de instrucciones
 3. Pides ajustes en el chat («más corto», «de usted», «añade los horarios») y, cuando te convenza, pulsas **Usar este texto**. Nada se guarda hasta que guardas el agente.
 
 Usa tu propio modelo (Ajustes › Inteligencia Artificial) y conoce tu contexto real: catálogo, base de conocimiento, etapas del embudo y herramientas del agente, así que no inventa nombres de herramientas ni productos. Lo que no sabe lo deja marcado entre corchetes, como `[HORARIO]`, para que lo rellenes. También sirve para cualquier otro texto: un guion de ventas, una respuesta a una objeción o un mensaje de seguimiento.
+
+### Contarlo en un audio
+
+Si te resulta más fácil hablar que escribir, en el asistente, en «Qué vendes y a quién», en los detalles y en el chat (también en **Con ayuda**) tienes **Contarlo en un audio** (o **Dictar**): grabas hasta cinco minutos contándolo como se lo contarías a alguien nuevo en tu equipo, pulsas **Listo** y el texto aparece en el cuadro. También puedes **subir un audio** que ya tengas, por ejemplo una nota de voz de WhatsApp (MP3, M4A, OGG u OPUS, hasta 20 MB). Revisa el texto antes de enviarlo: puede que haya entendido mal un nombre o un precio. El audio no se guarda.
+
+Se pasa a texto con OpenAI, igual que los audios de tus clientes: con tu clave de OpenAI si la tienes; si no, con la IA incluida de Driony. En **Consumo de IA** cuenta como «Asistente de redacción»; un minuto de audio cuesta menos de un centavo de dólar.
 
 ## Herramientas y acciones
 
@@ -94,7 +102,18 @@ Además del agente que responde solo, Driony ayuda a tu equipo dentro de cada co
 Con catálogos grandes (cientos de productos) el agente no los lee todos de golpe: **busca** por palabras sueltas, sin importar tildes ni mayúsculas, en el nombre, la descripción, el SKU y los campos visibles, y recibe los más parecidos con su detalle más la lista de nombres del resto. Si un producto no aparece, suele ser por el nombre: ponle el nombre con el que lo pide la gente (y, si hace falta, palabras clave en la descripción), y evita nombres genéricos repetidos como «Producto 1».
 
 - **Catálogo**: el agente lee los productos con `search_products`: nombre, precio (en la moneda del cliente), descripción y los **campos del catálogo** que tengan activado «lo usa el agente de IA» (temario, duración, modalidad…). Las instrucciones le dicen qué campos existen; para que los use, pídeselo: «cuando pregunten por el temario, consulta el curso y cítalo tal cual». Escribir «[Temario]» en las instrucciones no sustituye nada: hay muchos productos y es el agente quien busca el que toca.
-- **Contacto**: conoce el nombre, teléfono, país, moneda y los **campos personalizados del contacto** con valor, y puedes insertarlos en las instrucciones con `{{nombre}}`, `{{telefono}}`, `{{pais}}`, `{{moneda}}` o `{{clave del campo}}` (en «Cómo debe atender», el desplegable *Cómo nombrar sus acciones* lista las claves).
+- **Contacto**: conoce el nombre, teléfono, país, moneda y los **campos personalizados del contacto** con valor, y puedes insertarlos en las instrucciones con `{{nombre}}`, `{{telefono}}`, `{{pais}}`, `{{moneda}}` o `{{clave del campo}}` (en «Cómo debe atender», el desplegable *Cómo nombrar sus acciones* lista las claves). Si a un cliente le falta ese dato, el agente lee «(sin dato)» y no se lo inventa.
+
+### Datos del cliente en los mensajes fijos
+
+Las mismas variables funcionan en los textos que se envían tal cual, sin pasar por la IA: el **saludo automático**, el **mensaje fuera de horario**, las **respuestas por palabra clave** (y sus versiones), lo que dice **al pasarte el chat** y los **seguimientos de texto fijo**. «¡Hola {{nombre}}!» le llega a Ana como «¡Hola Ana!».
+
+- Junto a cada uno de esos cuadros, **Insertar dato del cliente** pone la variable donde está el cursor; también puedes escribir `{{` y elegirla de la lista con las flechas y Enter.
+- Debajo ves cómo le llega a un cliente de ejemplo y a uno del que no sabemos nada.
+- **Si falta el dato, la variable se quita y la frase se arregla**: «Hola {{nombre}}, gracias por escribirnos» llega como «Hola, gracias por escribirnos». Al cliente nunca le llegan llaves, tampoco si la variable está mal escrita (la pantalla te lo avisa).
+- Para elegir qué poner cuando falta, escríbelo tras una barra: `{{nombre|amigo}}` llega como «Hola amigo» si no sabemos su nombre.
+- Mayúsculas y tildes dan igual: `{{País}}` y `{{pais}}` son lo mismo. Sirven la clave del campo o su nombre.
+- Si el contacto se guardó sin nombre (con su número como nombre), `{{nombre}}` cuenta como vacío. A quien escribe por Messenger, Instagram o TikTok no se le conoce el teléfono ni el país.
 
 ## Pedirle que pase el chat
 
