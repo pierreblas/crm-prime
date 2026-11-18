@@ -12,7 +12,6 @@ import {
   dataToken,
   findProductData,
   productDataFields,
-  productDataSentence,
   segments,
   type PromptTool,
 } from "../src/features/bots/promptMarks";
@@ -55,16 +54,14 @@ test("nombrar un campo que el agente no recibe se señala aparte", () => {
   assert.equal(slice(text, m!), "«Costo interno»");
 });
 
-test("la frase de cada dato pide consultarlo con search_products y lo nombra entre « »", () => {
+test("cada botón pone el dato tal cual, entre « », y queda marcado en el texto", () => {
+  assert.equal(dataToken("Temario URL"), "«Temario URL»");
   for (const f of FIELDS) {
-    const s = productDataSentence(f.label);
-    assert.match(s, /search_products/, f.label);
-    assert.ok(s.includes(dataToken(f.label)), `${f.label}: ${s}`);
-    // La frase que se inserta se marca sola como dato al quedar en el texto.
-    assert.equal(findProductData(s, FIELDS).length, 1, s);
+    const text = `Envía el ${dataToken(f.label)} cuando lo pidan.`;
+    const [m] = findProductData(text, FIELDS);
+    assert.equal(m && slice(text, m), dataToken(f.label), f.label);
+    assert.equal(m?.kind, f.visible ? "data" : "data-off", f.label);
   }
-  // Los de siempre se reconocen sin mirar mayúsculas: «precio» da la frase de «Precio».
-  assert.equal(productDataSentence("precio"), productDataSentence("Precio"));
 });
 
 test("todas las marcas juntas, ordenadas y sin pisarse", () => {

@@ -8,10 +8,10 @@ import { ghostBtn } from "./styles";
 import { varKey } from "@crm/shared";
 import {
   collectMarks,
+  dataToken,
   findHeadings,
   pendingSummary,
   productDataFields,
-  productDataSentence,
   segments,
   PRODUCT_BASE_FIELDS,
   type Mark,
@@ -268,18 +268,6 @@ export function PromptOverlay({
     [marks, goTo],
   );
 
-  /** Lleva a la siguiente mención de un dato del producto («Precio»…). */
-  const nextData = useCallback(
-    (label: string) => {
-      const all = marks.filter((m) => (m.kind === "data" || m.kind === "data-off") && varKey(m.text) === varKey(label));
-      if (!all.length) return;
-      const from = ta.current?.selectionEnd ?? 0;
-      const m = all.find((x) => x.start >= from) ?? all[0]!;
-      goTo(m.start, m.end);
-    },
-    [marks, goTo],
-  );
-
   const nextPending = useCallback(() => {
     if (!pendingAll.length) return;
     const from = ta.current?.selectionEnd ?? 0;
@@ -474,8 +462,7 @@ export function PromptOverlay({
                     field={f}
                     base={PRODUCT_BASE_FIELDS.some((b) => b.label === f.label)}
                     named={dataNamed.has(varKey(f.label))}
-                    onAdd={() => insertLine(`«${f.label}»`, productDataSentence(f.label))}
-                    onFind={() => nextData(f.label)}
+                    onInsert={() => insert(dataToken(f.label))}
                   />
                 ))}
                 {sendsImages && (
@@ -483,21 +470,16 @@ export function PromptOverlay({
                     type="button"
                     className={`prompt-chip prompt-chip--data${mentioned.has("send_product_image") ? " is-used" : ""}`}
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() =>
-                      mentioned.has("send_product_image")
-                        ? nextMention("send_product_image")
-                        : insertLine("la foto", TOOL_SNIPPET.send_product_image ?? "Si el cliente quiere ver un producto, envíale la foto con send_product_image.")
-                    }
-                    title={mentioned.has("send_product_image") ? "Ya pides enviar la foto: clic para ir." : "Añade una frase para que envíe la foto del producto."}
+                    onClick={() => insert("send_product_image")}
+                    title="Pone send_product_image donde está el cursor: la acción que envía la foto del producto."
                   >
                     <NavIcon name="image" size={11} /> Foto {mentioned.has("send_product_image") && <NavIcon name="check" size={11} />}
                   </button>
                 )}
               </div>
               <p className="prompt-rail__hint">
-                Al pulsar uno se añade una frase que le pide consultarlo con <code>search_products</code>. Escríbelos entre « », como{" "}
-                <span className="pm pm-data">«Fecha de inicio»</span>: se marcan porque el agente los recibe con ese mismo nombre. No copies el valor:
-                cambia y lo leería viejo.
+                Al pulsar uno se pone, donde está el cursor, como <span className="pm pm-data">«Fecha de inicio»</span>: el agente lo busca con{" "}
+                <code>search_products</code> en cada conversación y lo recibe con ese mismo nombre. No copies el valor: cambia y lo leería viejo.
               </p>
               {hiddenNamed.length > 0 && (
                 <p className="prompt-rail__warn">
@@ -580,21 +562,19 @@ type Caret = { start: number; end: number };
 type Waiting = { what: string; run: (at: Caret) => void };
 
 /**
- * Un dato del producto en el panel. Sin nombrar: añade una frase que pide
- * consultarlo. Ya nombrado en el texto: lo dice y lleva a donde aparece.
+ * Un dato del producto en el panel: pone «Dato» donde está el cursor, como las
+ * variables del contacto. Si el texto ya lo nombra, lo marca (✓).
  */
 function DataChip({
   field,
   base,
   named,
-  onAdd,
-  onFind,
+  onInsert,
 }: {
   field: ProductDataField;
   base: boolean;
   named: boolean;
-  onAdd: () => void;
-  onFind: () => void;
+  onInsert: () => void;
 }) {
   const hint = PRODUCT_BASE_FIELDS.find((b) => b.label === field.label)?.hint ?? "Campo propio del catálogo.";
   return (
@@ -602,8 +582,8 @@ function DataChip({
       type="button"
       className={`prompt-chip prompt-chip--data${named ? " is-used" : ""}`}
       onMouseDown={(e) => e.preventDefault()}
-      onClick={named ? onFind : onAdd}
-      title={named ? `Ya nombras «${field.label}»: clic para ir.` : `${hint} Clic: añade una frase que le pide consultarlo.`}
+      onClick={onInsert}
+      title={`${hint} Clic: pone ${dataToken(field.label)} donde está el cursor.${named ? " Ya aparece en el texto." : ""}`}
       data-product-data={field.label}
     >
       <NavIcon name={base ? "package" : "tag"} size={11} /> {field.label}

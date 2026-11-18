@@ -38,27 +38,11 @@ export const BUILTIN_VARS: PromptVar[] = BUILTIN_CONTACT_VARS;
  * sus campos propios. El precio llega en la moneda del cliente si el
  * producto la tiene.
  */
-export const PRODUCT_BASE_FIELDS: { label: string; hint: string; sentence: string }[] = [
-  {
-    label: "Nombre",
-    hint: "El nombre del producto.",
-    sentence: "Cuando hables de un producto, búscalo con search_products y llámalo por su «Nombre» tal como aparece en el catálogo.",
-  },
-  {
-    label: "Precio",
-    hint: "En la moneda del cliente si el producto la tiene; si no, en la suya.",
-    sentence: "Antes de dar un precio, consulta el «Precio» con search_products y dalo exacto; nunca lo calcules ni lo inventes.",
-  },
-  {
-    label: "Descripción",
-    hint: "La descripción del producto.",
-    sentence: "Si piden detalles de un producto, consulta su «Descripción» con search_products y resúmela en pocas líneas.",
-  },
-  {
-    label: "SKU",
-    hint: "El código del producto, si tiene.",
-    sentence: "Si el cliente te da un código de producto, búscalo con search_products por su «SKU».",
-  },
+export const PRODUCT_BASE_FIELDS: { label: string; hint: string }[] = [
+  { label: "Nombre", hint: "El nombre del producto." },
+  { label: "Precio", hint: "En la moneda del cliente si el producto la tiene; si no, en la suya." },
+  { label: "Descripción", hint: "La descripción del producto." },
+  { label: "SKU", hint: "El código del producto, si tiene." },
 ];
 
 /** Un dato de producto que se puede nombrar en el texto: los de siempre y los campos propios del catálogo. */
@@ -75,15 +59,8 @@ export function productDataFields(custom: { label: string; aiVisible: boolean }[
   return [...base, ...custom.filter((f) => !taken.has(varKey(f.label))).map((f) => ({ label: f.label, visible: f.aiVisible }))];
 }
 
-/** Cómo se nombra un dato del producto en el texto: entre comillas angulares, con su nombre. */
+/** Cómo se nombra un dato del producto en el texto (y lo que pone su botón): entre comillas angulares, con su nombre. */
 export const dataToken = (label: string) => `«${label}»`;
-
-/** La frase que se añade al pulsar un dato del producto: pide consultarlo, nunca copia el valor. */
-export function productDataSentence(label: string): string {
-  const base = PRODUCT_BASE_FIELDS.find((f) => varKey(f.label) === varKey(label));
-  if (base) return base.sentence;
-  return `Si preguntan por ${dataToken(label)}, consúltalo con search_products y dalo tal cual aparece en el producto; si no lo tiene, dilo y no lo inventes.`;
-}
 
 const DATA_RE = /«([^«»\n]{1,60})»/g;
 
