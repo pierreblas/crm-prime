@@ -18,15 +18,24 @@ export function DebouncedInput({
   delay?: number;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
   const [text, setText] = useState(value);
+  const textRef = useRef(text);
+  textRef.current = text;
   const committed = useRef(value);
   const onCommitRef = useRef(onCommit);
   onCommitRef.current = onCommit;
 
   useEffect(() => {
-    if (value !== committed.current) {
-      committed.current = value;
-      setText(value);
+    if (value === committed.current) return;
+    // Lo de fuera vuelve recortado (la URL quita los espacios de los bordes): si
+    // es lo mismo que está escrito, se deja lo escrito. Si no, el espacio de
+    // «camisa ␣» desaparecía en la pausa antes de la segunda palabra y salía
+    // «camisaroja», que no encuentra nada.
+    if (value.trim() === textRef.current.trim()) {
+      committed.current = textRef.current;
+      return;
     }
+    committed.current = value;
+    setText(value);
   }, [value]);
 
   const commit = (v: string) => {
