@@ -8,7 +8,11 @@
  *  - secciones: líneas en MAYÚSCULAS o que empiezan por «#», para moverse por
  *    un texto largo;
  *  - variables del contacto ({{nombre}}…), y si existen: una que no existe no
- *    se reemplaza y el cliente vería las llaves.
+ *    se reemplaza y el cliente vería las llaves;
+ *  - datos del producto nombrados entre comillas angulares («Precio», «Fecha
+ *    de inicio»): no se reemplazan (dependen del producto del que se hable),
+ *    el agente los consulta con search_products y le llegan con ese mismo
+ *    nombre. Uno que la IA no ve (campo apagado) se señala.
  *
  * Sin React ni DOM: solo posiciones en el texto, para poder probarlo solo.
  */
@@ -21,7 +25,7 @@ export interface PromptTool {
   enabled: boolean;
 }
 
-export type MarkKind = "pending" | "tool" | "tool-off" | "var" | "var-off" | "head" | "flash";
+export type MarkKind = "pending" | "tool" | "tool-off" | "var" | "var-off" | "data" | "data-off" | "head" | "flash";
 
 /** Una variable del contacto que se reemplaza en las instrucciones y en los mensajes fijos. */
 export type PromptVar = ContactVarDef;
@@ -34,12 +38,70 @@ export const BUILTIN_VARS: PromptVar[] = BUILTIN_CONTACT_VARS;
  * sus campos propios. El precio llega en la moneda del cliente si el
  * producto la tiene.
  */
-export const PRODUCT_BASE_FIELDS: { label: string; hint: string }[] = [
-  { label: "Nombre", hint: "El nombre del producto." },
-  { label: "Precio", hint: "En la moneda del cliente si el producto la tiene; si no, en la suya." },
-  { label: "Descripción", hint: "La descripción del producto." },
-  { label: "SKU", hint: "El código del producto, si tiene." },
+export const PRODUCT_BASE_FIELDS: { label: string; hint: string; sentence: string }[] = [
+  {
+    label: "Nombre",
+    hint: "El nombre del producto.",
+    sentence: "Cuando hables de un producto, búscalo con search_products y llámalo por su «Nombre» tal como aparece en el catálogo.",
+  },
+  {
+    label: "Precio",
+    hint: "En la moneda del cliente si el producto la tiene; si no, en la suya.",
+    sentence: "Antes de dar un precio, consulta el «Precio» con search_products y dalo exacto; nunca lo calcules ni lo inventes.",
+  },
+  {
+    label: "Descripción",
+    hint: "La descripción del producto.",
+    sentence: "Si piden detalles de un producto, consulta su «Descripción» con search_products y resúmela en pocas líneas.",
+  },
+  {
+    label: "SKU",
+    hint: "El código del producto, si tiene.",
+    sentence: "Si el cliente te da un código de producto, búscalo con search_products por su «SKU».",
+  },
 ];
+
+/** Un dato de producto que se puede nombrar en el texto: los de siempre y los campos propios del catálogo. */
+export interface ProductDataField {
+  label: string;
+  /** ¿Lo recibe el agente? Un campo propio con «Lo usa el agente» apagado, no. */
+  visible: boolean;
+}
+
+/** Los de siempre y los campos propios (sin repetir uno que se llame como uno de siempre). */
+export function productDataFields(custom: { label: string; aiVisible: boolean }[]): ProductDataField[] {
+  const base = PRODUCT_BASE_FIELDS.map((f) => ({ label: f.label, visible: true }));
+  const taken = new Set(base.map((f) => varKey(f.label)));
+  return [...base, ...custom.filter((f) => !taken.has(varKey(f.label))).map((f) => ({ label: f.label, visible: f.aiVisible }))];
+}
+
+/** Cómo se nombra un dato del producto en el texto: entre comillas angulares, con su nombre. */
+export const dataToken = (label: string) => `«${label}»`;
+
+/** La frase que se añade al pulsar un dato del producto: pide consultarlo, nunca copia el valor. */
+export function productDataSentence(label: string): string {
+  const base = PRODUCT_BASE_FIELDS.find((f) => varKey(f.label) === varKey(label));
+  if (base) return base.sentence;
+  return `Si preguntan por ${dataToken(label)}, consúltalo con search_products y dalo tal cual aparece en el producto; si no lo tiene, dilo y no lo inventes.`;
+}
+
+const DATA_RE = /«([^«»\n]{1,60})»/g;
+
+/**
+ * Datos del producto nombrados entre « »: existen si coinciden (sin mayúsculas
+ * ni tildes) con un dato de siempre o con un campo del catálogo. Lo demás entre
+ * comillas es texto normal («Hola, ¿en qué te ayudo?») y no se marca.
+ */
+export function findProductData(text: string, fields: ProductDataField[]): Mark[] {
+  const byKey = new Map(fields.map((f) => [varKey(f.label), f]));
+  const out: Mark[] = [];
+  for (const m of text.matchAll(DATA_RE)) {
+    const f = byKey.get(varKey(m[1]!));
+    if (!f) continue;
+    out.push({ start: m.index!, end: m.index! + m[0].length, kind: f.visible ? "data" : "data-off", text: f.label });
+  }
+  return out;
+}
 
 export interface Mark {
   start: number;
@@ -113,9 +175,14 @@ export function findTools(text: string, tools: PromptTool[]): Mark[] {
  * Todas las marcas, ordenadas y sin solaparse. Si dos chocan gana la más
  * concreta: marcador > acción > título.
  */
-export function collectMarks(text: string, tools: PromptTool[], vars: PromptVar[] = BUILTIN_VARS): Mark[] {
-  const rank: Record<MarkKind, number> = { flash: -1, pending: 0, tool: 1, "tool-off": 1, var: 1, "var-off": 1, head: 2 };
-  const all = [...findPending(text), ...findTools(text, tools), ...findVars(text, vars), ...findHeadings(text)].sort(
+export function collectMarks(
+  text: string,
+  tools: PromptTool[],
+  vars: PromptVar[] = BUILTIN_VARS,
+  data: ProductDataField[] = [],
+): Mark[] {
+  const rank: Record<MarkKind, number> = { flash: -1, pending: 0, tool: 1, "tool-off": 1, var: 1, "var-off": 1, data: 1, "data-off": 1, head: 2 };
+  const all = [...findPending(text), ...findTools(text, tools), ...findVars(text, vars), ...findProductData(text, data), ...findHeadings(text)].sort(
     (a, b) => a.start - b.start || rank[a.kind] - rank[b.kind] || a.end - b.end,
   );
   const out: Mark[] = [];

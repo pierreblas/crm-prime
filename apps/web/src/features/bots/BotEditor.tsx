@@ -36,7 +36,7 @@ import { smBtn } from "@/components/ui";
 import { PromptAssistant } from "./PromptAssistant";
 import { PromptOverlay, PromptStatusLine } from "./PromptOverlay";
 import { useTextHistory } from "./useTextHistory";
-import { BUILTIN_VARS, type PromptVar } from "./promptMarks";
+import { BUILTIN_VARS, productDataFields, type PromptVar } from "./promptMarks";
 import { VarTextarea } from "./VarTextarea";
 import { FollowUpsEditor, defaultFollowUpStep } from "./FollowUpsEditor";
 import { useAiStatus } from "@/features/copilot/useAiStatus";
@@ -205,6 +205,8 @@ type Tab = "dice" | "hace" | "cuando" | "persona" | "gasto";
 /** Límites del backend, para avisar antes de enviar. */
 const MAX_TEXT = 2000;
 const MAX_NAME = 120;
+/** Mientras cargan los campos del catálogo: siempre la misma lista vacía, para no recalcular en cada render. */
+const NO_FIELDS: Awaited<ReturnType<typeof fetchProductFields>> = [];
 
 // Un error de validación llega como "keywordTriggers.0.value: máximo 2000
 // caracteres". Se traduce a un nombre que la persona reconoce y a la
@@ -286,7 +288,10 @@ export function BotEditor({
 }) {
   const queryClient = useQueryClient();
   // Lo que el agente puede consultar (catálogo) e insertar (contacto): para la ayuda de «Cómo debe atender».
-  const { data: productFieldDefs = [] } = useQuery({ queryKey: ["product-fields"], queryFn: fetchProductFields });
+  const { data: productFieldDefs = NO_FIELDS } = useQuery({ queryKey: ["product-fields"], queryFn: fetchProductFields });
+  // Los campos del catálogo para «Cómo debe atender»: los que se nombran entre « » y si el agente los recibe.
+  const promptProductFields = useMemo(() => productFieldDefs.map((f) => ({ label: f.label, aiVisible: f.aiVisible })), [productFieldDefs]);
+  const promptData = useMemo(() => productDataFields(promptProductFields), [promptProductFields]);
   const { data: contactFieldDefs = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
   // Con la IA incluida el modelo es el de la plataforma: «Modelo y gasto» lo dice.
   const { data: aiStatus } = useAiStatus();
@@ -581,7 +586,7 @@ export function BotEditor({
                   </button>
                 </div>
               )}
-              <PromptStatusLine value={form.systemPrompt} tools={promptTools} vars={contactVars} onOpen={() => setPromptBig(true)} />
+              <PromptStatusLine value={form.systemPrompt} tools={promptTools} vars={contactVars} data={promptData} onOpen={() => setPromptBig(true)} />
               {promptBig && (
                 <PromptOverlay
                   value={form.systemPrompt}
@@ -592,7 +597,7 @@ export function BotEditor({
                     setAssist("systemPrompt");
                   }}
                   tools={promptTools}
-                  productFields={productFieldDefs.map((f) => ({ label: f.label, aiVisible: f.aiVisible }))}
+                  productFields={promptProductFields}
                   contactVars={contactVars}
                 />
               )}
@@ -1104,8 +1109,9 @@ function ToolNamesHelp({
           <p style={{ marginTop: 10 }} data-catalog-fields>
             <strong>Datos del catálogo</strong>: cada producto trae nombre, precio (en la moneda del cliente si la tiene), descripción y SKU
             {catalogFields.length ? <> y además <em>{catalogFields.join(", ")}</em></> : null}. El agente los lee con{" "}
-            <code>search_products</code>: pídele que consulte el producto y cite el dato («consulta el temario del curso y cítalo»).
-            Las instrucciones no sustituyen «[Temario]» ni similares.
+            <code>search_products</code>: pídele que consulte el producto y cite el dato (por ejemplo: <em>consulta el «Temario» del curso y cítalo</em>).
+            Escribe el nombre del dato entre « » y se marca en el texto, porque el agente lo recibe con ese mismo nombre. No es una
+            variable: no se reemplaza por un valor, lo consulta en cada conversación.
             {hiddenCatalogFields.length ? <> Campos que no ve porque tienen apagado «lo usa el agente»: {hiddenCatalogFields.join(", ")}.</> : null}
           </p>
           <p data-contact-fields>

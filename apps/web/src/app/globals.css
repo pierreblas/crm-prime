@@ -3495,8 +3495,12 @@ code {
 .agent-essentials__label { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
 .agent-essentials__item select { min-width: 0; max-width: 260px; }
 .agent-essentials__hint { margin: 8px 2px 14px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
-.agent-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); overflow-x: auto; }
-.agent-tabs button { display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; border: none; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+/* Las cinco pestañas caben en la columna del editor (742 px); si no caben (pantalla
+   estrecha), pasan a otra fila. Antes se desbordaban 6 px incluso a 1920: en
+   Windows salía siempre una barra de desplazamiento bajo ellas, y en pantallas
+   pequeñas «Cuándo te pasa el chat» y «Modelo y gasto» quedaban escondidas. */
+.agent-tabs { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--border); }
+.agent-tabs button { display: inline-flex; align-items: center; gap: 7px; padding: 9px 11px; border: none; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer; white-space: nowrap; }
 .agent-tabs button:hover { color: var(--text); filter: none; }
 .agent-tabs button.is-active { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
 .agent-panel { display: flex; flex-direction: column; gap: 14px; padding: 16px 0; }
@@ -4548,6 +4552,11 @@ code {
   padding: 16px 18px; border: 0; border-radius: 0; background: transparent;
   font: inherit; font-size: 15px; line-height: 1.65; letter-spacing: normal;
   white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; tab-size: 4;
+  /* Las dos capas guardan el hueco de la barra de desplazamiento, la haya o no.
+     Sin esto, con un texto largo en Windows el cuadro perdía ~10 px de ancho por
+     su barra y la capa de debajo no: las líneas se partían distinto, el resaltado
+     se descuadraba y el cursor caía en otro sitio del que se veía. */
+  scrollbar-gutter: stable;
 }
 .prompt-editor__backdrop { overflow: hidden; color: var(--text); pointer-events: none; }
 .prompt-editor__text { color: transparent; -webkit-text-fill-color: transparent; caret-color: var(--text); resize: none; outline: none; overflow: auto; }
@@ -4563,6 +4572,25 @@ code {
 .pm-var { color: var(--cyan); background: rgba(0, 229, 255, 0.07); }
 .pm-var-off { color: var(--warning); background: var(--warning-soft); text-decoration: underline wavy var(--warning); text-underline-offset: 3px; }
 .prompt-chip--var { border-style: dashed; }
+/* Datos del producto entre « »: también son datos (cian), pero no se reemplazan: subrayado de puntos, sin relleno. */
+.pm-data { color: var(--cyan); text-decoration: underline dotted var(--cyan); text-underline-offset: 4px; }
+.pm-data-off { color: var(--warning); background: var(--warning-soft); text-decoration: underline wavy var(--warning); text-underline-offset: 3px; }
+.prompt-chip--data.is-used { border-color: rgba(0, 229, 255, 0.45); color: var(--cyan); }
+.prompt-chip--data.is-used > svg:last-child { margin-left: 1px; }
+/* Algo del panel espera sitio: el aviso va dentro del cuadro, donde se mira para hacer clic. */
+.prompt-editor__ask {
+  position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 2;
+  display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px;
+  background: var(--panel); border: 1px solid var(--warning-border); color: var(--text);
+  font-size: 13px; line-height: 1.4; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  animation: prompt-ask-in 0.16s ease-out both;
+}
+.prompt-editor__ask > svg { color: var(--warning); flex-shrink: 0; }
+.prompt-editor__ask > span { flex: 1; min-width: 0; }
+.prompt-editor__ask > button { flex-shrink: 0; display: inline-flex; align-items: center; padding: 5px 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12px; cursor: pointer; }
+.prompt-editor__ask > button:hover { border-color: var(--border-strong); background: var(--surface-2); }
+@keyframes prompt-ask-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .prompt-editor__ask { animation: none; } }
 /* Tras aplicar lo del asistente: avisa y deja deshacer. */
 .prompt-applied { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 8px 6px 10px; border-radius: 0; background: var(--accent-soft); font-size: 12.5px; color: var(--text); }
 .prompt-applied > svg { color: var(--accent-text); flex-shrink: 0; }
@@ -4572,8 +4600,6 @@ code {
 @keyframes pm-flash { 0%, 45% { background: var(--accent); color: var(--accent-ink); } 100% { background: var(--accent-soft); color: var(--text); } }
 /* Se pidió elegir dónde insertar: el cuadro se señala. */
 .prompt-editor.is-asking { border-color: var(--warning); box-shadow: 0 0 0 3px var(--warning-soft); }
-.prompt-rail__ask { display: flex; gap: 6px; align-items: flex-start; margin: 0 0 8px; padding: 8px 10px; border-radius: 0; background: var(--warning-soft); color: var(--warning); line-height: 1.4; font-size: 12.5px; }
-.prompt-rail__ask > svg { flex-shrink: 0; margin-top: 1px; }
 @media (prefers-reduced-motion: reduce) { .pm-flash { animation: none; background: var(--accent-soft); color: var(--text); } }
 .pm-head { color: var(--text); text-decoration: underline; text-decoration-color: var(--border-strong); text-decoration-thickness: 2px; text-underline-offset: 5px; }
 .prompt-rail { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 16px; padding-right: 2px; font-size: 12.5px; }

@@ -8,7 +8,8 @@
     "start": "next start -p 3000",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "check:i18n": "tsx scripts/check-i18n.ts"
+    "check:i18n": "tsx scripts/check-i18n.ts",
+    "test:promptmarks": "tsx --test test/prompt-marks.test.ts"
   },
   "dependencies": {
     "@crm/shared": "*",

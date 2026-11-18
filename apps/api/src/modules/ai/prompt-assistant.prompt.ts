@@ -147,7 +147,8 @@ function buildContextBlock(ctx: PromptContext): string {
     lines.push(
       `Datos de cada producto que el agente obtiene con search_products: nombre, precio, descripción y SKU` +
         (p.fields.length ? `, y además: ${p.fields.join(", ")}` : "") +
-        ". En las instrucciones pide consultarlos y citarlos (p. ej. «dale la fecha de inicio y el horario que trae el producto»);" +
+        ". En las instrucciones pide consultarlos y citarlos, y nómbralos con su nombre exacto entre comillas angulares, que es como" +
+        " le llegan al agente y como el editor los reconoce (p. ej. «dale la «Fecha de inicio» y el «Horario» que trae el producto»);" +
         " NUNCA copies esos valores ni dejes marcadores como [Precio] o [Horario] para esos datos: cambian y el agente los lee al momento.",
     );
     if (p.currencies.length > 1) {

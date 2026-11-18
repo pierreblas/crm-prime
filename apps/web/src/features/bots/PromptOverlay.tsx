@@ -5,7 +5,20 @@ import { createPortal } from "react-dom";
 import { NavIcon } from "@/components/NavIcons";
 import { smBtn } from "@/components/ui";
 import { ghostBtn } from "./styles";
-import { collectMarks, findHeadings, pendingSummary, segments, PRODUCT_BASE_FIELDS, type Mark, type PromptTool, type PromptVar } from "./promptMarks";
+import { varKey } from "@crm/shared";
+import {
+  collectMarks,
+  findHeadings,
+  pendingSummary,
+  productDataFields,
+  productDataSentence,
+  segments,
+  PRODUCT_BASE_FIELDS,
+  type Mark,
+  type ProductDataField,
+  type PromptTool,
+  type PromptVar,
+} from "./promptMarks";
 import type { TextHistory } from "./useTextHistory";
 import { TOOL_COPY, TOOL_SNIPPET } from "./agentCopy";
 
@@ -45,15 +58,30 @@ export function PromptOverlay({
   // Dónde dejó el cursor la persona (null = aún no hizo clic en el texto). Las
   // acciones y datos del panel se insertan ahí, nunca «al final» por defecto.
   const caret = useRef<{ start: number; end: number } | null>(null);
-  const [needCaret, setNeedCaret] = useState(false);
+  // Lo que se pulsó en el panel antes de elegir sitio: se inserta con el
+  // siguiente clic en el texto (o «al final», si lo pide).
+  const [waiting, setWaiting] = useState<Waiting | null>(null);
+  const waitingRef = useRef(waiting);
+  waitingRef.current = waiting;
+  // El texto de ahora: lo que espera sitio se inserta sobre lo último escrito, no sobre lo de cuando se pulsó.
+  const valueRef = useRef(value);
+  valueRef.current = value;
   // Lo recién insertado se ilumina un momento para que se vea dónde quedó.
   const [flash, setFlash] = useState<{ start: number; end: number } | null>(null);
 
+  // `onClose` llega nuevo en cada render del editor: por ref, para que abrir
+  // (foco, Esc, bloquear el scroll de la página) ocurra una sola vez y no en
+  // cada tecla.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     // Abre arriba del todo, sin mover la vista al final del texto.
     ta.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      // Con algo esperando sitio, Esc lo cancela; si no, cierra.
+      if (waitingRef.current) setWaiting(null);
+      else onCloseRef.current();
     };
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -62,9 +90,10 @@ export function PromptOverlay({
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, []);
 
-  const marks = useMemo(() => collectMarks(value, tools, contactVars), [value, tools, contactVars]);
+  const dataFields = useMemo(() => productDataFields(productFields), [productFields]);
+  const marks = useMemo(() => collectMarks(value, tools, contactVars, dataFields), [value, tools, contactVars, dataFields]);
   const parts = useMemo(() => {
     if (!flash || flash.end > value.length) return segments(value, marks);
     // El tramo insertado manda sobre cualquier otra marca que lo pise.
@@ -86,8 +115,12 @@ export function PromptOverlay({
   const offMentioned = tools.filter((t) => !t.enabled && mentioned.has(t.name));
   const unknownVars = [...new Set(marks.filter((m) => m.kind === "var-off").map((m) => m.text))];
   const sendsImages = tools.some((t) => t.name === "send_product_image" && t.enabled);
-  const visibleFields = productFields.filter((f) => f.aiVisible);
+  const readsCatalog = tools.some((t) => t.name === "search_products" && t.enabled);
+  const visibleData = dataFields.filter((f) => f.visible);
   const hiddenFields = productFields.filter((f) => !f.aiVisible);
+  // Datos del producto que ya nombra el texto («Precio»…), y los que nombra pero el agente no recibe.
+  const dataNamed = new Set(marks.filter((m) => m.kind === "data").map((m) => varKey(m.text)));
+  const hiddenNamed = [...new Set(marks.filter((m) => m.kind === "data-off").map((m) => m.text))];
   const words = value.trim() ? value.trim().split(/\s+/).length : 0;
 
   const syncScroll = useCallback(() => {
@@ -112,7 +145,6 @@ export function PromptOverlay({
     t.focus({ preventScroll: true });
     t.setSelectionRange(start, end);
     caret.current = { start, end };
-    setNeedCaret(false);
     setRailOpen(false);
   }, []);
 
@@ -120,7 +152,6 @@ export function PromptOverlay({
     const t = ta.current;
     if (!t || document.activeElement !== t) return;
     caret.current = { start: t.selectionStart, end: t.selectionEnd };
-    setNeedCaret(false);
   }, []);
 
   /** Centra en la vista una posición del texto (el textarea y su capa de resaltado a la vez). */
@@ -154,54 +185,93 @@ export function PromptOverlay({
     [reveal],
   );
 
-  /** Dónde dejó el cursor; si no hizo clic en el texto, se le pide (no se adivina). */
-  const where = useCallback(() => {
-    if (ta.current && caret.current) return caret.current;
-    setNeedCaret(true);
+  /**
+   * Hace `run` donde dejó el cursor. Si aún no hizo clic en el texto, no se
+   * adivina el sitio: queda esperando y se hace con el siguiente clic en el
+   * texto (el aviso sale en el propio cuadro, a la vista, y deja ponerlo al final).
+   */
+  const place = useCallback((what: string, run: (at: Caret) => void) => {
+    if (ta.current && caret.current) {
+      setWaiting(null);
+      run(caret.current);
+      return;
+    }
+    setWaiting({ what, run });
     setRailOpen(false);
-    return null;
   }, []);
 
-  /** Inserta un texto donde la persona dejó el cursor (con espacios alrededor si hace falta). */
-  const insert = useCallback(
-    (token: string) => {
-      const at = where();
-      if (!at) return;
-      const before = value.slice(0, at.start);
-      const after = value.slice(at.end);
+  /** Inserta un texto en un sitio (con espacios alrededor si hace falta). */
+  const insertAt = useCallback(
+    (token: string, at: Caret) => {
+      const text = valueRef.current;
+      const before = text.slice(0, at.start);
+      const after = text.slice(at.end);
       const padL = before && !/\s$/.test(before) ? " " : "";
       const padR = after && !/^[\s.,;:)»]/.test(after) ? " " : "";
       onChange(`${before}${padL}${token}${padR}${after}`, "edit");
       const start = at.start + padL.length;
       settle(start, start + token.length, start + token.length + padR.length);
     },
-    [value, onChange, where, settle],
+    [onChange, settle],
   );
 
   /**
    * Inserta una frase entera en su propia línea, debajo de la línea donde está
    * el cursor: así no parte por la mitad la frase que había.
    */
-  const insertLine = useCallback(
-    (sentence: string) => {
-      const at = where();
-      if (!at) return;
-      const eol = value.indexOf("\n", at.end);
-      const pos = eol === -1 ? value.length : eol;
-      const before = value.slice(0, pos);
+  const insertLineAt = useCallback(
+    (sentence: string, at: Caret) => {
+      const text = valueRef.current;
+      const eol = text.indexOf("\n", at.end);
+      const pos = eol === -1 ? text.length : eol;
+      const before = text.slice(0, pos);
       const lineSoFar = before.slice(before.lastIndexOf("\n") + 1);
       const lead = lineSoFar.trim() ? "\n" : "";
-      onChange(`${before}${lead}${sentence}${value.slice(pos)}`, "edit");
+      onChange(`${before}${lead}${sentence}${text.slice(pos)}`, "edit");
       const start = pos + lead.length;
       settle(start, start + sentence.length, start + sentence.length);
     },
-    [value, onChange, where, settle],
+    [onChange, settle],
   );
+
+  const insert = useCallback((token: string) => place(token, (at) => insertAt(token, at)), [place, insertAt]);
+  const insertLine = useCallback((what: string, sentence: string) => place(what, (at) => insertLineAt(sentence, at)), [place, insertLineAt]);
+
+  /** Clic en el texto: recuerda el sitio y, si algo esperaba sitio, lo pone ahí. */
+  const onTextClick = useCallback(() => {
+    rememberCaret();
+    const w = waitingRef.current;
+    if (w && caret.current) {
+      setWaiting(null);
+      w.run(caret.current);
+    }
+  }, [rememberCaret]);
+
+  /** «Ponerlo al final»: para quien no quiere elegir sitio (o usa el teclado). */
+  const placeAtEnd = useCallback(() => {
+    const w = waitingRef.current;
+    if (!w) return;
+    const end = valueRef.current.length;
+    setWaiting(null);
+    w.run({ start: end, end });
+  }, []);
 
   /** Lleva a la siguiente mención de una acción (y vuelve a la primera tras la última). */
   const nextMention = useCallback(
     (name: string) => {
       const all = marks.filter((m) => (m.kind === "tool" || m.kind === "tool-off") && m.text === name);
+      if (!all.length) return;
+      const from = ta.current?.selectionEnd ?? 0;
+      const m = all.find((x) => x.start >= from) ?? all[0]!;
+      goTo(m.start, m.end);
+    },
+    [marks, goTo],
+  );
+
+  /** Lleva a la siguiente mención de un dato del producto («Precio»…). */
+  const nextData = useCallback(
+    (label: string) => {
+      const all = marks.filter((m) => (m.kind === "data" || m.kind === "data-off") && varKey(m.text) === varKey(label));
       if (!all.length) return;
       const from = ta.current?.selectionEnd ?? 0;
       const m = all.find((x) => x.start >= from) ?? all[0]!;
@@ -218,7 +288,7 @@ export function PromptOverlay({
   }, [pendingAll, goTo]);
 
   const enabledTools = tools.filter((t) => t.enabled);
-  const railCount = pending.length + offMentioned.length + unknownVars.length;
+  const railCount = pending.length + offMentioned.length + unknownVars.length + hiddenNamed.length;
 
   // En <body>: el panel del agente crea su propio contexto de apilamiento y,
   // dentro de él, el fondo fijo quedaba por debajo de la cabecera de la app.
@@ -260,7 +330,7 @@ export function PromptOverlay({
         </header>
 
         <div className={`prompt-overlay__body${railOpen ? " is-rail-open" : ""}`}>
-          <div className={`prompt-editor${needCaret ? " is-asking" : ""}`}>
+          <div className={`prompt-editor${waiting ? " is-asking" : ""}`}>
             <div className="prompt-editor__backdrop" ref={backdrop} aria-hidden="true">
               {parts.map((p, i) =>
                 p.mark ? (
@@ -281,11 +351,25 @@ export function PromptOverlay({
               onKeyDown={history.onKeyDown}
               onScroll={syncScroll}
               onKeyUp={rememberCaret}
-              onMouseUp={rememberCaret}
+              onMouseUp={onTextClick}
               onInput={rememberCaret}
               aria-label="Cómo debe atender, en grande"
               spellCheck
             />
+            {waiting && (
+              <div className="prompt-editor__ask" role="status" data-prompt-ask>
+                <NavIcon name="target" size={14} />
+                <span>
+                  Haz clic en el texto donde quieras poner <strong>{waiting.what}</strong>.
+                </span>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={placeAtEnd}>
+                  Ponerlo al final
+                </button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => setWaiting(null)} aria-label="Cancelar">
+                  <NavIcon name="x" size={12} />
+                </button>
+              </div>
+            )}
           </div>
 
           <aside className="prompt-rail" aria-label="Elementos del texto">
@@ -308,12 +392,6 @@ export function PromptOverlay({
 
             <section>
               <h4>Acciones del agente</h4>
-              {needCaret && (
-                <p className="prompt-rail__ask" role="status">
-                  <NavIcon name="target" size={13} />
-                  <span>Primero haz clic en el texto, justo donde quieres que vaya, y vuelve a pulsar.</span>
-                </p>
-              )}
               {enabledTools.length ? (
                 <>
                   <ul className="prompt-acts">
@@ -326,7 +404,7 @@ export function PromptOverlay({
                             type="button"
                             className="prompt-act__main"
                             onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => (used ? nextMention(t.name) : insertLine(sentence))}
+                            onClick={() => (used ? nextMention(t.name) : insertLine(t.title, sentence))}
                             title={used ? "Ir a donde la nombras" : `Añade: «${sentence}»`}
                           >
                             <NavIcon name={TOOL_COPY[t.name]?.icon ?? "bolt"} size={14} />
@@ -353,7 +431,7 @@ export function PromptOverlay({
                               type="button"
                               className="prompt-act__more"
                               onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => insertLine(sentence)}
+                              onClick={() => insertLine(t.title, sentence)}
                               aria-label={`Añadir otra frase con «${t.title}»`}
                               title={`Añadir otra frase: «${sentence}»`}
                             >
@@ -383,26 +461,52 @@ export function PromptOverlay({
 
             <section>
               <h4>Datos de cada producto</h4>
+              {!readsCatalog && (
+                <p className="prompt-rail__warn" data-catalog-off>
+                  <NavIcon name="alert" size={13} />
+                  <span>Sin la acción «Consultar tus productos y precios» el agente no ve el catálogo: actívala en «Qué puede hacer».</span>
+                </p>
+              )}
               <div className="prompt-rail__list">
-                {PRODUCT_BASE_FIELDS.map((f) => (
-                  <button key={`b-${f.label}`} type="button" className="prompt-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(f.label.toLowerCase())} title={`${f.hint} Clic para insertarlo.`}>
-                    <NavIcon name="package" size={11} /> {f.label}
-                  </button>
+                {visibleData.map((f) => (
+                  <DataChip
+                    key={f.label}
+                    field={f}
+                    base={PRODUCT_BASE_FIELDS.some((b) => b.label === f.label)}
+                    named={dataNamed.has(varKey(f.label))}
+                    onAdd={() => insertLine(`«${f.label}»`, productDataSentence(f.label))}
+                    onFind={() => nextData(f.label)}
+                  />
                 ))}
                 {sendsImages && (
-                  <button type="button" className="prompt-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => insert("send_product_image")} title="Puede enviar la foto del producto. Clic para nombrar la acción.">
-                    <NavIcon name="image" size={11} /> Foto
+                  <button
+                    type="button"
+                    className={`prompt-chip prompt-chip--data${mentioned.has("send_product_image") ? " is-used" : ""}`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() =>
+                      mentioned.has("send_product_image")
+                        ? nextMention("send_product_image")
+                        : insertLine("la foto", TOOL_SNIPPET.send_product_image ?? "Si el cliente quiere ver un producto, envíale la foto con send_product_image.")
+                    }
+                    title={mentioned.has("send_product_image") ? "Ya pides enviar la foto: clic para ir." : "Añade una frase para que envíe la foto del producto."}
+                  >
+                    <NavIcon name="image" size={11} /> Foto {mentioned.has("send_product_image") && <NavIcon name="check" size={11} />}
                   </button>
                 )}
-                {visibleFields.map((f) => (
-                  <button key={`c-${f.label}`} type="button" className="prompt-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(f.label.toLowerCase())} title="Campo propio del catálogo. Clic para insertarlo.">
-                    <NavIcon name="tag" size={11} /> {f.label}
-                  </button>
-                ))}
               </div>
               <p className="prompt-rail__hint">
-                Los consulta con <code>search_products</code>: pídele que los busque y los cite («dale la fecha de inicio y el horario del curso que pregunte»). No copies el dato en el texto: cambia y el agente lo leería viejo.
+                Al pulsar uno se añade una frase que le pide consultarlo con <code>search_products</code>. Escríbelos entre « », como{" "}
+                <span className="pm pm-data">«Fecha de inicio»</span>: se marcan porque el agente los recibe con ese mismo nombre. No copies el valor:
+                cambia y lo leería viejo.
               </p>
+              {hiddenNamed.length > 0 && (
+                <p className="prompt-rail__warn">
+                  <NavIcon name="alert" size={13} />
+                  <span>
+                    Nombras {hiddenNamed.map((l) => `«${l}»`).join(", ")}, pero el agente no {hiddenNamed.length === 1 ? "lo recibe" : "los recibe"}: enciende «Lo usa el agente» en Productos › Campos.
+                  </span>
+                </p>
+              )}
               {hiddenFields.length > 0 && (
                 <p className="prompt-rail__warn">
                   <NavIcon name="alert" size={13} />
@@ -471,10 +575,62 @@ export function PromptOverlay({
   );
 }
 
+type Caret = { start: number; end: number };
+/** Algo pulsado en el panel que espera a que se elija dónde ponerlo. */
+type Waiting = { what: string; run: (at: Caret) => void };
+
+/**
+ * Un dato del producto en el panel. Sin nombrar: añade una frase que pide
+ * consultarlo. Ya nombrado en el texto: lo dice y lleva a donde aparece.
+ */
+function DataChip({
+  field,
+  base,
+  named,
+  onAdd,
+  onFind,
+}: {
+  field: ProductDataField;
+  base: boolean;
+  named: boolean;
+  onAdd: () => void;
+  onFind: () => void;
+}) {
+  const hint = PRODUCT_BASE_FIELDS.find((b) => b.label === field.label)?.hint ?? "Campo propio del catálogo.";
+  return (
+    <button
+      type="button"
+      className={`prompt-chip prompt-chip--data${named ? " is-used" : ""}`}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={named ? onFind : onAdd}
+      title={named ? `Ya nombras «${field.label}»: clic para ir.` : `${hint} Clic: añade una frase que le pide consultarlo.`}
+      data-product-data={field.label}
+    >
+      <NavIcon name={base ? "package" : "tag"} size={11} /> {field.label}
+      {named && <NavIcon name="check" size={11} />}
+    </button>
+  );
+}
+
 /** Una línea bajo el cuadro pequeño: qué hay dentro y un acceso a la ventana grande. */
-export function PromptStatusLine({ value, tools, vars, onOpen }: { value: string; tools: PromptTool[]; vars: PromptVar[]; onOpen: () => void }) {
-  const marks = useMemo(() => collectMarks(value, tools, vars), [value, tools, vars]);
+export function PromptStatusLine({
+  value,
+  tools,
+  vars,
+  data = [],
+  onOpen,
+}: {
+  value: string;
+  tools: PromptTool[];
+  vars: PromptVar[];
+  /** Datos del producto que se pueden nombrar entre « ». */
+  data?: ProductDataField[];
+  onOpen: () => void;
+}) {
+  const marks = useMemo(() => collectMarks(value, tools, vars, data), [value, tools, vars, data]);
   const badVars = new Set(marks.filter((m) => m.kind === "var-off").map((m) => m.text)).size;
+  const dataNamed = new Set(marks.filter((m) => m.kind === "data").map((m) => varKey(m.text))).size;
+  const dataHidden = new Set(marks.filter((m) => m.kind === "data-off").map((m) => varKey(m.text))).size;
   const pending = marks.filter((m) => m.kind === "pending").length;
   const off = new Set(marks.filter((m) => m.kind === "tool-off").map((m) => m.text)).size;
   const used = new Set(marks.filter((m) => m.kind === "tool").map((m) => m.text)).size;
@@ -483,7 +639,9 @@ export function PromptStatusLine({ value, tools, vars, onOpen }: { value: string
   if (pending) bits.push(<span key="p" className="prompt-status__warn">{pending} por rellenar</span>);
   if (off) bits.push(<span key="o" className="prompt-status__warn">{off} {off === 1 ? "acción desactivada nombrada" : "acciones desactivadas nombradas"}</span>);
   if (badVars) bits.push(<span key="v" className="prompt-status__warn">{badVars} {badVars === 1 ? "variable que no existe" : "variables que no existen"}</span>);
+  if (dataHidden) bits.push(<span key="dh" className="prompt-status__warn">{dataHidden === 1 ? "1 dato de producto que el agente no ve" : `${dataHidden} datos de producto que el agente no ve`}</span>);
   if (used) bits.push(<span key="u">{used === 1 ? "1 acción nombrada" : `${used} acciones nombradas`}</span>);
+  if (dataNamed) bits.push(<span key="d">{dataNamed === 1 ? "1 dato de producto" : `${dataNamed} datos de producto`}</span>);
   if (heads) bits.push(<span key="h">{heads === 1 ? "1 sección" : `${heads} secciones`}</span>);
   if (!value.trim()) return null;
   return (
