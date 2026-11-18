@@ -31,6 +31,8 @@ export interface SystemEmailContent {
   context?: string;
   title: string;
   paragraphs: string[];
+  /** Un código para escribir en pantalla (el del alta), grande y en monoespaciada. */
+  code?: { value: string; facts?: string };
   /** El botón principal (lima), con la dirección debajo por si el botón no se ve. */
   action?: Action & { facts?: string };
   /** Un recuadro de aviso, con su propio botón si hace falta. */
@@ -109,6 +111,10 @@ function textOf(c: SystemEmailContent): string {
   const parts: string[] = [];
   if (c.context) parts.push(c.context);
   parts.push(...c.paragraphs);
+  if (c.code) {
+    parts.push(c.code.value);
+    if (c.code.facts) parts.push(c.code.facts);
+  }
   if (c.action) {
     parts.push(c.action.url);
     if (c.action.facts) parts.push(c.action.facts);
@@ -143,6 +149,20 @@ function htmlOf(c: SystemEmailContent): string {
 
   const context = c.context
     ? `<p style="margin:0 0 10px;font-family:${MONO};font-size:11px;line-height:16px;letter-spacing:0.08em;text-transform:uppercase;color:${C.muted}">${e(c.context)}</p>`
+    : "";
+
+  // El código, en un recuadro aparte y en monoespaciada: que no se confunda un
+  // 0 con una O y que se pueda copiar de un toque en el teléfono.
+  const code = c.code
+    ? `
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:22px 0 0">
+  <tr>
+    <td align="center" bgcolor="${C.well}" style="background:${C.well};border:1px solid ${C.rule};border-left:4px solid ${C.lime};padding:20px 12px">
+      <span class="code" style="font-family:${MONO};font-size:34px;line-height:40px;font-weight:700;letter-spacing:10px;color:${C.ink}">${e(c.code.value)}</span>
+    </td>
+  </tr>
+</table>
+${c.code.facts ? `<p style="margin:12px 0 0;font-family:${MONO};font-size:11px;line-height:16px;letter-spacing:0.08em;text-transform:uppercase;color:${C.muted}">${e(c.code.facts)}</p>` : ""}`
     : "";
 
   const action = c.action
@@ -204,6 +224,7 @@ ${c.action.facts ? `<p style="margin:12px 0 0;font-family:${MONO};font-size:11px
     .title{font-size:22px!important;line-height:28px!important}
     .btn{width:100%!important}
     .btn a{display:block!important}
+    .code{font-size:28px!important;letter-spacing:6px!important}
   }
 </style>
 </head>
@@ -225,6 +246,7 @@ ${c.action.facts ? `<p style="margin:12px 0 0;font-family:${MONO};font-size:11px
             ${context}
             <h1 class="title" style="margin:0 0 18px;font-family:${SANS};font-size:24px;line-height:30px;font-weight:700;color:${C.ink}">${e(c.title)}</h1>
             ${c.paragraphs.map(p).join("\n            ")}
+            ${code}
             ${action}
             ${callout}
             ${note}

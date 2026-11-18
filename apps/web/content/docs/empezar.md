@@ -6,7 +6,8 @@ Driony es un CRM para vender por WhatsApp: una bandeja con todos tus números, a
 
 1. Entra en [driony.com/signup](/signup) y escribe el nombre de tu empresa, tu nombre y tu correo.
 2. Te proponemos un **subdominio** a partir del nombre (`tu-empresa.driony.com`). Puedes cambiarlo antes de terminar; después ya no, porque es la dirección que compartirás con tu equipo.
-3. Al terminar entras directamente en tu panel, como administrador.
+3. Te mandamos un **código de 6 cifras** a tu correo para confirmar que es tuyo. Escríbelo en la pantalla del alta: vale 15 minutos y, si no te llega, puedes pedir otro al minuto (revisa también la carpeta de spam).
+4. Al terminar entras directamente en tu panel, como administrador.
 
 ## Primeros pasos, dentro de Driony
 

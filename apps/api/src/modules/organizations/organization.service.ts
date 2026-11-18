@@ -25,6 +25,7 @@ import { env } from "../../common/utils/env";
 
 import { DEFAULT_STAGES } from "../pipeline/pipeline.service";
 import { PROMPT_POR_DEFECTO } from "./default-prompt";
+import { SignupVerificationService } from "./signup-verification.service";
 
 
 /** Altas por IP en la ventana. Cinco empresas por hora es mucho para un humano. */
@@ -44,6 +45,7 @@ export class OrganizationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly verification: SignupVerificationService,
   ) {}
 
   /** Dominio bajo el que cuelgan los subdominios: `acme.<base>`. */
@@ -92,6 +94,12 @@ export class OrganizationService {
       throw new ConflictException(`El subdominio "${slug}" ya está ocupado`);
     }
 
+    // El correo, confirmado con el código que le llegó. Después del subdominio
+    // a propósito: un subdominio ocupado no gasta intentos del código.
+    const confirmado = this.verification.enabled()
+      ? await this.verification.verify(input.adminEmail, input.emailCode)
+      : null;
+
     const passwordHash = await bcrypt.hash(input.password, 10);
 
     // La petición entra por el dominio raíz, sin empresa en contexto. Sin
@@ -124,6 +132,7 @@ export class OrganizationService {
               passwordHash,
               name: input.adminName,
               role: "ADMIN",
+              emailVerifiedAt: confirmado ? new Date() : null,
             },
           });
 
@@ -184,6 +193,7 @@ export class OrganizationService {
 
       this.log.log(`Empresa dada de alta: ${org.slug} (${org.name})`);
       this.registrarAlta(ip ?? "?");
+      if (confirmado) await this.verification.consume(confirmado.id);
 
       // El pase para entrar en el subdominio nuevo sin volver a escribir la
       // contraseña. Dos minutos y un solo uso (lo hace cumplir AuthService).

@@ -18,8 +18,8 @@ export interface SystemMailTransport {
 export const SYSTEM_MAIL_TRANSPORT = Symbol("SYSTEM_MAIL_TRANSPORT");
 
 /**
- * Correos del sistema: hoy, el enlace para elegir contraseña nueva y el aviso de
- * que se cambió. Salen por el SMTP del `.env` (MAIL_SMTP_*), que pone quien
+ * Correos del sistema: el código que confirma el correo en el alta de empresa,
+ * el enlace para elegir contraseña nueva y el aviso de que se cambió. Salen por el SMTP del `.env` (MAIL_SMTP_*), que pone quien
  * opera el servidor; no tienen nada que ver con los buzones de las empresas
  * (módulo de correo), que se configuran en la app.
  *

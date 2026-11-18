@@ -166,6 +166,24 @@ export const ES_TO_EN: Record<string, string> = {
     "This key does not belong to the company at this address",
   "Solo un administrador puede conectar números":
     "Only an administrator can connect numbers",
+  // Código que confirma el correo en el alta. Los de `emailCode:` llevan el
+  // campo delante para que la web lo marque; se traducen enteros.
+  "Este servidor no manda correos: el alta no necesita código.":
+    "This server doesn't send emails: sign-up doesn't need a code.",
+  "Ya te mandamos varios códigos a este correo. Revisa la carpeta de spam o inténtalo dentro de una hora.":
+    "We've already sent several codes to this email. Check your spam folder or try again in an hour.",
+  "Hay demasiadas altas en este momento. Inténtalo en unos minutos.":
+    "Too many sign-ups right now. Try again in a few minutes.",
+  "No pudimos enviar el correo. Revisa la dirección o inténtalo en un momento.":
+    "We couldn't send the email. Check the address or try again in a moment.",
+  "emailCode: Escribe el código que te mandamos al correo.":
+    "emailCode: Type the code we sent to your email.",
+  "emailCode: Ese código ya no sirve: caducó o se pidió otro después. Pide uno nuevo.":
+    "emailCode: That code no longer works: it expired or a newer one was requested. Ask for a new one.",
+  "emailCode: El código no es correcto. Revisa el último correo que te llegó.":
+    "emailCode: That code isn't right. Check the latest email you got.",
+  "emailCode: Demasiados intentos con este código. Pide uno nuevo.":
+    "emailCode: Too many tries with this code. Ask for a new one.",
 };
 
 /**

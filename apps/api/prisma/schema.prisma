@@ -360,6 +360,9 @@ model User {
   name         String?
   role         Role     @default(AGENT)
   isActive     Boolean  @default(true)
+  // Cuándo demostró que el correo es suyo (el código del alta). null = nunca:
+  // los que crea un administrador entran sin código.
+  emailVerifiedAt DateTime?
   // Tours guiados de pantalla que ya vio (no se repiten en otro dispositivo).
   // Qué ve y qué puede hacer (ver packages/shared/src/permissions.ts). null = lo de su rol.
   permissions  Json?
@@ -465,6 +468,23 @@ model PasswordReset {
   @@index([userId, createdAt])
   @@index([orgId])
   @@map("password_resets")
+}
+
+// Código para confirmar el correo al dar de alta una empresa. Se pide antes de
+// que la empresa exista, así que no lleva orgId: no está en TENANT_MODELS ni
+// tiene RLS, igual que platform_audit_log. Un código vivo por correo (el nuevo
+// sustituye al anterior); se guarda su HMAC, nunca el código.
+model SignupVerification {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  sentAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@map("signup_verifications")
 }
 
 // Dispositivos para notificaciones push (FCM/APNs). Independiente de Session:

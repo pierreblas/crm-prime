@@ -34,6 +34,7 @@
     "test:followups": "tsx --test test/follow-ups.test.ts",
     "test:contactvars": "tsx --test test/contact-vars.test.ts",
     "test:email": "tsx --test test/email.test.ts",
+    "test:signupcode": "tsx --test test/signup-verification.test.ts",
     "test:simulator": "tsx --test test/simulator.test.ts",
     "test:copilot": "tsx --test test/copilot.test.ts",
     "test:dashboard": "tsx --test test/dashboard.test.ts",

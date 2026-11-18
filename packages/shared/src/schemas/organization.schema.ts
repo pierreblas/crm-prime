@@ -81,6 +81,42 @@ export const orgSlugSchema = z
     message: "Ese subdominio está reservado, elige otro",
   });
 
+// ── Confirmar el correo en el alta ───────────────────────────
+/** Cifras del código que llega por correo al darse de alta. */
+export const SIGNUP_CODE_LENGTH = 6;
+/** Lo que vale el código: quien lo pidió tiene la pantalla del alta abierta. */
+export const SIGNUP_CODE_MINUTES = 15;
+/** Espera entre un código y el siguiente al mismo correo. */
+export const SIGNUP_CODE_RESEND_SECONDS = 60;
+
+/** El código tal como lo escribe la gente: se le quitan espacios y guiones al pegarlo. */
+export const signupCodeSchema = z
+  .string()
+  .transform((s) => s.replace(/[\s-]/g, ""))
+  .pipe(z.string().regex(new RegExp(`^\\d{${SIGNUP_CODE_LENGTH}}$`), `El código tiene ${SIGNUP_CODE_LENGTH} cifras`));
+
+/** «Mándame el código»: a qué correo y en qué idioma escribirlo. */
+export const signupCodeRequestSchema = z.object({
+  email: z.string().trim().email().max(200),
+  locale: z.enum(["es", "en"]).optional(),
+});
+export type SignupCodeRequest = z.infer<typeof signupCodeRequestSchema>;
+
+/** Código enviado: cuánto vale y cuándo se puede pedir otro. */
+export interface SignupCodeSent {
+  email: string;
+  expiresInMinutes: number;
+  resendInSeconds: number;
+}
+
+/**
+ * Qué pide el alta en este servidor. Sin correo del sistema (MAIL_SMTP_HOST)
+ * no hay cómo mandar el código, y el alta sigue sin ese paso.
+ */
+export interface SignupOptions {
+  emailCode: boolean;
+}
+
 /** Alta de una empresa nueva: crea la organización y su primer administrador. */
 export const registerOrgSchema = z.object({
   companyName: z.string().trim().min(2).max(120),
@@ -88,6 +124,11 @@ export const registerOrgSchema = z.object({
   adminName: z.string().trim().min(1).max(120),
   adminEmail: z.string().email(),
   password: z.string().min(8).max(200),
+  /**
+   * El código que llegó a `adminEmail`. Opcional en el esquema porque sin correo
+   * del sistema no hay código; con correo, el servidor no crea nada sin él.
+   */
+  emailCode: signupCodeSchema.optional(),
   /** Lo armado en el simulador de la landing, si vino de ahí: rellena el asistente de bienvenida. */
   setup: setupDraftSchema.optional(),
 });

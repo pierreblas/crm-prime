@@ -26,6 +26,10 @@ let prisma: any;
 let base: any;
 let ctx: typeof import("../src/infra/tenant/tenant.context");
 
+// El alta sin el paso del código (como un servidor sin correo del sistema):
+// aquí se prueba el aislamiento, no la confirmación del correo.
+const SIN_CODIGO = { enabled: () => false } as any;
+
 before(async () => {
   const { PrismaClient } = await import("@prisma/client");
   const { tenantScopeExtension } = await import("../src/infra/tenant/tenant-scope");
@@ -168,6 +172,7 @@ test("el alta de una empresa funciona con el rol restringido", async () => {
   const svc = new OrganizationService(
     prisma,
     new JwtService({ secret: process.env.JWT_ACCESS_SECRET }),
+    SIN_CODIGO,
   );
 
   const slug = `alta-${Date.now()}`;
@@ -431,7 +436,7 @@ test("el asistente de bienvenida construye la IA con el rol restringido, solo en
   const { businessSetupSchema } = await import("@crm/shared");
 
   const slug = `bienvenida-${Date.now()}`;
-  const alta = await new OrganizationService(prisma, new JwtService({ secret: process.env.JWT_ACCESS_SECRET })).register(
+  const alta = await new OrganizationService(prisma, new JwtService({ secret: process.env.JWT_ACCESS_SECRET }), SIN_CODIGO).register(
     { companyName: "Cevichería de prueba", slug, adminName: "Ana", adminEmail: `ana@${slug}.test`, password: "clave-larga-123" },
     "127.0.0.2",
   );
@@ -1238,7 +1243,7 @@ test("renovar la sesión funciona con el rol restringido, sin empresa en context
   const { AuthService } = await import("../src/modules/auth/auth.service");
   const { TenantService } = await import("../src/infra/tenant/tenant.service");
   const jwt = new JwtService({ secret: process.env.JWT_ACCESS_SECRET });
-  const orgs = new OrganizationService(prisma, jwt);
+  const orgs = new OrganizationService(prisma, jwt, SIN_CODIGO);
   const auth = new AuthService(prisma, new TenantService(prisma), orgs, jwt);
 
   const slug = `sesion-${Date.now()}`;
@@ -2561,7 +2566,7 @@ test("recuperar la contraseña: por correo, por el administrador y por el operad
   const { SystemMailer } = await import("../src/modules/auth/system-mailer");
   const { TenantService } = await import("../src/infra/tenant/tenant.service");
   const jwt = new JwtService({ secret: process.env.JWT_ACCESS_SECRET });
-  const orgs = new OrganizationService(prisma, jwt);
+  const orgs = new OrganizationService(prisma, jwt, SIN_CODIGO);
   const tenant = new TenantService(prisma);
   const auth = new AuthService(prisma, tenant, orgs, jwt);
   const sent: Array<{ to: string; subject: string; text: string; html: string }> = [];

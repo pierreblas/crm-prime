@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { setupDraftSchema, type SetupDraft } from "@crm/shared";
 import { currentOrgSlug } from "@/lib/org";
 import { SignupForm } from "./SignupForm";
+import { signupOptions } from "./actions";
 
 export const metadata = { title: "Crea tu empresa" };
 
@@ -24,13 +25,16 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
     }
   }
 
+  // Con correo del sistema, el alta confirma el correo con un código.
+  const { emailCode } = await signupOptions();
+
   return (
     <main style={{ display: "grid", placeItems: "center", minHeight: "100vh", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <p style={{ margin: "0 0 14px", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>
           Driony
         </p>
-        <SignupForm baseDomain={process.env.SAAS_BASE_DOMAIN ?? "localhost:3000"} setup={setup} />
+        <SignupForm baseDomain={process.env.SAAS_BASE_DOMAIN ?? "localhost:3000"} setup={setup} emailCode={emailCode} />
       </div>
     </main>
   );

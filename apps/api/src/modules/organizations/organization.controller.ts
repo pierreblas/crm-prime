@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   Post,
   Query,
@@ -10,10 +11,18 @@ import {
 } from "@nestjs/common";
 import type { Request } from "express";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
-import { registerOrgSchema, type RegisterOrgInput } from "@crm/shared";
+import {
+  registerOrgSchema,
+  signupCodeRequestSchema,
+  type RegisterOrgInput,
+  type SignupCodeRequest,
+  type SignupCodeSent,
+  type SignupOptions,
+} from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { tenancyMode } from "../../infra/tenant/tenant.context";
 import { OrganizationService } from "./organization.service";
+import { SignupVerificationService } from "./signup-verification.service";
 
 /**
  * Alta y resolución de empresas.
@@ -30,7 +39,10 @@ import { OrganizationService } from "./organization.service";
 @ApiTags("Organizaciones")
 @Controller("organizations")
 export class OrganizationController {
-  constructor(private readonly orgs: OrganizationService) {}
+  constructor(
+    private readonly orgs: OrganizationService,
+    private readonly verification: SignupVerificationService,
+  ) {}
 
   private assertSaaS(): void {
     if (tenancyMode !== "multi") {
@@ -38,6 +50,25 @@ export class OrganizationController {
         "Esta instalación funciona con una sola empresa (TENANCY_MODE=single)",
       );
     }
+  }
+
+  /** Qué pide el alta: sin correo del sistema no hay código que confirmar. */
+  @Get("signup-options")
+  @ApiOperation({ summary: "Qué pasos tiene el alta en este servidor" })
+  signupOptions(): SignupOptions {
+    this.assertSaaS();
+    return this.verification.options();
+  }
+
+  /** Manda el código para confirmar el correo del administrador antes de crear la empresa. */
+  @Post("signup-code")
+  @HttpCode(202)
+  @ApiOperation({ summary: "Manda el código para confirmar el correo del alta" })
+  signupCode(
+    @Body(new ZodValidationPipe(signupCodeRequestSchema)) body: SignupCodeRequest,
+  ): Promise<SignupCodeSent> {
+    this.assertSaaS();
+    return this.verification.request(body);
   }
 
   @Post("register")
