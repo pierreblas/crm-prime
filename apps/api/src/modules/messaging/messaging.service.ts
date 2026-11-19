@@ -85,7 +85,14 @@ function toAdReferral(r: MetaReferral): AdReferral {
 }
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
-const OPT_OUT_KEYWORDS = ["BAJA", "STOP", "CANCELAR"];
+/**
+ * Baja de los mensajes que enviamos por iniciativa propia (difusiones,
+ * seguimientos, flujos programados). Escrita o con el botón de una plantilla
+ * («BAJA», «STOP»). «CANCELAR» no: es lo que escribe quien cancela una cita o
+ * un pedido (y el botón del recordatorio de cita), y daba de baja al cliente
+ * para siempre.
+ */
+const OPT_OUT_KEYWORDS = ["BAJA", "STOP"];
 
 export interface InboundMessage {
   from: string; // teléfono E.164, o su identificador si escribe con usuario de WhatsApp sin compartir el número
@@ -411,7 +418,8 @@ export class MessagingService {
     const windowExpiresAt = new Date(sentAt.getTime() + (social?.windowMs ?? WINDOW_MS));
     const isNewConversation = !open;
     // Tras cerrar, el siguiente mensaje abre otra conversación: hereda el modo
-    // de la IA de la anterior (si estaba en Autopilot, sigue en Autopilot).
+    // de la IA de la anterior. Si el agente responde solo, AutomationService la
+    // pasa a Autopilot salvo que la IA estuviera apagada (OFF) para el cliente.
     const previous = open
       ? null
       : await this.prisma.conversation.findFirst({
@@ -525,18 +533,30 @@ export class MessagingService {
       );
       return;
     }
+    // El «BAJA» en sí no se contesta solo (`optOut` en el aviso: la
+    // automatización lo deja pasar). Lo que escriba después sí: la baja frena
+    // lo que enviamos por iniciativa propia, no las respuestas a quien nos
+    // escribe. El aviso sale igual: las difusiones cuentan la respuesta.
+    if (optOut) {
+      this.logger.log(`${msg.from} pidió la baja: no recibirá difusiones, seguimientos ni flujos programados`);
+    }
     // Conversación nueva: dispara la automatización de bienvenida / autopilot
     // por defecto (AutomationService) antes del flujo normal de entrante.
     if (isNewConversation) {
       this.events.emit("conversation.created", {
         conversationId: conversation.id,
         messageId: saved.id,
+        ...(optOut ? { optOut: true } : {}),
       });
     }
     // Disparar la automatización de IA (palabras clave, horario, autopilot).
     // Lo maneja AutomationService de forma asíncrona con sus guardrails. Con
     // el mensaje: cada uno se atiende con su texto, aunque lleguen seguidos.
-    this.events.emit("conversation.inbound", { conversationId: conversation.id, messageId: saved.id });
+    this.events.emit("conversation.inbound", {
+      conversationId: conversation.id,
+      messageId: saved.id,
+      ...(optOut ? { optOut: true } : {}),
+    });
   }
 
   /**
@@ -631,6 +651,7 @@ export class MessagingService {
     text?: string;
     note?: string;
     channelPhoneNumberId?: string;
+    timestampMs?: number;
   }): Promise<void> {
     const existing = await this.prisma.message.findUnique({
       where: { waMessageId: echo.waMessageId },
@@ -647,6 +668,16 @@ export class MessagingService {
     const orgId = channel?.orgId ?? this.tenant.orgId();
 
     const now = new Date();
+    // Igual que un mensaje del cliente (ver STALE_MS): un eco anterior a
+    // conectar el número o de hace horas es pasado (Meta reintenta avisos que
+    // no pudo entregar). Se guarda en su chat, pero no abre uno, no pausa la
+    // IA ni programa seguimientos o flujos «el cliente no responde»: eso
+    // hacía que el agente escribiera a clientes antiguos al conectar.
+    const sentAt = echo.timestampMs && echo.timestampMs < now.getTime() ? new Date(echo.timestampMs) : now;
+    if (now.getTime() - sentAt.getTime() > STALE_MS || (!!channel?.connectedAt && sentAt < channel.connectedAt)) {
+      await this.saveStaleEcho(orgId, channelId, echo, sentAt);
+      return;
+    }
     const phone = await this.contactPhone(orgId, echo.to, echo.toUserId);
     const contact = await this.prisma.contact.upsert({
       where: { orgId_phone: { orgId, phone } },
@@ -706,6 +737,50 @@ export class MessagingService {
     this.outboundSent(orgId, conversation.id, echoMsg.id, MessageAuthor.HUMAN);
     this.logger.log(`→ (desde celular) ${echo.to}: "${echo.text ?? echo.type}"`);
     this.notify(conversation.id);
+  }
+
+  /** Un eco viejo: como el historial, en el último chat del cliente (o uno cerrado), sin despertar nada. */
+  private async saveStaleEcho(
+    orgId: string,
+    channelId: string | null,
+    echo: { to: string; toUserId?: string; waMessageId: string; type: MessageType; text?: string; note?: string; channelPhoneNumberId?: string },
+    sentAt: Date,
+  ): Promise<void> {
+    const phone = await this.contactPhone(orgId, echo.to, echo.toUserId);
+    const contact = await this.prisma.contact.upsert({
+      where: { orgId_phone: { orgId, phone } },
+      create: {
+        orgId,
+        phone,
+        waUserId: echo.toUserId ?? null,
+        lastMessageAt: sentAt,
+        origin: "whatsapp",
+        originDetail: echo.channelPhoneNumberId ?? null,
+        sourceId: await fuenteAutomatica(this.prisma, orgId, "whatsapp"),
+      },
+      update: {},
+    });
+    const conversation =
+      (await this.prisma.conversation.findFirst({ where: { contactId: contact.id }, orderBy: { createdAt: "desc" }, select: { id: true } })) ??
+      (await this.prisma.conversation.create({
+        data: { orgId, contactId: contact.id, channelId, status: "CLOSED", lastMessageAt: sentAt },
+        select: { id: true },
+      }));
+    await this.prisma.message.create({
+      data: {
+        orgId,
+        conversationId: conversation.id,
+        waMessageId: echo.waMessageId,
+        direction: MessageDirection.OUTBOUND,
+        type: echo.type,
+        author: MessageAuthor.HUMAN,
+        content: echo.text,
+        note: echo.note ?? null,
+        status: MessageStatus.SENT,
+        createdAt: sentAt,
+      },
+    });
+    this.logger.warn(`Eco antiguo a ${echo.to} (${sentAt.toISOString()}): se guarda sin pausar la IA ni programar seguimientos`);
   }
 
   // ── Messenger / Instagram: ecos, leídos y borrados ─────────────

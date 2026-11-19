@@ -187,3 +187,11 @@ test("el aviso con el contenido de un archivo completa su hueco del historial", 
   await d.svc.handleHistory({ ...historyJob, type: MessageType.TEXT, note: HISTORY_MEDIA_NOTE });
   assert.equal(d.updates.length, 0, "si llega al revés, el archivo no vuelve a ser un hueco");
 });
+
+test("el eco trae cuándo lo envió el negocio: así uno viejo no se toma por respuesta de ahora", () => {
+  const [withTime] = echo({ type: "text", text: { body: "te escribo mañana" }, timestamp: "1739230955" }) as any[];
+  assert.equal(withTime.kind, "echo");
+  assert.equal(withTime.timestampMs, 1739230955_000);
+  const [without] = echo({ type: "text", text: { body: "hola" } }) as any[];
+  assert.equal(without.timestampMs, undefined, "sin fecha de Meta, se toma como de ahora");
+});

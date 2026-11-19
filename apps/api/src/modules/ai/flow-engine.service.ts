@@ -112,7 +112,8 @@ export class FlowEngineService {
       where: { id: conversationId },
       include: { contact: true },
     });
-    if (!convo || !convo.contact.optIn) return false;
+    // Responde a un mensaje del cliente: la baja no lo frena (sí los flujos programados).
+    if (!convo) return false;
     const text = await this.lastInboundText(conversationId, messageId);
     const ctx = () => this.condCtx(conversationId, text, {});
 
@@ -451,7 +452,8 @@ export class FlowEngineService {
       where: { id: conversationId },
       include: { contact: true },
     });
-    if (!convo || !convo.contact.optIn) return false;
+    // Responde a un mensaje del cliente: la baja no lo frena (sí los flujos programados).
+    if (!convo) return false;
 
     const inbound = await this.lastInbound(conversationId, messageId);
     const text = inbound.text;

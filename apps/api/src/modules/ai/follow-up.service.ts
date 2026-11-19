@@ -207,6 +207,8 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     if (!bot || !cfg || !step) return clear("el agente ya no tiene seguimientos");
     if (convo.status === "CLOSED") return clear("chat cerrado");
     if (!followUpAllowed(cfg, convo)) return clear("el chat lo lleva una persona");
+    const contact = await this.prisma.contact.findUnique({ where: { id: convo.contactId }, select: { optIn: true } });
+    if (contact && !contact.optIn) return clear("el cliente pidió la baja");
 
     // Lo normal es que un mensaje del cliente ya haya limpiado el plan; por si acaso.
     const last = await this.prisma.message.findFirst({

@@ -51,6 +51,8 @@ export interface InboundEchoJob {
   text?: string;
   note?: string;
   channelPhoneNumberId?: string;
+  /** Cuándo lo envió el negocio (el `timestamp` de Meta), en ms. */
+  timestampMs?: number;
 }
 
 // Coexistencia: el negocio editó o borró desde el celular un mensaje ya enviado.
@@ -210,6 +212,7 @@ interface MetaMessageEcho extends MetaContent {
   to_user_id?: string;
   from?: string;
   id: string;
+  timestamp?: string;
   reaction?: { message_id: string; emoji?: string };
   /** Borró desde el celular un mensaje ya enviado. */
   revoke?: { original_message_id?: string };
@@ -443,6 +446,7 @@ export function normalizeWebhook(body: MetaWebhookBody): InboundJob[] {
           waMessageId: e.id,
           type: TYPE_MAP[e.type] ?? MessageType.TEXT,
           ...readMetaMessage(e, "business"),
+          ...(e.timestamp ? { timestampMs: Number(e.timestamp) * 1000 } : {}),
           channelPhoneNumberId,
         });
       }

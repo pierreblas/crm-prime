@@ -93,6 +93,7 @@ export class InboundProcessor extends WorkerHost {
         text: data.text,
         note: data.note,
         channelPhoneNumberId: data.channelPhoneNumberId,
+        timestampMs: data.timestampMs,
       });
       return;
     }

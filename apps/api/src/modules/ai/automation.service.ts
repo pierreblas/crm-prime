@@ -60,10 +60,10 @@ export class AutomationService {
 
   // ── Conversación nueva: bienvenida + autopilot por defecto ──
   @OnEvent("conversation.created")
-  async onCreated(payload: { conversationId: string; messageId?: string }): Promise<void> {
+  async onCreated(payload: { conversationId: string; messageId?: string; optOut?: boolean }): Promise<void> {
     const { conversationId } = payload;
     // Se registra antes del primer await: el «entrante» se emite justo después.
-    const run = this.handleCreated(conversationId, payload.messageId);
+    const run = this.handleCreated(conversationId, payload.messageId, !!payload.optOut);
     this.creating.set(conversationId, run);
     try {
       await run;
@@ -73,25 +73,30 @@ export class AutomationService {
     }
   }
 
-  private async handleCreated(conversationId: string, messageId?: string): Promise<boolean> {
+  private async handleCreated(conversationId: string, messageId?: string, optOut = false): Promise<boolean> {
     try {
       const convo = await this.prisma.conversation.findUnique({
         where: { id: conversationId },
         include: { contact: true },
       });
-      if (!convo || !convo.contact.optIn) return false;
+      // La baja (optIn) no frena esto: es la respuesta a alguien que nos escribe.
+      if (!convo) return false;
 
       // El modo de la IA se decide antes de cualquier bienvenida: un flujo «al
-      // iniciar» no debe dejar la conversación sin Autopilot. Si el contacto ya
-      // tuvo conversaciones, la nueva hereda el modo de la última (lo fija la
-      // mensajería al crearla) y aquí no se toca.
+      // iniciar» no debe dejar la conversación sin Autopilot. Si el agente
+      // responde solo, también para quien vuelve a escribir tras cerrar: antes
+      // solo valía para la primera conversación y la nueva heredaba «Copilot»
+      // de la anterior (al pasar el chat a una persona, el historial importado
+      // al conectar el número, chats de antes de activar «Responde solo») y el
+      // agente ya no contestaba. Si la IA estaba apagada (OFF) para el cliente,
+      // eso sí se respeta.
       const bot = await this.bots.resolveForConversation(convo);
-      const previous = await this.prisma.conversation.count({
-        where: { contactId: convo.contactId, id: { not: conversationId } },
-      });
-      if (bot?.autopilotByDefault && previous === 0 && convo.aiMode !== AiMode.AUTOPILOT) {
+      if (bot?.autopilotByDefault && convo.aiMode === AiMode.COPILOT) {
         await this.messaging.setAiMode(conversationId, AiMode.AUTOPILOT);
       }
+      // Escribió «BAJA»: el modo queda decidido para lo que escriba después,
+      // pero a esto no se le contesta con un flujo ni con la bienvenida.
+      if (optOut) return false;
 
       // Un flujo "al iniciar conversación" tiene prioridad sobre la bienvenida del bot.
       if (await this.flows.onCreated(conversationId, messageId)) return true;
@@ -123,7 +128,7 @@ export class AutomationService {
 
   // ── Entrante: palabras clave → horario → autopilot ──────────
   @OnEvent("conversation.inbound")
-  async onInbound(payload: { conversationId: string; messageId?: string }): Promise<void> {
+  async onInbound(payload: { conversationId: string; messageId?: string; optOut?: boolean }): Promise<void> {
     const { conversationId } = payload;
     const turn = (this.turns.get(conversationId) ?? Promise.resolve()).then(() => this.handleInbound(payload));
     this.turns.set(conversationId, turn);
@@ -134,11 +139,13 @@ export class AutomationService {
     }
   }
 
-  private async handleInbound(payload: { conversationId: string; messageId?: string }): Promise<void> {
+  private async handleInbound(payload: { conversationId: string; messageId?: string; optOut?: boolean }): Promise<void> {
     const { conversationId, messageId } = payload;
     try {
       // Primer mensaje de una conversación nueva: primero lo de «creada».
       const created = this.creating.get(conversationId);
+      // Este mensaje abrió la conversación: «creada» ya decidió el modo y saludó.
+      const openedByThis = !!created;
       if (created) {
         this.creating.delete(conversationId);
         if (await created) return; // arrancó un flujo con este mensaje
@@ -147,7 +154,17 @@ export class AutomationService {
         where: { id: conversationId },
         include: { contact: true },
       });
-      if (!convo || !convo.contact.optIn) return;
+      // La baja (optIn) no frena esto: es la respuesta a alguien que nos escribe.
+      if (!convo) return;
+
+      // El chat lo abrimos nosotros (una difusión, el formulario de Meta, un
+      // recordatorio de cita, un flujo, un mensaje desde el celular) y este es
+      // el primer mensaje del cliente: nadie decidió el modo de la IA, porque
+      // «creada» solo sale cuando la conversación la abre el cliente. Nacía en
+      // «Copilot» y el agente que responde solo no contestaba.
+      if (!openedByThis) await this.defaultModeOnFirstReply(convo);
+      // «BAJA»: no se le contesta.
+      if (payload.optOut) return;
 
       // Un audio, una imagen o un sticker: primero entenderlos, para que las
       // palabras clave, los flujos y la IA trabajen con lo que dicen.
@@ -213,7 +230,10 @@ export class AutomationService {
 
       // Evitar doble mensaje: si la bienvenida está activa y este es el primer
       // entrante, ya respondió el saludo; el autopilot entra desde el 2º mensaje.
-      if (bot?.welcomeEnabled && bot.welcomeMessage?.trim()) {
+      // Solo si el saludo salió, o sea, si este mensaje abrió la conversación:
+      // en un chat que abrimos nosotros no hay saludo y el primer mensaje del
+      // cliente se quedaba sin ninguna respuesta.
+      if (openedByThis && bot?.welcomeEnabled && bot.welcomeMessage?.trim()) {
         const inboundCount = await this.prisma.message.count({
           where: { conversationId, direction: "INBOUND" },
         });
@@ -233,6 +253,25 @@ export class AutomationService {
         `onInbound falló en ${conversationId}: ${(e as Error).message}`,
       );
     }
+  }
+
+  /**
+   * «Responde solo» en el primer mensaje del cliente de un chat que no abrió
+   * él. Solo el primero: después, quien lo deje en «Copilot» (una persona, o
+   * el agente al pasar el chat) decide, y no se vuelve a tocar. «OFF» se respeta.
+   */
+  private async defaultModeOnFirstReply(convo: { id: string; aiMode: AiMode; channelId: string | null }): Promise<void> {
+    if (convo.aiMode !== AiMode.COPILOT) return;
+    const bot = await this.bots.resolveForConversation(convo as never);
+    if (!bot?.autopilotByDefault) return;
+    const inbound = await this.prisma.message.findMany({
+      where: { conversationId: convo.id, direction: "INBOUND" },
+      select: { id: true },
+      take: 2,
+    });
+    if (inbound.length !== 1) return;
+    await this.messaging.setAiMode(convo.id, AiMode.AUTOPILOT);
+    this.logger.log(`Autopilot por defecto en ${convo.id}: primer mensaje del cliente en un chat que abrimos nosotros`);
   }
 
   // ── Acción de un disparador por palabra clave ───────────────

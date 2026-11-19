@@ -267,8 +267,8 @@ export class AutopilotService {
         where: { id: conversationId },
         include: { contact: true },
       });
+      // La baja (optIn) no frena la respuesta: el cliente acaba de escribirnos.
       if (!convo || convo.aiMode !== AiMode.AUTOPILOT) return;
-      if (!convo.contact.optIn) return;
       if (convo.aiPausedUntil && convo.aiPausedUntil > new Date()) {
         this.logger.debug(`IA pausada (humano activo) en ${conversationId}`);
         return;

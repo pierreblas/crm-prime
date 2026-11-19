@@ -266,6 +266,8 @@ function setup(cfg: FollowUps, convoPatch: Record<string, unknown> = {}, botPatc
     },
     message: { findFirst: async () => ({ direction: "OUTBOUND" }) },
     deal: { findFirst: async () => null },
+    // La baja del contacto: se prueba pasando `optIn: false` en el parche de la conversación.
+    contact: { findUnique: async () => ({ optIn: (convoPatch as { optIn?: boolean } | undefined)?.optIn ?? true }) },
     user: { findFirst: async () => ({ id: "u1" }) },
     template: { findUnique: async ({ where }: { where: { id: string } }) => templates.get(where.id) ?? null },
   };
@@ -371,4 +373,11 @@ test("servicio: el plan cuenta con la ventana al programar tras un mensaje nuest
   await cancelled.schedule("HUMAN");
   assert.equal(cancelled.convo.followUpStep, FOLLOW_UP_CANCELLED);
   assert.equal(cancelled.convo.followUpDueAt, null);
+});
+
+test("servicio: un cliente que pidió la baja no recibe seguimientos", async () => {
+  const s = setup(seq([text(120)]), { optIn: false } as never);
+  await s.service.fire("cv1");
+  assert.deepEqual(s.sent, []);
+  assert.equal(s.convo.followUpDueAt, null, "se quita del plan");
 });

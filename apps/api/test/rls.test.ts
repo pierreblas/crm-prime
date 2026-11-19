@@ -1111,6 +1111,7 @@ test("un mensaje antiguo se guarda pero no despierta a la IA (anterior a conecta
     prisma.organization.create({ data: { id: orgId, slug: `st-${suf}`, name: "Antiguos" } }),
   );
   const emitted: string[] = [];
+  const payloads: { name: string; optOut?: boolean }[] = [];
   let channel: { id: string; orgId: string; connectedAt: Date } | null = null;
   const svc = new MessagingService(
     prisma,
@@ -1119,7 +1120,12 @@ test("un mensaje antiguo se guarda pero no despierta a la IA (anterior a conecta
     {} as any,
     { resolveChannel: async () => channel } as any,
     {} as any,
-    { emit: (name: string) => emitted.push(name) } as any,
+    {
+      emit: (name: string, payload?: { optOut?: boolean }) => {
+        emitted.push(name);
+        payloads.push({ name, optOut: payload?.optOut });
+      },
+    } as any,
     { emit: async () => undefined } as any,
     {} as any,
     { intakeFromWhatsapp: async () => void emitted.push("intake") } as any,
@@ -1149,6 +1155,60 @@ test("un mensaje antiguo se guarda pero no despierta a la IA (anterior a conecta
     // 3 · Uno de ahora sí se atiende.
     await svc.handleInbound({ ...base, from: `+51998${suf}`, waMessageId: `w3-${suf}`, text: "hola", timestampMs: Date.now() - 2_000 });
     assert.ok(emitted.includes("conversation.created") && emitted.includes("conversation.inbound"));
+
+    // 4 · Eco viejo (el negocio escribió desde el celular hace días; Meta lo
+    // entrega al conectar): se guarda, pero no abre chat ni programa seguimientos.
+    emitted.length = 0;
+    conn.connectedAt = new Date(Date.now() - 5 * 60_000);
+    channel = { id: conn.id, orgId, connectedAt: conn.connectedAt };
+    const echoBase = { type: "TEXT" as any, channelPhoneNumberId: `pn-${suf}` };
+    await svc.handleEcho({ ...echoBase, to: `+51995${suf}`, waMessageId: `e1-${suf}`, text: "te escribo mañana", timestampMs: Date.now() - 3 * 86_400_000 });
+    assert.ok(!emitted.includes("message.outbound"), "ni seguimientos ni flujos «no responde»");
+    const e1 = await prisma.message.findFirst({ where: { waMessageId: `e1-${suf}` }, include: { conversation: true } });
+    assert.ok(e1, "queda guardado");
+    assert.equal(e1!.conversation.status, "CLOSED", "no abre un chat activo");
+    assert.equal(e1!.conversation.aiPausedUntil, null, "no pausa la IA");
+    assert.ok(Math.abs(e1!.createdAt.getTime() - (Date.now() - 3 * 86_400_000)) < 5_000, "con su fecha");
+    // Anterior a conectar (aunque sea de hace minutos): también pasado.
+    await svc.handleEcho({ ...echoBase, to: `+51995${suf}`, waMessageId: `e2-${suf}`, text: "ok", timestampMs: Date.now() - 10 * 60_000 });
+    assert.ok(!emitted.includes("message.outbound"));
+    assert.equal(await prisma.conversation.count({ where: { contact: { phone: `+51995${suf}` } } }), 1, "va al mismo chat");
+
+    // 5 · Eco de ahora: es el negocio contestando desde el celular, como siempre.
+    await svc.handleEcho({ ...echoBase, to: `+51994${suf}`, waMessageId: `e3-${suf}`, text: "hola, te ayudo", timestampMs: Date.now() - 1_000 });
+    assert.ok(emitted.includes("message.outbound"));
+    const e3 = await prisma.message.findFirst({ where: { waMessageId: `e3-${suf}` }, include: { conversation: true } });
+    assert.equal(e3!.conversation.status, "OPEN");
+    assert.ok(e3!.conversation.aiPausedUntil, "pausa la IA porque contestó una persona");
+
+    // 6 · «CANCELAR» (escrito o con el botón del recordatorio de cita) no es una baja:
+    // se atiende (la cita se cancela) y el cliente sigue recibiendo respuestas.
+    emitted.length = 0;
+    await svc.handleInbound({ ...base, from: `+51993${suf}`, waMessageId: `c1-${suf}`, text: "CANCELAR", timestampMs: Date.now() - 1_000 });
+    await svc.handleInbound({ ...base, from: `+51992${suf}`, waMessageId: `c2-${suf}`, text: "Cancelar", buttonPayload: "booking_cancel", timestampMs: Date.now() - 1_000 });
+    assert.equal(emitted.filter((e) => e === "conversation.inbound").length, 2, "los dos se atienden");
+    const kept = await prisma.contact.findMany({ where: { phone: { in: [`+51993${suf}`, `+51992${suf}`] } }, select: { optIn: true } });
+    assert.deepEqual(kept.map((c) => c.optIn), [true, true]);
+
+    // 7 · «BAJA» sí: el aviso sale marcado (la automatización no lo contesta, pero
+    // las difusiones cuentan la respuesta) y no recibirá envíos por iniciativa nuestra…
+    emitted.length = 0;
+    payloads.length = 0;
+    await svc.handleInbound({ ...base, from: `+51991${suf}`, waMessageId: `b1-${suf}`, text: "baja", timestampMs: Date.now() - 1_000 });
+    assert.deepEqual(
+      payloads.filter((p) => p.name.startsWith("conversation.")).map((p) => [p.name, p.optOut]),
+      [["conversation.created", true], ["conversation.inbound", true]],
+      "el «BAJA» va marcado: no se contesta",
+    );
+    assert.equal((await prisma.contact.findFirst({ where: { phone: `+51991${suf}` } }))!.optIn, false);
+    // …pero si vuelve a escribir con una pregunta, se le responde.
+    payloads.length = 0;
+    await svc.handleInbound({ ...base, from: `+51991${suf}`, waMessageId: `b2-${suf}`, text: "¿a qué hora abren?", timestampMs: Date.now() - 500 });
+    assert.deepEqual(payloads.filter((p) => p.name === "conversation.inbound").map((p) => p.optOut), [undefined]);
+    assert.equal((await prisma.contact.findFirst({ where: { phone: `+51991${suf}` } }))!.optIn, false, "la baja sigue para las difusiones");
+    // El botón «BAJA» de una plantilla de difusión también es una baja.
+    await svc.handleInbound({ ...base, from: `+51990${suf}`, waMessageId: `b3-${suf}`, text: "BAJA", buttonPayload: "BAJA", timestampMs: Date.now() - 500 });
+    assert.equal((await prisma.contact.findFirst({ where: { phone: `+51990${suf}` } }))!.optIn, false);
   }).finally(() =>
     ctx.runUnscoped("prueba: limpiar la empresa de mensajes antiguos", async () => {
       await prisma.message.deleteMany({ where: { orgId } });
