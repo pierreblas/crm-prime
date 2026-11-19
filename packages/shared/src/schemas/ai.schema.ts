@@ -109,6 +109,37 @@ export const playgroundReplySchema = z.object({
 });
 export type PlaygroundReply = z.infer<typeof playgroundReplySchema>;
 
+// ── «¿Por qué respondió esto?» ───────────────────────────────
+/**
+ * Lo que hizo la IA para escribir una respuesta real, para verlo en la bandeja:
+ * qué entendió del mensaje, qué consultó y qué le devolvió cada consulta, qué
+ * acciones hizo y si decidió pasar el chat. Sale de lo que ya se guarda de cada
+ * respuesta (AiRun y sus AiToolCall).
+ */
+export const aiRunStepSchema = playgroundToolCallSchema.extend({
+  /** EXECUTED, PENDING_APPROVAL (copilot: espera a que se envíe), REJECTED o ERROR. */
+  status: z.string(),
+});
+export type AiRunStep = z.infer<typeof aiRunStepSchema>;
+
+export const aiRunTraceSchema = z.object({
+  runId: z.string(),
+  status: z.string(),
+  createdAt: z.string(),
+  agentName: z.string().nullable(),
+  model: z.string(),
+  latencyMs: z.number().nullable(),
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+  costUsd: z.number(),
+  /** Qué entendió del último mensaje del cliente (intención, ánimo, urgencia). */
+  classification: classificationSchema.nullable(),
+  confidence: z.number().nullable(),
+  escalationReason: z.string().nullable(),
+  steps: z.array(aiRunStepSchema),
+});
+export type AiRunTrace = z.infer<typeof aiRunTraceSchema>;
+
 // ── Simulador: una IA hace de cliente y el agente le responde ──
 // Va sobre el playground: nada se envía ni se aplica. Cada paso es un mensaje
 // del cliente simulado y la respuesta del agente; la pantalla pide los pasos

@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { LlmModule } from "./llm.module";
 import { AgentService } from "./agent.service";
+import { AiTraceService } from "./ai-trace.service";
 import { AgentActionsService } from "./agent-actions.service";
 import { AutopilotService } from "./autopilot.service";
 import { AutomationService } from "./automation.service";
@@ -50,6 +51,7 @@ import { EmailModule } from "../email/email.module";
   ],
   providers: [
     AgentService,
+    AiTraceService,
     AgentActionsService,
     AutopilotService,
     AutomationService,

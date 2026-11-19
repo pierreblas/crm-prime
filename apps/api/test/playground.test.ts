@@ -26,7 +26,7 @@ const PRODUCT = {
   prices: [{ currency: "USD", amount: 80 }],
 };
 
-function setup(opts: { splitReplies?: boolean; replies?: Row[] } = {}) {
+function setup(opts: { splitReplies?: boolean; replies?: Row[]; tools?: string[]; knowledge?: string[] } = {}) {
   const calls: Row[] = [];
   const replies = opts.replies ?? [
     { stopReason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "search_products", input: { query: "genómica" } }] },
@@ -40,7 +40,7 @@ function setup(opts: { splitReplies?: boolean; replies?: Row[] } = {}) {
         id: "bot1",
         orgId: "org1",
         systemPrompt: "Eres Lia. Trata al cliente por su nombre, {{nombre}}, de {{pais}}. Presenta «Fechas» y «Temario».",
-        enabledTools: ["search_products"],
+        enabledTools: opts.tools ?? ["search_products"],
         splitReplies: !!opts.splitReplies,
         model: "gpt-4.1-mini",
         effort: "medium",
@@ -65,7 +65,7 @@ function setup(opts: { splitReplies?: boolean; replies?: Row[] } = {}) {
   service.bots = { resolveForChannel: async () => null };
   service.actions = { loadContext: async () => ({}) };
   service.bookings = { agentContextText: async () => "" };
-  service.knowledge = { retrieve: async () => [] };
+  service.knowledge = { retrieve: async () => opts.knowledge ?? [] };
   service.llm = {
     name: "openai",
     generate: async (req: Row) => {
@@ -122,7 +122,8 @@ test("el resumen de cada consulta dice qué encontró, si listó el catálogo y 
   assert.equal(traceToolCall("search_products", {}, JSON.stringify({ total: 0, products: [] })).summary, "El catálogo está vacío.");
   assert.equal(traceToolCall("search_knowledge", { query: "yape" }, JSON.stringify([{ doc: "Pagos", content: "…" }, { doc: "Pagos", content: "…" }])).summary, "2 fragmentos de «Pagos».");
   assert.equal(traceToolCall("search_knowledge", { query: "x" }, "[]").summary, "No encontró nada en el conocimiento.");
-  assert.equal(traceToolCall("move_deal_stage", { stage: "Interesado" }, "Movería a la etapa «Interesado»").input, '{"stage":"Interesado"}');
+  assert.equal(traceToolCall("move_deal_stage", { stage: "Interesado" }, "Movería a la etapa «Interesado»").input, "«Interesado»", "un solo texto va tal cual");
+  assert.equal(traceToolCall("add_tag", { tag: "Empresa", note: 3 }, "ok").input, '{"tag":"Empresa","note":3}');
 });
 
 test("el speech de producto usa los campos del catálogo entre « » y no lleva ningún valor", () => {
@@ -135,4 +136,14 @@ test("el speech de producto usa los campos del catálogo entre « » y no lleva 
   assert.match(s, /send_product_image/);
   assert.match(s, /quita esa línea: nunca lo inventes/);
   assert.doesNotMatch(productPitchTemplate([]), /send_product_image|•/);
+});
+
+test("la búsqueda automática en el conocimiento también sale en lo que consultó", async () => {
+  const { service } = setup({
+    tools: ["search_products", "search_knowledge"],
+    knowledge: ["Pagos: Yape al 999…", "Certificado UNALM: trámite de 2 semanas."],
+  });
+  const r = await service.playground({ message: "cómo pago?", botId: "bot1", history: [] });
+  assert.deepEqual(r.toolCalls[0], { name: "search_knowledge", input: "«cómo pago?»", summary: "2 fragmentos." });
+  assert.equal(r.toolCalls[1]?.name, "search_products");
 });

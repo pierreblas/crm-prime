@@ -162,6 +162,8 @@ export class AutopilotService {
     conversationId: string,
     text: string,
     convo: { channelId: string | null; contactId: string },
+    /** La respuesta de la IA que lo escribió: cada mensaje queda enlazado para «¿Por qué respondió esto?». */
+    aiRunId?: string,
   ): Promise<void> {
     const bot = await this.bots.resolveForConversation(convo);
     const parts = bot?.splitReplies ? splitReply(text) : [text];
@@ -173,6 +175,7 @@ export class AutopilotService {
       await this.messaging.queueOutbound(
         { conversationId, type: MessageType.TEXT, text: parts[i]! },
         MessageAuthor.AI,
+        { aiRunId },
       );
     }
     if (parts.length > 1) this.logger.log(`Respuesta en ${parts.length} mensajes en ${conversationId}`);
@@ -300,14 +303,14 @@ export class AutopilotService {
           !!res.suggestion?.trim() &&
           (res.toolsUsed.includes("handoff_to_human") || res.escalationReason === HANDOFF_REASON_MEDIA);
         if (ownGoodbye && res.windowOpen) {
-          await this.sendReply(conversationId, res.suggestion!.trim(), convo);
+          await this.sendReply(conversationId, res.suggestion!.trim(), convo, res.runId);
         }
         // Si no, el aviso configurado; y en todo caso, nota y aviso al equipo.
         await this.handoff(conversationId, convo.orgId, reason, res.windowOpen && !ownGoodbye, convo.contact);
         return;
       }
 
-      await this.sendReply(conversationId, res.suggestion, convo);
+      await this.sendReply(conversationId, res.suggestion, convo, res.runId);
       this.logger.log(`Autopilot respondió ${conversationId}`);
     } catch (e) {
       this.logger.error(

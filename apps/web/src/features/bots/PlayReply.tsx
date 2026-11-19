@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import type { PlaygroundToolCall } from "@crm/shared";
+import { splitReply, type PlaygroundToolCall } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { TOOL_COPY } from "./agentCopy";
 
@@ -9,10 +9,11 @@ import { TOOL_COPY } from "./agentCopy";
 
 /**
  * La respuesta del agente. Si escribe «como en WhatsApp» (varios mensajes
- * cortos), cada párrafo es una burbuja aparte, igual que le llegará al cliente.
+ * cortos), se parte igual que al enviarla de verdad (`splitReply`: un trozo
+ * minúsculo se pega al siguiente y un párrafo largo se corta por frases).
  */
 export function AgentBubbles({ text, split }: { text: string; split: boolean }) {
-  const parts = split ? text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean) : [text];
+  const parts = split ? splitReply(text) : [text];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }} data-agent-bubbles={parts.length}>
       {parts.map((p, i) => (
@@ -46,20 +47,36 @@ export function whatsappFormat(text: string): React.ReactNode[] {
   return out;
 }
 
-/** Qué consultó el agente para responder y qué le devolvió cada consulta. */
-export function ToolTrace({ calls }: { calls: PlaygroundToolCall[] }) {
+/**
+ * Qué consultó el agente para responder y qué le devolvió cada consulta. En una
+ * respuesta real, las acciones llevan además su estado (`statusLabel` dice
+ * cómo nombrar los que no se aplicaron).
+ */
+export function ToolTrace({
+  calls,
+  statusLabel,
+  label = "Qué consultó el agente",
+}: {
+  calls: (PlaygroundToolCall & { status?: string })[];
+  statusLabel?: (status: string) => string | null;
+  label?: string;
+}) {
   return (
-    <ul className="play-trace" aria-label="Qué consultó el agente" data-play-trace>
-      {calls.map((c, i) => (
-        <li key={i}>
-          <NavIcon name={TOOL_COPY[c.name]?.icon ?? "bolt"} size={12} />
-          <span>
-            <strong>{TOOL_COPY[c.name]?.title ?? c.name}</strong>
-            {c.input ? <> {c.input}</> : null}
-            <span className="play-trace__out"> → {c.summary}</span>
-          </span>
-        </li>
-      ))}
+    <ul className="play-trace" aria-label={label} data-play-trace>
+      {calls.map((c, i) => {
+        const state = c.status && statusLabel ? statusLabel(c.status) : null;
+        return (
+          <li key={i} data-status={c.status}>
+            <NavIcon name={TOOL_COPY[c.name]?.icon ?? "bolt"} size={12} />
+            <span>
+              <strong>{TOOL_COPY[c.name]?.title ?? c.name}</strong>
+              {c.input ? <> {c.input}</> : null}
+              <span className="play-trace__out"> → {c.summary}</span>
+              {state && <span className="play-trace__state"> · {state}</span>}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }

@@ -162,6 +162,8 @@ export const messageDtoSchema = z.object({
   buttons: z.array(z.object({ id: z.string(), title: z.string() })).nullable(),
   /** Anuncio Click-to-WhatsApp que trajo este mensaje (el primero tras el clic). */
   ad: adSummarySchema.nullable().optional(),
+  /** La respuesta de la IA que lo escribió: para «¿Por qué respondió esto?». */
+  aiRunId: z.string().nullable().optional(),
   // Mensaje citado, aplanado a lo justo para pintar la cita sin otra consulta.
   replyTo: z
     .object({

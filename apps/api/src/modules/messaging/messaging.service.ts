@@ -1245,6 +1245,8 @@ export class MessagingService {
   async queueOutbound(
     input: SendMessageInput,
     author: MessageAuthor,
+    /** La respuesta de la IA que lo escribió (autopilot): para «¿Por qué respondió esto?». */
+    opts: { aiRunId?: string } = {},
   ): Promise<MessageDto> {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: input.conversationId },
@@ -1287,6 +1289,8 @@ export class MessagingService {
         mediaUrl: input.mediaUrl,
         replyToId: input.replyToId ?? null,
         status: MessageStatus.QUEUED,
+        // Vacío si la IA no llegó a ejecutarse (cupo o presupuesto agotado): sin enlace.
+        aiRunId: opts.aiRunId || null,
       },
     });
 
@@ -1930,6 +1934,7 @@ export class MessagingService {
     createdAt: Date;
     interactive?: unknown;
     referral?: unknown;
+    aiRunId?: string | null;
   }): MessageDto {
     const interactive = m.interactive as {
       buttons?: { id: string; title: string }[];
@@ -1946,6 +1951,7 @@ export class MessagingService {
       note: m.note ?? null,
       buttons: interactive?.buttons?.length ? interactive.buttons : null,
       ad: adSummaryOf(m.referral),
+      aiRunId: m.aiRunId ?? null,
       replyTo: m.replyTo
         ? {
             id: m.replyTo.id,

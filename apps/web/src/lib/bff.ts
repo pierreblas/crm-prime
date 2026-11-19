@@ -66,6 +66,7 @@ import type {
   TourKey,
   AgentDto,
   AiMode,
+  AiRunTrace,
   AiSuggestion,
   SessionDto,
   IngestKnowledgeInput,
@@ -1280,6 +1281,13 @@ export async function suggestReply(
     { method: "POST" },
   );
   if (!res.ok) throw new Error("La IA no pudo generar una sugerencia");
+  return res.json();
+}
+
+/** «¿Por qué respondió esto?»: lo que hizo la IA para escribir una respuesta real. */
+export async function fetchAiRunTrace(conversationId: string, runId: string): Promise<AiRunTrace> {
+  const res = await bffFetch(`/api/bff/conversations/${conversationId}/ai/runs/${encodeURIComponent(runId)}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar lo que hizo la IA"));
   return res.json();
 }
 

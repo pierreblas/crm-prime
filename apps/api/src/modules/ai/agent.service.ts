@@ -26,7 +26,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { fold } from "../../common/utils/fold";
 import { searchProducts } from "./product-search";
-import { traceToolCall } from "./playground-trace";
+import { knowledgeCall, traceToolCall } from "./playground-trace";
 import { MediaUnderstandingService } from "./media-understanding.service";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { AgentActionsService } from "./agent-actions.service";
@@ -164,6 +164,23 @@ export class AgentService {
         model: config?.model ?? "claude-opus-4-8",
       },
     });
+    // Lo que trajo la búsqueda automática en el conocimiento queda como una
+    // consulta más: así «¿Por qué respondió esto?» enseña de dónde salió.
+    if (knowledge.length) {
+      const k = knowledgeCall(lastUserText, knowledge);
+      await this.prisma.aiToolCall
+        .create({
+          data: {
+            aiRunId: run.id,
+            toolName: "search_knowledge",
+            input: k.input as Prisma.InputJsonObject,
+            output: { result: k.output },
+            status: "EXECUTED",
+            resolvedAt: new Date(),
+          },
+        })
+        .catch((e: Error) => this.logger.warn(`No se guardó la consulta al conocimiento: ${e.message}`));
+    }
 
     let suggestion: string | null = null;
     let escalate = false;
@@ -404,7 +421,9 @@ export class AgentService {
     let inputTokens = 0;
     let outputTokens = 0;
     const toolsUsed: string[] = [];
-    const toolCalls: PlaygroundToolCall[] = [];
+    // La búsqueda automática en el conocimiento, primero: es lo primero que lee el modelo.
+    const rag = knowledge.length ? knowledgeCall(input.message, knowledge) : null;
+    const toolCalls: PlaygroundToolCall[] = rag ? [traceToolCall("search_knowledge", rag.input, rag.output)] : [];
 
     try {
       for (let i = 0; i < maxIterations; i++) {

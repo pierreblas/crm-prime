@@ -5,6 +5,7 @@ import {
   SIMULATOR_MAX_BATCH,
   SIMULATOR_SCENARIOS,
   SIMULATOR_TURN_OPTIONS,
+  splitReply,
   estimateSimulationTokens,
   formatTokens,
   type PlaygroundContact,
@@ -268,7 +269,7 @@ export function ConversationSimulator({
                   </span>
                 )}
                 {line.text &&
-                  (line.meta.splitReplies ? line.text.split(/\n\s*\n/).map((t) => t.trim()).filter(Boolean) : [line.text]).map((t, k) => (
+                  (line.meta.splitReplies ? splitReply(line.text) : [line.text]).map((t, k) => (
                     <div key={k} className="sim-msg sim-msg--agent">
                       {whatsappFormat(t)}
                     </div>

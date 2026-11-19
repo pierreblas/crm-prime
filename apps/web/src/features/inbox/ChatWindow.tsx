@@ -59,6 +59,7 @@ import { NavIcon } from "@/components/NavIcons";
 import Link from "next/link";
 import { useLocale, useT } from "@/i18n/I18nProvider";
 import { useAiTyping } from "./aiTyping";
+import { AiWhy, sentimentLabel } from "./AiWhy";
 import { CallEntry } from "@/features/calls/CallEntry";
 import { useCalls } from "@/features/calls/CallProvider";
 import type { CallDto } from "@crm/shared";
@@ -204,6 +205,12 @@ export function ChatWindow({
     if (!searching) for (const c of calls) items.push({ kind: "call", c, at: c.createdAt });
     return items.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
   }, [visible, calls, searching]);
+  // Una respuesta de la IA en varios mensajes cortos lleva «¿Por qué?» solo en el último.
+  const lastOfRun = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of messages) if (m.aiRunId) map.set(m.aiRunId, m.id);
+    return map;
+  }, [messages]);
 
   // La IA está redactando: o la pediste tú (copilot), o el servidor avisa de
   // que el autopilot está escribiendo. Antes se adivinaba («el último mensaje
@@ -607,6 +614,8 @@ export function ChatWindow({
                 message={it.m}
                 locale={locale}
                 t={t}
+                conversationId={conversation.id}
+                whyRunId={it.m.aiRunId && lastOfRun.get(it.m.aiRunId) === it.m.id ? it.m.aiRunId : null}
                 highlight={searching ? search.trim() : null}
                 onReact={(emoji) => reactMut.mutate({ messageId: it.m.id, emoji })}
                 onReply={() => setReplyTo(it.m)}
@@ -697,6 +706,7 @@ export function ChatWindow({
               {t("inbox.aiDiscard")}
             </button>
           </span>
+          {ai.runId && <AiWhy key={ai.runId} conversationId={conversation.id} runId={ai.runId} align="start" />}
         </div>
       )}
 
@@ -812,6 +822,8 @@ function MessageBubble({
   highlight,
   locale,
   t,
+  conversationId,
+  whyRunId,
 }: {
   message: MessageDto;
   onReact: (emoji: string) => void;
@@ -819,6 +831,9 @@ function MessageBubble({
   highlight: string | null;
   locale: string;
   t: Translator;
+  conversationId: string;
+  /** La respuesta de la IA que acaba en este mensaje: debajo, «¿Por qué?». */
+  whyRunId: string | null;
 }) {
   const out = m.direction === "OUTBOUND";
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -901,6 +916,7 @@ function MessageBubble({
           </span>
           {out && <MessageStatus status={m.status} author={m.author} />}
         </div>
+        {whyRunId && <AiWhy conversationId={conversationId} runId={whyRunId} />}
         {m.reaction && (
           <span
             style={{
@@ -1011,12 +1027,6 @@ function tagChip(color: string | null): React.CSSProperties {
     background: bg,
     color: readableInk(bg),
   };
-}
-
-function sentimentLabel(s: string, t: Translator): string {
-  if (s === "negative") return t("inbox.sentimentNegative");
-  if (s === "positive") return t("inbox.sentimentPositive");
-  return t("inbox.sentimentNeutral");
 }
 
 const chatHeader: React.CSSProperties = {

@@ -12,11 +12,23 @@ const MAX_SUMMARY = 240;
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 
-/** Los argumentos de la llamada, legibles: la búsqueda tal cual; el resto, en JSON corto. */
+/** Los argumentos de la llamada, legibles: un solo texto (la búsqueda, el motivo, la etapa) tal cual; el resto, en JSON corto. */
 function inputText(input: Record<string, unknown> | undefined): string {
   if (!input || !Object.keys(input).length) return "";
-  if (typeof input.query === "string" && Object.keys(input).length === 1) return `«${input.query}»`;
+  const values = Object.values(input);
+  if (values.length === 1 && typeof values[0] === "string") return clip(`«${values[0]}»`, MAX_INPUT);
   return clip(JSON.stringify(input), MAX_INPUT);
+}
+
+/**
+ * La búsqueda automática en el conocimiento (la que se hace antes de responder,
+ * sin que el modelo la pida) contada como una consulta más, con lo que trajo.
+ */
+export function knowledgeCall(query: string, chunks: string[]): { input: Record<string, unknown>; output: string } {
+  return {
+    input: { query: query.slice(0, 300) },
+    output: JSON.stringify(chunks.map((content) => ({ content: content.slice(0, 500) }))),
+  };
 }
 
 function parse(output: string): unknown {
