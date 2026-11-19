@@ -8,10 +8,12 @@ import { Arrow, Check, GITHUB, IconGit, MarketingFooter, MarketingHeader, MetaMa
 import { HeroDemo } from "./HeroDemo";
 import { PlanPicker } from "./PlanPicker";
 import { AgentSimulator } from "./AgentSimulator";
+import { FeatureDoc } from "./FeatureDoc";
 
-// La página explica en este orden: qué es (la demo y ARM), lo que Driony hace,
-// cómo atendería en su rubro, cuánto tarda en arrancar, qué cambia, cuánto
-// cuesta y qué pasa si no le convence. El estilo es el del panel.
+// La página explica en este orden: qué es (la demo y ARM), lo que Driony hace
+// (la bandeja y el LÉEME de FeatureDoc), cómo atendería en su rubro, cuánto
+// tarda en arrancar, qué cambia, cuánto cuesta y qué pasa si no le convence.
+// El estilo es el del panel.
 
 // Antes y después, emparejados: cada problema al lado de lo que lo resuelve.
 const COMPARE = [
@@ -186,17 +188,23 @@ export function Landing() {
                 </span>
                 <span>Agentic Relationship Management</span>
               </p>
+              {/* El dolor en una escena (el lead que escribe de noche y se enfría) y,
+                  debajo, qué hace el agente y quién manda: una idea por línea. */}
               <h1 className="lp-anim" style={{ animationDelay: "0.08s" }}>
-                Agentes de IA que <span className="lp-hero__accent">venden</span> por tu WhatsApp. Tú mandas.
+                <span className="lp-hero__line">Tus clientes escriben a medianoche.</span>{" "}
+                <span className="lp-hero__line">
+                  Tu agente <span className="lp-hero__accent">responde</span>.
+                </span>
               </h1>
               <p className="lp-hero__sub lp-anim" style={{ animationDelay: "0.16s" }}>
-                En tu propio número: responden en segundos, cotizan, leen comprobantes y retoman al que se enfrió, también a las 11 de la noche. Tu equipo supervisa y cierra.
+                Agentes de IA en tu propio número de WhatsApp que cotizan con tu catálogo, agendan y retoman al que se enfrió. Tu
+                equipo lo ve todo y decide cuándo entrar.
               </p>
               <div className="lp-hero__cta lp-anim" style={{ animationDelay: "0.24s" }}>
                 <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
                   Probar {TRIAL_DAYS} días gratis <Arrow />
                 </Link>
-                <a href="#arm" className="lp-btn lp-btn--ghost lp-btn--lg">
+                <a href="#como" className="lp-btn lp-btn--ghost lp-btn--lg">
                   Cómo funciona
                 </a>
               </div>
@@ -295,182 +303,8 @@ export function Landing() {
               </figcaption>
             </figure>
 
-            <div className="lp-bento">
-              <article className="lp-card lp-card--full lp-card--feature lp-reveal">
-                <div className="lp-card__media">
-                  <img
-                    src="/landing/agentes.webp"
-                    alt="El editor de un agente de IA: nombre, número que atiende, modelo elegido y sus instrucciones, con el asistente que ayuda a redactarlas"
-                    width={1164}
-                    height={728}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-                <h3>Un vendedor de IA que conoce tu negocio como tú</h3>
-                <p>
-                  Responde con <b>tu</b> catálogo, <b>tu</b> base de conocimiento y los datos de cada contacto. Recuerda al cliente de una conversación a la siguiente, mueve la oportunidad de etapa y, cuando el caso lo pide, pasa el chat a tu equipo y lo deja claro en la bandeja. Nunca inventa un precio.
-                </p>
-                <div className="lp-mini">
-                  <span className="lp-chip">Responde 24/7</span>
-                  <span className="lp-chip">Cotiza y agenda</span>
-                  <span className="lp-chip">Lee fotos y comprobantes</span>
-                  <span className="lp-chip">Escribe como una persona</span>
-                  <span className="lp-chip">Pasa a alguien cuando toca</span>
-                </div>
-              </article>
-
-              {/* El copiloto, en sus dos caras: en el chat (la IA sugiere, una persona
-                  aprueba) y en la cabecera del administrador (consulta, no cambia nada). */}
-              <article className="lp-card lp-card--half lp-reveal">
-                <h3>Copiloto en cada chat: la IA sugiere, tu equipo aprueba</h3>
-                <p>
-                  En modo Copiloto el agente redacta la respuesta y propone qué hacer con el lead; una persona la envía, la edita o la descarta, y hasta entonces no pasa nada. En el mismo chat te resume la conversación, responde «¿qué le ofrecimos?» con la ficha y el historial, mejora tu borrador y recuerda al cliente para la próxima vez.
-                </p>
-                <div className="lp-suggest" aria-hidden="true">
-                  <div className="lp-suggest__head">
-                    <span>Copiloto · respuesta sugerida</span>
-                    <span className="lp-trace__ev">IA</span>
-                  </div>
-                  <div className="lp-suggest__text">Hola, Marco. El curso cuesta S/ 199 y la próxima fecha es el lunes 3. ¿Te separo un cupo?</div>
-                  <div className="lp-suggest__acts">
-                    <span>Pendiente:</span>
-                    <span className="lp-chip">Etiqueta «interesado»</span>
-                    <span className="lp-chip">Etapa → Calificado</span>
-                  </div>
-                  <div className="lp-suggest__btns">
-                    <b>Enviar</b>
-                    <span>Editar</span>
-                    <span>Descartar</span>
-                  </div>
-                </div>
-              </article>
-
-              <article className="lp-card lp-card--half lp-reveal">
-                <h3>Y un copiloto para ti: pregúntale por qué algo no entró</h3>
-                <p>
-                  Si administras la cuenta, en la cabecera tienes un chat que lee la documentación y mira tu cuenta: números, agentes, equipo, embudos, formularios de Meta y los errores de los últimos días. Le preguntas cómo se configura algo o por qué no entró un lead y te responde con los pasos y el enlace a la pantalla. Solo consulta: no cambia nada sin ti.
-                </p>
-                <div className="lp-trace lp-trace--qa" aria-hidden="true">
-                  <div className="lp-trace__row lp-trace__q">
-                    <span>¿Por qué no entró el lead de Juan Ríos?</span>
-                  </div>
-                  <div className="lp-trace__row lp-trace__a">
-                    <span>Llegó el martes por tu formulario de Meta sin número de teléfono, por eso no se creó el contacto. Te dejo el enlace para revisarlo en Integraciones.</span>
-                  </div>
-                </div>
-              </article>
-
-              <article className="lp-card lp-card--half lp-reveal">
-                <div className="lp-card__media">
-                  <img
-                    src="/landing/embudo.webp"
-                    alt="El embudo de ventas de Driony con las etapas Nuevo, Contactado, Calificado, Propuesta y Ganado"
-                    width={2241}
-                    height={495}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-                <h3>Ningún lead se enfría sin que lo sepas</h3>
-                <p>
-                  Cada conversación nueva entra sola al embudo. En cada etapa decides qué pasa: un flujo al entrar, cuando el cliente escribe, cuando llega un webhook o si pasan días sin respuesta. Arrastras la oportunidad y el seguimiento se hace solo.
-                </p>
-              </article>
-
-              <article className="lp-card lp-card--half lp-reveal">
-                <div className="lp-card__media lp-card__media--canvas">
-                  <img
-                    src="/landing/flujos.webp"
-                    alt="El editor visual de flujos: un bloque de mensaje seguido de una condición por palabras clave"
-                    width={1821}
-                    height={1266}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-                <h3>Bienvenidas y menús sin programar</h3>
-                <p>
-                  Flujos de arrastrar bloques, o dictados a la IA. Respuestas por palabra clave con versiones por país o por datos del contacto: los métodos de pago de Perú no son los de México.
-                </p>
-              </article>
-
-              <article className="lp-card lp-card--half lp-reveal">
-                <h3>Tus anuncios aprenden de tus ventas, no de tus clics</h3>
-                <p>
-                  Si el cliente llegó por un anuncio de Click to WhatsApp, Driony le cuenta a Meta cuándo se volvió potencial y cuándo compró (Conversions API). Tus campañas optimizan hacia clientes reales. Lo eliges etapa por etapa, y somos Meta Business Partner.
-                </p>
-                <div className="lp-trace" aria-hidden="true">
-                  <div className="lp-trace__row">
-                    <span>Calificado</span>
-                    <span className="lp-trace__ev">LeadSubmitted</span>
-                    <b className="lp-trace__ok">
-                      <Check /> enviado
-                    </b>
-                  </div>
-                  <div className="lp-trace__row">
-                    <span>Ganado · S/ 250</span>
-                    <span className="lp-trace__ev">Purchase</span>
-                    <b className="lp-trace__ok">
-                      <Check /> enviado
-                    </b>
-                  </div>
-                </div>
-              </article>
-
-              <article className="lp-card lp-card--half lp-reveal">
-                <h3>Cotiza solo, en soles, dólares o pesos</h3>
-                <p>
-                  Importa tus productos desde Excel con precios en la moneda en la que vendas. El agente cotiza en la moneda del cliente y tú eliges qué campos de cada producto puede contar.
-                </p>
-                <div className="lp-trace" aria-hidden="true">
-                  <div className="lp-trace__row">
-                    <span>Curso de Python · online</span>
-                    <span className="lp-trace__ev">S/ 199 · USD 55 · MXN 990</span>
-                  </div>
-                  <div className="lp-trace__row">
-                    <span>productos.xlsx</span>
-                    <b className="lp-trace__ok">
-                      <Check /> 128 importados
-                    </b>
-                  </div>
-                </div>
-              </article>
-
-              <article className="lp-card lp-card--third lp-reveal">
-                <h3>Vuelve a venderle a quien ya te compró</h3>
-                <p>Difusiones con plantillas aprobadas por Meta a la audiencia que elijas por etiquetas, y mides entregas y respuestas.</p>
-                <div className="lp-meter" aria-hidden="true">
-                  <div className="lp-meter__head">
-                    <span>«Promo de septiembre» · aprobada</span>
-                    <b>1.240 enviadas</b>
-                  </div>
-                  <div className="lp-meter__bar">
-                    <span style={{ width: "78%" }} />
-                  </div>
-                  <div className="lp-meter__foot">
-                    <span>Entregadas 96 %</span>
-                    <span>Respondidas 312</span>
-                  </div>
-                </div>
-              </article>
-
-              <article className="lp-card lp-card--two-thirds lp-reveal">
-                <h3>IA incluida en el plan, sin sorpresas en la factura</h3>
-                <p>
-                  Tu plan trae <b>tokens de IA incluidos</b> cada mes, sin claves ni configuración, y de ahí sale todo lo que hace la IA. Cuando quieras más, conectas OpenAI, Claude o cualquier API compatible con <b>tu</b> clave y eliges el modelo <b>por agente</b>, sin límite de tokens y sin recargo. Cada respuesta registra lo que costó y cada agente tiene su <b>tope</b> mensual: al llegar, la IA se detiene y la conversación pasa a tu equipo.
-                </p>
-                <div className="lp-meter" aria-hidden="true">
-                  <div className="lp-meter__head">
-                    <span>Agente Ventas · este mes</span>
-                    <b>31.200 / 50.000 tokens · $0,21</b>
-                  </div>
-                  <div className="lp-meter__bar">
-                    <span style={{ width: "62%" }} />
-                  </div>
-                </div>
-              </article>
-            </div>
+            {/* Lo que hace, contado como un LÉEME: índice numerado y una muestra concreta por punto. */}
+            <FeatureDoc />
           </div>
         </section>
 
@@ -638,7 +472,7 @@ export function Landing() {
               </a>
             </div>
 
-            <div className="lp-faq lp-reveal">
+            <div className="lp-faq lp-reveal" id="preguntas">
               <h3>Lo que preguntan antes de empezar</h3>
               {FAQ.map((f) => (
                 <details key={f.q}>

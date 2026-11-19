@@ -441,8 +441,12 @@
 }
 .lp-hero__accent {
   color: var(--accent-text);
-  /* «venden» no se parte entre dos líneas. */
+  /* La palabra resaltada no se parte entre dos líneas. */
   white-space: nowrap;
+}
+/* Una frase por línea: la escena arriba, la respuesta abajo. */
+.lp-hero__line {
+  display: block;
 }
 .lp-hero__sub {
   margin-top: 20px;
@@ -725,99 +729,6 @@
   margin-bottom: 2px;
 }
 
-/* Bento: tarjetas del panel (superficie plana, filete), con producto real. */
-.lp-bento {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 14px;
-}
-.lp-card {
-  position: relative;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  padding: 26px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.lp-card--full {
-  grid-column: span 6;
-}
-.lp-card--half {
-  grid-column: span 3;
-}
-.lp-card--third {
-  grid-column: span 2;
-}
-.lp-card--two-thirds {
-  grid-column: span 4;
-}
-.lp-card p {
-  color: var(--muted);
-  font-size: 15px;
-  line-height: 1.6;
-  max-width: 62ch;
-}
-.lp-card p b {
-  color: var(--ink-dim);
-  font-weight: 600;
-}
-.lp-card--feature {
-  display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-  grid-template-rows: auto auto 1fr;
-  column-gap: 36px;
-  row-gap: 14px;
-  padding: 32px;
-}
-.lp-card--feature h3 {
-  font-size: clamp(1.35rem, 1.1rem + 0.9vw, 1.75rem);
-  line-height: 1.18;
-}
-.lp-card--feature h3,
-.lp-card--feature > p,
-.lp-card--feature .lp-mini {
-  grid-column: 1;
-}
-.lp-card--feature > p {
-  font-size: 16px;
-}
-.lp-card--feature .lp-card__media {
-  grid-column: 2;
-  grid-row: 1 / span 3;
-  margin: 0;
-  aspect-ratio: 4 / 3;
-  align-self: start;
-}
-.lp-card--feature .lp-mini {
-  margin-top: 4px;
-  align-self: start;
-}
-.lp-card__media {
-  margin: -6px -6px 8px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  aspect-ratio: 16 / 10;
-}
-/* El editor de flujos tiene el lienzo al centro: el recorte va ahí. */
-.lp-card__media--canvas img {
-  object-position: 62% 30%;
-}
-.lp-card__media img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: left top;
-}
-.lp-mini {
-  margin-top: auto;
-  padding-top: 6px;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
 .lp-chip {
   padding: 4px 10px;
   border: 1px solid var(--border);
@@ -898,47 +809,6 @@
   color: var(--ink-dim);
 }
 
-/* Medidor de gasto: la ilustración de la tarjeta de tokens y la de difusiones. */
-.lp-meter {
-  margin-top: auto;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-}
-.lp-meter__head {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 13px;
-  color: var(--muted);
-  margin-bottom: 8px;
-}
-.lp-meter__head b {
-  color: var(--ink);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.lp-meter__bar {
-  height: 6px;
-  background: rgba(142, 158, 175, 0.12);
-  overflow: hidden;
-}
-.lp-meter__bar span {
-  display: block;
-  height: 100%;
-  background: var(--cyan);
-}
-.lp-meter__foot {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
 /* Tile del copiloto en el chat: la respuesta sugerida, sus acciones pendientes
    y los tres botones (enviar, editar, descartar), como en la bandeja. */
 .lp-suggest {
@@ -995,6 +865,379 @@
   background: var(--accent);
   color: var(--accent-ink);
   clip-path: var(--chamfer);
+}
+
+/* ── LÉEME: lo que hace Driony, numerado, con una muestra por punto ──
+   El índice queda fijo a la izquierda y marca en lima el punto que se lee; a
+   la derecha, el documento con su barra de archivo. Cada punto: número, título,
+   dos o tres frases y una muestra a su lado (chat, traza, fila o consola). */
+.lp-doc {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 36px;
+  align-items: start;
+}
+.lp-doc__toc {
+  position: sticky;
+  top: calc(var(--nav-h) + 24px);
+  font-size: 14px;
+}
+.lp-doc__file {
+  padding: 0 0 10px 14px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.lp-doc__toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.lp-doc__toc a {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 10px 7px 12px;
+  border-left: 2px solid transparent;
+  color: var(--muted);
+  line-height: 1.35;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+.lp-doc__toc a:hover {
+  color: var(--ink);
+}
+.lp-doc__toc a[aria-current="true"] {
+  color: var(--ink);
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+.lp-doc__n {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.lp-doc__toc a[aria-current="true"] .lp-doc__n {
+  color: var(--accent-text);
+}
+
+.lp-doc__body {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  min-width: 0;
+}
+.lp-doc__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.lp-doc__bar b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.lp-doc__sep {
+  opacity: 0.5;
+}
+
+.lp-doc__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  grid-template-rows: auto 1fr;
+  column-gap: 32px;
+  row-gap: 10px;
+  padding: 32px 28px;
+  scroll-margin-top: calc(var(--nav-h) + 16px);
+}
+.lp-doc__item + .lp-doc__item {
+  border-top: 1px solid var(--border-soft);
+}
+.lp-doc__item h3 {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lp-doc__item > p {
+  grid-column: 1;
+  color: var(--muted);
+  font-size: 15.5px;
+  line-height: 1.62;
+}
+.lp-doc__item > p b {
+  color: var(--ink-dim);
+  font-weight: 600;
+}
+.lp-doc__art {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+  min-width: 0;
+}
+.lp-doc__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+.lp-doc__link svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Muestras: todas sobre la superficie honda, con filete, como en el panel. */
+.lp-doc__chat,
+.lp-doc__trace,
+.lp-doc__gaps {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 13.5px;
+}
+.lp-doc__chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+.lp-doc__msg {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.lp-doc__msg--out {
+  flex-direction: row-reverse;
+}
+.lp-doc__at {
+  flex-shrink: 0;
+  min-width: 34px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.lp-doc__msg--out .lp-doc__at {
+  text-align: right;
+}
+.lp-doc__bubble {
+  max-width: 82%;
+  padding: 7px 10px;
+  background: var(--bubble-in);
+  color: var(--ink);
+  line-height: 1.45;
+}
+.lp-doc__msg--out .lp-doc__bubble {
+  background: var(--bubble-out);
+}
+.lp-doc__note,
+.lp-doc__trace-foot {
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.lp-doc__note {
+  color: var(--cyan);
+}
+.lp-doc__trace,
+.lp-doc__gaps {
+  padding: 12px 14px;
+}
+.lp-doc__trace-title {
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.lp-doc__trace dl {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+}
+.lp-doc__trace dl > div {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 10px;
+}
+.lp-doc__trace dt {
+  padding-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--cyan);
+}
+.lp-doc__trace dd {
+  margin: 0;
+  color: var(--ink-dim);
+  line-height: 1.45;
+}
+.lp-doc__trace-foot {
+  margin-top: 10px;
+  color: var(--muted);
+}
+.lp-doc__gap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-soft);
+  color: var(--ink-dim);
+}
+.lp-doc__gap b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.lp-doc__gap-meta {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.lp-doc__gap-btn {
+  padding: 3px 10px;
+  border: 1px solid var(--border-strong);
+  color: var(--ink-dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+.lp-doc__code {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ink-dim);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.lp-doc__trace--wide dl > div {
+  grid-template-columns: 150px minmax(0, 1fr);
+}
+.lp-doc__stages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 0;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--border);
+  font-size: 12.5px;
+}
+.lp-doc__arrow {
+  padding: 0 6px;
+  color: var(--muted);
+}
+.lp-doc__stage {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.lp-doc__stage--at {
+  border-color: var(--cyan-line);
+  background: var(--cyan-soft);
+  color: var(--ink);
+}
+.lp-doc__cmd {
+  color: var(--ink);
+}
+.lp-doc__done {
+  color: var(--ok);
+}
+/* El selector de modo del chat: lo elegido, en lima, como en el panel. */
+.lp-doc__modes {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+}
+.lp-doc__modes > * {
+  padding: 4px 10px;
+  color: var(--muted);
+}
+.lp-doc__modes > b {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+@media (max-width: 1100px) {
+  .lp-doc__item {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+  .lp-doc__art {
+    grid-column: 1;
+    grid-row: auto;
+    margin-top: 6px;
+  }
+}
+/* Estrecho: el índice va arriba, en una tira que se desliza, sin quedarse fijo. */
+@media (max-width: 900px) {
+  .lp-doc {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .lp-doc__toc {
+    position: static;
+    min-width: 0;
+  }
+  .lp-doc__file {
+    display: none;
+  }
+  .lp-doc__toc ol {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+  }
+  .lp-doc__toc a {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .lp-doc__toc a[aria-current="true"] {
+    border-color: var(--accent-line);
+  }
+}
+@media (max-width: 560px) {
+  .lp-doc__item {
+    padding: 24px 18px;
+  }
+  .lp-doc__bar {
+    padding: 9px 18px;
+  }
+  .lp-doc__gap {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .lp-doc__gap > span:first-child {
+    grid-column: 1 / -1;
+  }
+  .lp-doc__trace--wide dl > div {
+    grid-template-columns: 112px minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-doc__toc a {
+    transition: none;
+  }
 }
 
 /* ── Arma tu agente (simulador): el constructor a la izquierda, el chat y lo que hizo a la derecha ── */
@@ -1758,6 +2001,7 @@
 
 /* ── Preguntas ── */
 .lp-faq {
+  scroll-margin-top: calc(var(--nav-h) + 16px);
   margin: clamp(48px, 6vw, 72px) auto 0;
   max-width: 780px;
 }
@@ -1978,7 +2222,7 @@
     animation-timeline: view(block);
     animation-range: entry 10% entry 80%;
   }
-  .lp-js .lp-card.lp-reveal:nth-of-type(even) {
+  .lp-js .lp-doc__item.lp-reveal:nth-of-type(even) {
     animation-range: entry 25% entry 95%;
   }
 }
@@ -2030,15 +2274,6 @@
     padding-left: 0;
     border-left: 0;
     border-top: 1px solid var(--border);
-  }
-  .lp-bento {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .lp-card--full,
-  .lp-card--half,
-  .lp-card--third,
-  .lp-card--two-thirds {
-    grid-column: span 2;
   }
   .lp-stage__notes {
     grid-template-columns: 1fr;
@@ -2169,26 +2404,6 @@
     text-align: center;
     width: 100%;
   }
-  .lp-bento {
-    grid-template-columns: 1fr;
-  }
-  .lp-card--full,
-  .lp-card--half,
-  .lp-card--third,
-  .lp-card--two-thirds {
-    grid-column: span 1;
-  }
-  .lp-card,
-  .lp-card--feature {
-    padding: 22px 20px;
-  }
-  .lp-card--feature {
-    display: flex;
-  }
-  .lp-card--feature .lp-card__media {
-    margin: -4px -4px 8px;
-    aspect-ratio: 16 / 10;
-  }
   .lp-plans.lp-plans--snap {
     grid-template-columns: 1fr;
   }
@@ -2238,8 +2453,9 @@
 .lp-demo__bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px 10px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -2252,6 +2468,74 @@
   font-family: var(--font-display);
   font-size: 14.5px;
   font-weight: 700;
+}
+/* Los canales por los que llegan los chats: cada marca en su color, para reconocerla al vuelo. */
+.lp-demo__channels {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-right: auto;
+  margin-left: 18px;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.lp-demo__channels-label {
+  color: var(--muted);
+}
+/* En estrecho: título y etiqueta arriba, los canales en su propia línea debajo. */
+@media (max-width: 759px) {
+  .lp-demo__channels {
+    order: 3;
+    flex-basis: 100%;
+    margin: 0;
+  }
+}
+.lp-demo__channel,
+.lp-demo__via {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.lp-demo__channel svg,
+.lp-demo__via svg,
+.lp-demo__chip-icon svg,
+.lp-demo__badge svg {
+  flex-shrink: 0;
+}
+.lp-demo [data-channel="whatsapp"] svg {
+  color: #25d366;
+}
+.lp-demo [data-channel="instagram"] svg {
+  color: #f0569a;
+}
+.lp-demo [data-channel="messenger"] svg {
+  color: #3b9bff;
+}
+.lp-demo [data-channel="tiktok"] svg {
+  color: var(--ink);
+}
+/* La marca del canal, en la esquina del avatar, como en la bandeja. */
+.lp-demo__avatar {
+  position: relative;
+}
+.lp-demo__badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.lp-demo__chip-icon {
+  display: inline-grid;
+  place-items: center;
+  margin-right: 5px;
+  vertical-align: -1px;
 }
 .lp-demo__tag {
   flex-shrink: 0;
