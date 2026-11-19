@@ -152,6 +152,7 @@ import type {
   ChangePasswordInput,
   ProductDto,
   ProductPage,
+  CatalogGap,
   ProductBulkInput,
   ProductBulkResult,
   CreateProductInput,
@@ -1654,6 +1655,13 @@ export async function deleteProductField(id: string): Promise<void> {
 
 // ── Productos ────────────────────────────────────────────────
 /** Una página del catálogo. `query` es la cadena de la URL de la pantalla (filtros, orden, página). */
+/** Lo que los clientes pidieron a la IA y el producto no tiene. */
+export async function fetchCatalogGaps(): Promise<CatalogGap[]> {
+  const res = await bffFetch("/api/bff/products/gaps");
+  if (!res.ok) throw new Error("No se pudo cargar lo que falta en el catálogo");
+  return res.json();
+}
+
 export async function fetchProductPage(query: string): Promise<ProductPage> {
   const res = await bffFetch(`/api/bff/products${query ? `?${query}` : ""}`);
   if (!res.ok) throw new Error("No se pudieron cargar los productos");

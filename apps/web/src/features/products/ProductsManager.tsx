@@ -34,6 +34,7 @@ import {
 } from "@/lib/bff";
 import { dangerBtn, ghostBtn, input, label, primaryBtn, smBtn } from "@/components/ui";
 import { ImportProductsDialog } from "./ImportProductsDialog";
+import { CatalogGaps } from "./CatalogGaps";
 import { ProductSourceMark, ProductSourcesDialog } from "./ProductSourcesDialog";
 import { ProductFieldInput, ProductFieldsDialog } from "./ProductFieldsDialog";
 import { ActiveProductFilters, ProductFiltersPanel } from "./ProductFilters";
@@ -62,6 +63,12 @@ export function ProductsManager() {
   const queryClient = useQueryClient();
   const { query, apiQuery, filterQuery, update } = useProductListUrl();
   const [editing, setEditing] = useState<ProductDto | "new" | null>(null);
+  // El campo que pidieron los clientes y falta («Completar» en «Lo que preguntan y falta»).
+  const [focusField, setFocusField] = useState<string | null>(null);
+  const openProduct = (p: ProductDto | "new", field: string | null = null) => {
+    setFocusField(field);
+    setEditing(p);
+  };
   const [importing, setImporting] = useState(false);
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
@@ -106,7 +113,11 @@ export function ProductsManager() {
     // Al cambiar de página o de filtro se queda la lista anterior hasta que llega la nueva: sin parpadeo.
     placeholderData: keepPreviousData,
   });
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["products"] });
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    // Un dato completado deja de salir en «Lo que preguntan y falta».
+    queryClient.invalidateQueries({ queryKey: ["catalog-gaps"] });
+  };
 
   // Tiendas conectadas: mientras alguna lee su catálogo se consulta seguido y,
   // al terminar, se refrescan los productos y los campos que haya creado.
@@ -280,7 +291,7 @@ export function ProductsManager() {
         <button onClick={() => setImporting(true)} style={ghostBtn} className="prod-tool" data-tour="products-import" aria-label="Importar" title="Importar desde Excel o CSV">
           <NavIcon name="file" size={15} /> <span className="prod-tool__text">Importar</span>
         </button>
-        <button onClick={() => setEditing("new")} style={primaryBtn} data-tour="products-new">
+        <button onClick={() => openProduct("new")} style={primaryBtn} data-tour="products-new">
           <NavIcon name="plus" size={15} /> Nuevo producto
         </button>
       </div>
@@ -289,6 +300,7 @@ export function ProductsManager() {
         <ProductFiltersPanel query={query} fields={fields} sources={sources} currencies={data?.currencies ?? []} update={update} />
       )}
       <ActiveProductFilters query={query} fields={fields} sources={sources} update={update} onClearAll={clearAll} />
+      <CatalogGaps onComplete={(p, field) => openProduct(p, field)} />
 
       {fieldsOpen && <ProductFieldsDialog fields={fields} onClose={() => setFieldsOpen(false)} />}
       {sourcesOpen && <ProductSourcesDialog sources={sources} loading={sourcesPending} onClose={() => setSourcesOpen(false)} />}
@@ -303,6 +315,7 @@ export function ProductsManager() {
           key={editing === "new" ? "new" : editing.id}
           product={editing === "new" ? null : editing}
           fields={fields}
+          focusField={editing === "new" ? null : focusField}
           onManageFields={() => setFieldsOpen(true)}
           onClose={() => setEditing(null)}
           onSaved={() => {
@@ -393,12 +406,12 @@ export function ProductsManager() {
               selected={shownSelected}
               selecting={selectedCount > 0}
               onToggle={toggle}
-              onOpen={(p) => setEditing(p)}
+              onOpen={(p) => openProduct(p)}
               pageChecked={pageChecked}
               onTogglePage={togglePage}
             />
           ) : (
-            <ProductGrid products={products} fields={fields} selected={shownSelected} selecting={selectedCount > 0} onToggle={toggle} onOpen={(p) => setEditing(p)} />
+            <ProductGrid products={products} fields={fields} selected={shownSelected} selecting={selectedCount > 0} onToggle={toggle} onOpen={(p) => openProduct(p)} />
           ))}
       </div>
 
@@ -468,12 +481,15 @@ function CurrencySelect({
 function ProductDrawer({
   product,
   fields,
+  focusField = null,
   onManageFields,
   onClose,
   onSaved,
 }: {
   product: ProductDto | null;
   fields: ProductFieldDto[];
+  /** Campo que los clientes pidieron y falta: se lleva a la vista y se marca. */
+  focusField?: string | null;
   onManageFields: () => void;
   onClose: () => void;
   onSaved: () => void;
@@ -506,6 +522,14 @@ function ProductDrawer({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   useEffect(() => setPreviewBroken(false), [imageUrl]);
+  // Al venir de «Completar», directo al campo que falta.
+  useEffect(() => {
+    if (!mounted || !focusField) return;
+    const el = document.querySelector<HTMLElement>(`[data-product-field="${CSS.escape(focusField)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: "center" });
+    el.querySelector<HTMLElement>("input, textarea, select, button")?.focus({ preventScroll: true });
+  }, [mounted, focusField]);
 
   // Obligatorios que los controles nativos no pueden marcar (Sí/No, varias opciones).
   const missing = fields.filter((f) => f.required && !(attributes[f.key] ?? "").trim());
@@ -634,6 +658,8 @@ function ProductDrawer({
                     text={f.required ? `${f.label} *` : f.label}
                     hint={f.help ?? (f.aiVisible ? undefined : "Interno: el agente de IA no lo ve.")}
                     wide={f.type === "longtext" || f.type === "multiselect"}
+                    fieldKey={f.key}
+                    asked={f.key === focusField && !(attributes[f.key] ?? "").trim()}
                   >
                     <ProductFieldInput
                       field={f}
@@ -756,10 +782,33 @@ function ProductDrawer({
   );
 }
 
-function Field({ text, hint, wide, children }: { text: string; hint?: string; wide?: boolean; children: React.ReactNode }) {
+function Field({
+  text,
+  hint,
+  wide,
+  fieldKey,
+  asked,
+  children,
+}: {
+  text: string;
+  hint?: string;
+  wide?: boolean;
+  /** Clave del campo de producto (para llevar a él desde «Completar»). */
+  fieldKey?: string;
+  /** Lo pidieron los clientes y falta. */
+  asked?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0, gridColumn: wide ? "1 / -1" : undefined }}>
-      <span style={{ ...label, marginBottom: 0 }}>{text}</span>
+    <label
+      className={asked ? "pf-asked" : undefined}
+      data-product-field={fieldKey}
+      style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0, gridColumn: wide ? "1 / -1" : undefined }}
+    >
+      <span style={{ ...label, marginBottom: 0 }}>
+        {text}
+        {asked && <span className="pf-asked__badge">Lo piden tus clientes</span>}
+      </span>
       {children}
       {hint && <span style={{ fontSize: 12, color: "var(--muted)" }}>{hint}</span>}
     </label>

@@ -1,7 +1,7 @@
 import type { PlaygroundToolCall } from "@crm/shared";
 
 /**
- * Lo que consultó el agente en «Probar conversación», en una línea por consulta:
+ * Lo que consultó el agente («Probar conversación» y «¿Por qué?» de la bandeja), en una línea por consulta:
  * con qué buscó y qué le devolvió. Sin esto solo se veía «herramientas:
  * search_products» y no había forma de saber si encontró el curso, si listó el
  * catálogo entero o si al producto le faltaban datos que luego se inventó.
@@ -39,7 +39,15 @@ function parse(output: string): unknown {
   }
 }
 
-function products(output: string): string {
+const quoted = (l: string[]) => l.map((x) => `«${x}»`).join(", ");
+
+/** Los datos que pidió el cliente al buscar en el catálogo (el «asks» de search_products). */
+function asksOf(input: Record<string, unknown> | undefined): string[] {
+  const a = input?.asks;
+  return Array.isArray(a) ? a.filter((x): x is string => typeof x === "string" && !!x) : [];
+}
+
+function products(output: string, asks: string[] = []): string {
   const r = parse(output) as {
     total?: number;
     note?: string;
@@ -54,12 +62,16 @@ function products(output: string): string {
     ? `${/Sin coincidencias/i.test(r.note ?? "") ? "Sin coincidencias: " : ""}listó el catálogo (${r.total})`
     : `${names.length === 1 ? "Encontró 1" : `Encontró ${names.length}`}`;
   const shown = names.slice(0, 4).join(", ") + (names.length > 4 ? ` y ${names.length - 4} más` : "");
-  // Con pocos productos, qué datos les faltan: es justo lo que el agente podría inventarse.
-  const missing =
-    r.products.length <= 3
-      ? [...new Set(r.products.flatMap((p) => p.missingDetails ?? []))].map((l) => `«${l}»`)
-      : [];
-  return clip(`${head}: ${shown}.${missing.length ? ` Sin dato en el producto: ${missing.join(", ")}.` : ""}`, MAX_SUMMARY);
+  // Con pocos productos, qué datos les faltan: es justo lo que el agente podría
+  // inventarse. Primero los que pidió el cliente: esos son los que hay que completar.
+  const missing = r.products.length <= 3 ? [...new Set(r.products.flatMap((p) => p.missingDetails ?? []))] : [];
+  const askedMissing = missing.filter((l) => asks.includes(l));
+  const otherMissing = missing.filter((l) => !asks.includes(l));
+  const notes = [
+    askedMissing.length ? ` Pidió ${quoted(askedMissing)} y no está en los campos del producto.` : "",
+    otherMissing.length ? ` Sin dato en el producto: ${quoted(otherMissing)}.` : "",
+  ].join("");
+  return clip(`${head}: ${shown}.${notes}`, MAX_SUMMARY);
 }
 
 function knowledge(output: string): string {
@@ -72,13 +84,19 @@ function knowledge(output: string): string {
 
 /** Una línea por consulta del agente, para enseñarla bajo su respuesta en la prueba. */
 export function traceToolCall(name: string, input: Record<string, unknown> | undefined, output: string): PlaygroundToolCall {
+  if (name === "search_products") {
+    // La búsqueda y, aparte, qué dato pidió el cliente: «genómica» · pide «Temario».
+    const asks = asksOf(input);
+    const q = typeof input?.query === "string" ? input.query.trim() : "";
+    const query = q ? `«${q}»` : "";
+    const asked = asks.length ? `pide ${quoted(asks)}` : "";
+    return { name, input: clip([query, asked].filter(Boolean).join(" · "), MAX_INPUT), summary: products(output, asks) };
+  }
   const summary =
-    name === "search_products"
-      ? products(output)
-      : name === "search_knowledge"
-        ? knowledge(output)
-        : name === "search_contact"
-          ? "Leyó la ficha del cliente de prueba."
-          : clip(output.replace(/\s+/g, " ").trim(), MAX_SUMMARY);
+    name === "search_knowledge"
+      ? knowledge(output)
+      : name === "search_contact"
+        ? "Leyó la ficha del cliente."
+        : clip(output.replace(/\s+/g, " ").trim(), MAX_SUMMARY);
   return { name, input: inputText(input), summary };
 }

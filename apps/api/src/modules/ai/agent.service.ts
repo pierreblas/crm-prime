@@ -720,6 +720,8 @@ export class AgentService {
     let output = "";
     let escalated = false;
     let reason: string | undefined;
+    // Lo que se guarda con la llamada además de lo que vio el modelo.
+    let saved: Record<string, unknown> = {};
 
     // ── Acciones que escriben en el CRM ──────────────────────────
     if (isActionTool(tu.name)) {
@@ -753,6 +755,8 @@ export class AgentService {
       // no cabe con detalle va al menos por nombre, para que con 200 productos
       // el agente sepa que existen y pueda volver a buscar.
       const q = String(tu.input.query ?? "").trim();
+      // Qué dato del producto pidió el cliente («Temario», «Fechas»…), si lo dijo.
+      const asks = Array.isArray(tu.input.asks) ? tu.input.asks.filter((a): a is string => typeof a === "string") : [];
       const MAX = 50;
       const select = {
         id: true,
@@ -791,6 +795,7 @@ export class AgentService {
       // Precio en la moneda del cliente si el producto la tiene; si no, el
       // precio base, marcado para que el agente no lo "convierta" por su cuenta.
       const clientCurrency = contactCurrency(contact);
+      const missingOf = new Map<string, string[]>();
       const items = rows.map((p) => {
         const hit = priceFor(
           {
@@ -817,6 +822,7 @@ export class AgentService {
           // Los campos que este producto no tiene, dichos: si no, una plantilla con
           // «Temario» o [Con certificado UNALM] invitaba al modelo a rellenarlos.
           const missingDetails = fieldDefs.filter((f) => !(f.label in details)).map((f) => f.label);
+          missingOf.set(p.id, missingDetails);
           return {
             ...(Object.keys(details).length ? { details } : {}),
             ...(missingDetails.length ? { missingDetails } : {}),
@@ -828,6 +834,16 @@ export class AgentService {
         hasImage: !!p.imageUrl,
         };
       });
+      // Lo que pidió y el producto no tiene: para «Lo que preguntan y falta» de
+      // Productos y para decírselo al modelo en el momento (con la regla general
+      // sola, a veces lo rellenaba igual: «incluye certificado digital»). Solo con
+      // una búsqueda que acierta (hasta 3 productos): en un listado no se sabe de cuál hablaba.
+      const gaps =
+        asks.length && q && !listedAll && rows.length <= 3
+          ? rows.flatMap((p) => asks.filter((a) => missingOf.get(p.id)?.includes(a)).map((field) => ({ productId: p.id, field })))
+          : [];
+      if (gaps.length) saved = { gaps };
+      const askedMissing = [...new Set(gaps.map((g) => `«${g.field}»`))];
       output = JSON.stringify({
         clientCurrency,
         // Nota para el agente: si filtró y no hubo match, le devolvemos todo.
@@ -838,7 +854,11 @@ export class AgentService {
               ? `Sin coincidencias exactas para "${q}"; se lista el catálogo completo.`
               : listedAll
                 ? "Catálogo completo."
-                : `Resultados para "${q}".`,
+                : `Resultados para "${q}".${
+                    askedMissing.length
+                      ? ` El cliente pide ${askedMissing.join(", ")} y ${rows.length === 1 ? "este producto no lo trae" : "no viene"} en «details»: si tampoco lo dice la descripción, no lo tienes. No lo afirmes, no lo supongas y no lo inventes; dilo y sigue tus instrucciones para lo que no sabes.`
+                      : ""
+                  }`,
         total,
         truncated: total > rows.length,
         products: items,
@@ -863,7 +883,7 @@ export class AgentService {
           aiRunId,
           toolName: tu.name,
           input: tu.input as Prisma.InputJsonObject,
-          output: { result: output },
+          output: { result: output, ...saved } as Prisma.InputJsonObject,
           status: "EXECUTED",
           resolvedAt: new Date(),
         },

@@ -2660,3 +2660,43 @@ test("recuperar la contraseña: por correo, por el administrador y por el operad
     else process.env.SAAS_BASE_DOMAIN = saasAntes;
   }
 });
+
+test("«Lo que preguntan y falta» con el rol restringido: solo lo de su empresa, y lo completado deja de salir", async () => {
+  // Las llamadas de la IA no llevan orgId: la consulta las acota por la conversación.
+  const { CatalogGapsService } = await import("../src/modules/products/catalog-gaps.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgs = [`o_gap_${suf}`, `o_gap2_${suf}`] as const;
+  await ctx.runUnscoped("prueba: empresas de lo que falta en el catálogo", async () => {
+    for (const [i, id] of orgs.entries()) await prisma.organization.create({ data: { id, slug: `gap${i}-${suf}`, name: `Vacíos ${i}` } });
+  });
+  const seed = (orgId: string, n: number) =>
+    ctx.runInOrg(orgId, async () => {
+      await prisma.productField.create({ data: { orgId, key: "temario", label: "Temario", type: "url", options: [] } });
+      const product = await prisma.product.create({ data: { orgId, name: `Curso ${n}`, price: 100, currency: "PEN" } });
+      const contact = await prisma.contact.create({ data: { orgId, phone: `+5198${n}${suf}`, name: `Cliente ${n}` } });
+      const conv = await prisma.conversation.create({ data: { orgId, contactId: contact.id, status: "OPEN" } });
+      const run = await prisma.aiRun.create({ data: { conversationId: conv.id, status: "COMPLETED", model: "gpt-4.1-mini" } });
+      await prisma.aiToolCall.create({
+        data: {
+          aiRunId: run.id,
+          toolName: "search_products",
+          input: { query: "curso", asks: ["Temario"] },
+          output: { result: "{}", gaps: [{ productId: product.id, field: "Temario" }] },
+          status: "EXECUTED",
+        },
+      });
+      return { product, conv };
+    });
+  const a = await seed(orgs[0], 1);
+  await seed(orgs[1], 2);
+
+  const list = (orgId: string) => ctx.runInOrg(orgId, () => new CatalogGapsService(prisma, { orgId: () => orgId } as any).list());
+  assert.deepEqual(
+    (await list(orgs[0])).map((g: any) => [g.product.name, g.field, g.fieldKey, g.conversations, g.lastConversationId]),
+    [["Curso 1", "Temario", "temario", 1, a.conv.id]],
+  );
+  assert.deepEqual((await list(orgs[1])).map((g: any) => g.product.name), ["Curso 2"], "cada empresa ve solo lo suyo");
+
+  await ctx.runInOrg(orgs[0], () => prisma.product.update({ where: { id: a.product.id }, data: { attributes: { temario: "https://x.example/temario" } } }));
+  assert.deepEqual(await list(orgs[0]), [], "completado, deja de salir");
+});

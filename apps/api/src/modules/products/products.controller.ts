@@ -21,6 +21,7 @@ import {
   type ImportProductsInput,
   type ImportProductsResult,
   type ProductBulkInput,
+  type CatalogGap,
   type ProductBulkResult,
   type ProductDto,
   type ProductPage,
@@ -28,6 +29,7 @@ import {
 } from "@crm/shared";
 import type { Prisma } from "@prisma/client";
 import { ProductCatalogService, cleanAttributes as clean } from "./product-catalog.service";
+import { CatalogGapsService } from "./catalog-gaps.service";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -41,6 +43,7 @@ export class ProductsController {
     private readonly prisma: PrismaService,
     private readonly tenant: TenantService,
     private readonly catalog: ProductCatalogService,
+    private readonly gaps: CatalogGapsService,
   ) {}
 
   /**
@@ -51,6 +54,12 @@ export class ProductsController {
   @Get()
   list(@Query() query: Record<string, unknown>): Promise<ProductPage> {
     return this.catalog.page(parseProductListQuery(query));
+  }
+
+  /** Lo que los clientes pidieron a la IA y el producto no tiene (últimos 30 días). */
+  @Get("gaps")
+  listGaps(): Promise<CatalogGap[]> {
+    return this.gaps.list();
   }
 
   /** Activar, desactivar o borrar varios: los elegidos o todos los que cumplen los filtros. */

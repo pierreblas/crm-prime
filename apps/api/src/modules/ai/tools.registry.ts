@@ -119,6 +119,8 @@ export interface ToolContext {
   bookingServices: string[];
   /** Quién atiende esos servicios. */
   bookingStaff: string[];
+  /** Campos de producto que ve la IA («Temario», «Fechas»…): search_products dice cuál pide el cliente. */
+  productFields: string[];
 }
 
 export const EMPTY_TOOL_CONTEXT: ToolContext = {
@@ -130,6 +132,7 @@ export const EMPTY_TOOL_CONTEXT: ToolContext = {
   leadStatuses: [],
   bookingServices: [],
   bookingStaff: [],
+  productFields: [],
 };
 
 const ACTION_META: Record<
@@ -441,8 +444,40 @@ export function resolveTools(
       if (built) out.push(built);
       continue;
     }
+    if (name === "search_products") {
+      out.push(searchProductsTool(context.productFields));
+      continue;
+    }
     const tool = TOOL_REGISTRY[name];
     if (tool) out.push(tool);
   }
   return out;
+}
+
+/**
+ * search_products con «asks»: qué dato del producto pide el cliente, elegido de
+ * los campos reales del catálogo. Va en la misma llamada (sin otra vuelta al
+ * modelo) y, si el producto no lo tiene, queda contado en «Lo que preguntan y
+ * falta» de Productos. Sin campos de producto, la herramienta de siempre.
+ */
+export function searchProductsTool(fields: string[] = []): LlmTool {
+  const base = TOOL_REGISTRY.search_products;
+  const labels = [...new Set(fields.map((f) => f.trim()).filter(Boolean))];
+  if (!labels.length) return base;
+  const schema = base.input_schema as { properties: Record<string, unknown> };
+  return {
+    ...base,
+    input_schema: {
+      ...base.input_schema,
+      properties: {
+        ...schema.properties,
+        asks: {
+          type: "array",
+          items: { type: "string", enum: labels },
+          description:
+            "Qué datos de esta lista pide el cliente en su último mensaje (si pregunta cuándo empieza, el de fechas; si pide el temario, el temario). Vacío si solo pregunta qué hay o el precio.",
+        },
+      },
+    },
+  };
 }

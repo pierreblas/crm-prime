@@ -43,7 +43,7 @@ export class AgentActionsService {
 
   // Valores reales del workspace para construir los esquemas de las tools.
   async loadContext(): Promise<ToolContext> {
-    const [tags, stages, sellers, customFields, products, leadStages, booking] = await Promise.all([
+    const [tags, stages, sellers, customFields, products, leadStages, booking, productFields] = await Promise.all([
       this.prisma.tag.findMany({
         select: { name: true },
         orderBy: { name: "asc" },
@@ -77,6 +77,12 @@ export class AgentActionsService {
       }),
       // Servicios de la agenda que se pueden reservar ya.
       this.bookings.agentCatalog(),
+      // Campos de producto que ve la IA: con ellos search_products dice qué dato pide el cliente.
+      this.prisma.productField.findMany({
+        where: { aiVisible: true },
+        select: { label: true },
+        orderBy: { order: "asc" },
+      }),
     ]);
     const leadStatuses = [
       ...(leadStages.some((s) => s.isQualified) ? ["potential"] : []),
@@ -93,6 +99,7 @@ export class AgentActionsService {
       leadStatuses,
       bookingServices: booking.services,
       bookingStaff: booking.staff,
+      productFields: productFields.map((f) => f.label),
     };
   }
 

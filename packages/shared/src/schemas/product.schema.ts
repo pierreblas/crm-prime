@@ -502,3 +502,23 @@ export const importProductsResultSchema = z.object({
   errors: z.array(z.object({ row: z.number(), message: z.string() })),
 });
 export type ImportProductsResult = z.infer<typeof importProductsResultSchema>;
+
+/** Días hacia atrás que se miran para «Lo que preguntan y falta». */
+export const CATALOG_GAP_DAYS = 30;
+
+/**
+ * Un dato que los clientes pidieron a la IA y el producto no tiene (la IA dice
+ * qué pide el cliente al consultar el catálogo). Solo los que siguen vacíos hoy.
+ */
+export const catalogGapSchema = z.object({
+  product: productDtoSchema,
+  /** El nombre del campo, como lo ve la IA («Temario»). */
+  field: z.string(),
+  fieldKey: z.string(),
+  /** Cuántos clientes (conversaciones distintas) lo pidieron. */
+  conversations: z.number(),
+  lastAskedAt: z.string(),
+  /** El chat más reciente donde lo pidieron, para verlo en la bandeja. */
+  lastConversationId: z.string(),
+});
+export type CatalogGap = z.infer<typeof catalogGapSchema>;
