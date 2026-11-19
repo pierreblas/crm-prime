@@ -136,6 +136,35 @@ export function findVars(text: string, vars: PromptVar[]): Mark[] {
   return out;
 }
 
+const BRACKET_RE = /\[([^[\]\n]{1,60})\]/g;
+
+/**
+ * Huecos entre corchetes que son datos del producto: [Fechas], [Temario],
+ * [precio]. Hay instrucciones escritas así (una plantilla de presentación con
+ * huecos); funcionan, pero el editor no los reconoce como datos. Los que van
+ * todo en MAYÚSCULAS ([HORARIO]) no cuentan: son marcadores para que los
+ * rellene el dueño del negocio.
+ */
+export function findBracketData(text: string, fields: ProductDataField[]): Mark[] {
+  const byKey = new Map(fields.map((f) => [varKey(f.label), f]));
+  const out: Mark[] = [];
+  for (const m of text.matchAll(BRACKET_RE)) {
+    const inner = m[1]!.trim();
+    if (inner === inner.toUpperCase()) continue;
+    const f = byKey.get(varKey(inner));
+    if (f) out.push({ start: m.index!, end: m.index! + m[0].length, kind: f.visible ? "data" : "data-off", text: f.label });
+  }
+  return out;
+}
+
+/** El texto con esos huecos escritos como datos del producto: [Temario] → «Temario». */
+export function convertBracketData(text: string, fields: ProductDataField[]): string {
+  const marks = findBracketData(text, fields);
+  let out = text;
+  for (const m of [...marks].reverse()) out = out.slice(0, m.start) + dataToken(m.text) + out.slice(m.end);
+  return out;
+}
+
 /** Acciones del agente nombradas en el texto, activadas o no. */
 export function findTools(text: string, tools: PromptTool[]): Mark[] {
   const out: Mark[] = [];

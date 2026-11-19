@@ -61,13 +61,34 @@ export const playgroundTurnSchema = z.object({
 });
 export type PlaygroundTurn = z.infer<typeof playgroundTurnSchema>;
 
+/**
+ * El cliente con el que se prueba: su nombre rellena {{nombre}} y su teléfono
+ * da el país, la moneda ({{pais}}, {{moneda}}) y el precio que devuelve el
+ * catálogo. Sin él, un «Cliente de prueba» sin país.
+ */
+export const playgroundContactSchema = z.object({
+  name: z.string().trim().max(120).optional(),
+  phone: z.string().trim().max(20).optional(),
+});
+export type PlaygroundContact = z.infer<typeof playgroundContactSchema>;
+
 export const playgroundRequestSchema = z.object({
   message: z.string().min(1).max(4000),
   botId: z.string().optional(), // bot a probar; si falta, usa el por defecto
   // Historial de la conversación de prueba (sin contar el mensaje actual).
   history: z.array(playgroundTurnSchema).max(40).default([]),
+  contact: playgroundContactSchema.optional(),
 });
 export type PlaygroundRequest = z.infer<typeof playgroundRequestSchema>;
+
+/** Una consulta que hizo el agente en la prueba y, en una línea, qué le devolvió. */
+export const playgroundToolCallSchema = z.object({
+  name: z.string(),
+  /** Con qué la llamó (p. ej. la búsqueda), en texto corto. */
+  input: z.string(),
+  summary: z.string(),
+});
+export type PlaygroundToolCall = z.infer<typeof playgroundToolCallSchema>;
 
 export const playgroundReplySchema = z.object({
   reply: z.string().nullable(),
@@ -78,6 +99,10 @@ export const playgroundReplySchema = z.object({
   model: z.string(),
   provider: z.string(),
   toolsUsed: z.array(z.string()),
+  /** Cada consulta y su resultado: para ver si de verdad leyó el catálogo y qué encontró. */
+  toolCalls: z.array(playgroundToolCallSchema).default([]),
+  /** El agente escribe en varios mensajes cortos (como en WhatsApp): la respuesta va por párrafos. */
+  splitReplies: z.boolean().default(false),
   inputTokens: z.number(),
   outputTokens: z.number(),
   costUsd: z.number(),
@@ -143,6 +168,8 @@ export const simulateTurnRequestSchema = z.object({
   history: z.array(playgroundTurnSchema).max(SIMULATOR_MAX_TURNS * 2).default([]),
   /** Cuántos mensajes del cliente tendrá esta conversación. */
   maxTurns: z.number().int().min(1).max(SIMULATOR_MAX_TURNS).default(6),
+  /** El cliente con el que se prueba (nombre y país), como en la conversación manual. */
+  contact: playgroundContactSchema.optional(),
 });
 export type SimulateTurnRequest = z.infer<typeof simulateTurnRequestSchema>;
 export type SimulateTurnPayload = z.input<typeof simulateTurnRequestSchema>;

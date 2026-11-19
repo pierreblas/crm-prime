@@ -9,7 +9,9 @@ import assert from "node:assert/strict";
 import {
   BUILTIN_VARS,
   collectMarks,
+  convertBracketData,
   dataToken,
+  findBracketData,
   findProductData,
   productDataFields,
   segments,
@@ -81,6 +83,23 @@ test("todas las marcas juntas, ordenadas y sin pisarse", () => {
   for (let i = 1; i < marks.length; i++) assert.ok(marks[i]!.start >= marks[i - 1]!.end, "no se solapan");
   // Los tramos vuelven a formar el texto entero: la capa de resaltado no pierde ni añade nada.
   assert.equal(segments(text, marks).map((s) => s.text).join(""), text);
+});
+
+test("los huecos [Campo] que son datos del producto se reconocen y se convierten a «Campo»; los [EN MAYÚSCULAS] no", () => {
+  const text = "📅 [fecha de inicio] · 🕐 [Horario]\n📲 Temario: [Temario]\nHorario de atención: [HORARIO]. Interno: [Costo interno].";
+  const found = findBracketData(text, FIELDS);
+  assert.deepEqual(
+    found.map((m) => [slice(text, m), m.kind]),
+    [
+      ["[fecha de inicio]", "data"],
+      ["[Costo interno]", "data-off"],
+    ],
+    "[Horario] y [Temario] no son campos de este catálogo; [HORARIO] es un marcador del dueño",
+  );
+  assert.equal(
+    convertBracketData(text, FIELDS),
+    "📅 «Fecha de inicio» · 🕐 [Horario]\n📲 Temario: [Temario]\nHorario de atención: [HORARIO]. Interno: «Costo interno».",
+  );
 });
 
 test("sin datos del producto (otros editores), el texto entre « » no se marca", () => {

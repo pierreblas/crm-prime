@@ -18,6 +18,7 @@ import type {
   EscalationRules,
   PlaygroundReply,
   PlaygroundRequest,
+  PlaygroundToolCall,
   SimulateTurnReply,
   SimulateTurnRequest,
 } from "@crm/shared";
@@ -25,6 +26,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { fold } from "../../common/utils/fold";
 import { searchProducts } from "./product-search";
+import { traceToolCall } from "./playground-trace";
 import { MediaUnderstandingService } from "./media-understanding.service";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { AgentActionsService } from "./agent-actions.service";
@@ -358,8 +360,24 @@ export class AgentService {
       ? await this.prisma.agentConfig.findUnique({ where: { id: input.botId } })
       : await this.bots.resolveForChannel(null);
 
-    const contact = { name: "Cliente de prueba", phone: "+000000000" };
-    const system = this.buildSystemParts(config?.systemPrompt, contact, config?.enabledTools ?? [], false, {
+    // El cliente de la prueba: su nombre rellena {{nombre}} y su teléfono da el
+    // país y la moneda (y el precio que devuelve el catálogo). Sin elegir, uno sin país.
+    const contact = {
+      name: input.contact?.name?.trim() || "Cliente de prueba",
+      phone: input.contact?.phone?.replace(/[^\d+]/g, "") || "+000000000",
+    };
+    // Las instrucciones se arman igual que en una conversación real: con los
+    // campos del catálogo y del contacto y los mensajes cortos si los usa. Antes
+    // la prueba no le decía al agente qué datos traía cada producto, y respondía
+    // distinto que con un cliente de verdad.
+    const [catalogFields, contactFieldDefs] = await Promise.all([
+      this.prisma.productField.findMany({ where: { aiVisible: true }, select: { label: true } }),
+      this.prisma.customField.findMany({ select: { key: true, label: true } }),
+    ]);
+    const splitReplies = !!config?.splitReplies;
+    const system = this.buildSystemParts(config?.systemPrompt, contact, config?.enabledTools ?? [], splitReplies, {
+      catalogFields: catalogFields.map((f) => f.label),
+      contactFields: contactFieldDefs,
       bookings: await this.bookingContext(config?.enabledTools ?? [], null),
     });
     const toolContext = await this.actions.loadContext();
@@ -386,6 +404,7 @@ export class AgentService {
     let inputTokens = 0;
     let outputTokens = 0;
     const toolsUsed: string[] = [];
+    const toolCalls: PlaygroundToolCall[] = [];
 
     try {
       for (let i = 0; i < maxIterations; i++) {
@@ -436,6 +455,7 @@ export class AgentService {
             null,
           );
           if (isActionTool(tu.name)) simulatedActions.push(output);
+          toolCalls.push(traceToolCall(tu.name, tu.input, output));
           if (escalated) {
             escalate = true;
             escalationReason = reason ?? "Escalado por la IA.";
@@ -467,6 +487,8 @@ export class AgentService {
           ...(knowledge.length ? ["search_knowledge"] : []),
         ]),
       ],
+      toolCalls,
+      splitReplies,
       inputTokens,
       outputTokens,
       costUsd: this.cost(model, inputTokens, outputTokens),
@@ -500,7 +522,10 @@ export class AgentService {
       return { customer: null, agent: null, ended: "error", error: "La IA no generó el mensaje del cliente.", tokens: customer.tokens };
     }
 
-    const agent = await this.playground({ message: customer.text, botId: input.botId, history: input.history }, "simulator");
+    const agent = await this.playground(
+      { message: customer.text, botId: input.botId, history: input.history, ...(input.contact ? { contact: input.contact } : {}) },
+      "simulator",
+    );
     const ended = agent.escalate ? "escalated" : customer.done ? "customer_done" : said + 1 >= input.maxTurns ? "max_turns" : null;
     return { customer: customer.text, agent, ended, error: null, tokens: customer.tokens + agent.inputTokens + agent.outputTokens };
   }
@@ -770,7 +795,13 @@ export class AgentService {
               .filter(([k, v]) => fieldDef.has(k) && typeof v === "string" && v)
               .map(([k, v]) => [fieldDef.get(k)!.label, formatFieldValue(fieldDef.get(k)!, v)]),
           );
-          return Object.keys(details).length ? { details } : {};
+          // Los campos que este producto no tiene, dichos: si no, una plantilla con
+          // «Temario» o [Con certificado UNALM] invitaba al modelo a rellenarlos.
+          const missingDetails = fieldDefs.filter((f) => !(f.label in details)).map((f) => f.label);
+          return {
+            ...(Object.keys(details).length ? { details } : {}),
+            ...(missingDetails.length ? { missingDetails } : {}),
+          };
         })(),
         // Se expone solo si TIENE foto, no la URL: así el modelo sabe que
         // puede mandarla (con send_product_image) pero no puede inventarse
@@ -916,6 +947,11 @@ export class AgentService {
         : "",
       extra.catalogFields?.length
         ? `\n\nCada producto del catálogo puede incluir además estos datos: ${extra.catalogFields.join(", ")}. Vienen en search_products (campo «details»): consúltalos y cítalos cuando el cliente pregunte por ellos; nunca inventes su contenido.`
+        : "",
+      // Una plantilla de presentación («📅 «Fechas» · 🕐 «Horario»») se rellena
+      // con el producto; lo que el producto no trae no se inventa: se quita.
+      enabledTools.includes("search_products")
+        ? "\n\nDatos de producto en tus instrucciones (entre « », como «Temario», o entre corchetes, como [Precio normal]): rellénalos solo con lo que devuelve search_products en este mismo turno. Los resultados de turnos anteriores ya no los ves: si vas a dar un precio, una fecha, un enlace o cualquier dato de un producto, vuelve a consultarlo antes. Si el producto no trae ese dato (no está en «details» o aparece en «missingDetails»), quita esa línea o esa parte del mensaje: nunca lo inventes, no lo calcules, no lo saques de otro producto ni uses una cifra de memoria. Si el cliente pregunta justo por ese dato, sigue tus instrucciones para lo que no sabes."
         : "",
       "\n\nSi un mensaje del cliente aparece como [imagen], [documento] o [audio] sin descripción, no pudiste verlo ni oírlo: dilo con naturalidad y pídele que te cuente qué es (o pásalo a una persona si parece un comprobante o un documento importante).",
       splitReplies

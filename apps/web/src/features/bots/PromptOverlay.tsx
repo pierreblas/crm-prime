@@ -5,10 +5,12 @@ import { createPortal } from "react-dom";
 import { NavIcon } from "@/components/NavIcons";
 import { smBtn } from "@/components/ui";
 import { ghostBtn } from "./styles";
-import { varKey } from "@crm/shared";
+import { productPitchTemplate, varKey } from "@crm/shared";
 import {
   collectMarks,
+  convertBracketData,
   dataToken,
+  findBracketData,
   findHeadings,
   pendingSummary,
   productDataFields,
@@ -121,6 +123,9 @@ export function PromptOverlay({
   // Datos del producto que ya nombra el texto («Precio»…), y los que nombra pero el agente no recibe.
   const dataNamed = new Set(marks.filter((m) => m.kind === "data").map((m) => varKey(m.text)));
   const hiddenNamed = [...new Set(marks.filter((m) => m.kind === "data-off").map((m) => m.text))];
+  // Huecos como [Temario] o [Fechas] que son datos del producto: se ofrecen escribir como «Temario».
+  const bracketData = useMemo(() => findBracketData(value, dataFields), [value, dataFields]);
+  const bracketList = [...new Set(bracketData.map((m) => value.slice(m.start, m.end)))];
   const words = value.trim() ? value.trim().split(/\s+/).length : 0;
 
   const syncScroll = useCallback(() => {
@@ -230,6 +235,23 @@ export function PromptOverlay({
       onChange(`${before}${lead}${sentence}${text.slice(pos)}`, "edit");
       const start = pos + lead.length;
       settle(start, start + sentence.length, start + sentence.length);
+    },
+    [onChange, settle],
+  );
+
+  /** Inserta un bloque de varias líneas (el speech) como párrafo propio, tras la línea del cursor. */
+  const insertBlockAt = useCallback(
+    (block: string, at: Caret) => {
+      const text = valueRef.current;
+      const eol = text.indexOf("\n", at.end);
+      const pos = eol === -1 ? text.length : eol;
+      const before = text.slice(0, pos);
+      const after = text.slice(pos);
+      const lead = !before.trim() ? "" : before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
+      const trail = !after.trim() ? "" : after.startsWith("\n\n") ? "" : after.startsWith("\n") ? "\n" : "\n\n";
+      onChange(`${before}${lead}${block}${trail}${after}`, "edit");
+      const start = pos + lead.length;
+      settle(start, start + block.length, start + block.length);
     },
     [onChange, settle],
   );
@@ -481,6 +503,36 @@ export function PromptOverlay({
                 Al pulsar uno se pone, donde está el cursor, como <span className="pm pm-data">«Fecha de inicio»</span>: el agente lo busca con{" "}
                 <code>search_products</code> en cada conversación y lo recibe con ese mismo nombre. No copies el valor: cambia y lo leería viejo.
               </p>
+              <button
+                type="button"
+                className="prompt-rail__pitch"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() =>
+                  place("el speech de producto", (at) =>
+                    insertBlockAt(
+                      productPitchTemplate(
+                        visibleData.filter((f) => !PRODUCT_BASE_FIELDS.some((b) => b.label === f.label)).map((f) => f.label),
+                        { photo: sendsImages },
+                      ),
+                      at,
+                    ),
+                  )
+                }
+                title="Una ficha para WhatsApp con los datos de tu catálogo entre « », para cuando pregunten por un producto. La ajustas a tu negocio."
+                data-insert-pitch
+              >
+                <NavIcon name="sparkles" size={13} /> Insertar speech de producto
+              </button>
+              {bracketList.length > 0 && (
+                <div className="prompt-rail__convert" data-bracket-data>
+                  <span>
+                    Usas {bracketList.join(", ")} para datos del producto. Escritos entre « » se marcan y el agente sabe que salen del catálogo.
+                  </span>
+                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => onChange(convertBracketData(valueRef.current, dataFields), "edit")}>
+                    Convertir a « »
+                  </button>
+                </div>
+              )}
               {hiddenNamed.length > 0 && (
                 <p className="prompt-rail__warn">
                   <NavIcon name="alert" size={13} />

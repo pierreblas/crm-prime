@@ -7,6 +7,7 @@ import {
   SIMULATOR_TURN_OPTIONS,
   estimateSimulationTokens,
   formatTokens,
+  type PlaygroundContact,
   type PlaygroundReply,
   type PlaygroundTurn,
   type SimulatorEndReason,
@@ -15,6 +16,7 @@ import {
 import { simulateAgentTurn } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { useAiStatus } from "@/features/copilot/useAiStatus";
+import { ToolTrace, whatsappFormat } from "./PlayReply";
 
 type Line = { who: "customer"; text: string } | { who: "agent"; text: string | null; meta: PlaygroundReply };
 
@@ -48,7 +50,16 @@ const TYPICAL_PROMPT_CHARS = 3500;
  * envía ni se aplica. Las conversaciones corren una detrás de otra y paso a
  * paso, así se ven en vivo y se pueden detener: cada paso gasta tokens.
  */
-export function ConversationSimulator({ botId, promptChars }: { botId?: string; promptChars?: number }) {
+export function ConversationSimulator({
+  botId,
+  promptChars,
+  contact,
+}: {
+  botId?: string;
+  promptChars?: number;
+  /** El cliente de prueba de «Probar como»: nombre y país. */
+  contact?: PlaygroundContact;
+}) {
   const { data: ai } = useAiStatus();
   const [picked, setPicked] = useState<string[]>(SIMULATOR_SCENARIOS.slice(0, 2).map((s) => s.id));
   const [custom, setCustom] = useState("");
@@ -103,7 +114,7 @@ export function ConversationSimulator({ botId, promptChars }: { botId?: string; 
           break;
         }
         try {
-          const step = await simulateAgentTurn({ botId, scenario: run.scenario, history, maxTurns: turns });
+          const step = await simulateAgentTurn({ botId, scenario: run.scenario, history, maxTurns: turns, ...(contact ? { contact } : {}) });
           const added: Line[] = [];
           if (step.customer) {
             added.push({ who: "customer", text: step.customer });
@@ -256,7 +267,12 @@ export function ConversationSimulator({ botId, promptChars }: { botId?: string; 
                     Pasa el chat a una persona{line.meta.escalationReason ? `: ${line.meta.escalationReason}` : ""}
                   </span>
                 )}
-                {line.text && <div className="sim-msg sim-msg--agent">{line.text}</div>}
+                {line.text &&
+                  (line.meta.splitReplies ? line.text.split(/\n\s*\n/).map((t) => t.trim()).filter(Boolean) : [line.text]).map((t, k) => (
+                    <div key={k} className="sim-msg sim-msg--agent">
+                      {whatsappFormat(t)}
+                    </div>
+                  ))}
                 {line.meta.simulatedActions.length > 0 && (
                   <ul className="sim-actions" aria-label="Acciones que haría (no aplicadas)">
                     {line.meta.simulatedActions.map((a, k) => (
@@ -264,7 +280,11 @@ export function ConversationSimulator({ botId, promptChars }: { botId?: string; 
                     ))}
                   </ul>
                 )}
-                {line.meta.toolsUsed.length > 0 && <span className="sim-meta">usó: {line.meta.toolsUsed.join(", ")}</span>}
+                {line.meta.toolCalls?.length ? (
+                  <ToolTrace calls={line.meta.toolCalls} />
+                ) : (
+                  line.meta.toolsUsed.length > 0 && <span className="sim-meta">usó: {line.meta.toolsUsed.join(", ")}</span>
+                )}
               </div>
             ),
           )}

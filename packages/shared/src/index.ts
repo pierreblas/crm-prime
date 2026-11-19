@@ -9,6 +9,7 @@ export * from "./booking.js";
 export * from "./whatsapp-errors.js";
 export * from "./template-vars.js";
 export * from "./contact-vars.js";
+export * from "./product-pitch.js";
 export * from "./schemas/auth.schema.js";
 export * from "./schemas/organization.schema.js";
 export * from "./schemas/common.schema.js";

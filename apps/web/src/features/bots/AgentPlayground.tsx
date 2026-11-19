@@ -1,12 +1,34 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation } from "@tanstack/react-query";
-import type { PlaygroundReply, PlaygroundTurn } from "@crm/shared";
+import { COUNTRIES, dialCodeOf, type PlaygroundContact, type PlaygroundReply, type PlaygroundTurn } from "@crm/shared";
 import { testAgent } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { ConversationSimulator } from "./ConversationSimulator";
+import { AgentBubbles, ToolTrace } from "./PlayReply";
+
+/** Con quién se prueba: un nombre y un país. Se recuerda en este navegador. */
+type Tester = { name: string; country: string };
+const TESTER_KEY = "driony.playground.tester";
+
+function loadTester(): Tester {
+  try {
+    const raw = JSON.parse(localStorage.getItem(TESTER_KEY) ?? "null") as Partial<Tester> | null;
+    return { name: typeof raw?.name === "string" ? raw.name : "", country: typeof raw?.country === "string" ? raw.country : "" };
+  } catch {
+    return { name: "", country: "" };
+  }
+}
+
+/** El cliente de prueba para la API: su país va como un teléfono de ese país (de él salen {{pais}}, {{moneda}} y el precio). */
+export function testerContact(t: Tester): PlaygroundContact | undefined {
+  const dial = t.country ? dialCodeOf(t.country) : null;
+  const name = t.name.trim();
+  if (!name && !dial) return undefined;
+  return { ...(name ? { name } : {}), ...(dial ? { phone: `+${dial}900000000` } : {}) };
+}
 
 type ChatMsg =
   | { role: "user"; content: string }
@@ -29,6 +51,19 @@ export function AgentPlayground({
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [text, setText] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [tester, setTester] = useState<Tester>({ name: "", country: "" });
+  useEffect(() => setTester(loadTester()), []);
+  const changeTester = (patch: Partial<Tester>) =>
+    setTester((t) => {
+      const next = { ...t, ...patch };
+      try {
+        localStorage.setItem(TESTER_KEY, JSON.stringify(next));
+      } catch {
+        /* sin almacenamiento: vale para esta prueba */
+      }
+      return next;
+    });
+  const contact = useMemo(() => testerContact(tester), [tester]);
 
   const send = useMutation({
     mutationFn: (message: string) => {
@@ -36,7 +71,7 @@ export function AgentPlayground({
         role: m.role,
         content: m.content,
       }));
-      return testAgent({ message, botId, history });
+      return testAgent({ message, botId, history, ...(contact ? { contact } : {}) });
     },
     onSuccess: (reply) => {
       setMessages((prev) => [
@@ -117,9 +152,32 @@ export function AgentPlayground({
           </button>
         </div>
 
+        <div className="play-tester" data-play-tester>
+          <span className="play-tester__label">Probar como</span>
+          <input
+            className="field field-sm"
+            value={tester.name}
+            onChange={(e) => changeTester({ name: e.target.value })}
+            placeholder="Cliente de prueba"
+            maxLength={60}
+            aria-label="Nombre del cliente de prueba"
+          />
+          <select className="field field-sm" value={tester.country} onChange={(e) => changeTester({ country: e.target.value })} aria-label="País del cliente de prueba">
+            <option value="">Sin país</option>
+            {COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name} ({c.currency})
+              </option>
+            ))}
+          </select>
+          <p className="play-tester__hint">
+            Rellena {"{{nombre}}"}, {"{{pais}}"} y {"{{moneda}}"}, y el catálogo da el precio en su moneda si el producto la tiene.
+          </p>
+        </div>
+
         {mode === "simulate" ? (
           <div style={body}>
-            <ConversationSimulator botId={botId} promptChars={promptChars} />
+            <ConversationSimulator botId={botId} promptChars={promptChars} contact={contact} />
           </div>
         ) : (
         <>
@@ -149,7 +207,8 @@ export function AgentPlayground({
                     Recomienda escalar a un humano
                   </div>
                 )}
-                <div style={bubble("var(--surface-2)")}>{m.content}</div>
+                <AgentBubbles text={m.content} split={!!m.meta?.splitReplies} />
+                {!!m.meta?.toolCalls?.length && <ToolTrace calls={m.meta.toolCalls} />}
                 {!!m.meta?.simulatedActions.length && (
                   <div style={simActions}>
                     <strong style={{ fontSize: 11.5 }}>
@@ -167,7 +226,7 @@ export function AgentPlayground({
                 {m.meta && (
                   <div style={metaLine}>
                     {m.meta.provider}/{m.meta.model}
-                    {m.meta.toolsUsed.length ? ` · herramientas: ${m.meta.toolsUsed.join(", ")}` : ""}
+                    {!m.meta.toolCalls?.length && m.meta.toolsUsed.length ? ` · herramientas: ${m.meta.toolsUsed.join(", ")}` : ""}
                     {" · "}
                     {m.meta.inputTokens + m.meta.outputTokens} tok
                     {m.meta.costUsd > 0 ? ` · $${m.meta.costUsd.toFixed(4)}` : ""}

@@ -109,6 +109,8 @@ test("el asistente sabe qué trae cada producto y pide consultarlo, no copiarlo"
   assert.match(s, /nombre, precio, descripción y SKU, y además: Talla, Garantía \(meses\)/);
   assert.match(s, /NUNCA copies esos valores ni dejes marcadores como \[Precio\]/);
   assert.match(s, /nómbralos con su nombre exacto entre comillas angulares/, "así el editor los marca como datos del producto");
+  assert.match(s, /6\. PRESENTACIÓN DE UN PRODUCTO/, "pide el speech de producto");
+  assert.match(s, /Speech sugerido para presentar un producto[\s\S]*• Talla: «Talla»/, "con los campos reales del catálogo");
   assert.match(s, /varias monedas \(PEN, USD\)/);
   assert.match(s, /2 producto\(s\) tienen foto/);
   assert.match(s, /NO ve \(apagados para la IA\): Costo interno/);

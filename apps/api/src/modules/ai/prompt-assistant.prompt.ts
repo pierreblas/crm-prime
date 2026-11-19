@@ -1,4 +1,4 @@
-import type { PromptAssistantRequest, PromptAssistantTarget } from "@crm/shared";
+import { productPitchTemplate, type PromptAssistantRequest, type PromptAssistantTarget } from "@crm/shared";
 
 // Parte pura del asistente de redacción: sin Nest ni Prisma, para poder
 // probarla sin base de datos. El servicio solo carga el contexto y llama al
@@ -57,11 +57,17 @@ Estructura recomendada, con títulos cortos en mayúsculas (sin markdown pesado)
    rellene el dueño. Nunca inventes datos.
 5. HERRAMIENTAS: cuándo usar cada herramienta habilitada, por su nombre exacto (por ejemplo
    "antes de dar un precio usa search_products"). No menciones herramientas no habilitadas.
-6. LÍMITES: no inventar precios, stock ni promociones; no prometer plazos que no consten; no
+6. PRESENTACIÓN DE UN PRODUCTO (si hay catálogo y search_products está habilitada): el speech
+   que envía la primera vez que muestra un producto, como plantilla para WhatsApp con los datos
+   del producto entre « » (*«Nombre»*, «Precio» y los campos del catálogo que vengan al caso),
+   una línea por dato y un cierre con una sola pregunta. Parte del speech sugerido de abajo y
+   adáptalo al negocio y al tono. Añade cómo responder a "es caro" y a "lo voy a pensar" sin
+   inventar descuentos.
+7. LÍMITES: no inventar precios, stock ni promociones; no prometer plazos que no consten; no
    pedir datos sensibles; no hablar mal de la competencia; no salirse del tema del negocio.
-7. CUÁNDO PASAR A UNA PERSONA: reclamos, cuando el cliente pide hablar con alguien, casos fuera
+8. CUÁNDO PASAR A UNA PERSONA: reclamos, cuando el cliente pide hablar con alguien, casos fuera
    de alcance. Si handoff_to_human está habilitada, indica que la use.
-8. EJEMPLOS: dos o tres pares breves "Cliente: … / Agente: …" que enseñen el tono.
+9. EJEMPLOS: dos o tres pares breves "Cliente: … / Agente: …" que enseñen el tono.
 
 Reglas del texto:
 - Usa esos títulos en mayúsculas, en ese orden, cada uno seguido de su contenido: así el
@@ -157,6 +163,11 @@ function buildContextBlock(ctx: PromptContext): string {
     if (p.withImage > 0) {
       lines.push(`${p.withImage} producto(s) tienen foto: el agente puede enviarla con send_product_image (solo si está habilitada).`);
     }
+    // El speech de producto con los campos reales del catálogo: la sección
+    // PRESENTACIÓN parte de aquí en vez de inventar nombres de datos.
+    lines.push(
+      `Speech sugerido para presentar un producto (adáptalo; usa estos nombres de datos tal cual, entre « »):\n${productPitchTemplate(p.fields, { photo: p.withImage > 0 })}`,
+    );
     if (p.hiddenFields.length) {
       lines.push(`Campos del catálogo que el agente NO ve (apagados para la IA): ${p.hiddenFields.join(", ")}. No le pidas usarlos.`);
     }
@@ -389,6 +400,9 @@ export function fallbackTemplate(
           ? "Al empezar, revisa la ficha del contacto con search_contact para no volver a pedir datos que ya tenemos."
           : null,
         "",
+        ...(has("search_products") && ctx.products.total > 0
+          ? [productPitchTemplate(ctx.products.fields, { photo: has("send_product_image") && ctx.products.withImage > 0 }), ""]
+          : []),
         "LÍMITES",
         "No prometas plazos, descuentos ni stock que no consten. No pidas datos sensibles (contraseñas, tarjetas). No hables de la competencia. Si te preguntan algo ajeno al negocio, redirige con amabilidad.",
         "",
