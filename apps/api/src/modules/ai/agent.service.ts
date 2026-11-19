@@ -712,19 +712,32 @@ export class AgentService {
     const config = input.botId
       ? await this.prisma.agentConfig.findUnique({ where: { id: input.botId }, select: { systemPrompt: true, model: true } })
       : await this.bots.resolveForChannel(null);
+    return this.reviewTranscript(input, { instructions: config?.systemPrompt ?? "", model: config?.model ?? undefined, feature: "simulator" });
+  }
+
+  /**
+   * El revisor sobre una conversación ya armada (la del simulador o una real,
+   * ver ChatReviewService): sus líneas con lo que consultó el agente y sus
+   * instrucciones. Lanza si el modelo no responde.
+   */
+  async reviewTranscript(
+    input: Pick<SimulateReviewRequest, "scenario" | "lines" | "ended">,
+    opts: { instructions: string; model?: string; feature: "simulator" | "review"; conversationId?: string },
+  ): Promise<SimulationReview> {
     const ask = (model?: string) =>
       this.llm.generate({
-        feature: "simulator",
+        feature: opts.feature,
         system: SIMULATION_REVIEW_SYSTEM,
-        messages: [{ role: "user", content: simulationReviewInput(input, config?.systemPrompt ?? "") }],
+        messages: [{ role: "user", content: simulationReviewInput(input, opts.instructions) }],
         maxTokens: 1500,
         effort: "medium",
         model,
+        ...(opts.conversationId ? { conversationId: opts.conversationId } : {}),
       });
     // Con el modelo que revisa mejor; si la clave no lo tiene, con el del agente.
     const res = await ask(SIMULATION_REVIEW_MODEL).catch((e: Error) => {
       this.logger.warn(`Revisión con ${SIMULATION_REVIEW_MODEL} falló (${e.message}); con el modelo del agente`);
-      return ask(config?.model ?? undefined);
+      return ask(opts.model);
     });
     const tokens = res.usage.inputTokens + res.usage.outputTokens;
     const raw = res.content

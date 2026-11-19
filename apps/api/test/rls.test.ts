@@ -2752,3 +2752,45 @@ test("las cifras de IA de la API pública y aprobar o descartar acciones de la I
   assert.equal(ok.rejected, 1);
   assert.equal((await pending(a.runs[0])).status, "REJECTED");
 });
+
+test("revisión de chats con el rol restringido: una pasada solo revisa los chats de su empresa, y la otra no los ve ni los toca", async () => {
+  const { ChatReviewService } = await import("../src/modules/ai/chat-review.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgs = [`o_rev_${suf}`, `o_rev2_${suf}`] as const;
+  await ctx.runUnscoped("prueba: empresas de la revisión de chats", async () => {
+    for (const [i, id] of orgs.entries()) await prisma.organization.create({ data: { id, slug: `rev${i}-${suf}`, name: `Revisión ${i}` } });
+  });
+  const seed = (orgId: string, n: number) =>
+    ctx.runInOrg(orgId, async () => {
+      const contact = await prisma.contact.create({ data: { orgId, phone: `+5196${n}${suf}`, name: `Cliente ${n}` } });
+      const conv = await prisma.conversation.create({ data: { orgId, contactId: contact.id, status: "OPEN" } });
+      const run = await prisma.aiRun.create({ data: { conversationId: conv.id, status: "COMPLETED", model: "gpt-4.1-mini" } });
+      await prisma.message.create({ data: { orgId, conversationId: conv.id, direction: "INBOUND", type: "TEXT", author: "CONTACT", content: "¿Cuánto cuesta?" } });
+      await prisma.message.create({ data: { orgId, conversationId: conv.id, direction: "OUTBOUND", type: "TEXT", author: "AI", content: "Cuesta USD 50.", aiRunId: run.id } });
+      return conv;
+    });
+  const a = await seed(orgs[0], 1);
+  const b = await seed(orgs[1], 2);
+
+  const reviewed: string[] = [];
+  const agent = {
+    reviewTranscript: async (_input: unknown, o: { conversationId: string }) => {
+      reviewed.push(o.conversationId);
+      return { verdict: "bad", summary: "Inventó el precio.", findings: [{ kind: "invented", note: "x", quote: null }], tokens: 100 };
+    },
+  } as any;
+  const svc = (orgId: string) => new ChatReviewService(prisma, { orgId: () => orgId } as any, agent, { status: async () => ({ ready: true }) } as any);
+
+  assert.equal(await ctx.runInOrg(orgs[0], () => svc(orgs[0]).run(orgs[0], 7, 10)), 1);
+  assert.deepEqual(reviewed, [a.id], "solo el chat de su empresa");
+  // Sin mensajes nuevos de la IA, no se vuelve a revisar.
+  assert.equal(await ctx.runInOrg(orgs[0], () => svc(orgs[0]).run(orgs[0], 7, 10)), 0);
+
+  const mine = await ctx.runInOrg(orgs[0], () => svc(orgs[0]).overview("open"));
+  assert.deepEqual(mine.reviews.map((r: any) => [r.conversationId, r.verdict, r.contactName]), [[a.id, "bad", "Cliente 1"]]);
+  assert.equal(mine.open, 1);
+  const theirs = await ctx.runInOrg(orgs[1], () => svc(orgs[1]).overview("all"));
+  assert.equal(theirs.reviews.length, 0, "la otra empresa no ve la revisión");
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => svc(orgs[1]).setStatus(mine.reviews[0].id, "done")), /no encontrada/);
+  void b;
+});

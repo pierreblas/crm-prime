@@ -7076,3 +7076,34 @@ button[style*="background:var(--accent)"]:focus-visible {
 .sim-finding__quote::before { content: "«"; }
 .sim-finding__quote::after { content: "»"; }
 @media (prefers-reduced-motion: reduce) { .sim-review--loading { animation: none; } }
+
+/* Revisión de chats reales (Agentes IA): la pasada diaria, «Revisar ahora» y lo que hay que mirar. */
+.chat-review { display: flex; flex-direction: column; gap: 16px; }
+.chat-review__head h2 { margin: 0 0 6px; font-size: 20px; }
+.chat-review__head p { margin: 0; max-width: 70ch; font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+.chat-review__controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding: 12px 14px; border: 1px solid var(--border); background: var(--panel); }
+.chat-review__switch { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; max-width: 380px; }
+.chat-review__switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.chat-review__switch strong { display: block; font-size: 14px; }
+.chat-review__switch small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.chat-review__track { flex: none; position: relative; width: 36px; height: 20px; margin-top: 1px; border: 1px solid var(--border-strong); background: var(--surface-2); transition: background 0.15s ease, border-color 0.15s ease; }
+.chat-review__track span { position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; background: var(--muted); transition: transform 0.15s ease, background 0.15s ease; }
+.chat-review__switch input:checked + .chat-review__track { border-color: var(--accent); background: var(--accent-soft, rgba(226, 248, 13, 0.12)); }
+.chat-review__switch input:checked + .chat-review__track span { transform: translateX(16px); background: var(--accent); }
+.chat-review__switch input:focus-visible + .chat-review__track { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chat-review__run { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.chat-review__run small { font-size: 11.5px; color: var(--muted); }
+.chat-review__run-row { display: flex; gap: 8px; align-items: center; }
+.chat-review__run-row select { width: auto; padding-block: 6px; font-size: 13px; }
+.chat-review__tabs { align-self: flex-start; }
+.chat-review__empty { margin: 0; padding: 18px 4px; font-size: 13.5px; color: var(--muted); }
+.chat-review__empty.is-error { color: var(--danger); }
+.chat-review__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.chat-review__item { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; }
+.chat-review__item.is-done { opacity: 0.7; }
+.chat-review__item-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.chat-review__item-head strong { font-size: 14px; }
+.chat-review__meta { font-size: 12px; color: var(--muted); }
+.chat-review__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+@media (max-width: 640px) { .chat-review__run { align-items: stretch; } }
+@media (prefers-reduced-motion: reduce) { .chat-review__track, .chat-review__track span { transition: none; } }

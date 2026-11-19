@@ -6,10 +6,11 @@ import { toast } from "@/lib/toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import { formatTokens, aiQuotaLevel, type BotDto } from "@crm/shared";
-import { deleteBot, fetchBots } from "@/lib/bff";
+import { deleteBot, fetchBots, fetchChatReviews } from "@/lib/bff";
 import { BotEditor } from "./BotEditor";
 import { AgentPlayground } from "./AgentPlayground";
 import { AgentSetupWizard } from "./AgentSetupWizard";
+import { ChatReviewPanel } from "./ChatReviewPanel";
 import { isGenericPrompt } from "./agentCopy";
 import { primaryBtn } from "./styles";
 import { softBtn } from "@/components/ui";
@@ -17,7 +18,7 @@ import { NavIcon } from "@/components/NavIcons";
 import Link from "next/link";
 import { resetLabel, useAiStatus } from "@/features/copilot/useAiStatus";
 
-type Selection = { kind: "none" } | { kind: "new" } | { kind: "edit"; id: string };
+type Selection = { kind: "none" } | { kind: "new" } | { kind: "edit"; id: string } | { kind: "reviews" };
 
 export function BotsManager() {
   const queryClient = useQueryClient();
@@ -170,6 +171,7 @@ export function BotsManager() {
             <p style={muted}>No hay agentes. Crea el primero con “+ Nuevo”.</p>
           )}
         </div>
+        <ReviewsCard active={sel.kind === "reviews"} onClick={() => select({ kind: "reviews" })} />
       </aside>
 
       {/* Detalle */}
@@ -196,6 +198,8 @@ export function BotsManager() {
             </button>
           </div>
         )}
+
+        {sel.kind === "reviews" && <ChatReviewPanel />}
 
         {sel.kind === "new" && data && (
           <>
@@ -280,6 +284,32 @@ export function BotsManager() {
       )}
     </div>
     </>
+  );
+}
+
+/**
+ * La revisión de chats, debajo de los agentes: cuántas conversaciones hay para
+ * mirar. Solo la ve quien puede usarla (administradores): si la API dice que
+ * no, no aparece.
+ */
+function ReviewsCard({ active, onClick }: { active: boolean; onClick: () => void }) {
+  const { data, isError } = useQuery({ queryKey: ["chat-reviews", "open"], queryFn: () => fetchChatReviews("open"), retry: false });
+  if (isError) return null;
+  return (
+    <button onClick={onClick} style={{ ...card(active), marginTop: 14 }} data-chat-review-card>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <NavIcon name="sparkles" size={14} />
+        <strong style={{ fontSize: 14, flex: 1 }}>Revisión de chats</strong>
+        {!!data?.open && (
+          <span style={badge("rgba(255, 51, 85, 0.28)")} data-chat-review-count>
+            {data.open} para mirar
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+        {data?.enabled ? "Revisa cada día lo que atendió la IA" : "La IA revisa lo que atendió tu agente"}
+      </div>
+    </button>
   );
 }
 

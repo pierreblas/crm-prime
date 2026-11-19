@@ -259,7 +259,9 @@ export const simulationFindingKinds = ["invented", "unanswered", "no_next_step",
 export type SimulationFindingKind = (typeof simulationFindingKinds)[number];
 
 export const simulationReviewLineSchema = z.object({
-  who: z.enum(["customer", "agent"]),
+  /** «team»: una persona del equipo (solo en conversaciones reales). */
+  /** «auto»: un mensaje de la IA que no escribió el agente (un flujo, un aviso programado): de contexto, no se juzga. */
+  who: z.enum(["customer", "agent", "team", "auto"]),
   text: z.string().max(4000),
   /** Lo que consultó el agente para esta respuesta, con lo que le devolvió. */
   consulted: z.array(z.string().max(2000)).max(12).default([]),
@@ -294,3 +296,57 @@ export const simulationReviewSchema = z.object({
   tokens: z.number(),
 });
 export type SimulationReview = z.infer<typeof simulationReviewSchema>;
+
+// ── Revisión de conversaciones reales ────────────────────────
+// El mismo revisor del simulador sobre los chats que atendió la IA de verdad,
+// con lo que consultó el agente en cada respuesta. Una vez al día si la empresa
+// lo activa (gasta tokens), o a mano.
+
+/** Conversaciones por pasada diaria, como mucho. */
+export const CHAT_REVIEW_DAILY_MAX = 20;
+/** «Revisar ahora»: cuántos días hacia atrás puede mirar y cuántas conversaciones, como mucho. */
+export const CHAT_REVIEW_DAYS_OPTIONS = [7, 30, 90] as const;
+export const CHAT_REVIEW_MANUAL_DAYS = 7;
+export const CHAT_REVIEW_MANUAL_MAX = 10;
+export const runChatReviewSchema = z.object({
+  days: z
+    .number()
+    .int()
+    .refine((d) => (CHAT_REVIEW_DAYS_OPTIONS as readonly number[]).includes(d), "Elige 7, 30 o 90 días")
+    .default(CHAT_REVIEW_MANUAL_DAYS),
+});
+export type RunChatReviewInput = z.infer<typeof runChatReviewSchema>;
+
+export const conversationReviewDtoSchema = z.object({
+  id: z.string(),
+  conversationId: z.string(),
+  contactName: z.string(),
+  channel: z.string(),
+  agentName: z.string().nullable(),
+  verdict: z.enum(simulationVerdicts),
+  summary: z.string(),
+  findings: z.array(simulationFindingSchema),
+  aiMessages: z.number(),
+  tokens: z.number(),
+  status: z.enum(["open", "done"]),
+  createdAt: z.string(),
+  lastMessageAt: z.string(),
+});
+export type ConversationReviewDto = z.infer<typeof conversationReviewDtoSchema>;
+
+export const chatReviewOverviewSchema = z.object({
+  /** La revisión diaria está activa. */
+  enabled: z.boolean(),
+  lastRunAt: z.string().nullable(),
+  /** Una pasada en marcha: cuántas lleva de cuántas. */
+  running: z.object({ done: z.number(), total: z.number() }).nullable(),
+  /** Para mirar: «Revisar» o «Mal» que nadie marcó como vistas. */
+  open: z.number(),
+  reviews: z.array(conversationReviewDtoSchema),
+});
+export type ChatReviewOverview = z.infer<typeof chatReviewOverviewSchema>;
+
+export const updateChatReviewSettingsSchema = z.object({ enabled: z.boolean() });
+export type UpdateChatReviewSettingsInput = z.infer<typeof updateChatReviewSettingsSchema>;
+export const updateConversationReviewSchema = z.object({ status: z.enum(["open", "done"]) });
+export type UpdateConversationReviewInput = z.infer<typeof updateConversationReviewSchema>;

@@ -206,7 +206,7 @@ test("el revisor recibe las instrucciones, la situación y la conversación con 
   const input = simulateReviewRequestSchema.parse(conversation);
   const text = simulationReviewInput(input, "Eres Lia, de Flyteek. Los cursos se pagan por Yape.");
   assert.match(text, /## Instrucciones del agente\nEres Lia, de Flyteek/);
-  assert.match(text, /## Situación del cliente simulado\nPregunta el precio: /);
+  assert.match(text, /## Situación del cliente\nPregunta el precio: /);
   assert.match(text, /terminó porque se llegó al tope de mensajes/);
   assert.match(text, /CLIENTE: hola, cuánto cuesta/);
   // Lo que dijo el agente, separado de lo que le devolvió el sistema.

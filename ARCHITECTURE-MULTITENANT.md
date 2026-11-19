@@ -500,6 +500,14 @@ revisión: login por correo, alta de usuario, webhook por `phone_number_id` y
 clave de API por prefijo. Los cuatro tienen el mismo motivo: producen el
 `orgId`, así que no pueden filtrar por él.
 
+Los barridos periódicos (seguimientos vencidos, recordatorios de cita,
+retención de adjuntos, barrido de entrantes y la revisión diaria de chats)
+usan `runUnscoped` con el mismo motivo y solo para eso: encontrar a qué
+empresas les toca. El trabajo de cada una corre después dentro de
+`runInOrg(orgId, …)`, con su contexto y sus políticas. La revisión diaria lee
+`ai_settings` (`chatReview` activo y `chatReviewAt` de hace más de un día) y
+devuelve solo `orgId`.
+
 ### Capa 2 · Row-Level Security
 
 Hecho. 20 tablas con políticas, y el test que las justifica es el del RAG: la

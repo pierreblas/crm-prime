@@ -13,6 +13,7 @@ import type {
   SimulateTurnReply,
   SimulateReviewPayload,
   SimulationReview,
+  ChatReviewOverview,
   UpdateEmailAccountPayload,
 } from "@crm/shared";
 import type {
@@ -2700,6 +2701,44 @@ export function deleteEmailUnsubscribe(id: string): Promise<{ ok: true }> {
 
 // ── Simulador de conversaciones (una IA hace de cliente) ─────
 /** Un paso: el siguiente mensaje del cliente simulado y la respuesta del agente. */
+/** Revisión de chats reales: lo revisado y si la pasada diaria está activa. */
+export async function fetchChatReviews(status: "open" | "all"): Promise<ChatReviewOverview> {
+  const res = await bffFetch(`/api/bff/chat-reviews?status=${status}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar la revisión de chats"));
+  return res.json();
+}
+
+/** «Revisar ahora»: corre en segundo plano. */
+export async function runChatReviews(days: number): Promise<{ started: boolean }> {
+  const res = await bffFetch("/api/bff/chat-reviews/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ days }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo empezar la revisión"));
+  return res.json();
+}
+
+export async function setChatReviewDaily(enabled: boolean): Promise<{ ok: true }> {
+  const res = await bffFetch("/api/bff/chat-reviews/settings", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar"));
+  return res.json();
+}
+
+export async function updateChatReview(id: string, status: "open" | "done"): Promise<{ ok: true }> {
+  const res = await bffFetch(`/api/bff/chat-reviews/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar"));
+  return res.json();
+}
+
 /** La revisión de una conversación del simulador ya terminada. */
 export async function reviewSimulation(input: SimulateReviewPayload): Promise<SimulationReview> {
   const res = await bffFetch("/api/bff/bots/simulate/review", {

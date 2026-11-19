@@ -199,6 +199,7 @@ model Organization {
   staffSchedules       StaffSchedule[]
   bookings             Booking[]
   knowledgeSuggestions KnowledgeSuggestion[]
+  conversationReviews  ConversationReview[]
   aiUsage              AiUsage[]
   aiPacks              AiPack[]
   aiPackUses           AiPackUse[]
@@ -847,6 +848,7 @@ model Conversation {
   notes         Note[]
   calls         Call[]
   aiRuns        AiRun[]
+  reviews       ConversationReview[]
   aiMessages    AiMessage[]
   flowSession   FlowSession?
   bookings      Booking[]
@@ -1679,12 +1681,46 @@ model AiSetting {
   rotatedAt        DateTime? // última vez que se guardó o cambió una clave
   updatedBy        String? // userId de quien hizo el último cambio
 
+  // Revisión diaria de las conversaciones que atendió la IA (gasta tokens: apagada por defecto).
+  chatReview   Boolean   @default(false)
+  chatReviewAt DateTime? // la última pasada (manual o diaria)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@map("ai_settings")
+}
+
+// La revisión de una conversación real atendida por la IA: el mismo revisor
+// del simulador, con lo que consultó el agente de verdad en cada respuesta.
+// Una por pasada; la conversación no se vuelve a revisar sin mensajes nuevos
+// de la IA (lastMessageAt).
+model ConversationReview {
+  id             String    @id @default(cuid())
+  orgId          String
+  conversationId String
+  agentConfigId  String?
+  agentName      String?
+  verdict        String // ok | review | bad
+  summary        String    @default("")
+  findings       Json      @default("[]")
+  // El último mensaje de la IA que entró en la revisión.
+  lastMessageAt  DateTime
+  aiMessages     Int       @default(0)
+  tokens         Int       @default(0)
+  // open: para mirar; done: alguien la marcó como vista.
+  status         String    @default("open")
+  doneAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@index([conversationId, createdAt])
+  @@map("conversation_reviews")
 }
 
 // Historial de los ajustes de IA: cada clave guardada, cambiada o borrada, cada

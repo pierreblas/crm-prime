@@ -26,8 +26,8 @@ const INSTRUCTIONS_MAX = 6000;
 export const SIMULATION_REVIEW_MODEL = "gpt-5-mini";
 
 export const SIMULATION_REVIEW_SYSTEM = [
-  "Revisas una conversación de prueba entre un cliente simulado y el agente de IA de un negocio, por WhatsApp. Juzgas solo al agente, como lo haría el dueño del negocio.",
-  "Lo que dijo el agente está en las líneas «AGENTE dijo». Debajo, lo que le devolvió el sistema al consultar: eso NO lo dijo el agente, es lo que sabía. Cita solo frases que dijo el agente.",
+  "Revisas una conversación entre un cliente (real o simulado) y el agente de IA de un negocio, por WhatsApp u otro canal de mensajes. Juzgas solo al agente, como lo haría el dueño del negocio.",
+  "Lo que dijo el agente está en las líneas «AGENTE dijo». Debajo, lo que le devolvió el sistema al consultar: eso NO lo dijo el agente, es lo que sabía. Las líneas «EQUIPO dijo» son de una persona del negocio y las «AUTOMÁTICO dijo», de un flujo o un aviso programado: no las juzgues. Cita solo frases que dijo el agente.",
   "Revisa, en este orden:",
   "1. Datos inventados (lo más grave): precios, fechas, horarios, enlaces, datos de pago, certificados, condiciones o características que el agente afirmó y que NO están ni en lo que consultó ni en sus instrucciones. Cuenta como válido todo lo que le devolvieron en cualquier turno de la conversación, incluida la descripción de cada producto. Afirmar que algo NO se incluye o no existe sin que lo diga lo consultado también es inventar. Decir que no tiene un dato no es inventar.",
   "Lo que consultó puede venir recortado (termina en «…»): si un dato pudo estar en la parte que falta, no lo marques como inventado.",
@@ -51,6 +51,8 @@ const END_TEXT: Record<string, string> = {
 export function simulationReviewInput(input: SimulateReviewRequest, instructions: string): string {
   const lines = input.lines.map((l) => {
     if (l.who === "customer") return `CLIENTE: ${l.text}`;
+    if (l.who === "team") return `EQUIPO dijo: «${l.text}»`;
+    if (l.who === "auto") return `AUTOMÁTICO dijo: «${l.text}»`;
     const extra = [
       l.consulted.length
         ? `  Lo que le devolvió el sistema al consultar (no lo dijo el agente):\n${l.consulted.map((c) => `    - ${c.replace(/\n/g, "\n      ")}`).join("\n")}`
@@ -63,7 +65,7 @@ export function simulationReviewInput(input: SimulateReviewRequest, instructions
   const prompt = instructions.trim();
   return [
     `## Instrucciones del agente${prompt.length > INSTRUCTIONS_MAX ? " (recortadas)" : ""}\n${prompt.slice(0, INSTRUCTIONS_MAX) || "(sin instrucciones)"}`,
-    `## Situación del cliente simulado\n${input.scenario.title}: ${input.scenario.brief}`,
+    `## Situación del cliente\n${input.scenario.title}: ${input.scenario.brief}`,
     `## Conversación${input.ended ? ` (terminó porque ${END_TEXT[input.ended] ?? input.ended})` : ""}\n${lines.join("\n")}`,
   ].join("\n\n");
 }

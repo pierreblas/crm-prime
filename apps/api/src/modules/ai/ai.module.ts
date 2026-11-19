@@ -2,6 +2,8 @@ import { Module } from "@nestjs/common";
 import { LlmModule } from "./llm.module";
 import { AgentService } from "./agent.service";
 import { AiTraceService } from "./ai-trace.service";
+import { ChatReviewService } from "./chat-review.service";
+import { ChatReviewController } from "./chat-review.controller";
 import { AgentActionsService } from "./agent-actions.service";
 import { AutopilotService } from "./autopilot.service";
 import { AutomationService } from "./automation.service";
@@ -48,10 +50,12 @@ import { EmailModule } from "../email/email.module";
     StageAutomationOpsController,
     BulkFlowController,
     BusinessSetupController,
+    ChatReviewController,
   ],
   providers: [
     AgentService,
     AiTraceService,
+    ChatReviewService,
     AgentActionsService,
     AutopilotService,
     AutomationService,
