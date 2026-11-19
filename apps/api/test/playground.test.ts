@@ -147,3 +147,17 @@ test("la búsqueda automática en el conocimiento también sale en lo que consul
   assert.deepEqual(r.toolCalls[0], { name: "search_knowledge", input: "«cómo pago?»", summary: "2 fragmentos." });
   assert.equal(r.toolCalls[1]?.name, "search_products");
 });
+
+test("todo agente tiene la regla de no inventar datos de pago, y con handoff_to_human pasa el chat si no los tiene", async () => {
+  const withHandoff = setup({ tools: ["search_products", "handoff_to_human"] });
+  await withHandoff.service.playground({ message: "Yape", botId: "bot1", history: [] });
+  const system = withHandoff.calls[0]!.system as string;
+  assert.match(system, /Datos de pago \(número de cuenta o CCI, Yape, Plin, Nequi, enlace de pago/);
+  assert.match(system, /Nunca los inventes, no los completes ni des uno de ejemplo/);
+  assert.match(system, /una persona del equipo se los envía enseguida y llama a handoff_to_human en ese mismo turno\./);
+
+  const alone = setup({ tools: [] });
+  await alone.service.playground({ message: "Yape", botId: "bot1", history: [] });
+  assert.match(alone.calls[0]!.system as string, /una persona del equipo se los envía enseguida\.$/m);
+  assert.doesNotMatch(alone.calls[0]!.system as string, /handoff_to_human en ese mismo turno/);
+});

@@ -1073,6 +1073,11 @@ export class AgentService {
         ? "\n\nDatos de producto en tus instrucciones (entre « », como «Temario», o entre corchetes, como [Precio normal]): rellénalos solo con lo que devuelve search_products en este mismo turno. Los resultados de turnos anteriores ya no los ves: si vas a dar un precio, una fecha, un enlace o cualquier dato de un producto, vuelve a consultarlo antes. Si el producto no trae ese dato (no está en «details» o aparece en «missingDetails»), quita esa línea o esa parte del mensaje: nunca lo inventes, no lo calcules, no lo saques de otro producto ni uses una cifra de memoria. Si el cliente pregunta justo por ese dato, sigue tus instrucciones para lo que no sabes."
         : "",
       "\n\nSi un mensaje del cliente aparece como [imagen], [documento] o [audio] sin descripción, no pudiste verlo ni oírlo: dilo con naturalidad y pídele que te cuente qué es (o pásalo a una persona si parece un comprobante o un documento importante).",
+      // Un número de Yape o una cuenta inventados acaban en un pago perdido: visto
+      // en pruebas, el agente dio «987654321» cuando no tenía los datos.
+      `\n\nDatos de pago (número de cuenta o CCI, Yape, Plin, Nequi, enlace de pago, a nombre de quién): dalos solo si aparecen tal cual en tus instrucciones o en lo que te devuelve el conocimiento en este turno. Nunca los inventes, no los completes ni des uno de ejemplo; un hueco entre corchetes en tus instrucciones (como [Número de Yape]) significa que no lo tienes. Si no los tienes, dile al cliente que una persona del equipo se los envía enseguida${
+        enabledTools.includes("handoff_to_human") ? " y llama a handoff_to_human en ese mismo turno." : "."
+      }`,
       splitReplies
         ? "\n\nEscribe como en WhatsApp: mensajes cortos, una idea por párrafo, separados por una línea en blanco (como mucho cuatro párrafos). Cada párrafo se enviará como un mensaje aparte."
         : "",
