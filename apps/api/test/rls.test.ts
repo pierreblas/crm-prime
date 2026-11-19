@@ -2700,3 +2700,55 @@ test("«Lo que preguntan y falta» con el rol restringido: solo lo de su empresa
   await ctx.runInOrg(orgs[0], () => prisma.product.update({ where: { id: a.product.id }, data: { attributes: { temario: "https://x.example/temario" } } }));
   assert.deepEqual(await list(orgs[0]), [], "completado, deja de salir");
 });
+
+test("las cifras de IA de la API pública y aprobar o descartar acciones de la IA no salen de su empresa ni de su chat", async () => {
+  // Las ejecuciones de la IA y sus acciones no llevan orgId ni RLS: hay que
+  // acotarlas por la conversación. Antes, las estadísticas sumaban las de todas
+  // las empresas y la ruta de acciones aceptaba el run de cualquier chat.
+  const { PublicApiService } = await import("../src/modules/public-api/public-api.service");
+  const { AgentActionsService } = await import("../src/modules/ai/agent-actions.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgs = [`o_ais_${suf}`, `o_ais2_${suf}`] as const;
+  await ctx.runUnscoped("prueba: empresas de las cifras de IA", async () => {
+    for (const [i, id] of orgs.entries()) await prisma.organization.create({ data: { id, slug: `ais${i}-${suf}`, name: `Cifras IA ${i}` } });
+  });
+  const seed = (orgId: string, n: number, runs: number) =>
+    ctx.runInOrg(orgId, async () => {
+      const convs = [];
+      for (const k of [1, 2]) {
+        const contact = await prisma.contact.create({ data: { orgId, phone: `+5197${n}${k}${suf}`, name: `Cliente ${n}.${k}` } });
+        convs.push(await prisma.conversation.create({ data: { orgId, contactId: contact.id, status: "OPEN" } }));
+      }
+      const ids: string[] = [];
+      for (let i = 0; i < runs; i++) {
+        const run = await prisma.aiRun.create({
+          data: { conversationId: convs[0].id, status: i === 0 ? "ESCALATED" : "COMPLETED", model: "gpt-4.1-mini", inputTokens: 1000, outputTokens: 100, costUsd: 0.01 },
+        });
+        await prisma.aiToolCall.create({ data: { aiRunId: run.id, toolName: "add_tag", input: { tag: "VIP" }, status: "PENDING_APPROVAL" } });
+        ids.push(run.id);
+      }
+      return { convs, runs: ids };
+    });
+  const a = await seed(orgs[0], 1, 2);
+  const b = await seed(orgs[1], 2, 3);
+
+  const stats = (orgId: string) =>
+    ctx.runInOrg(orgId, () => new PublicApiService(prisma, { orgId: () => orgId } as any, {} as any, {} as any, {} as any).summary(30));
+  const sa = await stats(orgs[0]);
+  assert.deepEqual(sa.ai, { runs: 2, escalados: 1, tokens: 2200, costeUsd: 0.02 }, "solo las suyas, no las 5 de las dos empresas");
+  assert.equal((await stats(orgs[1])).ai.runs, 3);
+
+  const actions = (orgId: string) => new AgentActionsService(prisma, { orgId: () => orgId } as any, {} as any, { emit: () => true } as any, {} as any);
+  const pending = (runId: string) => ctx.runUnscoped("prueba: estado de la acción", () => prisma.aiToolCall.findFirst({ where: { aiRunId: runId } }));
+  const u1 = (await ctx.runInOrg(orgs[0], () => prisma.user.create({ data: { orgId: orgs[0], email: `vende-${suf}@prueba.test`, passwordHash: "x", name: "Vende" } }))).id;
+  // Desde la empresa A, con un chat suyo en la ruta y el run de la empresa B: no existe.
+  await assert.rejects(() => ctx.runInOrg(orgs[0], () => actions(orgs[0]).resolve(a.convs[0].id, b.runs[0], false, u1)), /no encontrado/);
+  assert.equal((await pending(b.runs[0])).status, "PENDING_APPROVAL", "la acción de otra empresa sigue intacta");
+  // En su empresa, el run de otro chat tampoco (la ruta solo comprueba el chat de la ruta).
+  await assert.rejects(() => ctx.runInOrg(orgs[0], () => actions(orgs[0]).resolve(a.convs[1].id, a.runs[0], true, u1)), /no encontrado/);
+  assert.equal((await pending(a.runs[0])).status, "PENDING_APPROVAL");
+  // Con su chat, sí.
+  const ok = await ctx.runInOrg(orgs[0], () => actions(orgs[0]).resolve(a.convs[0].id, a.runs[0], false, u1));
+  assert.equal(ok.rejected, 1);
+  assert.equal((await pending(a.runs[0])).status, "REJECTED");
+});

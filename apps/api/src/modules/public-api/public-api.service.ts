@@ -303,6 +303,9 @@ export class PublicApiService {
   async summary(days: number): Promise<StatsSummary> {
     const from = new Date(Date.now() - days * 86_400_000);
     const since = { gte: from };
+    // Las ejecuciones de la IA no llevan orgId ni RLS: sin acotarlas por la
+    // conversación, se sumaban las de todas las empresas.
+    const runsWhere = { createdAt: since, conversation: { orgId: this.tenant.orgId() } };
 
     const [
       contactsTotal,
@@ -327,12 +330,12 @@ export class PublicApiService {
       this.prisma.message.count({
         where: { direction: "OUTBOUND", createdAt: since },
       }),
-      this.prisma.aiRun.count({ where: { createdAt: since } }),
+      this.prisma.aiRun.count({ where: runsWhere }),
       this.prisma.aiRun.count({
-        where: { createdAt: since, status: "ESCALATED" },
+        where: { ...runsWhere, status: "ESCALATED" },
       }),
       this.prisma.aiRun.aggregate({
-        where: { createdAt: since },
+        where: runsWhere,
         _sum: { inputTokens: true, outputTokens: true, costUsd: true },
       }),
     ]);

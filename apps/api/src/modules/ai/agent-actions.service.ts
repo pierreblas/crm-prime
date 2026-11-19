@@ -452,12 +452,16 @@ export class AgentActionsService {
    * bloquea a las demás: se marca ERROR y se informa.
    */
   async resolve(
+    conversationId: string,
     aiRunId: string,
     approve: boolean,
     userId: string,
   ): Promise<ResolveActionsResult> {
-    const run = await this.prisma.aiRun.findUnique({
-      where: { id: aiRunId },
+    // El run tiene que ser de la conversación de la ruta (la que el guard deja
+    // ver): las ejecuciones y sus acciones no llevan orgId ni RLS, y sin esto
+    // se podían descartar las de otra empresa o aprobar las de un chat ajeno.
+    const run = await this.prisma.aiRun.findFirst({
+      where: { id: aiRunId, conversationId },
       select: { id: true, conversationId: true },
     });
     if (!run) throw new NotFoundException("Run de IA no encontrado");

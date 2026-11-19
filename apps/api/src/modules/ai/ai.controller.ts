@@ -41,11 +41,12 @@ export class AiController {
   // cuando el humano envía la respuesta, o se descartan si la desecha.
   @Post(":id/ai/runs/:runId/actions")
   resolveActions(
+    @Param("id") id: string,
     @Param("runId") runId: string,
     @Body(new ZodValidationPipe(resolveActionsSchema))
     body: ResolveActionsInput,
     @CurrentUser() user: AccessTokenClaims,
   ) {
-    return this.actions.resolve(runId, body.approve, user.sub);
+    return this.actions.resolve(id, runId, body.approve, user.sub);
   }
 }
