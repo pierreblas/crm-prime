@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation } from "@tanstack/react-query";
-import { COUNTRIES, dialCodeOf, optionsNote, type PlaygroundContact, type PlaygroundReply, type PlaygroundTurn } from "@crm/shared";
+import { COUNTRIES, dialCodeOf, type PlaygroundContact, type PlaygroundReply, type PlaygroundTurn } from "@crm/shared";
 import { testAgent } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { ConversationSimulator } from "./ConversationSimulator";
@@ -67,10 +67,9 @@ export function AgentPlayground({
 
   const send = useMutation({
     mutationFn: (message: string) => {
-      // Lo que ofreció con botones va con su respuesta: así sabe qué eligió el cliente.
       const history: PlaygroundTurn[] = messages.map((m) => ({
         role: m.role,
-        content: m.role === "assistant" && m.meta?.options?.length ? `${m.content}\n${optionsNote(m.meta.options)}` : m.content,
+        content: m.content,
       }));
       return testAgent({ message, botId, history, ...(contact ? { contact } : {}) });
     },

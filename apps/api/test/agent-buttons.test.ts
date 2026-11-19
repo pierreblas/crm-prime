@@ -9,12 +9,12 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cleanReplyOptions, interactiveFromOptions, optionsNote, REPLY_BUTTONS_TOOL } from "@crm/shared";
+import { cleanReplyOptions, interactiveFromOptions, optionsNote, REPLY_BUTTONS_TOOL, stripOptionsNote } from "@crm/shared";
 import { AgentService } from "../src/modules/ai/agent.service";
 import { AutopilotService } from "../src/modules/ai/autopilot.service";
 import { availableTools, resolveTools } from "../src/modules/ai/tools.registry";
 import { traceToolCall } from "../src/modules/ai/playground-trace";
-import { endsWithQuestion, parseReplyOptions, REPLY_OPTIONS_SYSTEM } from "../src/modules/ai/reply-options";
+import { buttonRules, endsWithQuestion, parseReplyOptions, REPLY_OPTIONS_SYSTEM, replyOptionsInput } from "../src/modules/ai/reply-options";
 
 type Row = Record<string, any>;
 
@@ -59,7 +59,7 @@ test("se activa en el agente junto a sus herramientas, pero el modelo no la reci
 });
 
 // ── La respuesta en una conversación real (bandeja) ────────────
-function agent(opts: { replies: Row[]; tools?: string[]; history?: Row[]; escalateRule?: boolean }) {
+function agent(opts: { replies: Row[]; tools?: string[]; history?: Row[]; escalateRule?: boolean; prompt?: string }) {
   const calls: Row[] = [];
   const saved: Row[] = [];
   const service = Object.create(AgentService.prototype) as AgentService & Row;
@@ -89,7 +89,7 @@ function agent(opts: { replies: Row[]; tools?: string[]; history?: Row[]; escala
     resolveForConversation: async () => ({
       id: "bot1",
       name: "Ventas",
-      systemPrompt: "Eres Lia.",
+      systemPrompt: opts.prompt ?? "Eres Lia.",
       enabledTools: opts.tools ?? [REPLY_BUTTONS_TOOL],
       model: "gpt-4.1-mini",
       effort: "medium",
@@ -165,7 +165,7 @@ test("si el paso de los botones falla o no ve opciones, la respuesta sale igual,
   assert.deepEqual(open.options, []);
 });
 
-test("en el historial, un mensaje con botones dice qué ofreció, así entiende lo que pulsó el cliente", async () => {
+test("en el historial, un mensaje con botones va sin la nota «[Botones: …]» (el modelo la copiaba en su respuesta)", async () => {
   const { service, calls } = agent({
     tools: [],
     history: [
@@ -177,7 +177,7 @@ test("en el historial, un mensaje con botones dice qué ofreció, así entiende 
   });
   await service.suggest("cv1");
   const offered = calls[0]!.messages.find((m: Row) => m.role === "assistant");
-  assert.equal(offered.content, "¿Te separo el cupo?\n[Botones: Sí, sepárame · Tengo dudas]");
+  assert.equal(offered.content, "¿Te separo el cupo?");
 });
 
 // ── «Probar conversación» ─────────────────────────────────────
@@ -253,4 +253,92 @@ test("con más de 3 opciones sale una lista; sin opciones, texto; si los botones
   const failed = autopilot({ failInteractive: true });
   await failed.service.sendReply("cv1", "¿Te separo un cupo?", { channelId: null, contactId: "ct1" }, "run1", ["Sí", "No"]);
   assert.deepEqual(failed.out, [{ kind: "text", text: "¿Te separo un cupo?", author: "AI", o: { aiRunId: "run1" } }]);
+});
+
+// ── Las reglas de botones que escribe quien configura el agente ──
+const PROMPT = [
+  "Eres Lia, asesora de cursos de Flyteek.",
+  "PAGOS",
+  "- Al preguntar cómo quiere pagar, usa los botones «Yape», «Transferencia» y «Tarjeta».",
+  "* Cuando le preguntes si quiere separar su cupo, usa los botones «Sí, sepárame» y «Tengo dudas».",
+  "Nunca uses botones cuando le pidas su nombre o su correo.",
+  "Saluda siempre por su nombre. Ofrece el temario si lo pide. Al cerrar la venta, no pongas botones si el cliente ya pagó y solo agradece; " +
+    "en cambio, si pregunta por fechas, contesta con la fecha del producto. ".repeat(4),
+  "Nunca uses botones cuando le pidas su nombre o su correo.",
+].join("\n");
+
+test("las reglas de botones se toman de «Cómo debe atender»: las frases que hablan de botones, sin viñetas ni repetidas", () => {
+  const rules = buttonRules(PROMPT);
+  assert.deepEqual(rules.slice(0, 3), [
+    "Al preguntar cómo quiere pagar, usa los botones «Yape», «Transferencia» y «Tarjeta».",
+    "Cuando le preguntes si quiere separar su cupo, usa los botones «Sí, sepárame» y «Tengo dudas».",
+    "Nunca uses botones cuando le pidas su nombre o su correo.",
+  ]);
+  // Una línea larga: solo la frase que habla de botones.
+  assert.equal(rules[3], "Al cerrar la venta, no pongas botones si el cliente ya pagó y solo agradece; en cambio, si pregunta por fechas, contesta con la fecha del producto.");
+  assert.equal(rules.length, 4, "la repetida no se cuenta dos veces");
+  assert.deepEqual(buttonRules("Eres Lia. Responde corto."), []);
+  assert.deepEqual(buttonRules(null), []);
+  assert.equal(buttonRules(Array.from({ length: 20 }, (_, i) => `Regla ${i}: usa botones.`).join("\n")).length, 12);
+});
+
+test("el paso de los botones lee las reglas del negocio antes del mensaje; sin reglas, solo el mensaje", () => {
+  const input = replyOptionsInput("¿Cómo prefieres pagar?", ["Al preguntar cómo quiere pagar, usa los botones «Yape» y «Transferencia»."]);
+  assert.equal(input, "## Reglas del negocio sobre botones\n- Al preguntar cómo quiere pagar, usa los botones «Yape» y «Transferencia».\n\n## Mensaje\n¿Cómo prefieres pagar?");
+  assert.equal(replyOptionsInput("¿Cómo prefieres pagar?", []), "¿Cómo prefieres pagar?");
+  assert.match(REPLY_OPTIONS_SYSTEM, /usa exactamente los textos que indica/);
+});
+
+test("en la bandeja, el agente pasa sus reglas de botones y sale con los textos que eligió el negocio", async () => {
+  const { service, calls } = agent({
+    prompt: PROMPT,
+    replies: [text("¡Genial, Ana! ¿Cómo prefieres pagar?"), text('{"options": ["Yape", "Transferencia", "Tarjeta"]}')],
+  });
+  const r = await service.suggest("cv1");
+  assert.deepEqual(r.options, ["Yape", "Transferencia", "Tarjeta"]);
+  assert.match(calls[1]!.messages[0].content, /## Reglas del negocio sobre botones\n- Al preguntar cómo quiere pagar, usa los botones «Yape», «Transferencia» y «Tarjeta»\./);
+  assert.match(calls[1]!.messages[0].content, /## Mensaje\n¡Genial, Ana! ¿Cómo prefieres pagar\?$/);
+  // Al agente: con reglas propias basta la pregunta.
+  assert.match(calls[0]!.system, /Si tus instrucciones dicen qué botones usar en un caso, haz la pregunta y no escribas el texto de los botones/);
+});
+
+test("si el agente escribe una línea «[Botones: …]», se quita: nunca le llega al cliente", async () => {
+  assert.equal(stripOptionsNote("¿Te separo un cupo?\n[Botones: Sí, sepárame · Tengo dudas]"), "¿Te separo un cupo?");
+  assert.equal(stripOptionsNote("Hola\n\n[botones: A · B]\n\n¿Seguimos?"), "Hola\n\n¿Seguimos?");
+  assert.equal(stripOptionsNote("Pulsa el botón de abajo [Botones son opcionales]"), "Pulsa el botón de abajo [Botones son opcionales]", "solo líneas enteras con esa forma");
+  const { service } = agent({
+    tools: [],
+    replies: [text("El precio es 50 USD. ¿Quieres los datos de pago?\n[Botones: Datos de pago · Ver temario]")],
+  });
+  assert.equal((await service.suggest("cv1")).suggestion, "El precio es 50 USD. ¿Quieres los datos de pago?");
+});
+
+test("en la prueba y el simulador, el historial llega con la nota (la usa el cliente simulado) y al agente se le quita", async () => {
+  const service = Object.create(AgentService.prototype) as AgentService & Row;
+  service.logger = { warn: () => undefined, error: () => undefined, log: () => undefined };
+  service.prisma = {
+    agentConfig: { findUnique: async () => ({ id: "bot1", systemPrompt: "Eres Lia.", enabledTools: [], model: "gpt-4.1-mini", maxIterations: 4 }) },
+    productField: { findMany: async () => [] },
+    customField: { findMany: async () => [] },
+  };
+  service.actions = { loadContext: async () => ({}) };
+  service.bookings = { agentContextText: async () => "" };
+  service.knowledge = { retrieve: async () => [] };
+  const calls: Row[] = [];
+  service.llm = {
+    name: "openai",
+    generate: async (req: Row) => {
+      calls.push(JSON.parse(JSON.stringify(req)));
+      return { ...text("¡Listo, Ana!"), usage: { inputTokens: 10, outputTokens: 5 }, model: "gpt-4.1-mini" };
+    },
+  };
+  await service.playground({
+    message: "Sí, sepárame",
+    botId: "bot1",
+    history: [
+      { role: "user", content: "Hola" },
+      { role: "assistant", content: "¿Te separo un cupo?\n[Botones: Sí, sepárame · Tengo dudas]" },
+    ],
+  });
+  assert.equal(calls[0]!.messages[1].content, "¿Te separo un cupo?");
 });

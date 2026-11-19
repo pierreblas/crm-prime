@@ -34,7 +34,7 @@ export const TOOL_COPY: Record<string, { title: string; desc: string; icon: Icon
   },
   reply_with_buttons: {
     title: "Responder con botones",
-    desc: "Cuando el cliente tiene que elegir (confirmar, un horario, un curso, cómo pagar), le pone las opciones para pulsar: botones en WhatsApp, respuestas rápidas en Instagram y Messenger.",
+    desc: "Cuando el cliente tiene que elegir (confirmar, un horario, un curso, cómo pagar), le pone las opciones para pulsar: botones en WhatsApp, respuestas rápidas en Instagram y Messenger. En «Cómo debe atender» puedes decir qué botones usar y cuándo no.",
     icon: "buttons",
     recommended: true,
   },
@@ -106,7 +106,7 @@ export const TOOL_SNIPPET: Record<string, string> = {
   search_contact: "Antes de preguntarle algo al cliente, revisa su ficha con search_contact para no repetir preguntas.",
   handoff_to_human: "Si el cliente pide hablar con una persona, se molesta o no sabes la respuesta, despídete con amabilidad y usa handoff_to_human.",
   send_product_image: "Si el cliente quiere ver un producto, envíale la foto con send_product_image.",
-  reply_with_buttons: "Cuando el cliente tenga que elegir, termina con una sola pregunta que nombre las opciones («¿Te separo un cupo?», «¿Prefieres transferencia o Yape?»): le llegarán como botones.",
+  reply_with_buttons: "Cuando le preguntes si quiere separar su cupo, usa los botones «Sí, sepárame» y «Tengo dudas». Nunca uses botones cuando le pidas su nombre o su correo.",
   add_tag: "Cuando el cliente muestre interés claro en comprar, ponle la etiqueta [ETIQUETA] con add_tag.",
   remove_tag: "Si una etiqueta ya no aplica (por ejemplo, el cliente ya compró), quítasela con remove_tag.",
   move_deal_stage: "Cuando el cliente pida precio o una cotización, muévelo a la etapa [ETAPA] con move_deal_stage.",

@@ -68,7 +68,18 @@ export function interactiveFromOptions(options: string[]): ReplyInteractive {
   };
 }
 
-/** Las opciones como las lee la IA en el historial, para saber qué ofreció: «[Botones: Sí · Tengo dudas]». */
+/**
+ * Las opciones como las lee el cliente simulado en el historial, para saber qué
+ * puede pulsar: «[Botones: Sí · Tengo dudas]». Al agente no se le enseña: la
+ * imitaba y escribía esa línea en su respuesta.
+ */
 export function optionsNote(options: string[]): string {
   return options.length ? `[Botones: ${options.join(" · ")}]` : "";
+}
+
+const OPTIONS_NOTE_LINE = /^[ \t]*\[Botones:[^\]\n]*\][ \t]*$/gimu;
+
+/** El texto sin líneas «[Botones: …]»: nunca deben llegar al cliente ni volver al agente. */
+export function stripOptionsNote(text: string): string {
+  return text.replace(OPTIONS_NOTE_LINE, "").replace(/\n{3,}/g, "\n\n").trim();
 }

@@ -10,8 +10,8 @@ import {
   HANDOFF_REASON_AI_INCLUDED_FULL,
   HANDOFF_REASON_MEDIA,
   priceFor,
-  optionsNote,
   readAdReferral,
+  stripOptionsNote,
   REPLY_BUTTONS_TOOL,
 } from "@crm/shared";
 import type {
@@ -31,7 +31,7 @@ import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { fold } from "../../common/utils/fold";
 import { searchProducts } from "./product-search";
 import { buttonsSummary, knowledgeCall, traceToolCall } from "./playground-trace";
-import { endsWithQuestion, parseReplyOptions, REPLY_OPTIONS_SYSTEM } from "./reply-options";
+import { buttonRules, endsWithQuestion, parseReplyOptions, REPLY_OPTIONS_SYSTEM, replyOptionsInput } from "./reply-options";
 import { groundReview, parseSimulationReview, SIMULATION_REVIEW_MODEL, SIMULATION_REVIEW_SYSTEM, simulationReviewInput } from "./simulation-review";
 import { MediaUnderstandingService } from "./media-understanding.service";
 import { KnowledgeService } from "../knowledge/knowledge.service";
@@ -238,11 +238,12 @@ export class AgentService {
         );
 
         if (toolUses.length === 0) {
-          suggestion = res.content
-            .filter((b) => b.type === "text")
-            .map((b) => (b as { text: string }).text)
-            .join("")
-            .trim();
+          suggestion = stripOptionsNote(
+            res.content
+              .filter((b) => b.type === "text")
+              .map((b) => (b as { text: string }).text)
+              .join(""),
+          );
           status = "COMPLETED";
           break;
         }
@@ -335,7 +336,12 @@ export class AgentService {
     // Botones: si la respuesta termina en una pregunta para elegir. No con un
     // chat que pasa a una persona: ahí no se ofrece nada para pulsar.
     if (!escalate && status === "COMPLETED") {
-      const b = await this.replyOptions(suggestion, config?.enabledTools ?? [], { model: config?.model, feature: "agent", conversationId });
+      const b = await this.replyOptions(suggestion, config?.enabledTools ?? [], {
+        model: config?.model,
+        feature: "agent",
+        conversationId,
+        instructions: config?.systemPrompt,
+      });
       inputTokens += b.inputTokens;
       outputTokens += b.outputTokens;
       replyOptions = b.options;
@@ -413,14 +419,15 @@ export class AgentService {
   private async replyOptions(
     reply: string | null,
     enabledTools: string[],
-    req: { model?: string; feature: "agent" | "playground" | "simulator"; conversationId?: string },
+    req: { model?: string; feature: "agent" | "playground" | "simulator"; conversationId?: string; instructions?: string | null },
   ): Promise<{ options: string[]; inputTokens: number; outputTokens: number; asked: boolean }> {
     const none = { options: [], inputTokens: 0, outputTokens: 0, asked: false };
     if (!reply?.trim() || !enabledTools.includes(REPLY_BUTTONS_TOOL) || !endsWithQuestion(reply)) return none;
     try {
       const res = await this.llm.generate({
         system: REPLY_OPTIONS_SYSTEM,
-        messages: [{ role: "user", content: reply.slice(-1200) }],
+        // Con las reglas de botones de sus instrucciones: los textos y los «aquí no» los decide el negocio.
+        messages: [{ role: "user", content: replyOptionsInput(reply, buttonRules(req.instructions)) }],
         maxTokens: 160,
         effort: "low",
         model: req.model,
@@ -474,7 +481,7 @@ export class AgentService {
     const effort = config?.effort ?? "medium";
 
     const messages: LlmMessage[] = [
-      ...input.history.map((h) => ({ role: h.role, content: h.content })),
+      ...input.history.map((h) => ({ role: h.role, content: h.role === "assistant" ? stripOptionsNote(h.content) : h.content })),
       { role: "user" as const, content: input.message },
     ];
     // La API exige que el primer mensaje sea del usuario.
@@ -524,11 +531,12 @@ export class AgentService {
         );
 
         if (toolUses.length === 0) {
-          reply = res.content
-            .filter((b) => b.type === "text")
-            .map((b) => (b as { text: string }).text)
-            .join("")
-            .trim();
+          reply = stripOptionsNote(
+            res.content
+              .filter((b) => b.type === "text")
+              .map((b) => (b as { text: string }).text)
+              .join(""),
+          );
           break;
         }
 
@@ -565,7 +573,7 @@ export class AgentService {
 
     // Botones, igual que con un cliente de verdad.
     if (!escalate) {
-      const b = await this.replyOptions(reply, config?.enabledTools ?? [], { model: config?.model, feature });
+      const b = await this.replyOptions(reply, config?.enabledTools ?? [], { model: config?.model, feature, instructions: config?.systemPrompt });
       inputTokens += b.inputTokens;
       outputTokens += b.outputTokens;
       replyOptions = b.options;
@@ -1128,7 +1136,7 @@ export class AgentService {
       // Una plantilla de presentación («📅 «Fechas» · 🕐 «Horario»») se rellena
       // con el producto; lo que el producto no trae no se inventa: se quita.
       enabledTools.includes("search_products")
-        ? "\n\nDatos de producto en tus instrucciones (entre « », como «Temario», o entre corchetes, como [Precio normal]): rellénalos solo con lo que devuelve search_products en este mismo turno. Los resultados de turnos anteriores ya no los ves: si vas a dar un precio, una fecha, un enlace o cualquier dato de un producto, vuelve a consultarlo antes. Si el producto no trae ese dato (no está en «details» o aparece en «missingDetails»), quita esa línea o esa parte del mensaje: nunca lo inventes, no lo calcules, no lo saques de otro producto ni uses una cifra de memoria. Si el cliente pregunta justo por ese dato, sigue tus instrucciones para lo que no sabes."
+        ? "\n\nDatos de producto en tus instrucciones (entre « », como «Temario», o entre corchetes, como [Precio normal]): rellénalos solo con lo que devuelve search_products en este mismo turno. Los resultados de turnos anteriores ya no los ves: si vas a dar un precio, una fecha, un enlace o cualquier dato de un producto, vuelve a consultarlo antes. Si el producto no trae ese dato (no está en «details» o aparece en «missingDetails»), quita esa línea o esa parte del mensaje: nunca lo inventes, no lo calcules, no lo saques de otro producto ni uses una cifra de memoria. Si el cliente pregunta justo por ese dato, sigue tus instrucciones para lo que no sabes. Lo que va entre « » y no es un dato de producto (como el texto de un botón) es texto normal."
         : "",
       "\n\nSi un mensaje del cliente aparece como [imagen], [documento] o [audio] sin descripción, no pudiste verlo ni oírlo: dilo con naturalidad y pídele que te cuente qué es (o pásalo a una persona si parece un comprobante o un documento importante).",
       // Un número de Yape o una cuenta inventados acaban en un pago perdido: visto
@@ -1148,7 +1156,7 @@ export class AgentService {
         : "",
       // Las opciones se sacan de la pregunta final: que la escriba clara y las nombre.
       enabledTools.includes(REPLY_BUTTONS_TOOL)
-        ? "\n\nBotones: cuando termines con una pregunta para que el cliente elija (sí o no, o entre pocas opciones), haz una sola pregunta al final y nombra en ella las opciones («¿Prefieres transferencia o Yape?», «¿Te separo un cupo?»): al cliente le llegarán como botones para pulsar. Cuando pulsa uno, te llega su texto como un mensaje más."
+        ? "\n\nBotones: cuando termines con una pregunta para que el cliente elija (sí o no, o entre pocas opciones), haz una sola pregunta al final y nombra en ella las opciones («¿Prefieres transferencia o Yape?», «¿Te separo un cupo?»): al cliente le llegarán como botones para pulsar. Si tus instrucciones dicen qué botones usar en un caso, haz la pregunta y no escribas el texto de los botones: salen solos. Cuando pulsa uno, te llega su texto como un mensaje más."
         : "",
       "\n\nDevuelve únicamente el texto de la respuesta sugerida, sin prefijos como 'Respuesta:'.",
     ].join("");
@@ -1235,15 +1243,12 @@ export class AgentService {
     const rows = recent.reverse();
     // Un audio o una imagen entran con lo que la IA entendió de ellos
     // (transcripción o descripción), no como un «[audio]» mudo.
-    // Un mensaje con botones lleva sus opciones: así sabe qué ofreció y qué pulsó el cliente.
-    const msgs: LlmMessage[] = rows.map((m) => {
-      const text = MediaUnderstandingService.historyTextOf(m);
-      const offered = m.direction === "OUTBOUND" ? offeredOptions(m.interactive) : [];
-      return {
-        role: m.direction === "INBOUND" ? "user" : "assistant",
-        content: offered.length ? `${text}\n${optionsNote(offered)}` : text,
-      };
-    });
+    // Sin anotar los botones que ofreció: el modelo copiaba la nota en su respuesta.
+    // Lo que pulsa el cliente llega como su texto y se entiende por la pregunta.
+    const msgs: LlmMessage[] = rows.map((m) => ({
+      role: m.direction === "INBOUND" ? "user" : "assistant",
+      content: MediaUnderstandingService.historyTextOf(m),
+    }));
     // La API exige que el primer mensaje sea del usuario.
     while (msgs.length && msgs[0]!.role === "assistant") msgs.shift();
     if (msgs.length === 0) {
@@ -1255,16 +1260,6 @@ export class AgentService {
   private cost(model: string, input: number, output: number): number {
     return estimateCostUsd(model, input, output);
   }
-}
-
-/** Las opciones de un mensaje con botones o lista (lo guardado en Message.interactive). */
-export function offeredOptions(raw: unknown): string[] {
-  if (!raw || typeof raw !== "object") return [];
-  const buttons = (raw as { buttons?: unknown }).buttons;
-  if (!Array.isArray(buttons)) return [];
-  return buttons
-    .map((b) => (b && typeof b === "object" && typeof (b as { title?: unknown }).title === "string" ? (b as { title: string }).title : ""))
-    .filter(Boolean);
 }
 
 /** La memoria del cliente como texto para el prompt, o "" si no hay. */
