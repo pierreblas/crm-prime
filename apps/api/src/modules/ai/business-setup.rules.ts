@@ -22,9 +22,9 @@ export const SETUP_HANDOFF_KEYWORDS = ["asesor", "humano", "persona", "reclamo"]
 
 /** Qué capacidades tienen sentido para cada misión. */
 const TOOLS_BY_GOAL: Record<AgentGoal, string[]> = {
-  vender: ["search_products", "send_product_image", "mark_lead", "move_deal_stage", "add_tag"],
+  vender: ["search_products", "send_product_image", "mark_lead", "move_deal_stage", "add_tag", "reply_with_buttons"],
   // Con servicios en la agenda, el agente consulta horas y reserva él mismo.
-  agendar: ["check_availability", "book_appointment", "reschedule_appointment", "cancel_appointment", "mark_lead", "move_deal_stage", "assign_to_seller", "add_tag"],
+  agendar: ["check_availability", "book_appointment", "reschedule_appointment", "cancel_appointment", "mark_lead", "move_deal_stage", "assign_to_seller", "add_tag", "reply_with_buttons"],
   soporte: ["search_products", "add_tag"],
   datos: ["mark_lead", "move_deal_stage", "assign_to_seller", "add_tag"],
 };
@@ -93,6 +93,8 @@ const TOOL_RULES: Record<string, string> = {
   add_tag: "Etiqueta al cliente con add_tag según su interés, usando solo las etiquetas disponibles.",
   send_product_image: "Si quiere ver un producto, envía su foto con send_product_image.",
   assign_to_seller: "Cuando el cliente esté listo para que lo atienda alguien, asigna un vendedor con assign_to_seller.",
+  reply_with_buttons:
+    "Cuando el cliente tenga que elegir (confirmar, un horario, un producto, la forma de pago), termina con una sola pregunta que nombre las opciones («¿Prefieres transferencia o Yape?»): le llegarán como botones para pulsar.",
 };
 
 /**

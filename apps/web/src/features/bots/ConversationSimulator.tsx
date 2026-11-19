@@ -6,6 +6,7 @@ import {
   SIMULATOR_SCENARIOS,
   SIMULATOR_TURN_OPTIONS,
   splitReply,
+  optionsNote,
   estimateSimulationTokens,
   formatTokens,
   type PlaygroundContact,
@@ -17,7 +18,7 @@ import {
 import { simulateAgentTurn } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { useAiStatus } from "@/features/copilot/useAiStatus";
-import { ToolTrace, whatsappFormat } from "./PlayReply";
+import { ReplyButtons, ToolTrace, whatsappFormat } from "./PlayReply";
 
 type Line = { who: "customer"; text: string } | { who: "agent"; text: string | null; meta: PlaygroundReply };
 
@@ -124,7 +125,11 @@ export function ConversationSimulator({
           if (step.agent) {
             added.push({ who: "agent", text: step.agent.reply, meta: step.agent });
             // Sin texto (pasó el chat a una persona) no hay nada que añadir a lo hablado.
-            if (step.agent.reply) history.push({ role: "assistant", content: step.agent.reply });
+            if (step.agent.reply)
+              history.push({
+                role: "assistant",
+                content: step.agent.options?.length ? `${step.agent.reply}\n${optionsNote(step.agent.options)}` : step.agent.reply,
+              });
           }
           patch(run.key, (r) => ({ ...r, lines: [...r.lines, ...added], tokens: r.tokens + step.tokens }));
           if (step.ended) {
@@ -274,6 +279,7 @@ export function ConversationSimulator({
                       {whatsappFormat(t)}
                     </div>
                   ))}
+                {line.text && !!line.meta.options?.length && <ReplyButtons options={line.meta.options} />}
                 {line.meta.simulatedActions.length > 0 && (
                   <ul className="sim-actions" aria-label="Acciones que haría (no aplicadas)">
                     {line.meta.simulatedActions.map((a, k) => (

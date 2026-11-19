@@ -38,6 +38,8 @@ export const aiSuggestionSchema = z.object({
   provider: z.string(), // "anthropic" | "fake"
   toolsUsed: z.array(z.string()),
   pendingActions: z.array(pendingActionSchema),
+  /** Opciones para pulsar debajo de la respuesta (botones o lista); vacío si es solo texto. */
+  options: z.array(z.string()).default([]),
 });
 export type AiSuggestion = z.infer<typeof aiSuggestionSchema>;
 
@@ -103,6 +105,8 @@ export const playgroundReplySchema = z.object({
   toolCalls: z.array(playgroundToolCallSchema).default([]),
   /** El agente escribe en varios mensajes cortos (como en WhatsApp): la respuesta va por párrafos. */
   splitReplies: z.boolean().default(false),
+  /** Opciones para pulsar debajo de la respuesta (botones o lista); vacío si es solo texto. */
+  options: z.array(z.string()).default([]),
   inputTokens: z.number(),
   outputTokens: z.number(),
   costUsd: z.number(),

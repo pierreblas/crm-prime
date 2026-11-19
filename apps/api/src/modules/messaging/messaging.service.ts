@@ -1082,6 +1082,8 @@ export class MessagingService {
   async queueInteractive(
     input: SendInteractiveInput,
     author: MessageAuthor,
+    /** La respuesta de la IA que lo escribió (para «¿Por qué respondió esto?»). */
+    opts: { aiRunId?: string } = {},
   ): Promise<MessageDto> {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: input.conversationId },
@@ -1119,6 +1121,7 @@ export class MessagingService {
         type: MessageType.TEXT,
         author,
         content: input.body,
+        aiRunId: opts.aiRunId || null,
         interactive: {
           kind,
           buttons: shown,

@@ -10,6 +10,7 @@ import {
   HANDOFF_REASON_MEDIA,
   HANDOFF_REASON_AI_INCLUDED_EXHAUSTED,
   HANDOFF_REASON_NO_AI_KEY,
+  interactiveFromOptions,
   MessageAuthor,
   MessageType,
   splitReply,
@@ -164,6 +165,8 @@ export class AutopilotService {
     convo: { channelId: string | null; contactId: string },
     /** La respuesta de la IA que lo escribió: cada mensaje queda enlazado para «¿Por qué respondió esto?». */
     aiRunId?: string,
+    /** Opciones para pulsar: van con el último mensaje, como botones o lista. */
+    options: string[] = [],
   ): Promise<void> {
     const bot = await this.bots.resolveForConversation(convo);
     const parts = bot?.splitReplies ? splitReply(text) : [text];
@@ -172,6 +175,8 @@ export class AutopilotService {
         void this.showTyping(conversationId);
         await new Promise((r) => setTimeout(r, typingPauseMs(parts[i]!)));
       }
+      const last = i === parts.length - 1;
+      if (last && options.length && (await this.sendWithButtons(conversationId, parts[i]!, options, aiRunId))) continue;
       await this.messaging.queueOutbound(
         { conversationId, type: MessageType.TEXT, text: parts[i]! },
         MessageAuthor.AI,
@@ -179,6 +184,20 @@ export class AutopilotService {
       );
     }
     if (parts.length > 1) this.logger.log(`Respuesta en ${parts.length} mensajes en ${conversationId}`);
+  }
+
+  /**
+   * El último mensaje con sus opciones para pulsar. Si no se puede (la ventana
+   * se cerró justo), false: sale como texto normal y la conversación sigue.
+   */
+  private async sendWithButtons(conversationId: string, body: string, options: string[], aiRunId?: string): Promise<boolean> {
+    try {
+      await this.messaging.queueInteractive({ conversationId, body, ...interactiveFromOptions(options) }, MessageAuthor.AI, { aiRunId });
+      return true;
+    } catch (e) {
+      this.logger.warn(`No se pudieron enviar los botones en ${conversationId}: ${(e as Error).message}`);
+      return false;
+    }
   }
 
   /**
@@ -310,7 +329,7 @@ export class AutopilotService {
         return;
       }
 
-      await this.sendReply(conversationId, res.suggestion, convo, res.runId);
+      await this.sendReply(conversationId, res.suggestion, convo, res.runId, res.options);
       this.logger.log(`Autopilot respondió ${conversationId}`);
     } catch (e) {
       this.logger.error(

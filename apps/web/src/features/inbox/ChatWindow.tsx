@@ -6,8 +6,11 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AiMode,
+  cleanReplyOptions,
   ConversationStatus,
+  interactiveFromOptions,
   MessageDirection,
+  optionsAsButtons,
   MessageType,
   humanAgentOpen,
   supportsHumanAgent,
@@ -26,6 +29,7 @@ import {
   markConversationRead,
   reactToMessage,
   sendMessage,
+  sendInteractive,
   setAiMode,
   setConversationStatus,
   cancelFollowUp,
@@ -116,6 +120,8 @@ export function ChatWindow({
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [ai, setAi] = useState<AiSuggestion | null>(null);
+  // Los botones que propuso la IA: van con la respuesta salvo los que se quiten.
+  const [aiOptions, setAiOptions] = useState<string[]>([]);
   // Borrador antes de que el copiloto lo reescribiera (para Deshacer).
   const [beforeRewrite, setBeforeRewrite] = useState<string | null>(null);
   const { data: aiStatus } = useAiStatus();
@@ -150,6 +156,7 @@ export function ChatWindow({
     mutationFn: () => suggestReply(conversation.id),
     onSuccess: (s) => {
       setAi(s);
+      setAiOptions(s.options ?? []);
       if (s.suggestion) setText(s.suggestion);
     },
     onError: (e) => toast.error((e as Error).message),
@@ -232,7 +239,11 @@ export function ChatWindow({
 
   const sendMut = useMutation({
     mutationFn: async () => {
-      await sendMessage({
+      // Con los botones de la sugerencia (2 o más), sale como mensaje con botones o lista.
+      const buttons = !attachment ? cleanReplyOptions(aiOptions) : [];
+      if (buttons.length) {
+        await sendInteractive({ conversationId: conversation.id, body: text.trim(), ...interactiveFromOptions(buttons) });
+      } else await sendMessage({
         conversationId: conversation.id,
         // Con adjunto va como IMAGE/DOCUMENT y el texto viaja de pie de foto.
         ...(replyTo ? { replyToId: replyTo.id } : {}),
@@ -259,6 +270,7 @@ export function ChatWindow({
       setAttachment(null);
       setReplyTo(null);
       setAi(null);
+      setAiOptions([]);
       if (result?.executed.length) {
         toast.success(
           t("inbox.actionsApplied", { count: result.executed.length }),
@@ -277,6 +289,7 @@ export function ChatWindow({
   const discardAi = () => {
     const current = ai;
     setAi(null);
+    setAiOptions([]);
     if (current?.runId && current.pendingActions.length) {
       void resolveAiActions(conversation.id, current.runId, false).catch(
         () => undefined,
@@ -686,6 +699,28 @@ export function ChatWindow({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          {/* Los botones que propuso: se pueden quitar uno a uno antes de enviar. */}
+          {aiOptions.length > 0 && (
+            <div style={actionsBox} data-ai-options>
+              <strong style={{ fontSize: 12 }}>{optionsAsButtons(aiOptions) ? t("inbox.aiButtons") : t("inbox.aiButtonsList")}</strong>
+              <div className="ai-options">
+                {aiOptions.map((o) => (
+                  <span key={o} className="ai-option" data-ai-option={o}>
+                    {o}
+                    <button
+                      type="button"
+                      onClick={() => setAiOptions((list) => list.filter((x) => x !== o))}
+                      aria-label={t("inbox.aiButtonRemove", { title: o })}
+                      title={t("inbox.aiButtonRemove", { title: o })}
+                    >
+                      <NavIcon name="x" size={11} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              {aiOptions.length === 1 && <span className="ai-options__hint">{t("inbox.aiButtonsOne")}</span>}
             </div>
           )}
           <span style={{ color: "var(--muted)", fontSize: 11 }}>

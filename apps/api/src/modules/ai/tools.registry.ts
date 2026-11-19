@@ -1,4 +1,4 @@
-import type { AgentToolInfo } from "@crm/shared";
+import { REPLY_BUTTONS_TOOL, type AgentToolInfo } from "@crm/shared";
 import type { LlmTool } from "./llm.types";
 
 // Catálogo de herramientas de SOLO LECTURA: se ejecutan al instante.
@@ -414,7 +414,18 @@ export function availableTools(c: ToolContext = EMPTY_TOOL_CONTEXT): AgentToolIn
     };
   });
 
-  return [...read, ...dynamicRead, ...actions];
+  // No es una herramienta que llame el modelo: activa el paso que pone botones
+  // a la respuesta (ver reply-options.ts). Se elige junto a las demás.
+  const replyButtons: AgentToolInfo = {
+    name: REPLY_BUTTONS_TOOL,
+    label: "Ofrecer botones y listas",
+    description:
+      "Si la respuesta termina en una pregunta para elegir (sí o no, o entre pocas opciones), sale con botones para pulsar: botones en WhatsApp, respuestas rápidas en Instagram y Messenger.",
+    isAction: false,
+    unavailableReason: null,
+  };
+
+  return [...read, ...dynamicRead, replyButtons, ...actions];
 }
 
 const READ_LABELS: Record<string, string> = {

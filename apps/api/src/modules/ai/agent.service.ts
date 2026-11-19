@@ -10,7 +10,9 @@ import {
   HANDOFF_REASON_AI_INCLUDED_FULL,
   HANDOFF_REASON_MEDIA,
   priceFor,
+  optionsNote,
   readAdReferral,
+  REPLY_BUTTONS_TOOL,
 } from "@crm/shared";
 import type {
   AiSuggestion,
@@ -26,7 +28,8 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { fold } from "../../common/utils/fold";
 import { searchProducts } from "./product-search";
-import { knowledgeCall, traceToolCall } from "./playground-trace";
+import { buttonsSummary, knowledgeCall, traceToolCall } from "./playground-trace";
+import { endsWithQuestion, parseReplyOptions, REPLY_OPTIONS_SYSTEM } from "./reply-options";
 import { MediaUnderstandingService } from "./media-understanding.service";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { AgentActionsService } from "./agent-actions.service";
@@ -35,6 +38,7 @@ import { BotService } from "./bot.service";
 import { AiSettingsService } from "./ai-settings.service";
 import { LLM_PROVIDER, type LLMProvider } from "./llm.provider";
 import type {
+  LlmContentBlock,
   LlmMessage,
   LlmToolResultBlock,
   LlmToolUseBlock,
@@ -132,6 +136,7 @@ export class AgentService {
         provider: this.llm.name,
         toolsUsed: [],
         pendingActions: [],
+        options: [],
       };
     }
 
@@ -153,6 +158,7 @@ export class AgentService {
         provider: this.llm.name,
         toolsUsed: [],
         pendingActions: [],
+        options: [],
       };
     }
 
@@ -183,6 +189,8 @@ export class AgentService {
     }
 
     let suggestion: string | null = null;
+    // Opciones para pulsar debajo de la respuesta (reply_with_buttons).
+    let replyOptions: string[] = [];
     let escalate = false;
     let escalationReason: string | null = null;
     let status = "COMPLETED";
@@ -321,6 +329,30 @@ export class AgentService {
       }
     }
 
+    // Botones: si la respuesta termina en una pregunta para elegir. No con un
+    // chat que pasa a una persona: ahí no se ofrece nada para pulsar.
+    if (!escalate && status === "COMPLETED") {
+      const b = await this.replyOptions(suggestion, config?.enabledTools ?? [], { model: config?.model, feature: "agent", conversationId });
+      inputTokens += b.inputTokens;
+      outputTokens += b.outputTokens;
+      replyOptions = b.options;
+      if (b.options.length) {
+        toolsUsed.push(REPLY_BUTTONS_TOOL);
+        await this.prisma.aiToolCall
+          .create({
+            data: {
+              aiRunId: run.id,
+              toolName: REPLY_BUTTONS_TOOL,
+              input: { options: b.options },
+              output: { result: buttonsSummary(b.options) },
+              status: "EXECUTED",
+              resolvedAt: new Date(),
+            },
+          })
+          .catch((e: Error) => this.logger.warn(`No se guardaron los botones ofrecidos: ${e.message}`));
+      }
+    }
+
     const costUsd = this.cost(model, inputTokens, outputTokens);
     await this.prisma.aiRun.update({
       where: { id: run.id },
@@ -366,7 +398,41 @@ export class AgentService {
         ]),
       ],
       pendingActions,
+      options: suggestion ? replyOptions : [],
     };
+  }
+
+  /**
+   * Las opciones para pulsar de una respuesta, si su agente pone botones y la
+   * respuesta termina en pregunta (ver reply-options.ts). Una llamada corta al
+   * mismo modelo; si falla, la respuesta sale igual, sin botones.
+   */
+  private async replyOptions(
+    reply: string | null,
+    enabledTools: string[],
+    req: { model?: string; feature: "agent" | "playground" | "simulator"; conversationId?: string },
+  ): Promise<{ options: string[]; inputTokens: number; outputTokens: number; asked: boolean }> {
+    const none = { options: [], inputTokens: 0, outputTokens: 0, asked: false };
+    if (!reply?.trim() || !enabledTools.includes(REPLY_BUTTONS_TOOL) || !endsWithQuestion(reply)) return none;
+    try {
+      const res = await this.llm.generate({
+        system: REPLY_OPTIONS_SYSTEM,
+        messages: [{ role: "user", content: reply.slice(-1200) }],
+        maxTokens: 160,
+        effort: "low",
+        model: req.model,
+        feature: req.feature,
+        ...(req.conversationId ? { conversationId: req.conversationId } : {}),
+      });
+      const raw = res.content
+        .filter((b): b is Extract<LlmContentBlock, { type: "text" }> => b.type === "text")
+        .map((b) => b.text)
+        .join("");
+      return { options: parseReplyOptions(raw), inputTokens: res.usage.inputTokens, outputTokens: res.usage.outputTokens, asked: true };
+    } catch (e) {
+      this.logger.warn(`No se pudieron sacar los botones: ${(e as Error).message}`);
+      return { ...none, asked: true };
+    }
   }
 
   // ── Playground: probar el agente con texto libre, sin persistir ─
@@ -415,6 +481,7 @@ export class AgentService {
     const knowledge = ragEnabled ? await this.retrieveSafe(input.message) : [];
 
     let reply: string | null = null;
+    let replyOptions: string[] = [];
     let escalate = false;
     let escalationReason: string | null = null;
     let model = config?.model ?? "claude-opus-4-8";
@@ -493,6 +560,18 @@ export class AgentService {
       escalationReason = "Error al generar la respuesta.";
     }
 
+    // Botones, igual que con un cliente de verdad.
+    if (!escalate) {
+      const b = await this.replyOptions(reply, config?.enabledTools ?? [], { model: config?.model, feature });
+      inputTokens += b.inputTokens;
+      outputTokens += b.outputTokens;
+      replyOptions = b.options;
+      if (b.options.length) {
+        toolsUsed.push(REPLY_BUTTONS_TOOL);
+        toolCalls.push(traceToolCall(REPLY_BUTTONS_TOOL, {}, buttonsSummary(b.options)));
+      }
+    }
+
     return {
       reply,
       simulatedActions,
@@ -508,6 +587,7 @@ export class AgentService {
       ],
       toolCalls,
       splitReplies,
+      options: reply ? replyOptions : [],
       inputTokens,
       outputTokens,
       costUsd: this.cost(model, inputTokens, outputTokens),
@@ -1003,6 +1083,10 @@ export class AgentService {
       enabledTools.some((t) => BOOKING_TOOLS.has(t))
         ? "\n\nCitas: antes de ofrecer horarios consulta check_availability y propón dos o tres horas de las que devuelve; nunca inventes ni prometas una hora sin consultarla. Cuando el cliente elija una, resérvala con book_appointment pasando la fecha y hora tal cual (AAAA-MM-DDTHH:mm, hora del negocio) y confirma solo lo que diga la herramienta. Para cambiar una cita usa reschedule_appointment; para anularla, cancel_appointment. Interpreta «mañana», «el lunes» o «a las 5» con la fecha de hoy que tienes más abajo."
         : "",
+      // Las opciones se sacan de la pregunta final: que la escriba clara y las nombre.
+      enabledTools.includes(REPLY_BUTTONS_TOOL)
+        ? "\n\nBotones: cuando termines con una pregunta para que el cliente elija (sí o no, o entre pocas opciones), haz una sola pregunta al final y nombra en ella las opciones («¿Prefieres transferencia o Yape?», «¿Te separo un cupo?»): al cliente le llegarán como botones para pulsar. Cuando pulsa uno, te llega su texto como un mensaje más."
+        : "",
       "\n\nDevuelve únicamente el texto de la respuesta sugerida, sin prefijos como 'Respuesta:'.",
     ].join("");
     const systemDynamic = [
@@ -1088,10 +1172,15 @@ export class AgentService {
     const rows = recent.reverse();
     // Un audio o una imagen entran con lo que la IA entendió de ellos
     // (transcripción o descripción), no como un «[audio]» mudo.
-    const msgs: LlmMessage[] = rows.map((m) => ({
-      role: m.direction === "INBOUND" ? "user" : "assistant",
-      content: MediaUnderstandingService.historyTextOf(m),
-    }));
+    // Un mensaje con botones lleva sus opciones: así sabe qué ofreció y qué pulsó el cliente.
+    const msgs: LlmMessage[] = rows.map((m) => {
+      const text = MediaUnderstandingService.historyTextOf(m);
+      const offered = m.direction === "OUTBOUND" ? offeredOptions(m.interactive) : [];
+      return {
+        role: m.direction === "INBOUND" ? "user" : "assistant",
+        content: offered.length ? `${text}\n${optionsNote(offered)}` : text,
+      };
+    });
     // La API exige que el primer mensaje sea del usuario.
     while (msgs.length && msgs[0]!.role === "assistant") msgs.shift();
     if (msgs.length === 0) {
@@ -1103,6 +1192,16 @@ export class AgentService {
   private cost(model: string, input: number, output: number): number {
     return estimateCostUsd(model, input, output);
   }
+}
+
+/** Las opciones de un mensaje con botones o lista (lo guardado en Message.interactive). */
+export function offeredOptions(raw: unknown): string[] {
+  if (!raw || typeof raw !== "object") return [];
+  const buttons = (raw as { buttons?: unknown }).buttons;
+  if (!Array.isArray(buttons)) return [];
+  return buttons
+    .map((b) => (b && typeof b === "object" && typeof (b as { title?: unknown }).title === "string" ? (b as { title: string }).title : ""))
+    .filter(Boolean);
 }
 
 /** La memoria del cliente como texto para el prompt, o "" si no hay. */

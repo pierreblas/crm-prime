@@ -1,4 +1,4 @@
-import type { PlaygroundToolCall } from "@crm/shared";
+import { REPLY_BUTTONS_TOOL, optionsAsButtons, type PlaygroundToolCall } from "@crm/shared";
 
 /**
  * Lo que consultó el agente («Probar conversación» y «¿Por qué?» de la bandeja), en una línea por consulta:
@@ -82,8 +82,16 @@ function knowledge(output: string): string {
   return clip(`${r.length === 1 ? "1 fragmento" : `${r.length} fragmentos`}${docs.length ? ` de ${docs.join(", ")}` : ""}.`, MAX_SUMMARY);
 }
 
+/** Lo que ofreció para pulsar: «Ofreció botones: «Sí, sepárame» · «Tengo dudas»». */
+export function buttonsSummary(options: string[]): string {
+  if (!options.length) return "Quiso ofrecer botones sin opciones válidas: respondió solo con texto.";
+  return `Ofreció ${optionsAsButtons(options) ? "botones" : "una lista"}: ${options.map((o) => `«${o}»`).join(" · ")}`;
+}
+
 /** Una línea por consulta del agente, para enseñarla bajo su respuesta en la prueba. */
 export function traceToolCall(name: string, input: Record<string, unknown> | undefined, output: string): PlaygroundToolCall {
+  // La respuesta con botones: lo que ofreció ya viene resumido (buttonsSummary).
+  if (name === REPLY_BUTTONS_TOOL) return { name, input: "", summary: clip(output, MAX_SUMMARY) };
   if (name === "search_products") {
     // La búsqueda y, aparte, qué dato pidió el cliente: «genómica» · pide «Temario».
     const asks = asksOf(input);

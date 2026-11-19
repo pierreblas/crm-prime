@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation } from "@tanstack/react-query";
-import { COUNTRIES, dialCodeOf, type PlaygroundContact, type PlaygroundReply, type PlaygroundTurn } from "@crm/shared";
+import { COUNTRIES, dialCodeOf, optionsNote, type PlaygroundContact, type PlaygroundReply, type PlaygroundTurn } from "@crm/shared";
 import { testAgent } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { ConversationSimulator } from "./ConversationSimulator";
-import { AgentBubbles, ToolTrace } from "./PlayReply";
+import { AgentBubbles, ReplyButtons, ToolTrace } from "./PlayReply";
 
 /** Con quién se prueba: un nombre y un país. Se recuerda en este navegador. */
 type Tester = { name: string; country: string };
@@ -67,9 +67,10 @@ export function AgentPlayground({
 
   const send = useMutation({
     mutationFn: (message: string) => {
+      // Lo que ofreció con botones va con su respuesta: así sabe qué eligió el cliente.
       const history: PlaygroundTurn[] = messages.map((m) => ({
         role: m.role,
-        content: m.content,
+        content: m.role === "assistant" && m.meta?.options?.length ? `${m.content}\n${optionsNote(m.meta.options)}` : m.content,
       }));
       return testAgent({ message, botId, history, ...(contact ? { contact } : {}) });
     },
@@ -101,11 +102,11 @@ export function AgentPlayground({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const submit = () => {
-    const t = text.trim();
+  const submit = (picked?: string) => {
+    const t = (picked ?? text).trim();
     if (!t || send.isPending) return;
     setMessages((prev) => [...prev, { role: "user", content: t }]);
-    setText("");
+    if (picked === undefined) setText("");
     send.mutate(t);
   };
 
@@ -208,6 +209,10 @@ export function AgentPlayground({
                   </div>
                 )}
                 <AgentBubbles text={m.content} split={!!m.meta?.splitReplies} />
+                {/* Se pulsan como el cliente; solo los de la última respuesta. */}
+                {!!m.meta?.options?.length && (
+                  <ReplyButtons options={m.meta.options} onPick={i === messages.length - 1 && !send.isPending ? (o) => submit(o) : undefined} />
+                )}
                 {!!m.meta?.toolCalls?.length && <ToolTrace calls={m.meta.toolCalls} />}
                 {!!m.meta?.simulatedActions.length && (
                   <div style={simActions}>

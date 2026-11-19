@@ -1,7 +1,8 @@
 "use client";
 
 import type React from "react";
-import { splitReply, type PlaygroundToolCall } from "@crm/shared";
+import { optionsAsButtons, splitReply, LIST_OPEN_LABEL, type PlaygroundToolCall } from "@crm/shared";
+import { useState } from "react";
 import { NavIcon } from "@/components/NavIcons";
 import { TOOL_COPY } from "./agentCopy";
 
@@ -21,6 +22,46 @@ export function AgentBubbles({ text, split }: { text: string; split: boolean }) 
           {whatsappFormat(p)}
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Las opciones para pulsar debajo de la respuesta, como las ve el cliente:
+ * hasta 3 cortas son botones; más, una lista que se abre con «Ver opciones».
+ * Con `onPick` se pueden pulsar (en la prueba, como si fueras el cliente).
+ */
+export function ReplyButtons({ options, onPick }: { options: string[]; onPick?: (option: string) => void }) {
+  const [open, setOpen] = useState(false);
+  if (!options.length) return null;
+  const pick = (o: string) => onPick?.(o);
+  if (optionsAsButtons(options)) {
+    return (
+      <div className="reply-buttons" data-reply-buttons="buttons">
+        {options.map((o) => (
+          <button key={o} type="button" className="reply-buttons__btn" disabled={!onPick} onClick={() => pick(o)}>
+            {o}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="reply-buttons" data-reply-buttons="list">
+      <button type="button" className="reply-buttons__btn" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <NavIcon name="rows" size={13} /> {LIST_OPEN_LABEL}
+      </button>
+      {open && (
+        <ul className="reply-buttons__list">
+          {options.map((o) => (
+            <li key={o}>
+              <button type="button" disabled={!onPick} onClick={() => pick(o)}>
+                {o}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

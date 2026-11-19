@@ -26,6 +26,7 @@ import {
   type FollowUps,
   AI_TOKENS_PER_CONVERSATION,
   formatTokens,
+  REPLY_BUTTONS_TOOL,
 } from "@crm/shared";
 import type { PromptAssistantTarget } from "@crm/shared";
 import { createBot, fetchAgents, fetchCustomFields, fetchProductFields, fetchSources, fetchStages, fetchTags, fetchWhatsappChannels, updateBot } from "@/lib/bff";
@@ -622,7 +623,7 @@ export function BotEditor({
         {/* ── Qué puede hacer ── */}
         {tab === "hace" && (
           <>
-            <Card title="Para responder bien" subtitle="Lo que puede consultar antes de contestar.">
+            <Card title="Para responder bien" subtitle="Lo que puede consultar antes de contestar y cómo contesta.">
               <div className="agent-tools">
                 {readTools.map((t) => (
                   <ToolRow key={t.name} tool={t} checked={form.enabledTools.includes(t.name)} onToggle={() => toggleTool(t.name)} />
@@ -1144,6 +1145,8 @@ function ToolRow({ tool, checked, onToggle }: { tool: AgentToolInfo; checked: bo
           {copy?.recommended && <em>Recomendado</em>}
         </strong>
         {copy && <small>{copy.desc}</small>}
+        {/* Los botones no se llaman por su nombre: los pone Driony cuando la respuesta termina en una pregunta para elegir. */}
+        {tool.name !== REPLY_BUTTONS_TOOL && (
         <span className="agent-tool__name" title="Así se llama para la IA: úsalo en «Cómo debe atender»">
           <code>{tool.name}</code>
           <button
@@ -1158,6 +1161,7 @@ function ToolRow({ tool, checked, onToggle }: { tool: AgentToolInfo; checked: bo
             <NavIcon name="copy" size={11} /> copiar
           </button>
         </span>
+        )}
         {tool.unavailableReason && (
           <span className="agent-tool__warn">
             <NavIcon name="alert" size={13} />
