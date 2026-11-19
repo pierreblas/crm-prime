@@ -13,6 +13,7 @@ import {
   readAdReferral,
   stripOptionsNote,
   REPLY_BUTTONS_TOOL,
+  PAYMENT_METHODS_TOOL,
 } from "@crm/shared";
 import type {
   AiSuggestion,
@@ -94,18 +95,19 @@ export class AgentService {
       this.prisma.productField.findMany({ where: { aiVisible: true }, select: { label: true } }),
       this.prisma.customField.findMany({ select: { key: true, label: true } }),
     ]);
+    // Las acciones necesitan los valores reales (etiquetas, etapas, vendedores)
+    // para que el modelo elija de una lista cerrada en vez de inventarlos.
+    const toolContext = await this.actions.loadContext();
+    const tools = resolveTools(config?.enabledTools ?? [], toolContext);
     const system = this.buildSystemParts(config?.systemPrompt, conversation.contact, config?.enabledTools ?? [], !!config?.splitReplies, {
       catalogFields: catalogFields.map((f) => f.label),
       contactFields: contactFieldDefs,
       referral: conversation.referral,
       bookings: await this.bookingContext(config?.enabledTools ?? [], conversation.contact.id),
       channel: conversation.channelKind,
+      paymentTool: tools.some((t) => t.name === PAYMENT_METHODS_TOOL),
     });
     const messages = await this.buildHistory(conversationId);
-    // Las acciones necesitan los valores reales (etiquetas, etapas, vendedores)
-    // para que el modelo elija de una lista cerrada en vez de inventarlos.
-    const toolContext = await this.actions.loadContext();
-    const tools = resolveTools(config?.enabledTools ?? [], toolContext);
     // En autopilot la IA aplica sus acciones sola; en copilot quedan
     // pendientes hasta que el humano envía la respuesta.
     const autoApply = conversation.aiMode === "AUTOPILOT";
@@ -468,13 +470,14 @@ export class AgentService {
       this.prisma.customField.findMany({ select: { key: true, label: true } }),
     ]);
     const splitReplies = !!config?.splitReplies;
+    const toolContext = await this.actions.loadContext();
+    const tools = resolveTools(config?.enabledTools ?? [], toolContext);
     const system = this.buildSystemParts(config?.systemPrompt, contact, config?.enabledTools ?? [], splitReplies, {
       catalogFields: catalogFields.map((f) => f.label),
       contactFields: contactFieldDefs,
       bookings: await this.bookingContext(config?.enabledTools ?? [], null),
+      paymentTool: tools.some((t) => t.name === PAYMENT_METHODS_TOOL),
     });
-    const toolContext = await this.actions.loadContext();
-    const tools = resolveTools(config?.enabledTools ?? [], toolContext);
     // En el playground las acciones no se aplican: solo se listan.
     const simulatedActions: string[] = [];
     const maxIterations = config?.maxIterations ?? 6;
@@ -884,7 +887,7 @@ export class AgentService {
 
     // ── Acciones que escriben en el CRM ──────────────────────────
     if (isActionTool(tu.name)) {
-      return this.runAction(aiRunId, contact.id, conversationId, tu, autoApply);
+      return this.runAction(aiRunId, contact.id, conversationId, tu, autoApply, contact.phone);
     }
 
     if (tu.name === "search_contact") {
@@ -1063,11 +1066,19 @@ export class AgentService {
     conversationId: string | null,
     tu: LlmToolUseBlock,
     autoApply: boolean,
+    /** Teléfono del cliente de la prueba: de él sale el país de los métodos de pago. */
+    phone: string | null = null,
   ): Promise<{ output: string; escalated: boolean; reason?: string }> {
     const summary = this.actions.summarize(tu.name, tu.input);
 
     // Playground: nada toca la BD, solo se describe lo que haría.
     if (!aiRunId) {
+      // Los métodos de pago sí se enseñan: es justo lo que hay que comprobar
+      // (qué le llega a un cliente de cada país), y el agente reacciona igual
+      // que en un chat real si no hay ninguno para ese país.
+      if (tu.name === PAYMENT_METHODS_TOOL) {
+        return { output: await this.actions.previewPaymentMethods(phone, tu.input), escalated: false };
+      }
       return {
         output: `(simulado, no se aplicó) ${summary}`,
         escalated: false,
@@ -1117,7 +1128,15 @@ export class AgentService {
     contact: { name: string | null; phone: string; currency?: string | null; aiMemory?: unknown; metadata?: unknown },
     enabledTools: string[] = [],
     splitReplies = false,
-    extra: { catalogFields?: string[]; contactFields?: { key: string; label: string }[]; referral?: unknown; bookings?: string; channel?: string } = {},
+    extra: {
+      catalogFields?: string[];
+      contactFields?: { key: string; label: string }[];
+      referral?: unknown;
+      bookings?: string;
+      channel?: string;
+      /** send_payment_methods está activada y hay métodos cargados. */
+      paymentTool?: boolean;
+    } = {},
   ): { system: string; systemDynamic: string } {
     const country = countryFromPhone(contact.phone);
     const memory = memoryText(contact.aiMemory);
@@ -1153,10 +1172,16 @@ export class AgentService {
         : "",
       "\n\nSi un mensaje del cliente aparece como [imagen], [documento] o [audio] sin descripción, no pudiste verlo ni oírlo: dilo con naturalidad y pídele que te cuente qué es (o pásalo a una persona si parece un comprobante o un documento importante).",
       // Un número de Yape o una cuenta inventados acaban en un pago perdido: visto
-      // en pruebas, el agente dio «987654321» cuando no tenía los datos.
-      `\n\nDatos de pago (número de cuenta o CCI, Yape, Plin, Nequi, enlace de pago, a nombre de quién): dalos solo si aparecen tal cual en tus instrucciones o en lo que te devuelve el conocimiento en este turno. Nunca los inventes, no los completes ni des uno de ejemplo; un hueco entre corchetes en tus instrucciones (como [Número de Yape]) significa que no lo tienes. Si no los tienes, dile al cliente que una persona del equipo se los envía enseguida${
-        enabledTools.includes("handoff_to_human") ? " y llama a handoff_to_human en ese mismo turno." : "."
-      }`,
+      // en pruebas, el agente dio «987654321» cuando no tenía los datos. Con
+      // «Métodos de pago» los envía el sistema, tal cual y solo los del país
+      // del cliente: el modelo no escribe ni uno, aunque los tenga delante.
+      extra.paymentTool
+        ? `\n\nDatos de pago (número de cuenta o CCI, Yape, Plin, Nequi, enlace de pago, a nombre de quién): nunca los escribas tú, ni aunque aparezcan en tus instrucciones o en el conocimiento. Cuando el cliente quiera pagar o pregunte cómo, a dónde o a qué cuenta pagar, depositar o transferir, llama a ${PAYMENT_METHODS_TOOL} en ese mismo turno: el sistema le envía los datos exactos de su país en un mensaje aparte. Después no los repitas ni los resumas. Si la herramienta te dice que no hay métodos para su país, dile que una persona del equipo se los envía enseguida${
+            enabledTools.includes("handoff_to_human") ? " y llama a handoff_to_human en ese mismo turno." : "."
+          }`
+        : `\n\nDatos de pago (número de cuenta o CCI, Yape, Plin, Nequi, enlace de pago, a nombre de quién): dalos solo si aparecen tal cual en tus instrucciones o en lo que te devuelve el conocimiento en este turno. Nunca los inventes, no los completes ni des uno de ejemplo; un hueco entre corchetes en tus instrucciones (como [Número de Yape]) significa que no lo tienes. Si no los tienes, dile al cliente que una persona del equipo se los envía enseguida${
+            enabledTools.includes("handoff_to_human") ? " y llama a handoff_to_human en ese mismo turno." : "."
+          }`,
       splitReplies
         ? "\n\nEscribe como en WhatsApp: mensajes cortos, una idea por párrafo, separados por una línea en blanco (como mucho cuatro párrafos). Cada párrafo se enviará como un mensaje aparte."
         : "",

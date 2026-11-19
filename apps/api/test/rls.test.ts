@@ -2900,3 +2900,36 @@ test("ventas por anuncio con el rol restringido: cada empresa ve solo sus clics 
   assert.equal(theirs.ads.length, 0, "la otra empresa no ve el anuncio");
   assert.equal(theirs.totals.chats + theirs.organic.chats, 0);
 });
+
+test("métodos de pago con el rol restringido: cada empresa ve, edita y envía solo los suyos", async () => {
+  const { PaymentMethodsService } = await import("../src/modules/payment-methods/payment-methods.service");
+  const { AgentActionsService } = await import("../src/modules/ai/agent-actions.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgs = [`o_pay_${suf}`, `o_pay2_${suf}`] as const;
+  await ctx.runUnscoped("prueba: empresas de métodos de pago", async () => {
+    for (const [i, id] of orgs.entries()) await prisma.organization.create({ data: { id, slug: `pay${i}-${suf}`, name: `Pagos ${i}` } });
+  });
+  const svc = (orgId: string) => new PaymentMethodsService(prisma, { orgId: () => orgId } as any);
+  const yape = await ctx.runInOrg(orgs[0], () => svc(orgs[0]).create({ name: "Yape", countries: ["PE"], details: "987 654 321" }));
+  await ctx.runInOrg(orgs[0], () => svc(orgs[0]).create({ name: "PayPal", details: "https://paypal.me/a" }));
+  await ctx.runInOrg(orgs[1], () => svc(orgs[1]).create({ name: "Nequi", countries: ["CO"], details: "300 111 2222" }));
+
+  const mine = await ctx.runInOrg(orgs[0], () => svc(orgs[0]).list());
+  assert.deepEqual(mine.map((m: any) => [m.name, m.order]), [["Yape", 0], ["PayPal", 1]]);
+  const theirs = await ctx.runInOrg(orgs[1], () => svc(orgs[1]).list());
+  assert.deepEqual(theirs.map((m: any) => m.name), ["Nequi"], "la otra empresa no ve las cuentas");
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => svc(orgs[1]).update(yape.id, { details: "111 222 333" })), /no encontrado/);
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => svc(orgs[1]).remove(yape.id)), /no encontrado/);
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => svc(orgs[1]).reorder([yape.id])), /no encontrado/);
+
+  // Lo que enviaría el agente de cada empresa: nunca un dato de la otra.
+  const actions = new AgentActionsService(prisma, { orgId: () => "" } as any, {} as any, {} as any, {} as any);
+  const a = await ctx.runInOrg(orgs[0], () => actions.planPaymentMethods("+51987654321", {}));
+  assert.deepEqual(a.names, ["Yape", "PayPal"]);
+  const b = await ctx.runInOrg(orgs[1], () => actions.planPaymentMethods("+51987654321", {}));
+  assert.deepEqual(b.names, [], "un cliente peruano de la otra empresa no recibe el Yape de esta");
+  assert.match(b.problem!, /No hay métodos de pago para Perú/);
+  // Y las herramientas del agente se arman con los de su empresa.
+  const tools = await ctx.runInOrg(orgs[1], () => actions.loadContext().catch(() => null));
+  if (tools) assert.deepEqual(tools.paymentMethods, ["Nequi"]);
+});

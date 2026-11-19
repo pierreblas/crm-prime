@@ -3452,6 +3452,53 @@ code {
 .dash__title h2 { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 15px; }
 .dash__title h2 svg { color: var(--accent-text); }
 .dash__title span { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); }
+/* Métodos de pago (Ajustes) */
+.pay { display: flex; flex-direction: column; gap: 14px; }
+.pay__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.pay__head p { margin: 0; max-width: 620px; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.pay__head a { color: var(--accent-text, var(--accent)); }
+.pay__empty { margin: 0; padding: 16px 4px; font-size: 13.5px; color: var(--muted); }
+.pay__empty.is-error { color: var(--danger); }
+.pay__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.pay__item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 14px; padding: 14px 16px; border: 1px solid var(--border); background: var(--panel); }
+.pay__item.is-off { opacity: 0.6; }
+.pay__item-main { min-width: 0; }
+.pay__item-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.pay__item-title strong { font-size: 15px; }
+.pay__countries { font-size: 12px; padding: 2px 8px; border: 1px solid var(--border); color: var(--muted); }
+.pay__off { font-size: 12px; color: var(--warning); }
+.pay__details { margin: 8px 0 0; font: inherit; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pay__instructions { margin: 6px 0 0; font-size: 13px; font-style: italic; color: var(--muted); }
+.pay__qr { width: 72px; height: 72px; object-fit: cover; border: 1px solid var(--border); background: #fff; }
+.pay__item-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.pay__delete { color: var(--danger); margin-left: auto; }
+.pay__form { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--border-strong, var(--border)); background: var(--panel); }
+.pay__form-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px; }
+.pay__field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.pay__field > span { font-size: 13px; color: var(--muted); }
+.pay__field textarea { resize: vertical; font-family: inherit; line-height: 1.5; }
+.pay__chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pay__chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12.5px; border: 1px solid var(--border); background: var(--surface-2); }
+.pay__chip.is-all { color: var(--muted); border-style: dashed; }
+.pay__chip button { display: grid; place-items: center; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; }
+.pay__chip button:hover { color: var(--danger); }
+.pay__add-country { width: auto; padding-block: 5px; font-size: 13px; }
+.pay__upload { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; }
+.pay__form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.pay__preview { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px dashed var(--border); }
+.pay__preview-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.pay__preview-head h3 { margin: 0; font-size: 14px; }
+.pay__preview-head select { width: auto; padding-block: 5px; font-size: 13px; }
+.pay__bubble { align-self: flex-start; max-width: min(420px, 100%); padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.pay__wa { font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.pay__wa em { color: var(--muted); }
+.pay__bubble img { width: 140px; height: 140px; object-fit: cover; border: 1px solid var(--border); background: #fff; }
+@media (max-width: 720px) {
+  .pay__head { flex-direction: column; }
+  .pay__form-row { grid-template-columns: minmax(0, 1fr); }
+  .pay__item { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* Ventas por anuncio (Panel) */
 .ad-sales__title h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; }
 .ad-sales__title p { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); }

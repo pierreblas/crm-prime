@@ -200,6 +200,7 @@ model Organization {
   bookings             Booking[]
   knowledgeSuggestions KnowledgeSuggestion[]
   conversationReviews  ConversationReview[]
+  paymentMethods       PaymentMethod[]
   aiUsage              AiUsage[]
   aiPacks              AiPack[]
   aiPackUses           AiPackUse[]
@@ -1721,6 +1722,32 @@ model ConversationReview {
   @@index([orgId, createdAt])
   @@index([conversationId, createdAt])
   @@map("conversation_reviews")
+}
+
+// Métodos de pago de la empresa (Ajustes › Métodos de pago). El agente los
+// envía con send_payment_methods: el sistema manda el texto tal cual, solo los
+// del país del cliente, y el modelo nunca escribe un número de cuenta.
+model PaymentMethod {
+  id           String   @id @default(cuid())
+  orgId        String
+  name         String // «Yape», «Transferencia BCP»
+  // ISO 3166-1 alfa-2 («PE», «MX»). Vacío: vale para todos los países.
+  countries    String[] @default([])
+  // Lo que recibe el cliente, tal cual: número, CCI, a nombre de quién, enlace.
+  details      String
+  // Una indicación breve («Envía tu comprobante por aquí»).
+  instructions String   @default("")
+  // QR o imagen (referencia storage:// o URL), se envía como foto.
+  imageUrl     String?
+  isActive     Boolean  @default(true)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, order])
+  @@map("payment_methods")
 }
 
 // Historial de los ajustes de IA: cada clave guardada, cambiada o borrada, cada

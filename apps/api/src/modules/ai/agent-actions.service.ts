@@ -3,8 +3,13 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Prisma } from "@prisma/client";
 import {
   contactCurrency,
+  countryFromPhone,
+  COUNTRIES,
   MessageAuthor,
   MessageType,
+  paymentMethodsFor,
+  paymentMethodsText,
+  type CountryInfo,
   type ResolveActionsResult,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -28,6 +33,9 @@ type ActionInput = Record<string, unknown>;
  *  - En el playground no se toca la BD: solo se describe lo que haría.
  */
 const LEAD_LABEL: Record<string, string> = { potential: "potencial", purchase: "compra", lost: "perdido" };
+/** Lo que el agente lee tras enviar los métodos: que no repita (ni reescriba) un número. */
+const PAYMENT_SENT_HINT =
+  "El cliente ya tiene los datos exactos en un mensaje aparte: no los repitas ni escribas tú ningún número, cuenta o enlace. Sigue con lo demás (por ejemplo, dile que te envíe el comprobante cuando pague).";
 
 @Injectable()
 export class AgentActionsService {
@@ -43,7 +51,7 @@ export class AgentActionsService {
 
   // Valores reales del workspace para construir los esquemas de las tools.
   async loadContext(): Promise<ToolContext> {
-    const [tags, stages, sellers, customFields, products, leadStages, booking, productFields] = await Promise.all([
+    const [tags, stages, sellers, customFields, products, leadStages, booking, productFields, payments] = await Promise.all([
       this.prisma.tag.findMany({
         select: { name: true },
         orderBy: { name: "asc" },
@@ -83,6 +91,12 @@ export class AgentActionsService {
         select: { label: true },
         orderBy: { order: "asc" },
       }),
+      // Métodos de pago activos: habilitan send_payment_methods.
+      this.prisma.paymentMethod.findMany({
+        where: { isActive: true },
+        select: { name: true, countries: true },
+        orderBy: { order: "asc" },
+      }),
     ]);
     const leadStatuses = [
       ...(leadStages.some((s) => s.isQualified) ? ["potential"] : []),
@@ -100,6 +114,8 @@ export class AgentActionsService {
       bookingServices: booking.services,
       bookingStaff: booking.staff,
       productFields: productFields.map((f) => f.label),
+      paymentMethods: [...new Set(payments.map((p) => p.name))],
+      paymentCountries: COUNTRIES.filter((c) => payments.some((p) => p.countries.includes(c.code))).map((c) => c.name),
     };
   }
 
@@ -122,6 +138,10 @@ export class AgentActionsService {
         }`;
       case "send_product_image":
         return `Enviar la foto de «${String(input.product)}»`;
+      case "send_payment_methods": {
+        const only = Array.isArray(input.methods) ? input.methods.map(String).filter(Boolean) : [];
+        return `Enviar los métodos de pago${only.length ? ` (${only.join(", ")})` : ""}${input.country ? ` de ${String(input.country)}` : " de su país"}`;
+      }
       case "book_appointment":
         return `Reservar «${String(input.service)}» el ${String(input.start).replace("T", " a las ")}${input.staff ? ` con ${String(input.staff)}` : ""}`;
       case "reschedule_appointment":
@@ -170,6 +190,8 @@ export class AgentActionsService {
         return this.updateContact(contactId, input);
       case "send_product_image":
         return this.sendProductImage(conversationId, input);
+      case "send_payment_methods":
+        return this.sendPaymentMethods(contactId, conversationId, input);
       case "book_appointment":
         return this.bookings.agentBook(contactId, conversationId, input);
       case "reschedule_appointment":
@@ -409,6 +431,64 @@ export class AgentActionsService {
       MessageAuthor.AI,
     );
     return `Foto de "${product.name}" enviada.`;
+  }
+
+  // ── Métodos de pago ─────────────────────────────────────────
+  /**
+   * Qué métodos le tocan a un cliente y el texto exacto que recibe. El país
+   * sale del prefijo de su teléfono; `country` lo cambia si dijo que paga desde
+   * otro (o si escribe por Instagram o Messenger, donde no se sabe). Sin nada
+   * que enviar, `problem` le dice al agente qué hacer en vez de inventar.
+   */
+  async planPaymentMethods(
+    phone: string | null,
+    input: ActionInput,
+  ): Promise<{ country: CountryInfo | null; names: string[]; text: string; images: { name: string; url: string }[]; problem: string | null }> {
+    const asked = String(input.country ?? "").trim().toLowerCase();
+    const country = (asked ? COUNTRIES.find((c) => c.name.toLowerCase() === asked || c.code.toLowerCase() === asked) : null) ?? countryFromPhone(phone);
+    const only = Array.isArray(input.methods) ? input.methods.map(String).filter(Boolean) : [];
+    const all = await this.prisma.paymentMethod.findMany({ where: { isActive: true }, orderBy: [{ order: "asc" }, { createdAt: "asc" }] });
+    const forCountry = paymentMethodsFor(all, country?.code ?? null);
+    const chosen = paymentMethodsFor(all, country?.code ?? null, only);
+    const where = country ? country.name : "su país";
+    let problem: string | null = null;
+    if (!chosen.length) {
+      if (only.length && forCountry.length) {
+        problem = `No hay «${only.join("», «")}» para ${where}. Para ${where} hay: ${forCountry.map((m) => m.name).join(", ")}. Díselo y, si le sirve alguno, vuelve a llamar sin «methods».`;
+      } else if (!country && all.some((m) => m.countries.length)) {
+        problem = "No se sabe desde qué país pagará el cliente: pregúntaselo y vuelve a llamar con «country».";
+      } else {
+        problem = `No hay métodos de pago para ${where}. No des ningún dato de pago: dile que una persona del equipo se los envía enseguida y pásale el chat (handoff_to_human) si puedes.`;
+      }
+    }
+    return {
+      country,
+      names: chosen.map((m) => m.name),
+      text: paymentMethodsText(chosen),
+      images: chosen.filter((m) => m.imageUrl).map((m) => ({ name: m.name, url: m.imageUrl! })),
+      problem,
+    };
+  }
+
+  /** Lo que haría send_payment_methods, sin enviar nada (prueba del agente). */
+  async previewPaymentMethods(phone: string | null, input: ActionInput): Promise<string> {
+    const plan = await this.planPaymentMethods(phone, input);
+    if (plan.problem) return plan.problem;
+    const photos = plan.images.length ? `\n[+ ${plan.images.length === 1 ? "foto" : "fotos"}: ${plan.images.map((i) => i.name).join(", ")}]` : "";
+    return `(simulado, no se envió) El cliente recibiría${plan.country ? ` (${plan.country.name})` : ""}:\n${plan.text}${photos}\n\n${PAYMENT_SENT_HINT}`;
+  }
+
+  private async sendPaymentMethods(contactId: string, conversationId: string | null, input: ActionInput): Promise<string> {
+    if (!conversationId) throw new Error("No hay conversación a la que enviar los métodos de pago");
+    const contact = await this.prisma.contact.findUnique({ where: { id: contactId }, select: { phone: true } });
+    const plan = await this.planPaymentMethods(contact?.phone ?? null, input);
+    // No es un error de la acción: es lo que el agente tiene que saber para no inventar.
+    if (plan.problem) return plan.problem;
+    await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text: plan.text }, MessageAuthor.AI);
+    for (const img of plan.images) {
+      await this.messaging.queueOutbound({ conversationId, type: MessageType.IMAGE, mediaUrl: img.url, caption: img.name }, MessageAuthor.AI);
+    }
+    return `Enviado al cliente${plan.country ? ` (${plan.country.name})` : ""}: ${plan.names.join(", ")}. ${PAYMENT_SENT_HINT}`;
   }
 
   // ── Registro y aprobación ───────────────────────────────────

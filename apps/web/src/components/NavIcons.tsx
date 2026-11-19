@@ -49,6 +49,7 @@ export type IconName =
   | "copy"
   | "expand"
   | "key"
+  | "card"
   | "plug"
   | "antenna"
   | "puzzle"
@@ -530,6 +531,14 @@ export function NavIcon({ name, size = 18 }: { name: IconName; size?: number }) 
         <svg {...p}>
           <rect x="9" y="9" width="12" height="12" rx="2.5" />
           <path d="M5.5 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v.5" />
+        </svg>
+      );
+    case "card":
+      return (
+        <svg {...p}>
+          <rect x="3" y="5.5" width="18" height="13" rx="2" />
+          <path d="M3 10h18" />
+          <path d="M7 15h3" />
         </svg>
       );
     case "key":

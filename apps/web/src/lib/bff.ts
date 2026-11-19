@@ -37,6 +37,9 @@ import type {
   ProductFieldDto,
   UpdateProductFieldInput,
   DashboardDto,
+  PaymentMethodDto,
+  CreatePaymentMethodInput,
+  UpdatePaymentMethodInput,
   AdSalesReport,
   DashboardPeriod,
   AiUsagePeriod,
@@ -902,6 +905,48 @@ export async function syncTemplates(): Promise<SyncTemplatesResult> {
 }
 
 // ── Respuestas rápidas del agente ────────────────────────────
+// ── Métodos de pago ──
+export async function fetchPaymentMethods(): Promise<PaymentMethodDto[]> {
+  const res = await bffFetch("/api/bff/payment-methods");
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar los métodos de pago"));
+  return res.json();
+}
+
+export async function createPaymentMethod(input: CreatePaymentMethodInput): Promise<PaymentMethodDto> {
+  const res = await bffFetch("/api/bff/payment-methods", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo crear el método de pago"));
+  return res.json();
+}
+
+export async function updatePaymentMethod(id: string, input: UpdatePaymentMethodInput): Promise<PaymentMethodDto> {
+  const res = await bffFetch(`/api/bff/payment-methods/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar el método de pago"));
+  return res.json();
+}
+
+export async function deletePaymentMethod(id: string): Promise<void> {
+  const res = await bffFetch(`/api/bff/payment-methods/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo eliminar el método de pago"));
+}
+
+export async function reorderPaymentMethods(ids: string[]): Promise<PaymentMethodDto[]> {
+  const res = await bffFetch("/api/bff/payment-methods/reorder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cambiar el orden"));
+  return res.json();
+}
+
 export async function fetchQuickReplies(): Promise<QuickReplyDto[]> {
   const res = await bffFetch("/api/bff/quick-replies");
   if (!res.ok) throw new Error("No se pudieron cargar las respuestas rápidas");

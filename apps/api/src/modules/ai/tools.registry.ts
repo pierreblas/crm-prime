@@ -94,6 +94,7 @@ export const ACTION_TOOL_NAMES = [
   "update_contact",
   "assign_to_seller",
   "send_product_image",
+  "send_payment_methods",
   "mark_lead",
   "book_appointment",
   "reschedule_appointment",
@@ -121,6 +122,10 @@ export interface ToolContext {
   bookingStaff: string[];
   /** Campos de producto que ve la IA («Temario», «Fechas»…): search_products dice cuál pide el cliente. */
   productFields: string[];
+  /** Métodos de pago activos (Ajustes › Métodos de pago), por nombre. */
+  paymentMethods: string[];
+  /** Países con métodos propios, por nombre: para cuando el cliente paga desde otro país. */
+  paymentCountries: string[];
 }
 
 export const EMPTY_TOOL_CONTEXT: ToolContext = {
@@ -133,6 +138,8 @@ export const EMPTY_TOOL_CONTEXT: ToolContext = {
   bookingServices: [],
   bookingStaff: [],
   productFields: [],
+  paymentMethods: [],
+  paymentCountries: [],
 };
 
 const ACTION_META: Record<
@@ -182,6 +189,10 @@ const ACTION_META: Record<
   cancel_appointment: {
     label: "Cancelar una cita",
     needs: (c) => (c.bookingServices.length ? null : NO_BOOKING_SERVICES),
+  },
+  send_payment_methods: {
+    label: "Enviar los métodos de pago",
+    needs: (c) => (c.paymentMethods.length ? null : "No hay métodos de pago activos (Ajustes › Métodos de pago)."),
   },
   send_product_image: {
     label: "Enviar la foto de un producto",
@@ -290,6 +301,31 @@ function actionTool(name: ActionToolName, c: ToolContext): LlmTool | null {
           required: ["product"],
         },
       };
+
+    case "send_payment_methods": {
+      if (!c.paymentMethods.length) return null;
+      const properties: Record<string, unknown> = {
+        methods: {
+          type: "array",
+          items: { type: "string", enum: c.paymentMethods },
+          description: "Solo si pidió uno en concreto («¿puedo pagar con Yape?»). Si no, no lo pongas: se envían todos los de su país.",
+        },
+      };
+      if (c.paymentCountries.length) {
+        properties.country = {
+          type: "string",
+          enum: c.paymentCountries,
+          description:
+            "Solo si el cliente dijo que paga desde un país distinto al de su número, o si la herramienta te dijo que no sabe su país. Si no, no lo pongas: se usa el de su teléfono.",
+        };
+      }
+      return {
+        name,
+        description:
+          "Envía al cliente los datos para pagar (cuentas, Yape, enlaces de pago, QR) exactamente como los cargó la empresa, solo los de su país. Úsala cuando quiera pagar o pregunte cómo, a dónde o a qué cuenta pagar, depositar o transferir. Nunca escribas tú un dato de pago: esta herramienta envía los exactos. No la uses si solo pregunta algo sobre el pago (si hay cuotas, si es mensual, cuánto cuesta): eso se responde con texto.",
+        input_schema: { type: "object", properties },
+      };
+    }
 
     case "mark_lead":
       if (!c.leadStatuses.length) return null;

@@ -6,6 +6,7 @@ import { NavIcon, type IconName } from "@/components/NavIcons";
 import { ChannelsSettings } from "./ChannelsSettings";
 import { TagsManager } from "./TagsManager";
 import { QuickRepliesSettings } from "./QuickRepliesSettings";
+import { PaymentMethodsSettings } from "./PaymentMethodsSettings";
 import { AiSettings } from "./AiSettings";
 import { ApiKeysSettings } from "./ApiKeysSettings";
 import { IntegrationsSettings } from "./IntegrationsSettings";
@@ -21,6 +22,7 @@ type TabKey =
   | "plan"
   | "tags"
   | "quickReplies"
+  | "payments"
   | "channels"
   | "email"
   | "sources"
@@ -37,6 +39,7 @@ const TABS: { key: TabKey; label: string; icon: IconName }[] = [
   { key: "plan", label: "Plan", icon: "trophy" },
   { key: "tags", label: "Etiquetas", icon: "tag" },
   { key: "quickReplies", label: "Respuestas rápidas", icon: "zap" },
+  { key: "payments", label: "Métodos de pago", icon: "card" },
   { key: "channels", label: "Canales", icon: "globe" },
   { key: "email", label: "Correo", icon: "mail" },
   { key: "sources", label: "Fuentes", icon: "target" },
@@ -89,6 +92,7 @@ export function SettingsManager({ hub = false }: { hub?: boolean }) {
         {tab === "plan" && <PlanSettings />}
         {tab === "tags" && <TagsManager />}
         {tab === "quickReplies" && <QuickRepliesSettings />}
+        {tab === "payments" && <PaymentMethodsSettings />}
         {tab === "channels" && <ChannelsSettings hub={hub} />}
         {tab === "email" && <EmailSettings />}
         {tab === "sources" && <SourcesSettings />}

@@ -38,6 +38,12 @@ export const TOOL_COPY: Record<string, { title: string; desc: string; icon: Icon
     icon: "buttons",
     recommended: true,
   },
+  send_payment_methods: {
+    title: "Enviar métodos de pago",
+    desc: "Cuando el cliente quiere pagar, le llegan tus cuentas y números tal como los cargaste en Ajustes › Métodos de pago, solo los de su país. El agente nunca escribe un dato de pago por su cuenta.",
+    icon: "card",
+    recommended: true,
+  },
   send_product_image: {
     title: "Enviar fotos de productos",
     desc: "Manda la foto del producto por WhatsApp cuando el cliente quiere verlo.",
@@ -106,6 +112,7 @@ export const TOOL_SNIPPET: Record<string, string> = {
   search_contact: "Antes de preguntarle algo al cliente, revisa su ficha con search_contact para no repetir preguntas.",
   handoff_to_human: "Si el cliente pide hablar con una persona, se molesta o no sabes la respuesta, despídete con amabilidad y usa handoff_to_human.",
   send_product_image: "Si el cliente quiere ver un producto, envíale la foto con send_product_image.",
+  send_payment_methods: "Cuando el cliente quiera pagar, envíale los datos con send_payment_methods y pídele que mande el comprobante.",
   reply_with_buttons: "Cuando le preguntes si quiere separar su cupo, usa los botones «Sí, sepárame» y «Tengo dudas». Nunca uses botones cuando le pidas su nombre o su correo.",
   add_tag: "Cuando el cliente muestre interés claro en comprar, ponle la etiqueta [ETIQUETA] con add_tag.",
   remove_tag: "Si una etiqueta ya no aplica (por ejemplo, el cliente ya compró), quítasela con remove_tag.",
