@@ -2854,3 +2854,49 @@ test("revisión de chats con el rol restringido: una pasada solo revisa los chat
   await assert.rejects(() => ctx.runInOrg(orgs[1], () => svc(orgs[1]).setStatus(mine.reviews[0].id, "done")), /no encontrada/);
   void b;
 });
+
+test("ventas por anuncio con el rol restringido: cada empresa ve solo sus clics y sus ventas", async () => {
+  const { AdSalesService } = await import("../src/modules/dashboard/ad-sales.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgs = [`o_ads_${suf}`, `o_ads2_${suf}`] as const;
+  await ctx.runUnscoped("prueba: empresas de ventas por anuncio", async () => {
+    for (const [i, id] of orgs.entries()) await prisma.organization.create({ data: { id, slug: `ads${i}-${suf}`, name: `Anuncios ${i}` } });
+  });
+  await ctx.runInOrg(orgs[0], async () => {
+    const orgId = orgs[0];
+    const pipeline = await prisma.pipeline.create({ data: { orgId, name: "Ventas", order: 0, isDefault: true } });
+    const won = await prisma.pipelineStage.create({ data: { orgId, pipelineId: pipeline.id, name: "Ganado", order: 1, isWon: true } });
+    const contact = await prisma.contact.create({ data: { orgId, phone: `+5197${suf}`, name: "Desde anuncio" } });
+    const conv = await prisma.conversation.create({ data: { orgId, contactId: contact.id, status: "OPEN" } });
+    await prisma.message.create({
+      data: {
+        orgId,
+        conversationId: conv.id,
+        direction: "INBOUND",
+        type: "TEXT",
+        author: "CONTACT",
+        content: "Hola, vi el anuncio",
+        referral: { sourceId: "ad-777", headline: "Curso de verano", ctwaClid: "clid-1", sourceType: "ad" },
+      },
+    });
+    await prisma.deal.create({ data: { orgId, contactId: contact.id, stageId: won.id, title: "Curso", value: 120, currency: "USD", closedAt: new Date() } });
+    // Sin anuncio: uno que escribió y otro al que solo le llegó una difusión (ese no es un chat).
+    const wrote = await prisma.contact.create({ data: { orgId, phone: `+5198${suf}`, name: "Escribió solo" } });
+    const c2 = await prisma.conversation.create({ data: { orgId, contactId: wrote.id, status: "OPEN" } });
+    await prisma.message.create({ data: { orgId, conversationId: c2.id, direction: "INBOUND", type: "TEXT", author: "CONTACT", content: "Hola" } });
+    const blasted = await prisma.contact.create({ data: { orgId, phone: `+5199${suf}`, name: "Solo difusión" } });
+    const c3 = await prisma.conversation.create({ data: { orgId, contactId: blasted.id, status: "OPEN" } });
+    await prisma.message.create({ data: { orgId, conversationId: c3.id, direction: "OUTBOUND", type: "TEXT", author: "HUMAN", content: "Promo de julio" } });
+  });
+  const svc = (orgId: string) => new AdSalesService(prisma, { orgId: () => orgId } as any);
+  const mine = await ctx.runInOrg(orgs[0], () => svc(orgs[0]).report("30d"));
+  assert.deepEqual(
+    mine.ads.map((a: any) => [a.key, a.label, a.chats, a.won, a.wonValue]),
+    [["id:ad-777", "Curso de verano", 1, 1, 120]],
+  );
+  assert.equal(mine.totals.reportable, 1);
+  assert.equal(mine.organic.chats, 1, "sin anuncio: solo quien escribió, no a quien le llegó una difusión");
+  const theirs = await ctx.runInOrg(orgs[1], () => svc(orgs[1]).report("30d"));
+  assert.equal(theirs.ads.length, 0, "la otra empresa no ve el anuncio");
+  assert.equal(theirs.totals.chats + theirs.organic.chats, 0);
+});

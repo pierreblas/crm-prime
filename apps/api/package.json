@@ -41,6 +41,7 @@
     "test:cataloggaps": "tsx --test test/catalog-gaps.test.ts",
     "test:agentbuttons": "tsx --test test/agent-buttons.test.ts",
     "test:chatreview": "tsx --test test/chat-review.test.ts",
+    "test:adsales": "tsx --test test/ad-sales.test.ts",
     "test:reopen": "tsx --test test/reopen-autopilot.test.ts",
     "test:copilot": "tsx --test test/copilot.test.ts",
     "test:dashboard": "tsx --test test/dashboard.test.ts",

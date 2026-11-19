@@ -69,3 +69,53 @@ export const dashboardSchema = z.object({
   heatmap: z.array(z.array(z.number())),
 });
 export type DashboardDto = z.infer<typeof dashboardSchema>;
+
+/**
+ * Ventas por anuncio: de los clientes que escribieron desde un anuncio de Meta
+ * (Click to WhatsApp, Instagram o Messenger) en el periodo, cuántos llegaron a
+ * potencial y cuántos compraron, por anuncio. Cada cliente cuenta una vez, para
+ * el último anuncio por el que escribió (como Meta), y solo cuentan las
+ * oportunidades posteriores a su primer clic del periodo.
+ */
+const adSalesCounts = z.object({
+  /** Clientes distintos. */
+  chats: z.number(),
+  /** Con una oportunidad que llegó a una etapa «potencial» o ya ganada. */
+  qualified: z.number(),
+  /** Con una oportunidad ganada. */
+  won: z.number(),
+  /** Valor ganado en la moneda principal. */
+  wonValue: z.number(),
+});
+export type AdSalesCounts = z.infer<typeof adSalesCounts>;
+
+export const adSalesRowSchema = adSalesCounts.extend({
+  key: z.string(),
+  label: z.string(),
+  /** Enlace del anuncio o la publicación (solo http/https). */
+  sourceUrl: z.string().nullable(),
+  imageUrl: z.string().nullable(),
+  /** «ad» o «post», como lo manda Meta. */
+  sourceType: z.string().nullable(),
+  channels: z.array(z.string()),
+  /** Clientes de este anuncio con alguna oportunidad avisada a Meta (Conversions API). */
+  sentToMeta: z.number(),
+  lastAt: z.string(),
+});
+export type AdSalesRow = z.infer<typeof adSalesRowSchema>;
+
+export const adSalesReportSchema = z.object({
+  period: z.enum(dashboardPeriods),
+  currency: z.string(),
+  /** Hay ventas en otras monedas que no suman en el valor. */
+  otherCurrencies: z.boolean(),
+  totals: adSalesCounts.extend({
+    /** Clientes cuyo último clic trae ctwa_clid: los únicos que se pueden avisar a Meta. */
+    reportable: z.number(),
+    sentToMeta: z.number(),
+  }),
+  ads: z.array(adSalesRowSchema),
+  /** Los que empezaron a escribir en el periodo sin venir de un anuncio, para comparar. */
+  organic: adSalesCounts,
+});
+export type AdSalesReport = z.infer<typeof adSalesReportSchema>;

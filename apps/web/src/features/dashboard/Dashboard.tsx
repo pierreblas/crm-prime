@@ -7,6 +7,7 @@ import { formatMoney, type DashboardDto, type DashboardKpi, type DashboardPeriod
 import { NavIcon, type IconName } from "@/components/NavIcons";
 import { fetchDashboard } from "@/lib/bff";
 import { Funnel, Heatmap, HBars, StackedBars, TimeChart } from "./charts";
+import { AdSales } from "./AdSales";
 
 const PERIODS: { key: DashboardPeriod; label: string }[] = [
   { key: "7d", label: "7 días" },
@@ -117,6 +118,8 @@ export function Dashboard() {
               ]}
             />
           </section>
+
+          <AdSales period={period} />
 
           <div className="dash__grid">
             <section className="dash__card">

@@ -37,6 +37,7 @@ import type {
   ProductFieldDto,
   UpdateProductFieldInput,
   DashboardDto,
+  AdSalesReport,
   DashboardPeriod,
   AiUsagePeriod,
   AiUsageReport,
@@ -2510,6 +2511,13 @@ export async function fetchDashboard(period: DashboardPeriod, tz: string, pipeli
   if (pipelineId) qs.set("pipelineId", pipelineId);
   const res = await bffFetch(`/api/bff/dashboard?${qs.toString()}`);
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar el panel"));
+  return res.json();
+}
+
+/** Ventas por anuncio: chats, potenciales y ventas de cada anuncio de Meta. */
+export async function fetchAdSales(period: DashboardPeriod): Promise<AdSalesReport> {
+  const res = await bffFetch(`/api/bff/dashboard/ads?period=${period}`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar ventas por anuncio"));
   return res.json();
 }
 
