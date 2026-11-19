@@ -17,7 +17,9 @@ import {
   createBotSchema,
   updateBotSchema,
   playgroundRequestSchema,
+  simulateReviewRequestSchema,
   simulateTurnRequestSchema,
+  type SimulateReviewRequest,
   type SimulateTurnRequest,
   promptAssistantRequestSchema,
   ASSISTANT_AUDIO_MAX_BYTES,
@@ -78,6 +80,17 @@ export class BotsController {
   ) {
     void this.onboarding.markDone("try_agent");
     return this.agent.simulateTurn(body);
+  }
+
+  // Simulador: la revisión de una conversación terminada (solo admin).
+  @Post("simulate/review")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  simulateReview(
+    @Body(new ZodValidationPipe(simulateReviewRequestSchema))
+    body: SimulateReviewRequest,
+  ) {
+    return this.agent.reviewSimulation(body);
   }
 
   // Asistente de redacción: propone instrucciones o mensajes; no guarda nada.

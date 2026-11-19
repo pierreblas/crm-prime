@@ -11,6 +11,8 @@ import type {
   SendEmailPayload,
   SimulateTurnPayload,
   SimulateTurnReply,
+  SimulateReviewPayload,
+  SimulationReview,
   UpdateEmailAccountPayload,
 } from "@crm/shared";
 import type {
@@ -2698,6 +2700,17 @@ export function deleteEmailUnsubscribe(id: string): Promise<{ ok: true }> {
 
 // ── Simulador de conversaciones (una IA hace de cliente) ─────
 /** Un paso: el siguiente mensaje del cliente simulado y la respuesta del agente. */
+/** La revisión de una conversación del simulador ya terminada. */
+export async function reviewSimulation(input: SimulateReviewPayload): Promise<SimulationReview> {
+  const res = await bffFetch("/api/bff/bots/simulate/review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo revisar la conversación"));
+  return res.json();
+}
+
 export async function simulateAgentTurn(input: SimulateTurnPayload): Promise<SimulateTurnReply> {
   const res = await bffFetch("/api/bff/bots/simulate/turn", {
     method: "POST",

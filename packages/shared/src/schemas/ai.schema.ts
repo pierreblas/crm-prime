@@ -89,6 +89,12 @@ export const playgroundToolCallSchema = z.object({
   /** Con qué la llamó (p. ej. la búsqueda), en texto corto. */
   input: z.string(),
   summary: z.string(),
+  /**
+   * Un extracto de lo que devolvió (los productos con sus precios, los
+   * fragmentos del conocimiento): con él la revisión del simulador sabe si un
+   * dato que dio el agente salió de ahí o se lo inventó. Solo en las pruebas.
+   */
+  evidence: z.string().optional(),
 });
 export type PlaygroundToolCall = z.infer<typeof playgroundToolCallSchema>;
 
@@ -237,5 +243,54 @@ export function estimateSimulationTokens(promptChars: number, turns: number): nu
   const instructions = Math.ceil(promptChars / 3.5) + 1500;
   const agent = turns * (instructions + 150) + 90 * turns * (turns - 1);
   const customer = turns * 450 + 60 * turns * (turns - 1);
-  return Math.round((agent + customer) / 1000) * 1000;
+  // La revisión al terminar: las instrucciones (recortadas) y la conversación con lo que consultó.
+  const review = Math.min(instructions, 2200) + 800 + turns * 550;
+  return Math.round((agent + customer + review) / 1000) * 1000;
 }
+
+// ── Revisión de una conversación simulada ────────────────────
+// Al terminar, una IA la juzga con lo que el agente consultó de verdad: si se
+// inventó algún dato, si respondió lo que le preguntaron, si propuso el
+// siguiente paso y si pasó el chat a una persona cuando tocaba.
+
+export const simulationVerdicts = ["ok", "review", "bad"] as const;
+export type SimulationVerdict = (typeof simulationVerdicts)[number];
+export const simulationFindingKinds = ["invented", "unanswered", "no_next_step", "handoff", "tone", "good"] as const;
+export type SimulationFindingKind = (typeof simulationFindingKinds)[number];
+
+export const simulationReviewLineSchema = z.object({
+  who: z.enum(["customer", "agent"]),
+  text: z.string().max(4000),
+  /** Lo que consultó el agente para esta respuesta, con lo que le devolvió. */
+  consulted: z.array(z.string().max(2000)).max(12).default([]),
+  /** Botones que ofreció. */
+  options: z.array(z.string().max(40)).max(10).default([]),
+  /** Si pasó el chat a una persona, y por qué. */
+  handoff: z.string().max(400).nullable().default(null),
+});
+export type SimulationReviewLine = z.infer<typeof simulationReviewLineSchema>;
+
+export const simulateReviewRequestSchema = z.object({
+  botId: z.string().optional(),
+  scenario: simulatorScenarioSchema,
+  lines: z.array(simulationReviewLineSchema).min(1).max(SIMULATOR_MAX_TURNS * 2),
+  ended: z.enum(simulatorEndReasons).nullable().default(null),
+});
+export type SimulateReviewRequest = z.infer<typeof simulateReviewRequestSchema>;
+export type SimulateReviewPayload = z.input<typeof simulateReviewRequestSchema>;
+
+export const simulationFindingSchema = z.object({
+  kind: z.enum(simulationFindingKinds),
+  note: z.string(),
+  /** La frase del agente a la que se refiere, si aplica. */
+  quote: z.string().nullable().default(null),
+});
+export type SimulationFinding = z.infer<typeof simulationFindingSchema>;
+
+export const simulationReviewSchema = z.object({
+  verdict: z.enum(simulationVerdicts),
+  summary: z.string(),
+  findings: z.array(simulationFindingSchema),
+  tokens: z.number(),
+});
+export type SimulationReview = z.infer<typeof simulationReviewSchema>;

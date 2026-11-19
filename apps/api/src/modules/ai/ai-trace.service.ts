@@ -42,7 +42,7 @@ export class AiTraceService {
       confidence: run.confidence,
       escalationReason: run.escalationReason,
       steps: run.toolCalls.map((c) => ({
-        ...traceToolCall(c.toolName, (c.input ?? {}) as Record<string, unknown>, outputText(c.output)),
+        ...withoutEvidence(traceToolCall(c.toolName, (c.input ?? {}) as Record<string, unknown>, outputText(c.output))),
         status: c.status,
       })),
     };
@@ -56,4 +56,10 @@ function outputText(output: unknown): string {
     return typeof r === "string" ? r : JSON.stringify(r);
   }
   return output == null ? "" : typeof output === "string" ? output : JSON.stringify(output);
+}
+
+/** El extracto de lo que devolvió solo lo usa la revisión del simulador: aquí sobra. */
+function withoutEvidence<T extends { evidence?: string }>(step: T): Omit<T, "evidence"> {
+  const { evidence: _evidence, ...rest } = step;
+  return rest;
 }

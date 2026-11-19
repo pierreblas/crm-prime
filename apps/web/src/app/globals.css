@@ -7048,3 +7048,31 @@ button[style*="background:var(--accent)"]:focus-visible {
 .sim-actions { margin: 0; padding: 7px 9px 7px 24px; max-width: 86%; border: 1px solid var(--warning-border); background: var(--warning-soft); color: var(--warning); font-size: 12px; line-height: 1.45; }
 .sim-meta { font-size: 11px; color: var(--muted); }
 .sim-run > .sim-meta { align-self: flex-end; }
+/* La revisión de cada conversación: veredicto en la cabecera y hallazgos debajo. */
+/* En el cajón estrecho la barra baja de línea: lo gastado y el veredicto arriba, los botones debajo. */
+.sim__bar { flex-wrap: wrap; row-gap: 8px; }
+.sim__spent { white-space: nowrap; }
+.sim__verdicts { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-right: auto; }
+.sim__bar-actions { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.sim-verdict { flex: none; padding: 1px 7px; border: 1px solid currentColor; font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.sim-verdict--ok { color: var(--positive); }
+.sim-verdict--review { color: var(--warning); }
+.sim-verdict--bad { color: var(--danger); }
+.sim-run__head .sim-verdict { margin-left: 2px; }
+.sim-review { margin: 0; padding: 8px 10px; border-left: 3px solid var(--border); background: var(--panel-2); font-size: 12.5px; line-height: 1.45; }
+.sim-review--ok { border-left-color: var(--positive); }
+.sim-review--review { border-left-color: var(--warning); }
+.sim-review--bad { border-left-color: var(--danger); }
+.sim-review--loading { color: var(--muted); animation: chatPulse 1.4s ease-in-out infinite; }
+.sim-review--failed { color: var(--muted); }
+.sim-review__summary { margin: 0 0 4px; font-weight: 600; }
+.sim-review__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.sim-finding { display: flex; gap: 6px; align-items: flex-start; }
+.sim-finding > svg { flex: none; margin-top: 2px; color: var(--muted); }
+.sim-finding--invented > svg { color: var(--danger); }
+.sim-finding--good > svg { color: var(--positive); }
+.sim-finding--unanswered > svg, .sim-finding--no_next_step > svg, .sim-finding--handoff > svg, .sim-finding--tone > svg { color: var(--warning); }
+.sim-finding__quote { display: block; margin-top: 2px; color: var(--muted); font-style: italic; }
+.sim-finding__quote::before { content: "«"; }
+.sim-finding__quote::after { content: "»"; }
+@media (prefers-reduced-motion: reduce) { .sim-review--loading { animation: none; } }

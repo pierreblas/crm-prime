@@ -13,11 +13,14 @@ import {
   SIMULATOR_MAX_TURNS,
   SIMULATOR_SCENARIOS,
   estimateSimulationTokens,
+  simulateReviewRequestSchema,
   simulateTurnRequestSchema,
   simulatorScenarioSchema,
   type PlaygroundReply,
 } from "@crm/shared";
 import { AgentService } from "../src/modules/ai/agent.service";
+import { traceToolCall } from "../src/modules/ai/playground-trace";
+import { groundReview, parseSimulationReview, SIMULATION_REVIEW_MODEL, SIMULATION_REVIEW_SYSTEM, simulationReviewInput } from "../src/modules/ai/simulation-review";
 
 const scenario = { title: "Pregunta el precio", brief: "Viste un anuncio y quieres saber cuánto cuesta. Preguntas el precio pronto." };
 
@@ -168,4 +171,145 @@ test("la estimación de tokens crece con el prompt y con los turnos", () => {
   assert.ok(estimateSimulationTokens(2000, 8) > corta * 1.8);
   assert.ok(estimateSimulationTokens(12000, 4) > corta);
   assert.equal(estimateSimulationTokens(2000, 6) % 1000, 0, "se redondea a miles");
+});
+
+// ── Más realista: conoce el catálogo y pulsa botones ───────────
+test("el cliente simulado sabe qué vende el negocio y pulsa los botones que le ofrecen", async () => {
+  const s = setup();
+  s.service.prisma.product = { findMany: async () => [{ name: "Genómica bacteriana" }, { name: "Excel avanzado" }] };
+  await s.service.simulateTurn({ scenario, history: [], maxTurns: 6 });
+  const system = s.llmCalls[0].system as string;
+  assert.match(system, /Lo que vende .*: Genómica bacteriana, Excel avanzado\./);
+  assert.match(system, /verás «\[Botones: …\]» al final de su mensaje/);
+  // Sin catálogo (o si falla), el cliente sigue funcionando como antes.
+  const sin = setup();
+  await sin.service.simulateTurn({ scenario, history: [], maxTurns: 6 });
+  assert.doesNotMatch(sin.llmCalls[0].system, /Lo que vende/);
+});
+
+// ── La revisión al terminar ────────────────────────────────────
+const conversation = {
+  scenario,
+  lines: [
+    { who: "customer" as const, text: "hola, cuánto cuesta el curso de genómica? dan certificado?" },
+    {
+      who: "agent" as const,
+      text: "Cuesta USD 50 y empieza el 29 de junio. Incluye certificado digital. ¿Te separo un cupo?",
+      consulted: ['Consultar tus productos y precios «genómica» → Encontró 1: Genómica bacteriana.\nDevolvió: {"products":[{"name":"Genómica bacteriana","price":50,"missingDetails":["Certificado"]}]}'],
+      options: ["Sí, sepárame", "Tengo dudas"],
+    },
+  ],
+  ended: "max_turns" as const,
+};
+
+test("el revisor recibe las instrucciones, la situación y la conversación con lo que consultó el agente", () => {
+  const input = simulateReviewRequestSchema.parse(conversation);
+  const text = simulationReviewInput(input, "Eres Lia, de Flyteek. Los cursos se pagan por Yape.");
+  assert.match(text, /## Instrucciones del agente\nEres Lia, de Flyteek/);
+  assert.match(text, /## Situación del cliente simulado\nPregunta el precio: /);
+  assert.match(text, /terminó porque se llegó al tope de mensajes/);
+  assert.match(text, /CLIENTE: hola, cuánto cuesta/);
+  // Lo que dijo el agente, separado de lo que le devolvió el sistema.
+  assert.match(text, /AGENTE dijo: «Cuesta USD 50 y empieza el 29 de junio\. Incluye certificado digital\. ¿Te separo un cupo\?»/);
+  assert.match(text, /Lo que le devolvió el sistema al consultar \(no lo dijo el agente\):\n    - Consultar tus productos .*\n      Devolvió: .*"missingDetails":\["Certificado"\]/);
+  assert.match(text, /Botones que ofreció: Sí, sepárame · Tengo dudas/);
+  // Unas instrucciones larguísimas se recortan.
+  assert.match(simulationReviewInput(input, "x".repeat(9000)), /Instrucciones del agente \(recortadas\)/);
+  assert.equal(simulateReviewRequestSchema.safeParse({ scenario, lines: [] }).success, false, "sin conversación no hay nada que revisar");
+});
+
+test("del veredicto se queda lo válido: tipos conocidos, como mucho 4 hallazgos; sin JSON, null", () => {
+  const r = parseSimulationReview(
+    'Aquí va: {"verdict":"bad","summary":"Inventó el certificado.","findings":[' +
+      '{"kind":"invented","note":"Dijo que incluye certificado y el producto no lo tiene.","quote":"Incluye certificado digital."},' +
+      '{"kind":"rara","note":"x"},{"kind":"good","note":"Ofreció separar el cupo.","quote":""},' +
+      '{"kind":"tone","note":"a"},{"kind":"tone","note":"b"},{"kind":"tone","note":"c"}]}',
+  );
+  assert.equal(r?.verdict, "bad");
+  assert.equal(r?.findings.length, 4);
+  assert.deepEqual(r?.findings[0], { kind: "invented", note: "Dijo que incluye certificado y el producto no lo tiene.", quote: "Incluye certificado digital." });
+  assert.equal(r?.findings[1]?.quote, null);
+  assert.equal(parseSimulationReview('{"verdict":"genial"}'), null);
+  assert.equal(parseSimulationReview("no sé"), null);
+});
+
+test("la revisión usa el modelo del agente; si no se entiende la respuesta, pide leerla a mano", async () => {
+  const calls: any[] = [];
+  const service = Object.create(AgentService.prototype) as AgentService & Record<string, any>;
+  service.logger = { warn: () => undefined };
+  service.prisma = { agentConfig: { findUnique: async () => ({ systemPrompt: "Eres Lia.", model: "gpt-4.1-mini" }) } };
+  service.bots = { resolveForChannel: async () => ({ systemPrompt: "Agente por defecto", model: "gpt-4.1-mini" }) };
+  let answer = '{"verdict":"ok","summary":"Atendió bien.","findings":[{"kind":"good","note":"Respondió con el catálogo.","quote":null}]}';
+  service.llm = {
+    generate: async (req: any) => {
+      calls.push(req);
+      return { content: [{ type: "text", text: answer }], usage: { inputTokens: 2000, outputTokens: 120 }, model: "gpt-4.1-mini" };
+    },
+  };
+  const r = await service.reviewSimulation(simulateReviewRequestSchema.parse({ ...conversation, botId: "bot1" }));
+  assert.equal(r.verdict, "ok");
+  assert.equal(r.tokens, 2120);
+  assert.equal(calls[0].system, SIMULATION_REVIEW_SYSTEM);
+  assert.equal(calls[0].feature, "simulator");
+  assert.equal(calls[0].model, SIMULATION_REVIEW_MODEL, "revisa con un modelo que razona");
+  // Si la clave no tiene ese modelo, se revisa con el del agente.
+  calls.length = 0;
+  const generate = service.llm.generate;
+  let first = true;
+  service.llm.generate = async (req: any) => {
+    if (first) {
+      first = false;
+      calls.push(req);
+      throw new Error("model_not_found");
+    }
+    return generate(req);
+  };
+  const retried = await service.reviewSimulation(simulateReviewRequestSchema.parse({ ...conversation, botId: "bot1" }));
+  assert.equal(retried.verdict, "ok");
+  assert.deepEqual(calls.map((c) => c.model), [SIMULATION_REVIEW_MODEL, "gpt-4.1-mini"]);
+  service.llm.generate = generate;
+  answer = "lo siento";
+  const fallback = await service.reviewSimulation(simulateReviewRequestSchema.parse(conversation));
+  assert.equal(fallback.verdict, "review");
+  assert.match(fallback.summary, /léela tú/);
+});
+
+test("las consultas de datos llevan un extracto de lo que devolvieron; las acciones, no", () => {
+  const out = JSON.stringify({ total: 1, note: 'Resultados para "genómica".', products: [{ name: "Genómica bacteriana", price: 50 }] });
+  assert.equal(traceToolCall("search_products", { query: "genómica" }, out).evidence, out);
+  assert.equal(traceToolCall("search_knowledge", { query: "yape" }, "x".repeat(5000)).evidence?.length, 3000);
+  assert.equal(traceToolCall("move_deal_stage", { stage: "Interesado" }, "Movería…").evidence, undefined);
+});
+
+test("un hallazgo que cita algo que el agente no dijo se descarta; sin datos inventados, el «Mal» baja", () => {
+  const said = ["Cuesta USD 50 y empieza el 29 de junio. ¿Quieres que te comparta los datos para pagar y reservar tu cupo?"];
+  const review = {
+    verdict: "bad" as const,
+    summary: "Inventó precios en pesos.",
+    findings: [
+      // Citaba el documento de conocimiento, no al agente.
+      { kind: "invented" as const, note: "Dio precios en pesos.", quote: "El plan Pro cuesta 499 pesos al mes…" },
+      { kind: "no_next_step" as const, note: "No propuso avanzar.", quote: null },
+      { kind: "good" as const, note: "Tono amable.", quote: "cualquier cosa" },
+    ],
+  };
+  const grounded = groundReview(review, said);
+  assert.deepEqual(grounded.findings.map((f) => f.kind), ["no_next_step", "good"]);
+  assert.equal(grounded.verdict, "review");
+  assert.equal(grounded.summary, "", "el resumen hablaba de lo descartado");
+
+  // Una cita que sí dijo (aunque recortada, con otras tildes o signos) se queda, y el veredicto también.
+  const kept = groundReview(
+    { verdict: "bad" as const, summary: "Inventó la fecha.", findings: [{ kind: "invented" as const, note: "La fecha no estaba.", quote: "empieza el 29 de junio…" }] },
+    said,
+  );
+  assert.equal(kept.verdict, "bad");
+  assert.equal(kept.findings.length, 1);
+  assert.equal(kept.summary, "Inventó la fecha.");
+});
+
+test("el cliente simulado se llama como el cliente de prueba", async () => {
+  const s = setup();
+  await s.service.simulateTurn({ scenario, history: [], maxTurns: 6, contact: { name: "Ana", phone: "+51987654321" } });
+  assert.match(s.llmCalls[0].system, /Te llamas Ana: si te presentas o te piden tu nombre, usa ese\./);
 });

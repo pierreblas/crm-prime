@@ -9,6 +9,10 @@ import { REPLY_BUTTONS_TOOL, optionsAsButtons, type PlaygroundToolCall } from "@
 
 const MAX_INPUT = 160;
 const MAX_SUMMARY = 240;
+/** Lo que se guarda de lo que devolvió una consulta, para que la revisión pueda comprobar los datos. */
+const MAX_EVIDENCE = 3000;
+/** Las consultas que traen datos del negocio (las que pueden respaldar un precio, una fecha, un pago). */
+const DATA_TOOLS = new Set(["search_products", "search_knowledge", "check_availability", "search_contact"]);
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 
@@ -90,6 +94,11 @@ export function buttonsSummary(options: string[]): string {
 
 /** Una línea por consulta del agente, para enseñarla bajo su respuesta en la prueba. */
 export function traceToolCall(name: string, input: Record<string, unknown> | undefined, output: string): PlaygroundToolCall {
+  const line = traceLine(name, input, output);
+  return DATA_TOOLS.has(name) && output.trim() ? { ...line, evidence: clip(output.trim(), MAX_EVIDENCE) } : line;
+}
+
+function traceLine(name: string, input: Record<string, unknown> | undefined, output: string): PlaygroundToolCall {
   // La respuesta con botones: lo que ofreció ya viene resumido (buttonsSummary).
   if (name === REPLY_BUTTONS_TOOL) return { name, input: "", summary: clip(output, MAX_SUMMARY) };
   if (name === "search_products") {

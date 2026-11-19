@@ -14,11 +14,17 @@ import {
   type PlaygroundTurn,
   type SimulatorEndReason,
   type SimulatorScenario,
+  type SimulationFindingKind,
+  type SimulationReview,
+  type SimulationReviewLine,
+  type SimulationVerdict,
+  REPLY_BUTTONS_TOOL,
 } from "@crm/shared";
-import { simulateAgentTurn } from "@/lib/bff";
+import { reviewSimulation, simulateAgentTurn } from "@/lib/bff";
 import { NavIcon } from "@/components/NavIcons";
 import { useAiStatus } from "@/features/copilot/useAiStatus";
 import { ReplyButtons, ToolTrace, whatsappFormat } from "./PlayReply";
+import { TOOL_COPY } from "./agentCopy";
 
 type Line = { who: "customer"; text: string } | { who: "agent"; text: string | null; meta: PlaygroundReply };
 
@@ -30,6 +36,44 @@ interface Run {
   state: "waiting" | "running" | SimulatorEndReason | "stopped";
   error: string | null;
   tokens: number;
+  /** La revisión al terminar: el veredicto y lo que hay que mirar. */
+  review: SimulationReview | "loading" | "failed" | null;
+}
+
+const VERDICT_LABEL: Record<SimulationVerdict, string> = { ok: "Bien", review: "Revisar", bad: "Mal" };
+const FINDING: Record<SimulationFindingKind, { icon: "alert" | "check" | "question" | "arrow-right" | "user" | "message"; label: string }> = {
+  invented: { icon: "alert", label: "Inventó un dato" },
+  unanswered: { icon: "question", label: "No respondió" },
+  no_next_step: { icon: "arrow-right", label: "Sin siguiente paso" },
+  handoff: { icon: "user", label: "Pasar a una persona" },
+  tone: { icon: "message", label: "Forma" },
+  good: { icon: "check", label: "Bien" },
+};
+
+/**
+ * La conversación como la lee la revisión: lo que dijo cada uno y, en cada
+ * respuesta del agente, lo que consultó con lo que le devolvió (así se sabe si
+ * un precio o un dato de pago salió de ahí o se lo inventó).
+ */
+function reviewLines(lines: Line[]): SimulationReviewLine[] {
+  return lines.map((l) => {
+    if (l.who === "customer") return { who: "customer", text: l.text, consulted: [], options: [], handoff: null };
+    const consulted = [
+      ...(l.meta.toolCalls ?? [])
+        .filter((c) => c.name !== REPLY_BUTTONS_TOOL)
+        .map((c) =>
+          `${TOOL_COPY[c.name]?.title ?? c.name}${c.input ? ` ${c.input}` : ""} → ${c.summary}${c.evidence ? `\nDevolvió: ${c.evidence}` : ""}`.slice(0, 2000),
+        ),
+      ...l.meta.simulatedActions.map((a) => `Acción (no aplicada en la prueba): ${a}`.slice(0, 2000)),
+    ].slice(0, 12);
+    return {
+      who: "agent",
+      text: l.text ?? "",
+      consulted,
+      options: l.meta.options ?? [],
+      handoff: l.meta.escalate ? l.meta.escalationReason ?? "sin motivo" : null,
+    };
+  });
 }
 
 const END_LABEL: Record<Run["state"], string> = {
@@ -67,6 +111,8 @@ export function ConversationSimulator({
   const [custom, setCustom] = useState("");
   const [turns, setTurns] = useState<number>(SIMULATOR_TURN_OPTIONS[1]);
   const [runs, setRuns] = useState<Run[] | null>(null);
+  // Lo último que se simuló, para repetirlo igual después de cambiar el agente.
+  const [last, setLast] = useState<{ chosen: { key: string; scenario: SimulatorScenario }[]; turns: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const stop = useRef(false);
   const bottom = useRef<HTMLDivElement | null>(null);
@@ -93,13 +139,21 @@ export function ConversationSimulator({
 
   const toggle = (key: string) => setPicked((p) => (p.includes(key) ? p.filter((k) => k !== key) : p.length >= SIMULATOR_MAX_BATCH ? p : [...p, key]));
 
-  async function start() {
-    if (!chosen.length || busy) return;
+  async function start(list = chosen, maxTurns = turns) {
+    if (!list.length || busy) return;
     stop.current = false;
     setBusy(true);
-    const plan: Run[] = chosen.map((c) => ({ key: c.key, scenario: c.scenario, lines: [], state: "waiting", error: null, tokens: 0 }));
+    setLast({ chosen: list, turns: maxTurns });
+    const plan: Run[] = list.map((c) => ({ key: c.key, scenario: c.scenario, lines: [], state: "waiting", error: null, tokens: 0, review: null }));
     setRuns(plan);
     const patch = (key: string, fn: (r: Run) => Run) => setRuns((all) => (all ?? []).map((r) => (r.key === key ? fn(r) : r)));
+    // La revisión corre aparte: la siguiente conversación no la espera.
+    const review = (run: Run, lines: Line[], ended: SimulatorEndReason) => {
+      patch(run.key, (r) => ({ ...r, review: "loading" }));
+      reviewSimulation({ botId, scenario: run.scenario, lines: reviewLines(lines), ended })
+        .then((rv) => patch(run.key, (r) => ({ ...r, review: rv, tokens: r.tokens + rv.tokens })))
+        .catch(() => patch(run.key, (r) => ({ ...r, review: "failed" })));
+    };
 
     for (const run of plan) {
       if (stop.current) {
@@ -108,6 +162,7 @@ export function ConversationSimulator({
       }
       patch(run.key, (r) => ({ ...r, state: "running" }));
       const history: PlaygroundTurn[] = [];
+      const said: Line[] = [];
       let state: Run["state"] = "running";
       let error: string | null = null;
       while (state === "running") {
@@ -116,7 +171,7 @@ export function ConversationSimulator({
           break;
         }
         try {
-          const step = await simulateAgentTurn({ botId, scenario: run.scenario, history, maxTurns: turns, ...(contact ? { contact } : {}) });
+          const step = await simulateAgentTurn({ botId, scenario: run.scenario, history, maxTurns, ...(contact ? { contact } : {}) });
           const added: Line[] = [];
           if (step.customer) {
             added.push({ who: "customer", text: step.customer });
@@ -131,6 +186,7 @@ export function ConversationSimulator({
                 content: step.agent.options?.length ? `${step.agent.reply}\n${optionsNote(step.agent.options)}` : step.agent.reply,
               });
           }
+          said.push(...added);
           patch(run.key, (r) => ({ ...r, lines: [...r.lines, ...added], tokens: r.tokens + step.tokens }));
           if (step.ended) {
             state = step.ended;
@@ -148,6 +204,10 @@ export function ConversationSimulator({
       const finalState = state;
       const finalError = error;
       patch(run.key, (r) => ({ ...r, state: finalState, error: finalError }));
+      // Se revisa lo que llegó a conversarse (con al menos una respuesta del agente).
+      if ((finalState === "customer_done" || finalState === "escalated" || finalState === "max_turns") && said.some((l) => l.who === "agent")) {
+        review(run, said, finalState);
+      }
     }
     setBusy(false);
   }
@@ -217,8 +277,8 @@ export function ConversationSimulator({
           <span>
             {chosen.length ? (
               <>
-                Gastará unos <strong>{formatTokens(estimate)}</strong> tokens ({chosen.length} {chosen.length === 1 ? "conversación" : "conversaciones"} de {turns} mensajes). Es una
-                estimación: al terminar verás lo gastado de verdad. {paidBy}
+                Gastará unos <strong>{formatTokens(estimate)}</strong> tokens ({chosen.length} {chosen.length === 1 ? "conversación" : "conversaciones"} de {turns} mensajes, con
+                la revisión de cada una). Es una estimación: al terminar verás lo gastado de verdad. {paidBy}
               </>
             ) : (
               "Elige al menos un cliente para simular."
@@ -237,20 +297,44 @@ export function ConversationSimulator({
 
   // ── Conversaciones ──────────────────────────────────────────
   const spent = runs.reduce((sum, r) => sum + r.tokens, 0);
+  const reviewed = runs.map((r) => (r.review && typeof r.review === "object" ? r.review.verdict : null)).filter((v): v is SimulationVerdict => !!v);
+  const count = (v: SimulationVerdict) => reviewed.filter((x) => x === v).length;
   return (
     <div className="sim" data-sim="runs">
       <div className="sim__bar">
         <span className="sim__spent" data-sim-spent>
           {busy ? "Gastado hasta ahora" : "Gastó"}: <strong>{formatTokens(spent)}</strong> tokens
         </span>
+        {reviewed.length > 0 && (
+          <span className="sim__verdicts" data-sim-verdicts aria-label="Resultado de la revisión">
+            {(["ok", "review", "bad"] as const).map((v) => (
+              <span key={v} className={`sim-verdict sim-verdict--${v}`}>
+                {VERDICT_LABEL[v]} {count(v)}
+              </span>
+            ))}
+          </span>
+        )}
         {busy ? (
           <button type="button" className="btn btn-danger btn-sm" onClick={() => (stop.current = true)} data-sim-stop>
             Detener
           </button>
         ) : (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRuns(null)} data-sim-again>
-            Otra simulación
-          </button>
+          <span className="sim__bar-actions">
+            {last && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => void start(last.chosen, last.turns)}
+                title="Las mismas conversaciones otra vez: para ver si mejoró después de cambiar el agente"
+                data-sim-repeat
+              >
+                <NavIcon name="play" size={13} /> Repetir esta prueba
+              </button>
+            )}
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRuns(null)} data-sim-again>
+              Otra simulación
+            </button>
+          </span>
         )}
       </div>
 
@@ -259,7 +343,33 @@ export function ConversationSimulator({
           <header className="sim-run__head">
             <strong>{run.scenario.title}</strong>
             <span className="sim-run__state">{END_LABEL[run.state]}</span>
+            {run.review && typeof run.review === "object" && (
+              <span className={`sim-verdict sim-verdict--${run.review.verdict}`} data-sim-verdict={run.review.verdict}>
+                {VERDICT_LABEL[run.review.verdict]}
+              </span>
+            )}
           </header>
+          {/* La revisión, arriba: lo primero que hay que leer de cada conversación. */}
+          {run.review === "loading" && <p className="sim-review sim-review--loading">Revisando la conversación…</p>}
+          {run.review === "failed" && <p className="sim-review sim-review--failed">No se pudo revisar esta conversación: léela tú.</p>}
+          {run.review && typeof run.review === "object" && (
+            <div className={`sim-review sim-review--${run.review.verdict}`} data-sim-review>
+              {run.review.summary && <p className="sim-review__summary">{run.review.summary}</p>}
+              {run.review.findings.length > 0 && (
+                <ul className="sim-review__list">
+                  {run.review.findings.map((f, k) => (
+                    <li key={k} className={`sim-finding sim-finding--${f.kind}`}>
+                      <NavIcon name={FINDING[f.kind].icon} size={13} />
+                      <span>
+                        <b>{FINDING[f.kind].label}:</b> {f.note}
+                        {f.quote && <q className="sim-finding__quote">{f.quote}</q>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {run.lines.map((line, i) =>
             line.who === "customer" ? (
               <div key={i} className="sim-msg sim-msg--customer">

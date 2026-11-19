@@ -90,9 +90,12 @@ test("se prueba como un cliente de verdad: su nombre y su país rellenan las var
   assert.equal(toolResult.products[0].price, 80);
   assert.deepEqual(toolResult.products[0].details, { Fechas: "29 de junio", Temario: "https://flyteek.com/temario" });
   assert.deepEqual(toolResult.products[0].missingDetails, ["Oferta"]);
-  assert.deepEqual(r.toolCalls, [
-    { name: "search_products", input: "«genómica»", summary: "Encontró 1: Genómica bacteriana. Sin dato en el producto: «Oferta»." },
-  ]);
+  assert.deepEqual(
+    r.toolCalls.map(({ evidence: _e, ...c }) => c),
+    [{ name: "search_products", input: "«genómica»", summary: "Encontró 1: Genómica bacteriana. Sin dato en el producto: «Oferta»." }],
+  );
+  // Con lo que devolvió, para que la revisión del simulador compruebe los datos.
+  assert.match(r.toolCalls[0]!.evidence ?? "", /"price":80/);
 });
 
 test("sin cliente elegido, uno de prueba sin país; los datos que faltan se quitan, no se inventan", async () => {
@@ -144,7 +147,9 @@ test("la búsqueda automática en el conocimiento también sale en lo que consul
     knowledge: ["Pagos: Yape al 999…", "Certificado UNALM: trámite de 2 semanas."],
   });
   const r = await service.playground({ message: "cómo pago?", botId: "bot1", history: [] });
-  assert.deepEqual(r.toolCalls[0], { name: "search_knowledge", input: "«cómo pago?»", summary: "2 fragmentos." });
+  const { evidence, ...first } = r.toolCalls[0]!;
+  assert.deepEqual(first, { name: "search_knowledge", input: "«cómo pago?»", summary: "2 fragmentos." });
+  assert.match(evidence ?? "", /Pagos: Yape al 999/);
   assert.equal(r.toolCalls[1]?.name, "search_products");
 });
 

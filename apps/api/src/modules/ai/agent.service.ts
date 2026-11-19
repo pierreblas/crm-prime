@@ -17,6 +17,8 @@ import {
 import type {
   AiSuggestion,
   Classification,
+  SimulateReviewRequest,
+  SimulationReview,
   EscalationRules,
   PlaygroundReply,
   PlaygroundRequest,
@@ -30,6 +32,7 @@ import { fold } from "../../common/utils/fold";
 import { searchProducts } from "./product-search";
 import { buttonsSummary, knowledgeCall, traceToolCall } from "./playground-trace";
 import { endsWithQuestion, parseReplyOptions, REPLY_OPTIONS_SYSTEM } from "./reply-options";
+import { groundReview, parseSimulationReview, SIMULATION_REVIEW_MODEL, SIMULATION_REVIEW_SYSTEM, simulationReviewInput } from "./simulation-review";
 import { MediaUnderstandingService } from "./media-understanding.service";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { AgentActionsService } from "./agent-actions.service";
@@ -612,7 +615,7 @@ export class AgentService {
 
     let customer: { text: string; done: boolean; tokens: number };
     try {
-      customer = await this.simulatedCustomer(input, org?.name ?? "", config?.systemPrompt ?? "");
+      customer = await this.simulatedCustomer(input, org?.name ?? "", config?.systemPrompt ?? "", await this.catalogNames());
     } catch (e) {
       this.logger.warn(`Simulador: el cliente simulado falló: ${(e as Error).message}`);
       return { customer: null, agent: null, ended: "error", error: (e as Error).message, tokens: 0 };
@@ -639,18 +642,26 @@ export class AgentService {
     input: SimulateTurnRequest,
     business: string,
     agentPrompt: string,
+    /** Lo que vende el negocio: así pregunta por algo real, no por «lo que ofrecen». */
+    catalog: string[] = [],
   ): Promise<{ text: string; done: boolean; tokens: number }> {
     const about = agentPrompt.replace(/\s+/g, " ").trim().slice(0, 700);
     const system = [
       "Eres una persona real que escribe por WhatsApp a un negocio. No eres un asistente ni un vendedor: eres el CLIENTE.",
       business ? `El negocio se llama «${business}».` : "",
       about ? `Para que tus preguntas tengan sentido, esto es a lo que se dedica (son notas internas del negocio; tú solo conoces lo que sabría alguien que vio su anuncio): ${about}` : "",
+      catalog.length
+        ? `Lo que vende (si preguntas por algo concreto, elige uno de estos y nómbralo como lo diría un cliente, sin copiar el nombre exacto): ${catalog.join(", ")}.`
+        : "",
+      // El cliente de «Probar como»: sin esto se presentaba con el nombre del agente.
+      input.contact?.name?.trim() ? `Te llamas ${input.contact.name.trim()}: si te presentas o te piden tu nombre, usa ese.` : "",
       `Tu situación: ${input.scenario.brief}`,
       "Cómo escribes:",
       "- Como en WhatsApp: corto, informal, en español de Latinoamérica. Una o dos frases por mensaje. Sin listas ni formato.",
       "- Un solo mensaje por turno. Reacciona a lo que te acaban de responder; no repitas lo ya dicho.",
       "- No inventes datos del negocio (precios, direcciones, horarios): pregúntalos.",
       "- Si te piden un dato tuyo (nombre, correo, día), dalo inventado pero creíble.",
+      "- Si el negocio te ofrece botones (verás «[Botones: …]» al final de su mensaje) y uno te sirve, pulsa: responde solo con el texto exacto de esa opción.",
       `- Tienes como mucho ${input.maxTurns} mensajes. Cuando tu asunto quede resuelto, te pasen con una persona o decidas no seguir, despídete en una frase y termina ese mensaje con la marca [FIN].`,
       "Responde solo con el texto de tu mensaje.",
     ]
@@ -672,6 +683,53 @@ export class AgentService {
       done: /\[FIN\]/i.test(raw),
       tokens: res.usage.inputTokens + res.usage.outputTokens,
     };
+  }
+
+  /** Los productos activos, por nombre (hasta 30), para el cliente simulado. Sin catálogo, nada. */
+  private async catalogNames(): Promise<string[]> {
+    try {
+      const rows = await this.prisma.product.findMany({ where: { isActive: true }, select: { name: true }, orderBy: { updatedAt: "desc" }, take: 30 });
+      return rows.map((r) => r.name);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * La revisión de una conversación del simulador (ver simulation-review.ts).
+   * Si el modelo no responde algo que se entienda, se dice: mejor «léela tú»
+   * que un veredicto inventado.
+   */
+  async reviewSimulation(input: SimulateReviewRequest): Promise<SimulationReview> {
+    const config = input.botId
+      ? await this.prisma.agentConfig.findUnique({ where: { id: input.botId }, select: { systemPrompt: true, model: true } })
+      : await this.bots.resolveForChannel(null);
+    const ask = (model?: string) =>
+      this.llm.generate({
+        feature: "simulator",
+        system: SIMULATION_REVIEW_SYSTEM,
+        messages: [{ role: "user", content: simulationReviewInput(input, config?.systemPrompt ?? "") }],
+        maxTokens: 1500,
+        effort: "medium",
+        model,
+      });
+    // Con el modelo que revisa mejor; si la clave no lo tiene, con el del agente.
+    const res = await ask(SIMULATION_REVIEW_MODEL).catch((e: Error) => {
+      this.logger.warn(`Revisión con ${SIMULATION_REVIEW_MODEL} falló (${e.message}); con el modelo del agente`);
+      return ask(config?.model ?? undefined);
+    });
+    const tokens = res.usage.inputTokens + res.usage.outputTokens;
+    const raw = res.content
+      .filter((b): b is Extract<LlmContentBlock, { type: "text" }> => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+    const parsed = parseSimulationReview(raw);
+    if (!parsed) {
+      this.logger.warn(`Revisión del simulador sin JSON válido: ${raw.replace(/\s+/g, " ").slice(0, 200)}`);
+      return { verdict: "review", summary: "No se pudo revisar automáticamente: léela tú.", findings: [], tokens };
+    }
+    const agentSaid = input.lines.filter((l) => l.who === "agent").map((l) => l.text);
+    return { ...groundReview(parsed, agentSaid), tokens };
   }
 
   private async retrieveSafe(query: string): Promise<string[]> {
