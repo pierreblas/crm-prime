@@ -150,6 +150,10 @@ function PriceFilter({ query, currencies, update }: { query: ProductListQuery; c
         )}
       </div>
       {several && <span className="flt-hint">Cuenta el precio base o el precio en esa moneda.</span>}
+      <label className="flt-check">
+        <input type="checkbox" checked={query.discount} onChange={(e) => update((q) => ({ ...q, discount: e.target.checked }))} data-filter-discount />
+        <span>Con descuento</span>
+      </label>
     </FilterGroup>
   );
 }
@@ -292,6 +296,7 @@ export function ActiveProductFilters({
       remove: () => update((q) => ({ ...q, price: null, currency: null })),
     });
   }
+  if (query.discount) chips.push({ key: "discount", text: "Con descuento", remove: () => update((q) => ({ ...q, discount: false })) });
   for (const [key, values] of Object.entries(query.fields)) {
     const f = fields.find((x) => x.key === key);
     const label = f?.label ?? key;

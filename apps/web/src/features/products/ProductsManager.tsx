@@ -13,6 +13,8 @@ import { toast } from "@/lib/toast";
 import {
   CURRENCIES,
   PRODUCT_PAGE_SIZES,
+  checkDiscount,
+  discountPercent,
   PRODUCT_SORTS,
   PRODUCT_SORT_LABELS,
   countProductFilters,
@@ -251,7 +253,7 @@ export function ProductsManager() {
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     resultsRef.current?.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
   };
-  const clearAll = () => update((q) => ({ ...q, q: "", status: "all", source: null, price: null, currency: null, fields: {} }));
+  const clearAll = () => update((q) => ({ ...q, q: "", status: "all", source: null, price: null, currency: null, discount: false, fields: {} }));
 
   return (
     <div style={page}>
@@ -497,7 +499,14 @@ function ProductDrawer({
   const isNew = !product;
   const [name, setName] = useState(product?.name ?? "");
   const [sku, setSku] = useState(product?.sku ?? "");
-  const [price, setPrice] = useState(product ? String(product.price) : "");
+  // En el producto, `price` es lo que se paga hoy y `regularPrice` el de antes.
+  // En el formulario se escribe al revés, como lo piensa quien vende: el precio
+  // normal y, si está rebajado, el precio con descuento.
+  const onSale = !!product && product.regularPrice !== null;
+  const [price, setPrice] = useState(product ? String(onSale ? product.regularPrice : product.price) : "");
+  const [sale, setSale] = useState(onSale ? String(product!.price) : "");
+  const [saleEnds, setSaleEnds] = useState(product?.saleEndsAt ? localDay(product.saleEndsAt) : "");
+  const [pct, setPct] = useState("");
   const [currency, setCurrency] = useState(product?.currency ?? "USD");
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
@@ -506,8 +515,13 @@ function ProductDrawer({
   // borrados para no perderlos si se vuelven a crear.
   const [attributes, setAttributes] = useState<Record<string, string>>(product?.attributes ?? {});
   // Precios en otras monedas (el importe como texto para escribir decimales).
-  const [prices, setPrices] = useState<{ currency: string; amount: string }[]>(
-    (product?.prices ?? []).map((p) => ({ currency: p.currency, amount: String(p.amount) })),
+  // `amount` es el precio normal en esa moneda y `sale`, el rebajado (vacío = sin descuento).
+  const [prices, setPrices] = useState<{ currency: string; amount: string; sale: string }[]>(
+    (product?.prices ?? []).map((p) =>
+      p.regularAmount !== null
+        ? { currency: p.currency, amount: String(p.regularAmount), sale: String(p.amount) }
+        : { currency: p.currency, amount: String(p.amount), sale: "" },
+    ),
   );
   const [mounted, setMounted] = useState(false);
   const [previewBroken, setPreviewBroken] = useState(false);
@@ -534,16 +548,52 @@ function ProductDrawer({
   // Obligatorios que los controles nativos no pueden marcar (Sí/No, varias opciones).
   const missing = fields.filter((f) => f.required && !(attributes[f.key] ?? "").trim());
 
+  // Descuento: lo que está mal, dicho antes de enviar (las mismas reglas que el servidor).
+  const base = pricePair(price, sale);
+  const hasSale = base.regular !== null || prices.some((p) => p.sale.trim() !== "");
+  const discountError =
+    checkDiscount(base.amount, base.regular, null) ??
+    prices
+      .filter((p) => p.amount.trim() !== "")
+      .map((p) => {
+        const x = pricePair(p.amount, p.sale);
+        const e = checkDiscount(x.amount, x.regular, null);
+        return e ? `${e} (${p.currency})` : null;
+      })
+      .find(Boolean) ??
+    (saleEnds && base.regular === null ? "La fecha de fin necesita un precio con descuento en la moneda base" : null) ??
+    (saleEnds && new Date(endOfDayIso(saleEnds)) <= new Date() ? "La fecha de fin del descuento ya pasó" : null);
+  // El atajo «−%»: rellena el precio con descuento de la base y de cada otra moneda.
+  const applyPct = () => {
+    const n = Number(pct);
+    if (!(n > 0 && n < 100)) return;
+    const cut = (normal: string) => (Number(normal) > 0 ? String(round2(Number(normal) * (1 - n / 100))) : "");
+    setSale(cut(price));
+    setPrices((l) => l.map((r) => ({ ...r, sale: cut(r.amount) })));
+  };
+  const clearSale = () => {
+    setSale("");
+    setSaleEnds("");
+    setPct("");
+    setPrices((l) => l.map((r) => ({ ...r, sale: "" })));
+  };
+
   const save = useMutation({
     mutationFn: () => {
       const payload: CreateProductInput = {
         name: name.trim(),
         sku: sku.trim() || null,
-        price: Number(price) || 0,
+        price: base.amount,
+        regularPrice: base.regular,
+        // Vale hasta el final de ese día, en la hora de quien lo escribe.
+        saleEndsAt: base.regular !== null && saleEnds ? endOfDayIso(saleEnds) : null,
         currency,
         prices: prices
           .filter((p) => p.amount.trim() !== "" && p.currency !== currency)
-          .map((p) => ({ currency: p.currency, amount: Number(p.amount) || 0 })),
+          .map((p) => {
+            const x = pricePair(p.amount, p.sale);
+            return { currency: p.currency, amount: x.amount, regularAmount: x.regular };
+          }),
         imageUrl: normalizeUrl(imageUrl),
         description: description.trim() || null,
         isActive,
@@ -590,6 +640,10 @@ function ProductDrawer({
               toast.error(`Falta completar: ${missing.map((f) => f.label).join(", ")}`);
               return;
             }
+            if (discountError) {
+              toast.error(discountError);
+              return;
+            }
             save.mutate();
           }}
         >
@@ -597,8 +651,8 @@ function ProductDrawer({
             <div style={syncNotice}>
               <ProductSourceMark kind={product.source.kind} name={product.source.name} />
               <span>
-                Viene de <strong>{product.source.name}</strong>. Nombre, SKU, precio, imagen, descripción y estado se actualizan desde allí en cada
-                lectura: si los cambias aquí, se perderán. Tus campos y los precios en otras monedas sí se conservan.
+                Viene de <strong>{product.source.name}</strong>. Nombre, SKU, precio (y su descuento), imagen, descripción y estado se actualizan
+                desde allí en cada lectura: si los cambias aquí, se perderán. Tus campos y los precios en otras monedas sí se conservan.
               </span>
             </div>
           )}
@@ -677,23 +731,46 @@ function ProductDrawer({
             <div style={{ fontWeight: 600, fontSize: 14 }}>Precios</div>
             <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.45 }}>
               A cada cliente se le cotiza en la moneda de su país (por el prefijo de su
-              teléfono). Si no hay precio en su moneda, se le da el precio base.
+              teléfono). Si no hay precio en su moneda, se le da el precio base. Si está rebajado, pon también el precio con descuento: tu
+              agente dirá los dos y hasta cuándo vale.
+            </div>
+
+            <div style={{ ...priceRow, fontSize: 12, color: "var(--muted)" }} aria-hidden="true">
+              <span style={priceRowLabel} />
+              <span style={{ width: CURRENCY_WIDTH, flexShrink: 0 }} />
+              <span style={{ flex: 1, minWidth: 0 }}>Precio normal</span>
+              <span style={{ flex: 1, minWidth: 0 }}>Precio con descuento (opcional)</span>
+              <span style={{ width: 34 + PCT_WIDTH + 8, flexShrink: 0 }} />
             </div>
 
             <div style={priceRow}>
               <span style={priceRowLabel}>Base</span>
               <CurrencySelect value={currency} onChange={setCurrency} exclude={prices.map((p) => p.currency)} ariaLabel="Moneda del precio base" />
               <input
-                style={{ ...input, flex: 1 }}
+                style={{ ...input, flex: 1, minWidth: 0 }}
                 type="number"
                 min={0}
                 step="0.01"
                 inputMode="decimal"
                 value={price}
                 placeholder="0.00"
-                aria-label="Precio base"
+                aria-label="Precio normal"
+                data-price-normal
                 onChange={(e) => setPrice(e.target.value)}
               />
+              <input
+                style={{ ...input, flex: 1, minWidth: 0 }}
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                value={sale}
+                placeholder="Sin descuento"
+                aria-label="Precio con descuento"
+                data-price-sale
+                onChange={(e) => setSale(e.target.value)}
+              />
+              <PercentOff normal={price} sale={sale} />
               <span style={{ width: 34 }} />
             </div>
 
@@ -707,16 +784,30 @@ function ProductDrawer({
                   onChange={(v) => setPrices((l) => l.map((r, k) => (k === i ? { ...r, currency: v } : r)))}
                 />
                 <input
-                  style={{ ...input, flex: 1 }}
+                  style={{ ...input, flex: 1, minWidth: 0 }}
                   type="number"
                   min={0}
                   step="0.01"
                   inputMode="decimal"
                   value={row.amount}
                   placeholder="0.00"
-                  aria-label={`Precio en ${row.currency}`}
+                  aria-label={`Precio normal en ${row.currency}`}
+                  data-price-normal={row.currency}
                   onChange={(e) => setPrices((l) => l.map((r, k) => (k === i ? { ...r, amount: e.target.value } : r)))}
                 />
+                <input
+                  style={{ ...input, flex: 1, minWidth: 0 }}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  inputMode="decimal"
+                  value={row.sale}
+                  placeholder="Sin descuento"
+                  aria-label={`Precio con descuento en ${row.currency}`}
+                  data-price-sale={row.currency}
+                  onChange={(e) => setPrices((l) => l.map((r, k) => (k === i ? { ...r, sale: e.target.value } : r)))}
+                />
+                <PercentOff normal={row.amount} sale={row.sale} />
                 <button
                   type="button"
                   onClick={() => setPrices((l) => l.filter((_, k) => k !== i))}
@@ -732,11 +823,55 @@ function ProductDrawer({
             {nextCurrency && (
               <button
                 type="button"
-                onClick={() => setPrices((l) => [...l, { currency: nextCurrency, amount: "" }])}
+                onClick={() => setPrices((l) => [...l, { currency: nextCurrency, amount: "", sale: "" }])}
                 style={{ ...ghostBtn, ...smBtn, alignSelf: "flex-start" }}
               >
                 <NavIcon name="plus" size={14} /> Precio en otra moneda
               </button>
+            )}
+
+            <div style={discountBar}>
+              <label style={discountField}>
+                <span>Rebajar todo un</span>
+                <input
+                  style={{ ...input, width: 70 }}
+                  type="number"
+                  min={1}
+                  max={99}
+                  step="1"
+                  inputMode="numeric"
+                  value={pct}
+                  placeholder="20"
+                  aria-label="Porcentaje de descuento"
+                  data-sale-pct
+                  onChange={(e) => setPct(e.target.value)}
+                />
+                <span>%</span>
+                <button type="button" onClick={applyPct} disabled={!(Number(pct) > 0 && Number(pct) < 100)} style={{ ...ghostBtn, ...smBtn }} data-sale-apply>
+                  Aplicar
+                </button>
+              </label>
+              <label style={discountField}>
+                <span>Hasta (opcional)</span>
+                <input
+                  style={{ ...input, width: 150 }}
+                  type="date"
+                  value={saleEnds}
+                  aria-label="Hasta cuándo vale el descuento"
+                  data-sale-ends
+                  onChange={(e) => setSaleEnds(e.target.value)}
+                />
+              </label>
+              {(hasSale || saleEnds) && (
+                <button type="button" onClick={clearSale} style={{ ...ghostBtn, ...smBtn }} data-sale-clear>
+                  Quitar descuento
+                </button>
+              )}
+            </div>
+            {discountError && (
+              <span role="alert" style={{ fontSize: 12.5, color: "var(--danger)" }} data-discount-error>
+                {discountError}
+              </span>
             )}
           </section>
 
@@ -942,6 +1077,42 @@ const section: React.CSSProperties = {
 };
 
 const priceRow: React.CSSProperties = { display: "flex", gap: 8, alignItems: "center" };
+
+/** Ancho del selector de moneda y de la marca «−20 %», para que la cabecera cuadre con las filas. */
+const CURRENCY_WIDTH = 110;
+const PCT_WIDTH = 48;
+
+const discountBar: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: "8px 18px", alignItems: "center", marginTop: 4 };
+const discountField: React.CSSProperties = { display: "flex", gap: 6, alignItems: "center", fontSize: 12.5, color: "var(--muted)" };
+
+/** «2026-11-30» en la hora del navegador, para el campo de fecha. */
+function localDay(iso: string): string {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** El descuento vale hasta el final de ese día, en la hora de quien lo escribe. */
+function endOfDayIso(day: string): string {
+  return new Date(`${day}T23:59:59`).toISOString();
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** De «precio normal / con descuento» a lo que se guarda: lo que se paga hoy y, si está rebajado, el de antes. */
+function pricePair(normal: string, sale: string): { amount: number; regular: number | null } {
+  return sale.trim() !== "" ? { amount: Number(sale) || 0, regular: Number(normal) || 0 } : { amount: Number(normal) || 0, regular: null };
+}
+
+/** «−20 %» junto a un par de precios, o un hueco del mismo ancho. */
+function PercentOff({ normal, sale }: { normal: string; sale: string }) {
+  const pct = sale.trim() !== "" ? discountPercent(Number(sale), Number(normal)) : null;
+  return (
+    <span style={{ width: PCT_WIDTH, flexShrink: 0, fontSize: 12.5, fontWeight: 700, color: "var(--positive)", fontVariantNumeric: "tabular-nums" }} data-price-pct>
+      {pct !== null ? `−${pct} %` : ""}
+    </span>
+  );
+}
 
 const priceRowLabel: React.CSSProperties = { width: 36, fontSize: 12, color: "var(--muted)", flexShrink: 0 };
 

@@ -67,11 +67,17 @@ function ProductCard({
         <div className="prod-card__body">
           <strong className="prod-card__name">{p.name}</strong>
           <span className="prod-muted">{p.sku ? `SKU ${p.sku}` : "Sin SKU"}</span>
-          <span className="prod-card__price">{formatMoney(p.price, p.currency)}</span>
+          <span className="prod-card__price">
+            {formatMoney(p.price, p.currency)}
+            <Discount product={p} />
+          </span>
           {p.prices.length > 0 && (
             <span className="prod-prices">
               {p.prices.map((x) => (
-                <span key={x.currency}>{formatMoney(x.amount, x.currency)}</span>
+                <span key={x.currency}>
+                  {formatMoney(x.amount, x.currency)}
+                  {x.regularAmount !== null && <s className="prod-was">{formatMoney(x.regularAmount, x.currency)}</s>}
+                </span>
               ))}
             </span>
           )}
@@ -186,8 +192,21 @@ function TableRow({
         </div>
       </td>
       <td className="num">
-        <span className="prod-table__price">{formatMoney(p.price, p.currency)}</span>
-        {p.prices.length > 0 && <span className="prod-muted prod-table__extra">{p.prices.map((x) => formatMoney(x.amount, x.currency)).join(" · ")}</span>}
+        <span className="prod-table__price">
+          {formatMoney(p.price, p.currency)}
+          <Discount product={p} />
+        </span>
+        {p.prices.length > 0 && (
+          <span className="prod-muted prod-table__extra">
+            {p.prices.map((x, i) => (
+              <span key={x.currency}>
+                {i > 0 && " · "}
+                {formatMoney(x.amount, x.currency)}
+                {x.regularAmount !== null && <s className="prod-was">{formatMoney(x.regularAmount, x.currency)}</s>}
+              </span>
+            ))}
+          </span>
+        )}
       </td>
       {fields.map((f) => (
         <td key={f.key} className="prod-table__field">
@@ -252,5 +271,19 @@ export function ProductBulkBar({
         <NavIcon name="x" size={14} />
       </button>
     </div>
+  );
+}
+
+/** El precio de antes tachado y «−20 % · hasta 30 nov», si el producto está rebajado. */
+function Discount({ product: p }: { product: ProductDto }) {
+  if (p.regularPrice === null) return null;
+  const until = p.saleEndsAt ? ` · hasta ${new Date(p.saleEndsAt).toLocaleDateString("es", { day: "numeric", month: "short" })}` : "";
+  return (
+    <>
+      <s className="prod-was">{formatMoney(p.regularPrice, p.currency)}</s>
+      <span className="prod-off" data-product-discount>
+        −{p.discountPercent} %{until}
+      </span>
+    </>
   );
 }
