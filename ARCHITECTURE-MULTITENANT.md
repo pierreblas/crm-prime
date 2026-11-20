@@ -501,12 +501,15 @@ clave de API por prefijo. Los cuatro tienen el mismo motivo: producen el
 `orgId`, así que no pueden filtrar por él.
 
 Los barridos periódicos (seguimientos vencidos, recordatorios de cita,
-retención de adjuntos, barrido de entrantes y la revisión diaria de chats)
+retención de adjuntos, barrido de entrantes, la revisión diaria de chats y
+los descuentos vencidos)
 usan `runUnscoped` con el mismo motivo y solo para eso: encontrar a qué
 empresas les toca. El trabajo de cada una corre después dentro de
 `runInOrg(orgId, …)`, con su contexto y sus políticas. La revisión diaria lee
 `ai_settings` (`chatReview` activo y `chatReviewAt` de hace más de un día) y
-devuelve solo `orgId`.
+devuelve solo `orgId`. El de descuentos lee de `products` los que tienen
+`saleEndsAt` vencido (id, empresa y sus dos precios) y los restaura uno a uno
+dentro de la empresa de cada uno.
 
 ### Capa 2 · Row-Level Security
 

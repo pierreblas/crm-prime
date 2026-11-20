@@ -2983,3 +2983,48 @@ test("descuentos de producto con el rol restringido: se guardan, se leen, se fil
   });
   assert.equal((await list(orgs[0], "discount=1")).data.length, 0);
 });
+
+test("barrido de descuentos vencidos con el rol restringido: restaura lo de cada empresa dentro de la suya y no toca lo vigente", async () => {
+  const { ProductDiscountsService } = await import("../src/modules/products/product-discounts.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgs = [`o_sweep_${suf}`, `o_sweep2_${suf}`] as const;
+  await ctx.runUnscoped("prueba: empresas del barrido de descuentos", async () => {
+    for (const [i, id] of orgs.entries()) await prisma.organization.create({ data: { id, slug: `sweep${i}-${suf}`, name: `Barrido ${i}` } });
+  });
+  const past = new Date(Date.now() - 60_000);
+  const future = new Date(Date.now() + 86_400_000);
+  const ids: Record<string, string> = {};
+  for (const orgId of orgs) {
+    await ctx.runInOrg(orgId, async () => {
+      const expired = await prisma.product.create({ data: { orgId, name: "Vencido", price: 40, regularPrice: 50, saleEndsAt: past } });
+      ids[`${orgId}:expired`] = expired.id;
+      if (orgId === orgs[0]) {
+        await prisma.productPrice.createMany({
+          data: [
+            { orgId, productId: expired.id, currency: "PEN", amount: 150, regularAmount: 190 },
+            { orgId, productId: expired.id, currency: "EUR", amount: 37 },
+          ],
+        });
+        ids.live = (await prisma.product.create({ data: { orgId, name: "Vigente", price: 40, regularPrice: 50, saleEndsAt: future } })).id;
+      }
+    });
+  }
+
+  const svc = new ProductDiscountsService(prisma);
+  assert.equal(await svc.sweep(), 2, "uno vencido en cada empresa");
+
+  const read = (orgId: string, id: string) =>
+    ctx.runInOrg(orgId, () => prisma.product.findUnique({ where: { id }, select: { price: true, regularPrice: true, saleEndsAt: true, prices: { orderBy: { currency: "asc" }, select: { currency: true, amount: true, regularAmount: true } } } }));
+  const a = await read(orgs[0], ids[`${orgs[0]}:expired`]!);
+  assert.deepEqual({ price: Number(a!.price), regularPrice: a!.regularPrice, saleEndsAt: a!.saleEndsAt }, { price: 50, regularPrice: null, saleEndsAt: null });
+  assert.deepEqual(
+    a!.prices.map((x: any) => [x.currency, Number(x.amount), x.regularAmount]),
+    [["EUR", 37, null], ["PEN", 190, null]],
+    "la moneda rebajada vuelve a su normal; la que no lo estaba no cambia",
+  );
+  const b = await read(orgs[1], ids[`${orgs[1]}:expired`]!);
+  assert.deepEqual({ price: Number(b!.price), regularPrice: b!.regularPrice }, { price: 50, regularPrice: null });
+  const live = await read(orgs[0], ids.live!);
+  assert.deepEqual({ price: Number(live!.price), regularPrice: Number(live!.regularPrice) }, { price: 40, regularPrice: 50 }, "el vigente sigue rebajado");
+  assert.equal(await svc.sweep(), 0, "segunda pasada: nada que hacer");
+});

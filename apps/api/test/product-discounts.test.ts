@@ -9,6 +9,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { toProductDto } from "../src/modules/products/product-catalog.service";
 import { assertPriceDiscounts, resolveDiscount } from "../src/modules/products/product-discount";
+import { ProductDiscountsService } from "../src/modules/products/product-discounts.service";
 import { parseProductListQuery, productListQueryToParams, countProductFilters } from "@crm/shared";
 
 const FUTURE = new Date(Date.now() + 5 * 86_400_000);
@@ -114,4 +115,48 @@ test("filtro «Con descuento» en la lista: va y vuelve por la URL y cuenta como
   const none = parseProductListQuery(new URLSearchParams(""));
   assert.equal(none.discount, false);
   assert.equal(productListQueryToParams(none).has("discount"), false);
+});
+
+// ── Barrido de vencidos ────────────────────────────────────────
+function sweepSetup() {
+  const products = [
+    { id: "vencido", orgId: "orgA", price: 40, regularPrice: 50, saleEndsAt: PAST },
+    { id: "vigente", orgId: "orgA", price: 40, regularPrice: 50, saleEndsAt: FUTURE },
+    { id: "sinfecha", orgId: "orgA", price: 40, regularPrice: 50, saleEndsAt: null },
+    { id: "otra", orgId: "orgB", price: 80, regularPrice: 100, saleEndsAt: PAST },
+  ] as { id: string; orgId: string; price: number; regularPrice: number | null; saleEndsAt: Date | null }[];
+  const prices = [
+    { id: "pen", productId: "vencido", currency: "PEN", amount: 150, regularAmount: 190 },
+    { id: "eur", productId: "vencido", currency: "EUR", amount: 37, regularAmount: null },
+    { id: "pen2", productId: "vigente", currency: "PEN", amount: 150, regularAmount: 190 },
+  ] as { id: string; productId: string; currency: string; amount: number; regularAmount: number | null }[];
+  const prisma = {
+    product: {
+      findMany: async ({ where, take }: { where: { saleEndsAt: { lte: Date } }; take: number }) =>
+        products.filter((x) => x.saleEndsAt && x.saleEndsAt.getTime() <= where.saleEndsAt.lte.getTime()).slice(0, take),
+      update: async ({ where, data }: { where: { id: string }; data: object }) => Object.assign(products.find((x) => x.id === where.id)!, data),
+    },
+    productPrice: {
+      findMany: async ({ where }: { where: { productId: string } }) => prices.filter((x) => x.productId === where.productId && x.regularAmount != null),
+      update: async ({ where, data }: { where: { id: string }; data: object }) => Object.assign(prices.find((x) => x.id === where.id)!, data),
+    },
+  };
+  return { svc: new ProductDiscountsService(prisma as never), products, prices };
+}
+
+test("barrido: lo vencido vuelve a su precio normal; lo vigente y lo que no tiene fecha no se toca", async () => {
+  const { svc, products, prices } = sweepSetup();
+  assert.equal(await svc.sweep(), 2);
+  const by = Object.fromEntries(products.map((x) => [x.id, x]));
+  assert.deepEqual({ price: Number(by.vencido!.price), regularPrice: by.vencido!.regularPrice, saleEndsAt: by.vencido!.saleEndsAt }, { price: 50, regularPrice: null, saleEndsAt: null });
+  assert.deepEqual({ price: Number(by.otra!.price), regularPrice: by.otra!.regularPrice, saleEndsAt: by.otra!.saleEndsAt }, { price: 100, regularPrice: null, saleEndsAt: null });
+  assert.deepEqual({ price: by.vigente!.price, regularPrice: by.vigente!.regularPrice }, { price: 40, regularPrice: 50 });
+  assert.deepEqual({ price: by.sinfecha!.price, regularPrice: by.sinfecha!.regularPrice }, { price: 40, regularPrice: 50 });
+  // Sus otras monedas: la rebajada vuelve a su normal, la que no tenía descuento no cambia.
+  const px = Object.fromEntries(prices.map((x) => [x.id, x]));
+  assert.deepEqual({ amount: Number(px.pen!.amount), regularAmount: px.pen!.regularAmount }, { amount: 190, regularAmount: null });
+  assert.deepEqual({ amount: px.eur!.amount, regularAmount: px.eur!.regularAmount }, { amount: 37, regularAmount: null });
+  assert.deepEqual({ amount: px.pen2!.amount, regularAmount: px.pen2!.regularAmount }, { amount: 150, regularAmount: 190 }, "la del producto vigente sigue rebajada");
+  // Ya no queda nada vencido.
+  assert.equal(await svc.sweep(), 0);
 });

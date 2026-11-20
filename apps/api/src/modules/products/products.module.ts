@@ -12,9 +12,11 @@ import { ProductSyncProcessor } from "./product-sync.processor";
 import { ProductCatalogService } from "./product-catalog.service";
 import { CatalogGapsService } from "./catalog-gaps.service";
 
+import { ProductDiscountsService } from "./product-discounts.service";
+
 @Module({
   controllers: [ProductsController, ProductFieldsController, ProductSourcesController, ProductSourceHooksController, ProductSourceOAuthController],
-  providers: [ProductCatalogService, CatalogGapsService, ProductSyncService, ProductSourceService, ProductSyncProcessor, MercadoLibreClient, MercadoLibreConnectService],
+  providers: [ProductCatalogService, CatalogGapsService, ProductDiscountsService, ProductSyncService, ProductSourceService, ProductSyncProcessor, MercadoLibreClient, MercadoLibreConnectService],
   exports: [ProductSourceService, ProductSyncService, ProductCatalogService],
 })
 export class ProductsModule {}
