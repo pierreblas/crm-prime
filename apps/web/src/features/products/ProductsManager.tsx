@@ -738,8 +738,8 @@ function ProductDrawer({
             <div style={{ ...priceRow, fontSize: 12, color: "var(--muted)" }} aria-hidden="true">
               <span style={priceRowLabel} />
               <span style={{ width: CURRENCY_WIDTH, flexShrink: 0 }} />
-              <span style={{ flex: 1, minWidth: 0 }}>Precio normal</span>
-              <span style={{ flex: 1, minWidth: 0 }}>Precio con descuento (opcional)</span>
+              <span style={{ flex: 1, minWidth: 0 }}>Normal</span>
+              <span style={{ flex: 1, minWidth: 0 }}>Con descuento</span>
               <span style={{ width: 34 + PCT_WIDTH + 8, flexShrink: 0 }} />
             </div>
 
