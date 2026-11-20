@@ -9,7 +9,6 @@ import {
   formatFieldValue,
   HANDOFF_REASON_AI_INCLUDED_FULL,
   HANDOFF_REASON_MEDIA,
-  priceFor,
   readAdReferral,
   stripOptionsNote,
   REPLY_BUTTONS_TOOL,
@@ -32,6 +31,8 @@ import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { fold } from "../../common/utils/fold";
 import { searchProducts } from "./product-search";
 import { buttonsSummary, knowledgeCall, traceToolCall } from "./playground-trace";
+import { agentPrice, DEFAULT_DISCOUNT_TIME_ZONE } from "./product-agent-price";
+import { followUpDraftAsk } from "./follow-up.rules";
 import { buttonRules, endsWithQuestion, parseReplyOptions, REPLY_OPTIONS_SYSTEM, replyOptionsInput } from "./reply-options";
 import { groundReview, parseSimulationReview, SIMULATION_REVIEW_MODEL, SIMULATION_REVIEW_SYSTEM, simulationReviewInput } from "./simulation-review";
 import { MediaUnderstandingService } from "./media-understanding.service";
@@ -929,7 +930,9 @@ export class AgentService {
         description: true,
         imageUrl: true,
         attributes: true,
-        prices: { select: { currency: true, amount: true } },
+        regularPrice: true,
+        saleEndsAt: true,
+        prices: { select: { currency: true, amount: true, regularAmount: true } },
       } as const;
       const baseWhere = { isActive: true } as const;
       // Campos personalizados (talla, color…): nombre legible para el agente.
@@ -957,21 +960,24 @@ export class AgentService {
       // Precio en la moneda del cliente si el producto la tiene; si no, el
       // precio base, marcado para que el agente no lo "convierta" por su cuenta.
       const clientCurrency = contactCurrency(contact);
+      // La fecha de fin de un descuento se dice en la zona horaria de la empresa.
+      const timeZone = (await this.prisma.bookingSettings.findFirst({ select: { timezone: true } }))?.timezone ?? DEFAULT_DISCOUNT_TIME_ZONE;
       const missingOf = new Map<string, string[]>();
       const items = rows.map((p) => {
-        const hit = priceFor(
+        return {
+        name: p.name,
+        // El precio de hoy y, con descuento vigente, el de antes, el porcentaje y la fecha, ya hechos.
+        ...agentPrice(
           {
             price: Number(p.price),
             currency: p.currency,
-            prices: p.prices.map((x) => ({ currency: x.currency, amount: Number(x.amount) })),
+            regularPrice: p.regularPrice == null ? null : Number(p.regularPrice),
+            saleEndsAt: p.saleEndsAt,
+            prices: p.prices.map((x) => ({ currency: x.currency, amount: Number(x.amount), regularAmount: x.regularAmount == null ? null : Number(x.regularAmount) })),
           },
           clientCurrency,
-        );
-        return {
-        name: p.name,
-        price: hit.amount,
-        currency: hit.currency,
-        ...(clientCurrency ? { priceInClientCurrency: !hit.fallback } : {}),
+          timeZone,
+        ),
         sku: p.sku,
         description: trim(p.description),
         ...(() => {
@@ -1170,6 +1176,11 @@ export class AgentService {
       enabledTools.includes("search_products")
         ? "\n\nDatos de producto en tus instrucciones (entre « », como «Temario», o entre corchetes, como [Precio normal]): rellénalos solo con lo que devuelve search_products en este mismo turno. Los resultados de turnos anteriores ya no los ves: si vas a dar un precio, una fecha, un enlace o cualquier dato de un producto, vuelve a consultarlo antes. Si el producto no trae ese dato (no está en «details» o aparece en «missingDetails»), quita esa línea o esa parte del mensaje: nunca lo inventes, no lo calcules, no lo saques de otro producto ni uses una cifra de memoria. Si el cliente pregunta justo por ese dato, sigue tus instrucciones para lo que no sabes. Lo que va entre « » y no es un dato de producto (como el texto de un botón) es texto normal."
         : "",
+      // El agente no calcula descuentos: los recibe hechos (precio de hoy, el de
+      // antes, porcentaje y fecha) y los dice tal cual. Ni inventa ni alarga uno.
+      enabledTools.includes("search_products")
+        ? "\n\nDescuentos: si un producto trae «regularPrice», está rebajado: hoy cuesta «price», antes costaba «regularPrice» y, si trae «discountUntil», el descuento vale hasta esa fecha. Dilo así, con esas cifras. No calcules otro precio ni otro porcentaje, no ofrezcas descuentos que no vengan en el producto y no alargues la fecha."
+        : "",
       "\n\nSi un mensaje del cliente aparece como [imagen], [documento] o [audio] sin descripción, no pudiste verlo ni oírlo: dilo con naturalidad y pídele que te cuente qué es (o pásalo a una persona si parece un comprobante o un documento importante).",
       // Un número de Yape o una cuenta inventados acaban en un pago perdido: visto
       // en pruebas, el agente dio «987654321» cuando no tenía los datos. Con
@@ -1240,10 +1251,7 @@ export class AgentService {
       channel: conversation.channelKind,
     });
     const history = await this.buildHistory(conversationId);
-    const ask =
-      "[Nota del sistema, no es un mensaje del cliente] El cliente lleva un tiempo sin responder. Escribe UN solo mensaje de seguimiento, breve (una o dos frases), cálido y sin presionar, que retome lo último que hablaban. No saludes como si fuera el primer contacto ni repitas lo que ya dijiste." +
-      (goal.trim() ? ` Objetivo del mensaje: ${goal.trim()}.` : "") +
-      " Devuelve solo el texto del mensaje.";
+    const ask = followUpDraftAsk(goal);
     const res = await this.llm.generate({
       feature: "follow_up",
       system: system.system,

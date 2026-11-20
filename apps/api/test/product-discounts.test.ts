@@ -14,6 +14,9 @@ import { shopifyDiscount } from "../src/modules/products/connectors/shopify.conn
 import { wooDiscount } from "../src/modules/products/connectors/woocommerce.connector";
 import { mercadoLibreDiscount } from "../src/modules/products/connectors/mercadolibre.connector";
 import { sameAsStore } from "../src/modules/products/product-sync.service";
+import { agentPrice } from "../src/modules/ai/product-agent-price";
+import { followUpDraftAsk } from "../src/modules/ai/follow-up.rules";
+import { AgentService } from "../src/modules/ai/agent.service";
 import { parseProductListQuery, productListQueryToParams, countProductFilters } from "@crm/shared";
 
 const FUTURE = new Date(Date.now() + 5 * 86_400_000);
@@ -203,4 +206,56 @@ test("sincronización: si cambia el descuento de la tienda, el producto se vuelv
   assert.equal(sameAsStore(stored as never, { ...item, saleEndsAt: new Date(FUTURE.getTime() + 86_400_000) }, {}), false, "cambió la fecha");
   // Un precio de antes que no es descuento (igual al precio) cuenta como «sin oferta».
   assert.equal(sameAsStore({ ...stored, regularPrice: null, saleEndsAt: null } as never, { ...item, regularPrice: 40 }, {}), true);
+});
+
+// ── Lo que lee y dice el agente ────────────────────────────────
+const LIMA = "America/Lima";
+// Las 23:59 del 30 de noviembre en Lima: ya es 1 de diciembre en UTC.
+const END_NOV_30_LIMA = new Date("2026-12-01T04:59:00.000Z");
+const BEFORE = new Date("2026-11-20T15:00:00.000Z");
+
+test("el agente recibe el precio de hoy, el de antes, el porcentaje y la fecha ya hechos", () => {
+  const p = { price: 40, currency: "USD", regularPrice: 50, saleEndsAt: END_NOV_30_LIMA };
+  assert.deepEqual(agentPrice(p, "USD", LIMA, BEFORE), {
+    price: 40,
+    currency: "USD",
+    priceInClientCurrency: true,
+    regularPrice: 50,
+    discount: "20 %",
+    discountUntil: "30 de noviembre",
+  });
+  // Sin fecha de fin: sin «discountUntil».
+  assert.deepEqual(agentPrice({ ...p, saleEndsAt: null }, null, LIMA, BEFORE), { price: 40, currency: "USD", regularPrice: 50, discount: "20 %" });
+});
+
+test("sin descuento o ya vencido, el agente no ve ningún descuento (y el vencido cuesta lo normal)", () => {
+  assert.deepEqual(agentPrice({ price: 50, currency: "USD" }, "USD", LIMA, BEFORE), { price: 50, currency: "USD", priceInClientCurrency: true });
+  const after = new Date("2026-12-01T05:00:00.000Z");
+  assert.deepEqual(agentPrice({ price: 40, currency: "USD", regularPrice: 50, saleEndsAt: END_NOV_30_LIMA }, "USD", LIMA, after), {
+    price: 50,
+    currency: "USD",
+    priceInClientCurrency: true,
+  });
+});
+
+test("cliente de un país sin precio en su moneda: el precio base, marcado, con su descuento", () => {
+  const p = { price: 40, currency: "USD", regularPrice: 50, saleEndsAt: null, prices: [{ currency: "PEN", amount: 150, regularAmount: 190 }] };
+  assert.deepEqual(agentPrice(p, "MXN", LIMA, BEFORE), { price: 40, currency: "USD", priceInClientCurrency: false, regularPrice: 50, discount: "20 %" });
+  assert.deepEqual(agentPrice(p, "PEN", LIMA, BEFORE), { price: 150, currency: "PEN", priceInClientCurrency: true, regularPrice: 190, discount: "21 %" });
+});
+
+test("la regla del agente sobre descuentos va con el catálogo; el seguimiento no menciona precios", () => {
+  const build = (AgentService.prototype as unknown as {
+    buildSystemParts(base: string, contact: object, tools: string[], split: boolean, extra: object): { system: string };
+  }).buildSystemParts;
+  const contact = { name: "Ana", phone: "+51987654321" };
+  const withCatalog = build.call({}, "Eres Lia.", contact, ["search_products"], false, {}).system;
+  assert.match(withCatalog, /Descuentos: si un producto trae «regularPrice», está rebajado/);
+  assert.match(withCatalog, /No calcules otro precio ni otro porcentaje, no ofrezcas descuentos que no vengan en el producto y no alargues la fecha\./);
+  const without = build.call({}, "Eres Lia.", contact, [], false, {}).system;
+  assert.doesNotMatch(without, /Descuentos: si un producto trae/);
+  // El seguimiento escribe desde el chat, donde puede haber una oferta que ya venció.
+  assert.match(followUpDraftAsk("retomar la cotización"), /No menciones precios, descuentos ni fechas de oferta: pueden haber cambiado desde que se hablaron\./);
+  assert.match(followUpDraftAsk("retomar la cotización"), /Objetivo del mensaje: retomar la cotización\./);
+  assert.doesNotMatch(followUpDraftAsk("  "), /Objetivo del mensaje/);
 });

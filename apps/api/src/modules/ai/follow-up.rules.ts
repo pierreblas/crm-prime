@@ -111,3 +111,16 @@ export function planFollowUp(
 export function followUpAllowed(cfg: FollowUps, convo: { aiMode: string; handoffAt: Date | null }): boolean {
   return cfg.includeHuman || (convo.aiMode === "AUTOPILOT" && !convo.handoffAt);
 }
+
+/**
+ * Lo que se le pide al modelo cuando redacta un seguimiento. No consulta el
+ * catálogo: escribe a partir del chat, donde puede haber un precio o una
+ * oferta que ya cambió o venció, así que no los menciona.
+ */
+export function followUpDraftAsk(goal: string): string {
+  return (
+    "[Nota del sistema, no es un mensaje del cliente] El cliente lleva un tiempo sin responder. Escribe UN solo mensaje de seguimiento, breve (una o dos frases), cálido y sin presionar, que retome lo último que hablaban. No saludes como si fuera el primer contacto ni repitas lo que ya dijiste. No menciones precios, descuentos ni fechas de oferta: pueden haber cambiado desde que se hablaron." +
+    (goal.trim() ? ` Objetivo del mensaje: ${goal.trim()}.` : "") +
+    " Devuelve solo el texto del mensaje."
+  );
+}
