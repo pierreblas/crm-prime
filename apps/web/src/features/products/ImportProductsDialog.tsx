@@ -428,6 +428,11 @@ export function ImportProductsDialog({
                               <td style={td}>{r.value.sku ?? "—"}</td>
                               <td style={td}>
                                 {r.value.price.toFixed(2)} {r.value.currency}
+                                {r.value.regularPrice !== null && (
+                                  <s style={{ marginLeft: 6, color: "var(--muted)" }} title="Precio normal: esta fila entra con descuento" data-import-regular>
+                                    {r.value.regularPrice.toFixed(2)}
+                                  </s>
+                                )}
                                 {r.value.prices.length > 0 && (
                                   <span style={{ color: "var(--muted)" }}>
                                     {" · "}

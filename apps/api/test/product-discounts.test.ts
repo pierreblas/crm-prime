@@ -109,6 +109,21 @@ test("al guardar: quien no habla de descuentos no rompe nada", () => {
   assert.deepEqual(resolveDiscount({ price: 60 }, saved), { regularPrice: null, saleEndsAt: null });
 });
 
+test("al guardar: un precio nuevo sobre un descuento ya vencido manda, y el barrido no lo pisará después", () => {
+  const expired = { price: 40, regularPrice: 50, saleEndsAt: PAST };
+  // Un ERP manda solo el precio: el descuento vencido se limpia y queda su precio (antes seguía
+  // guardado y el barrido lo devolvía a 50, pisando el precio nuevo).
+  assert.deepEqual(resolveDiscount({ price: 45 }, expired), { regularPrice: null, saleEndsAt: null });
+  assert.deepEqual(resolveDiscount({ price: 60 }, expired), { regularPrice: null, saleEndsAt: null });
+  // Sin tocar el precio (cambia el nombre), el vencido se deja al barrido: quitarlo aquí dejaría el producto al precio rebajado.
+  assert.deepEqual(resolveDiscount({}, expired), { regularPrice: 50, saleEndsAt: PAST });
+  // Volver a declarar el descuento sin fecha no hereda la fecha vencida (nacería ya vencido).
+  assert.deepEqual(resolveDiscount({ price: 40, regularPrice: 50 }, expired), { regularPrice: 50, saleEndsAt: null });
+  // Alargar la fecha de uno vencido lo reactiva.
+  const later = new Date(Date.now() + 3 * 86_400_000);
+  assert.deepEqual(resolveDiscount({ saleEndsAt: later.toISOString() }, expired), { regularPrice: 50, saleEndsAt: later });
+});
+
 test("al guardar: el descuento de cada otra moneda también tiene que serlo", () => {
   assert.doesNotThrow(() => assertPriceDiscounts([{ currency: "PEN", amount: 150, regularAmount: 190 }, { currency: "EUR", amount: 37 }, { currency: "MXN", amount: 700, regularAmount: null }]));
   assert.throws(() => assertPriceDiscounts([{ currency: "PEN", amount: 190, regularAmount: 190 }]), /menor que el precio normal \(PEN\)/);

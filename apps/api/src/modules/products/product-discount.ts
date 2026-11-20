@@ -27,15 +27,21 @@ export interface StoredDiscount {
  * - Quien no los manda (cambia el nombre, o un ERP que solo empuja el precio)
  *   no rompe nada: el descuento sigue si el precio nuevo queda por debajo del
  *   normal, y desaparece sin error si lo iguala o lo supera.
+ * - Un precio nuevo sobre un descuento ya vencido (el barrido aún no pasó, o
+ *   está apagado) manda: el descuento se limpia. Si se dejara, el barrido
+ *   devolvería después el precio al normal antiguo, pisando el nuevo.
  */
 export function resolveDiscount(
   body: { price?: number; regularPrice?: number | null; saleEndsAt?: string | null },
   existing: StoredDiscount | null,
+  now: Date = new Date(),
 ): { regularPrice: number | null; saleEndsAt: Date | null } {
   const price = body.price ?? num(existing?.price) ?? 0;
   const savedRegular = num(existing?.regularPrice);
   const savedEnds = existing?.saleEndsAt ?? null;
   if (body.regularPrice === undefined && body.saleEndsAt === undefined) {
+    const expired = !!savedEnds && savedEnds.getTime() <= now.getTime();
+    if (expired && body.price !== undefined) return { regularPrice: null, saleEndsAt: null };
     return lenientDiscount(price, savedRegular, savedEnds);
   }
   const regular = body.regularPrice !== undefined ? body.regularPrice : savedRegular;
@@ -44,7 +50,10 @@ export function resolveDiscount(
   const error = checkDiscount(price, regular, body.saleEndsAt ?? null);
   if (error) throw new BadRequestException(error);
   if (regular == null) return { regularPrice: null, saleEndsAt: null };
-  const ends = body.saleEndsAt !== undefined ? (body.saleEndsAt ? new Date(body.saleEndsAt) : null) : savedEnds;
+  // Sin fecha nueva se conserva la guardada, salvo que ya venciera: el descuento
+  // que se acaba de declarar nacería vencido.
+  const keptEnds = savedEnds && savedEnds.getTime() > now.getTime() ? savedEnds : null;
+  const ends = body.saleEndsAt !== undefined ? (body.saleEndsAt ? new Date(body.saleEndsAt) : null) : keptEnds;
   return { regularPrice: regular, saleEndsAt: ends };
 }
 
