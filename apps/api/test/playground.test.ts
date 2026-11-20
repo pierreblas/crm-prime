@@ -26,7 +26,7 @@ const PRODUCT = {
   prices: [{ currency: "USD", amount: 80 }],
 };
 
-function setup(opts: { splitReplies?: boolean; replies?: Row[]; tools?: string[]; knowledge?: string[] } = {}) {
+function setup(opts: { splitReplies?: boolean; replies?: Row[]; tools?: string[]; knowledge?: string[]; product?: Row; timezone?: string } = {}) {
   const calls: Row[] = [];
   const replies = opts.replies ?? [
     { stopReason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "search_products", input: { query: "genómica" } }] },
@@ -58,8 +58,10 @@ function setup(opts: { splitReplies?: boolean; replies?: Row[]; tools?: string[]
     customField: { findMany: async () => [{ key: "empresa", label: "Empresa" }] },
     product: {
       count: async () => 1,
-      findMany: async () => [PRODUCT],
+      findMany: async () => [opts.product ?? PRODUCT],
     },
+    // La zona horaria de la agenda: solo se consulta para decir la fecha de fin de un descuento.
+    ...(opts.timezone ? { bookingSettings: { findFirst: async () => ({ timezone: opts.timezone }) } } : {}),
     $queryRaw: async () => [{ id: "p1" }],
   };
   service.bots = { resolveForChannel: async () => null };
@@ -165,4 +167,26 @@ test("todo agente tiene la regla de no inventar datos de pago, y con handoff_to_
   await alone.service.playground({ message: "Yape", botId: "bot1", history: [] });
   assert.match(alone.calls[0]!.system as string, /una persona del equipo se los envía enseguida\.$/m);
   assert.doesNotMatch(alone.calls[0]!.system as string, /handoff_to_human en ese mismo turno/);
+});
+
+test("un producto con descuento: el agente recibe el precio de hoy, el de antes, el porcentaje y la fecha en la hora de la empresa", async () => {
+  // Acaba el 30 de noviembre a las 23:59 de Lima (ya es 1 de diciembre en UTC); lejos en el futuro para que siga vigente.
+  const ends = new Date("2099-12-01T04:59:00.000Z");
+  const onSale = { ...PRODUCT, price: 232, regularPrice: 290, saleEndsAt: ends, prices: [{ currency: "USD", amount: 64, regularAmount: 80 }] };
+  const { service, calls } = setup({ product: onSale, timezone: "America/Lima" });
+  await service.playground({ message: "hola, cuánto cuesta genómica?", botId: "bot1", history: [], contact: { name: "Ana", phone: "+1 555 0100" } });
+  const product = JSON.parse(calls[1]!.messages.at(-1).content[0].content).products[0];
+  assert.deepEqual(
+    { price: product.price, currency: product.currency, regularPrice: product.regularPrice, discount: product.discount, discountUntil: product.discountUntil },
+    { price: 64, currency: "USD", regularPrice: 80, discount: "20 %", discountUntil: "30 de noviembre" },
+  );
+  assert.match(calls[0]!.system as string, /Descuentos: si un producto trae «regularPrice», está rebajado/);
+});
+
+test("un producto sin descuento no trae nada de descuento (ni hace falta la zona horaria)", async () => {
+  const { service, calls } = setup();
+  await service.playground({ message: "hola, cuánto cuesta genómica?", botId: "bot1", history: [], contact: { name: "Ana", phone: "+1 555 0100" } });
+  const product = JSON.parse(calls[1]!.messages.at(-1).content[0].content).products[0];
+  assert.equal(product.price, 80);
+  for (const key of ["regularPrice", "discount", "discountUntil"]) assert.equal(key in product, false, key);
 });

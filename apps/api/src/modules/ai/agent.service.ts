@@ -960,8 +960,11 @@ export class AgentService {
       // Precio en la moneda del cliente si el producto la tiene; si no, el
       // precio base, marcado para que el agente no lo "convierta" por su cuenta.
       const clientCurrency = contactCurrency(contact);
-      // La fecha de fin de un descuento se dice en la zona horaria de la empresa.
-      const timeZone = (await this.prisma.bookingSettings.findFirst({ select: { timezone: true } }))?.timezone ?? DEFAULT_DISCOUNT_TIME_ZONE;
+      // La fecha de fin de un descuento se dice en la zona horaria de la empresa
+      // (la de su agenda). Solo se consulta si algún producto trae fecha.
+      const timeZone = rows.some((p) => p.saleEndsAt)
+        ? ((await this.prisma.bookingSettings.findFirst({ select: { timezone: true } }))?.timezone ?? DEFAULT_DISCOUNT_TIME_ZONE)
+        : DEFAULT_DISCOUNT_TIME_ZONE;
       const missingOf = new Map<string, string[]>();
       const items = rows.map((p) => {
         return {
