@@ -128,6 +128,110 @@ export function contactCurrency(contact: {
 export interface PriceEntry {
   currency: string;
   amount: number;
+  /** Precio normal en esa moneda si está rebajada; null o ausente = sin descuento. */
+  regularAmount?: number | null;
+}
+
+/** Un producto con lo que hace falta para saber qué precio rige. */
+export interface PricedProduct {
+  /** Lo que se paga hoy en la moneda base. */
+  price: number;
+  currency: string;
+  /** Precio normal si está rebajado; null o ausente = sin descuento. */
+  regularPrice?: number | null;
+  /** Hasta cuándo vale el descuento (una fecha para todas sus monedas); null = sin fecha. */
+  saleEndsAt?: Date | string | null;
+  prices?: PriceEntry[];
+}
+
+export interface ProductPricing {
+  amount: number;
+  currency: string;
+  /** El producto no tiene precio en la moneda pedida: es el de la base. */
+  fallback: boolean;
+  /** Precio de antes, solo con descuento vigente. */
+  regular: number | null;
+  /** Porcentaje de descuento, entero; solo con descuento vigente. */
+  percent: number | null;
+  /** Hasta cuándo vale (ISO), si el descuento vigente tiene fecha. */
+  endsAt: string | null;
+}
+
+const validRegular = (amount: number, regular: number | null | undefined): regular is number =>
+  typeof regular === "number" && Number.isFinite(regular) && regular > amount;
+
+/**
+ * Porcentaje de descuento, entero y nunca 0 (un «−0 %» no dice nada); null si
+ * no hay descuento: el precio de antes falta, es cero o no es mayor.
+ */
+export function discountPercent(amount: number, regular: number | null | undefined): number | null {
+  if (!validRegular(amount, regular)) return null;
+  return Math.max(1, Math.round((1 - amount / regular) * 100));
+}
+
+/**
+ * Qué precio rige ahora para esa moneda y, si está rebajado, el de antes, el
+ * porcentaje y hasta cuándo. Un descuento vencido se lee como precio normal
+ * aunque la fila siga rebajada (el barrido la corrige después): ofrecer una
+ * oferta que ya terminó es justo lo que no puede pasar.
+ */
+export function productPricing(product: PricedProduct, currency: string | null, now: Date = new Date()): ProductPricing {
+  const hit = currency && currency !== product.currency ? product.prices?.find((p) => p.currency === currency) : undefined;
+  const base = !currency || currency === product.currency;
+  const entry = hit
+    ? { amount: hit.amount, currency: hit.currency, regular: hit.regularAmount, fallback: false }
+    : { amount: product.price, currency: product.currency, regular: product.regularPrice, fallback: !base };
+  const ends = product.saleEndsAt ? new Date(product.saleEndsAt) : null;
+  const none = { regular: null, percent: null, endsAt: null };
+  if (!validRegular(entry.amount, entry.regular)) {
+    return { amount: entry.amount, currency: entry.currency, fallback: entry.fallback, ...none };
+  }
+  if (ends && ends.getTime() <= now.getTime()) {
+    return { amount: entry.regular, currency: entry.currency, fallback: entry.fallback, ...none };
+  }
+  return {
+    amount: entry.amount,
+    currency: entry.currency,
+    fallback: entry.fallback,
+    regular: entry.regular,
+    percent: discountPercent(entry.amount, entry.regular),
+    endsAt: ends ? ends.toISOString() : null,
+  };
+}
+
+/**
+ * Lo que entra de una tienda o de un archivo: si no trae un descuento de
+ * verdad (precio de antes mayor que el de hoy), se guarda sin descuento y sin
+ * fecha. Una tienda que manda los dos precios iguales no tiene oferta.
+ */
+export function lenientDiscount(
+  price: number,
+  regular: number | null | undefined,
+  endsAt: Date | null | undefined,
+): { regularPrice: number | null; saleEndsAt: Date | null } {
+  if (!validRegular(price, regular)) return { regularPrice: null, saleEndsAt: null };
+  return { regularPrice: regular, saleEndsAt: endsAt ?? null };
+}
+
+/**
+ * Lo que guarda una persona (o la API): el mensaje de lo que está mal, o null
+ * si vale. Sin precio normal ni fecha no hay descuento, y eso vale.
+ */
+export function checkDiscount(
+  price: number,
+  regularPrice: number | null | undefined,
+  saleEndsAt: string | Date | null | undefined,
+  now: Date = new Date(),
+): string | null {
+  if (regularPrice == null) return saleEndsAt ? "Pon el precio normal para usar una fecha de fin" : null;
+  if (!validRegular(price, regularPrice)) return "El precio con descuento debe ser menor que el precio normal";
+  if (saleEndsAt && new Date(saleEndsAt).getTime() <= now.getTime()) return "La fecha de fin del descuento ya pasó";
+  return null;
+}
+
+/** «30 de noviembre»: el día en que acaba el descuento, en esa zona horaria. */
+export function discountUntilText(endsAt: string | Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("es", { day: "numeric", month: "long", timeZone }).format(new Date(endsAt));
 }
 
 /**
@@ -136,15 +240,12 @@ export interface PriceEntry {
  * quien lo muestre (el agente, la ficha) no lo presente como si lo tuviera.
  */
 export function priceFor(
-  product: { price: number; currency: string; prices?: PriceEntry[] },
+  product: PricedProduct,
   currency: string | null,
+  now: Date = new Date(),
 ): { amount: number; currency: string; fallback: boolean } {
-  if (!currency || currency === product.currency) {
-    return { amount: product.price, currency: product.currency, fallback: false };
-  }
-  const hit = product.prices?.find((p) => p.currency === currency);
-  if (hit) return { amount: hit.amount, currency: hit.currency, fallback: false };
-  return { amount: product.price, currency: product.currency, fallback: true };
+  const { amount, currency: cur, fallback } = productPricing(product, currency, now);
+  return { amount, currency: cur, fallback };
 }
 
 /** "S/ 1,490.00", "$1,490.00 MXN"… con el formato del idioma dado. */

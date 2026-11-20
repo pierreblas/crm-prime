@@ -6,10 +6,16 @@ export const productDtoSchema = z.object({
   name: z.string(),
   sku: z.string().nullable(),
   description: z.string().nullable(),
+  // Lo que se paga hoy. Con descuento vigente, `regularPrice` es el precio de
+  // antes, `discountPercent` el porcentaje y `saleEndsAt` hasta cuándo vale
+  // (un descuento vencido ya llega aquí como precio normal).
   price: z.number(),
   currency: z.string(),
+  regularPrice: z.number().nullable().default(null),
+  saleEndsAt: z.string().nullable().default(null),
+  discountPercent: z.number().nullable().default(null),
   // Precios en otras monedas (el de arriba es el precio base).
-  prices: z.array(z.object({ currency: z.string(), amount: z.number() })).default([]),
+  prices: z.array(z.object({ currency: z.string(), amount: z.number(), regularAmount: z.number().nullable().default(null) })).default([]),
   // Campos personalizados de producto (key → valor).
   attributes: z.record(z.string()).default({}),
   imageUrl: z.string().nullable(),
@@ -39,8 +45,13 @@ const currencyField = z
   .length(3, "Usa el código ISO de 3 letras (USD, EUR, PEN, MXN…)")
   .transform((v) => v.toUpperCase());
 // Precios adicionales: una entrada por moneda, distinta de la base.
+// Descuento: el precio normal (el de antes) y hasta cuándo vale. Que sea un
+// descuento de verdad lo comprueba checkDiscount al guardar, con el precio final.
+const regularPriceField = priceField.nullable();
+const saleEndsAtField = z.string().datetime({ message: "La fecha de fin del descuento no es válida" }).nullable();
+
 const pricesField = z
-  .array(z.object({ currency: currencyField, amount: priceField }))
+  .array(z.object({ currency: currencyField, amount: priceField, regularAmount: regularPriceField.optional() }))
   .max(20)
   .refine(
     (list) => new Set(list.map((p) => p.currency)).size === list.length,
@@ -59,6 +70,8 @@ export const createProductSchema = z.object({
   description: descriptionField.default(null),
   price: priceField.default(0),
   currency: currencyField.default("USD"),
+  regularPrice: regularPriceField.default(null),
+  saleEndsAt: saleEndsAtField.default(null),
   prices: pricesField.default([]),
   attributes: attributesField.default({}),
   imageUrl: imageUrlField.default(null),
@@ -72,6 +85,9 @@ export const updateProductSchema = z.object({
   description: descriptionField.optional(),
   price: priceField.optional(),
   currency: currencyField.optional(),
+  // null quita el descuento (y su fecha); sin enviar, se conserva.
+  regularPrice: regularPriceField.optional(),
+  saleEndsAt: saleEndsAtField.optional(),
   // Si viene, sustituye la lista entera de precios adicionales.
   prices: pricesField.optional(),
   // Si viene, sustituye todos los valores de campos personalizados.
@@ -88,6 +104,13 @@ export const PRODUCT_IMPORT_FIELDS = [
   { key: "name", label: "Nombre", required: true, aliases: ["nombre", "producto", "name", "title", "titulo", "título"] },
   { key: "sku", label: "SKU", required: false, aliases: ["sku", "codigo", "código", "code", "referencia", "ref"] },
   { key: "price", label: "Precio", required: true, aliases: ["precio", "price", "valor", "importe", "monto", "regular price", "precio regular", "precio normal", "pvp"] },
+  // Con esta columna, la de «Precio» pasa a ser el precio normal (el de antes).
+  {
+    key: "salePrice",
+    label: "Precio con descuento",
+    required: false,
+    aliases: ["precio con descuento", "precio descuento", "precio oferta", "precio de oferta", "oferta", "precio rebajado", "precio promocional", "sale price", "sale_price"],
+  },
   { key: "currency", label: "Moneda", required: false, aliases: ["moneda", "currency", "divisa"] },
   { key: "description", label: "Descripción", required: false, aliases: ["descripcion", "descripción", "description", "detalle", "detalles"] },
   { key: "imageUrl", label: "Imagen (URL)", required: false, aliases: ["imagen", "image", "imageurl", "image_url", "foto", "url imagen", "url de imagen", "images", "imagenes", "fotos"] },
@@ -199,6 +222,8 @@ export const productImportRowSchema = z.object({
   sku: skuField.default(null),
   description: descriptionField.default(null),
   price: priceField,
+  // Precio normal cuando la fila trae un «precio con descuento» menor.
+  regularPrice: regularPriceField.default(null),
   currency: currencyField.default("USD"),
   prices: pricesField.default([]),
   attributes: attributesField.default({}),
@@ -430,9 +455,18 @@ export function toProductImportRow(
   if (!name) return { ok: false, error: "Falta el nombre" };
 
   const rawPrice = get("price");
-  const price = rawPrice ? parseImportPrice(rawPrice) : 0;
-  if (price === null) return { ok: false, error: `Precio no válido: "${rawPrice}"` };
-  if (price < 0) return { ok: false, error: "El precio no puede ser negativo" };
+  const listed = rawPrice ? parseImportPrice(rawPrice) : 0;
+  if (listed === null) return { ok: false, error: `Precio no válido: "${rawPrice}"` };
+  if (listed < 0) return { ok: false, error: "El precio no puede ser negativo" };
+
+  // «Precio con descuento»: si es menor que el precio, pasa a ser lo que se
+  // paga y el precio queda como el de antes. Vacía, igual o mayor: sin descuento.
+  const rawSale = get("salePrice");
+  const sale = rawSale ? parseImportPrice(rawSale) : null;
+  if (rawSale && (sale === null || sale < 0)) return { ok: false, error: `Precio con descuento no válido: "${rawSale}"` };
+  const discounted = sale !== null && sale < listed;
+  const price = discounted ? sale : listed;
+  const regularPrice = discounted ? listed : null;
 
   const rawCurrency = get("currency");
   const currency = (rawCurrency || opts.defaultCurrency || "USD").trim().toUpperCase();
@@ -476,6 +510,7 @@ export function toProductImportRow(
     sku: get("sku") || null,
     description: get("description") || null,
     price,
+    regularPrice,
     currency,
     prices,
     attributes,
