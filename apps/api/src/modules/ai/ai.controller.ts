@@ -3,6 +3,7 @@ import {
   resolveActionsSchema,
   type AccessTokenClaims,
   type AiRunTrace,
+  type FollowUpPreview,
   type ResolveActionsInput,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -12,6 +13,7 @@ import { ConversationAccessGuard } from "../permissions/conversation-access.guar
 import { AgentActionsService } from "./agent-actions.service";
 import { AgentService } from "./agent.service";
 import { AiTraceService } from "./ai-trace.service";
+import { FollowUpService } from "./follow-up.service";
 
 // Como la mensajería: un vendedor solo pide la IA de las conversaciones de su
 // alcance. Antes cualquiera de la empresa podía pedir una sugerencia (y ver la
@@ -23,7 +25,20 @@ export class AiController {
     private readonly agent: AgentService,
     private readonly actions: AgentActionsService,
     private readonly traces: AiTraceService,
+    private readonly followUps: FollowUpService,
   ) {}
+
+  // El próximo seguimiento automático del chat: qué toque es, cuándo sale y qué va a decir.
+  @Get(":id/follow-up")
+  followUpPreview(@Param("id") id: string): Promise<FollowUpPreview | null> {
+    return this.followUps.preview(id);
+  }
+
+  // Un borrador de lo que redactaría la IA ahora para ese toque. No se envía.
+  @Post(":id/follow-up/draft")
+  followUpDraft(@Param("id") id: string): Promise<{ text: string }> {
+    return this.followUps.draft(id);
+  }
 
   // Copilot: la IA redacta una sugerencia de respuesta (el humano la revisa).
   @Post(":id/ai/suggest")

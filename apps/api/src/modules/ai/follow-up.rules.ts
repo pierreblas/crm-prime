@@ -112,14 +112,61 @@ export function followUpAllowed(cfg: FollowUps, convo: { aiMode: string; handoff
   return cfg.includeHuman || (convo.aiMode === "AUTOPILOT" && !convo.handoffAt);
 }
 
+/** Un listado de más productos no dice qué le interesa al cliente. */
+const SPECIFIC_MAX = 3;
+
+/**
+ * De lo que consultó el agente en el catálogo (lo que devolvió search_products,
+ * de la consulta más reciente a la más antigua), los productos de la última
+ * búsqueda concreta: los que le interesan al cliente. Un listado del catálogo
+ * entero se salta.
+ */
+export function consultedProductNames(outputs: unknown[]): string[] {
+  for (const output of outputs) {
+    const raw = output && typeof output === "object" ? (output as { result?: unknown }).result : null;
+    if (typeof raw !== "string") continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    const products = parsed && typeof parsed === "object" ? (parsed as { products?: unknown }).products : null;
+    if (!Array.isArray(products)) continue;
+    const names = products.map((p) => (p && typeof p === "object" ? (p as { name?: unknown }).name : null)).filter((n): n is string => typeof n === "string" && !!n.trim());
+    if (names.length >= 1 && names.length <= SPECIFIC_MAX) return names;
+  }
+  return [];
+}
+
+const amount = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+
+/** «Genómica bacteriana: USD 40 (antes USD 50, 20 % de descuento hasta el 30 de noviembre)». */
+export function productFactLine(
+  name: string,
+  p: { price: number; currency: string; regularPrice?: number; discount?: string; discountUntil?: string },
+): string {
+  const sale =
+    p.regularPrice !== undefined
+      ? ` (antes ${p.currency} ${amount(p.regularPrice)}, ${p.discount} de descuento${p.discountUntil ? ` hasta el ${p.discountUntil}` : ""})`
+      : "";
+  return `${name}: ${p.currency} ${amount(p.price)}${sale}`;
+}
+
 /**
  * Lo que se le pide al modelo cuando redacta un seguimiento. No consulta el
  * catálogo: escribe a partir del chat, donde puede haber un precio o una
- * oferta que ya cambió o venció, así que no los menciona.
+ * oferta que ya cambió o venció. Con `facts` (los datos de hoy de lo que
+ * consultó el cliente, ver consultedProductNames) puede citar esos y solo
+ * esos; sin ellos, no menciona ninguno.
  */
-export function followUpDraftAsk(goal: string): string {
+export function followUpDraftAsk(goal: string, facts: string[] = []): string {
+  const prices = facts.length
+    ? ` Datos de hoy de lo que consultó el cliente:\n${facts.map((f) => `- ${f}`).join("\n")}\nEsos son los únicos precios, descuentos y fechas de oferta que puedes mencionar (los del chat pueden haber cambiado); si ayudan a retomar, dilos tal cual, sin calcular nada.`
+    : " No menciones precios, descuentos ni fechas de oferta: pueden haber cambiado desde que se hablaron.";
   return (
-    "[Nota del sistema, no es un mensaje del cliente] El cliente lleva un tiempo sin responder. Escribe UN solo mensaje de seguimiento, breve (una o dos frases), cálido y sin presionar, que retome lo último que hablaban. No saludes como si fuera el primer contacto ni repitas lo que ya dijiste. No menciones precios, descuentos ni fechas de oferta: pueden haber cambiado desde que se hablaron." +
+    "[Nota del sistema, no es un mensaje del cliente] El cliente lleva un tiempo sin responder. Escribe UN solo mensaje de seguimiento, breve (una o dos frases), cálido y sin presionar, que retome lo último que hablaban. No saludes como si fuera el primer contacto ni repitas lo que ya dijiste." +
+    prices +
     (goal.trim() ? ` Objetivo del mensaje: ${goal.trim()}.` : "") +
     " Devuelve solo el texto del mensaje."
   );

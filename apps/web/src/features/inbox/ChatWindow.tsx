@@ -62,6 +62,7 @@ import {
 import { NavIcon } from "@/components/NavIcons";
 import Link from "next/link";
 import { useLocale, useT } from "@/i18n/I18nProvider";
+import { FollowUpChip } from "./FollowUpChip";
 import { useAiTyping } from "./aiTyping";
 import { AiWhy, sentimentLabel } from "./AiWhy";
 import { CallEntry } from "@/features/calls/CallEntry";
@@ -429,22 +430,16 @@ export function ChatWindow({
         </div>
 
         <div className="chat-header__tools" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          {/* Seguimiento automático pendiente: se ve y se puede cancelar desde aquí. */}
+          {/* Seguimiento automático pendiente: se ve qué va a enviar y se puede cancelar desde aquí. */}
           {conversation.followUpDueAt && (
-            <span style={windowChip} title={t("inbox.followUpTitle")}>
-              <NavIcon name="clock" size={12} />
-              {t("inbox.followUpChip", { n: conversation.followUpStep + 1, time: followUpIn(conversation.followUpDueAt) })}
-              <button
-                type="button"
-                onClick={() => cancelFollowUpMut.mutate()}
-                disabled={cancelFollowUpMut.isPending}
-                title={t("inbox.followUpCancel")}
-                aria-label={t("inbox.followUpCancel")}
-                style={chipClose}
-              >
-                <NavIcon name="x" size={11} />
-              </button>
-            </span>
+            <FollowUpChip
+              conversationId={conversation.id}
+              step={conversation.followUpStep}
+              dueAt={conversation.followUpDueAt}
+              label={t("inbox.followUpChip", { n: conversation.followUpStep + 1, time: followUpIn(conversation.followUpDueAt) })}
+              onCancel={() => cancelFollowUpMut.mutate()}
+              cancelling={cancelFollowUpMut.isPending}
+            />
           )}
           {/* Cuánto queda de la ventana de 24 h: el dato que decide si puedes
               escribir libre o solo mandar una plantilla. */}
@@ -1129,17 +1124,6 @@ const windowChip: React.CSSProperties = {
   fontSize: 11.5,
   fontWeight: 600,
   whiteSpace: "nowrap",
-};
-
-const chipClose: React.CSSProperties = {
-  background: "none",
-  border: "none",
-  color: "inherit",
-  cursor: "pointer",
-  padding: 0,
-  marginLeft: 2,
-  display: "inline-flex",
-  alignItems: "center",
 };
 
 const messagesArea: React.CSSProperties = {

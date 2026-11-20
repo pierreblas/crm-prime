@@ -37,6 +37,7 @@ import type {
   ProductFieldDto,
   UpdateProductFieldInput,
   DashboardDto,
+  FollowUpPreview,
   PaymentMethodDto,
   CreatePaymentMethodInput,
   UpdatePaymentMethodInput,
@@ -317,6 +318,22 @@ export async function setConversationStatus(
     body: JSON.stringify({ status }),
   });
   if (!res.ok) throw new Error("No se pudo cambiar el estado");
+  return res.json();
+}
+
+/** El próximo seguimiento automático del chat: qué toque es, cuándo sale y qué va a decir. null si no hay. */
+export async function fetchFollowUpPreview(conversationId: string): Promise<FollowUpPreview | null> {
+  const res = await bffFetch(`/api/bff/conversations/${conversationId}/follow-up`);
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo cargar el seguimiento"));
+  // Sin seguimiento, la API responde vacío.
+  const body = await res.text();
+  return body ? (JSON.parse(body) as FollowUpPreview | null) : null;
+}
+
+/** Un borrador de lo que redactaría la IA ahora para el próximo seguimiento. No se envía. */
+export async function draftFollowUp(conversationId: string): Promise<{ text: string }> {
+  const res = await bffFetch(`/api/bff/conversations/${conversationId}/follow-up/draft`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo redactar el borrador"));
   return res.json();
 }
 

@@ -15,7 +15,7 @@ import { wooDiscount } from "../src/modules/products/connectors/woocommerce.conn
 import { mercadoLibreDiscount } from "../src/modules/products/connectors/mercadolibre.connector";
 import { sameAsStore } from "../src/modules/products/product-sync.service";
 import { agentPrice } from "../src/modules/ai/product-agent-price";
-import { followUpDraftAsk } from "../src/modules/ai/follow-up.rules";
+import { consultedProductNames, followUpDraftAsk, productFactLine } from "../src/modules/ai/follow-up.rules";
 import { AgentService } from "../src/modules/ai/agent.service";
 import { parseProductListQuery, productListQueryToParams, countProductFilters } from "@crm/shared";
 
@@ -273,4 +273,51 @@ test("la regla del agente sobre descuentos va con el catálogo; el seguimiento n
   assert.match(followUpDraftAsk("retomar la cotización"), /No menciones precios, descuentos ni fechas de oferta: pueden haber cambiado desde que se hablaron\./);
   assert.match(followUpDraftAsk("retomar la cotización"), /Objetivo del mensaje: retomar la cotización\./);
   assert.doesNotMatch(followUpDraftAsk("  "), /Objetivo del mensaje/);
+});
+
+// ── El seguimiento de IA con datos al día ──────────────────────
+test("seguimiento de IA: de lo que consultó el agente, el producto concreto por el que preguntó el cliente", () => {
+  const out = (names: string[]) => ({ result: JSON.stringify({ total: names.length, products: names.map((name) => ({ name, price: 10 })) }) });
+  // De la más reciente a la más antigua: un listado del catálogo entero no dice qué le interesa.
+  const catalog = out(Array.from({ length: 12 }, (_, i) => `Curso ${i}`));
+  assert.deepEqual(consultedProductNames([catalog, out(["Genómica bacteriana"]), out(["Otro"])]), ["Genómica bacteriana"]);
+  assert.deepEqual(consultedProductNames([out(["A", "B", "C"])]), ["A", "B", "C"]);
+  assert.deepEqual(consultedProductNames([catalog]), [], "solo listados: nada concreto");
+  assert.deepEqual(consultedProductNames([out([]), { result: "no es JSON" }, null, {}]), []);
+});
+
+test("seguimiento de IA: cada producto, con su precio de hoy y su descuento ya dichos", () => {
+  assert.equal(productFactLine("Genómica bacteriana", { price: 40, currency: "USD", regularPrice: 50, discount: "20 %", discountUntil: "30 de noviembre" }), "Genómica bacteriana: USD 40 (antes USD 50, 20 % de descuento hasta el 30 de noviembre)");
+  assert.equal(productFactLine("Taller", { price: 40, currency: "USD", regularPrice: 50, discount: "20 %" }), "Taller: USD 40 (antes USD 50, 20 % de descuento)");
+  assert.equal(productFactLine("Taller", { price: 49.9, currency: "PEN" }), "Taller: PEN 49.90");
+});
+
+test("seguimiento de IA: con datos al día puede citar esos y solo esos; sin ellos, ninguno", () => {
+  const withFacts = followUpDraftAsk("retomar", ["Genómica bacteriana: USD 40 (antes USD 50, 20 % de descuento hasta el 30 de noviembre)"]);
+  assert.match(withFacts, /Datos de hoy de lo que consultó el cliente:\n- Genómica bacteriana: USD 40 \(antes USD 50, 20 % de descuento hasta el 30 de noviembre\)/);
+  assert.match(withFacts, /son los únicos precios, descuentos y fechas de oferta que puedes mencionar/);
+  assert.doesNotMatch(withFacts, /No menciones precios, descuentos ni fechas de oferta: pueden haber cambiado/);
+  assert.match(followUpDraftAsk("retomar", []), /No menciones precios, descuentos ni fechas de oferta: pueden haber cambiado desde que se hablaron\./);
+});
+
+test("seguimiento de IA: recibe el precio de hoy de lo que consultó el cliente, nunca un descuento ya vencido", async () => {
+  const facts = (product: Record<string, unknown>, consulted = ["Genómica bacteriana"]) => {
+    const prisma = {
+      aiToolCall: { findMany: async () => [{ output: { result: JSON.stringify({ total: consulted.length, products: consulted.map((name) => ({ name })) }) } }] },
+      product: { findMany: async () => [{ name: "Genómica bacteriana", currency: "USD", prices: [], regularPrice: null, saleEndsAt: null, ...product }] },
+      bookingSettings: { findFirst: async () => ({ timezone: LIMA }) },
+    };
+    const followUpFacts = (AgentService.prototype as unknown as { followUpFacts(id: string, contact: object): Promise<string[]> }).followUpFacts;
+    return followUpFacts.call({ prisma }, "cv1", { phone: "+51987654321" });
+  };
+  // Rebajado y vigente (acaba en 2099 para que la prueba no caduque).
+  assert.deepEqual(await facts({ price: 40, regularPrice: 50, saleEndsAt: new Date("2099-12-01T04:59:00.000Z") }), [
+    "Genómica bacteriana: USD 40 (antes USD 50, 20 % de descuento hasta el 30 de noviembre)",
+  ]);
+  // El descuento que se habló en el chat ya venció: hoy cuesta lo normal y no hay oferta que citar.
+  assert.deepEqual(await facts({ price: 40, regularPrice: 50, saleEndsAt: PAST }), ["Genómica bacteriana: USD 50"]);
+  // Sin descuento.
+  assert.deepEqual(await facts({ price: 50 }), ["Genómica bacteriana: USD 50"]);
+  // El producto consultado ya no existe o está inactivo: nada que citar.
+  assert.deepEqual(await facts({ price: 50 }, ["Otro curso"]), []);
 });

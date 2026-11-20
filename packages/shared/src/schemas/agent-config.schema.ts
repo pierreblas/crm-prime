@@ -387,3 +387,25 @@ export const updateBotSchema = z.object({
   followUps: botFields.followUps.optional(),
 });
 export type UpdateBotInput = z.infer<typeof updateBotSchema>;
+
+/**
+ * El próximo seguimiento automático de un chat, como lo ve el equipo antes de
+ * que salga: qué toque es, cuándo, y qué va a decir. Un texto fijo o una
+ * plantilla se enseñan tal cual; lo que redacta la IA aún no existe (se enseña
+ * su objetivo y se puede pedir un borrador).
+ */
+export const followUpPreviewSchema = z.object({
+  /** Qué toque es (desde 1) y cuántos tiene el agente. */
+  step: z.number(),
+  total: z.number(),
+  dueAt: z.string(),
+  kind: z.enum(followUpKinds),
+  /** El mensaje exacto (texto fijo, o la plantilla con el nombre del cliente); null si lo redacta la IA. */
+  message: z.string().nullable(),
+  /** kind=ai: lo que debe conseguir, si se configuró. */
+  goal: z.string().nullable(),
+  templateName: z.string().nullable(),
+  /** Por qué no va a poder salir, si ya se sabe. */
+  blocked: z.string().nullable(),
+});
+export type FollowUpPreview = z.infer<typeof followUpPreviewSchema>;

@@ -1,7 +1,7 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
 import { MessageAuthor, MessageType } from "@prisma/client";
-import type { BusinessHours, FollowUpStep } from "@crm/shared";
+import type { BusinessHours, FollowUpPreview, FollowUpStep } from "@crm/shared";
 import { env } from "../../common/utils/env";
 import { isWithinHours } from "../../common/utils/business-hours";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -131,6 +131,83 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
       );
     }
     this.events.emit("inbox.changed", { conversationId: convo.id, orgId: convo.orgId });
+  }
+
+  // ── Lo que va a salir, antes de que salga ───────────────────
+  /**
+   * El próximo seguimiento del chat como lo ve el equipo: qué toque es, cuándo
+   * sale y qué va a decir. No envía ni cambia nada. null si no hay ninguno
+   * programado o el agente ya no tiene ese toque.
+   */
+  async preview(conversationId: string): Promise<FollowUpPreview | null> {
+    const found = await this.nextStep(conversationId);
+    if (!found) return null;
+    const { convo, step, index, total } = found;
+    const dueAt = convo.followUpDueAt!;
+    const base = { step: index + 1, total, dueAt: dueAt.toISOString(), kind: step.kind, goal: null, templateName: null, message: null, blocked: null };
+    // Fuera de la ventana solo cabe una plantilla (ver fire()).
+    const windowOpen = !!convo.windowExpiresAt && convo.windowExpiresAt > dueAt;
+    const closed =
+      convo.channelKind === "whatsapp"
+        ? "No va a salir: para entonces la ventana de 24 h estará cerrada y este toque no es una plantilla."
+        : "No va a salir: para entonces la ventana para escribirle estará cerrada.";
+
+    if (step.kind === "template") {
+      const template = step.templateId ? await this.prisma.template.findUnique({ where: { id: step.templateId }, select: { name: true, body: true } }) : null;
+      if (!template) return { ...base, blocked: step.templateId ? "No va a salir: su plantilla ya no existe." : "No va a salir: no tiene una plantilla elegida." };
+      const contact = await this.prisma.contact.findUnique({ where: { id: convo.contactId }, select: { name: true } });
+      return {
+        ...base,
+        templateName: template.name,
+        message: template.body.replace(/\{\{\s*1\s*\}\}/g, contact?.name?.trim() || "…"),
+        blocked: convo.channelKind !== "whatsapp" ? `No va a salir: las plantillas solo existen en WhatsApp y este chat es de ${convo.channelKind}.` : null,
+      };
+    }
+    if (step.kind === "ai") return { ...base, goal: step.text?.trim() || null, blocked: windowOpen ? null : closed };
+    const message = (await customerTextFor(this.prisma, convo.id, step.text ?? "")).trim();
+    return { ...base, message: message || null, blocked: !windowOpen ? closed : message ? null : "No va a salir: este toque no tiene texto." };
+  }
+
+  /**
+   * Un borrador de lo que redactaría la IA ahora mismo para el próximo toque.
+   * No se envía: el mensaje real se redacta cuando toca y puede variar.
+   */
+  async draft(conversationId: string): Promise<{ text: string }> {
+    const found = await this.nextStep(conversationId);
+    if (!found) throw new NotFoundException("Este chat no tiene un seguimiento programado");
+    if (found.step.kind !== "ai") throw new BadRequestException("Solo los seguimientos que redacta la IA tienen borrador");
+    if (!(await this.aiSettings.status()).ready) throw new BadRequestException("La IA no está disponible ahora (sin clave o con el cupo lleno)");
+    const text = await this.agent.draftFollowUp(conversationId, found.step.text);
+    if (!text?.trim()) throw new BadRequestException("La IA no redactó nada (cupo agotado o respuesta vacía)");
+    return { text: text.trim() };
+  }
+
+  /** La conversación y el toque que tiene programado, si lo tiene. */
+  private async nextStep(conversationId: string) {
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        id: true,
+        orgId: true,
+        contactId: true,
+        channelId: true,
+        channelKind: true,
+        metaPageId: true,
+        tiktokAccountId: true,
+        status: true,
+        aiMode: true,
+        handoffAt: true,
+        windowExpiresAt: true,
+        followUpStep: true,
+        followUpDueAt: true,
+      },
+    });
+    if (!convo?.followUpDueAt) return null;
+    const bot = await this.bots.resolveForConversation(convo);
+    const cfg = bot?.isActive ? parseFollowUps(bot.followUps) : null;
+    const step = cfg?.steps[convo.followUpStep];
+    if (!cfg || !step) return null;
+    return { convo, step, index: convo.followUpStep, total: cfg.steps.length };
   }
 
   // ── Enviar lo vencido ───────────────────────────────────────

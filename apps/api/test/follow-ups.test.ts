@@ -253,7 +253,7 @@ function setup(cfg: FollowUps, convoPatch: Record<string, unknown> = {}, botPatc
   };
   const sent: string[] = [];
   const notes: string[] = [];
-  const templates = new Map([["tpl_1", { body: "Hola {{1}}" }]]);
+  const templates = new Map([["tpl_1", { name: "recordatorio_curso", body: "Hola {{1}}, ¿seguimos con tu inscripción?" }]]);
   const prisma = {
     conversation: {
       findUnique: async () => ({ ...convo }),
@@ -267,7 +267,7 @@ function setup(cfg: FollowUps, convoPatch: Record<string, unknown> = {}, botPatc
     message: { findFirst: async () => ({ direction: "OUTBOUND" }) },
     deal: { findFirst: async () => null },
     // La baja del contacto: se prueba pasando `optIn: false` en el parche de la conversación.
-    contact: { findUnique: async () => ({ optIn: (convoPatch as { optIn?: boolean } | undefined)?.optIn ?? true }) },
+    contact: { findUnique: async () => ({ name: "Ana Torres", optIn: (convoPatch as { optIn?: boolean } | undefined)?.optIn ?? true }) },
     user: { findFirst: async () => ({ id: "u1" }) },
     template: { findUnique: async ({ where }: { where: { id: string } }) => templates.get(where.id) ?? null },
   };
@@ -380,4 +380,62 @@ test("servicio: un cliente que pidió la baja no recibe seguimientos", async () 
   await s.service.fire("cv1");
   assert.deepEqual(s.sent, []);
   assert.equal(s.convo.followUpDueAt, null, "se quita del plan");
+});
+
+// ── Qué va a enviar el próximo seguimiento (lo que ve el equipo en el chat) ──
+test("vista previa: un toque de texto enseña el mensaje exacto, qué toque es y cuándo sale", async () => {
+  // A las 24 h la ventana ya cerró: el segundo toque solo puede ser una plantilla.
+  const s = setup(seq([text(120), template(1440)]));
+  const p = await s.service.preview("cv1");
+  assert.deepEqual(
+    { step: p!.step, total: p!.total, kind: p!.kind, message: p!.message, goal: p!.goal, templateName: p!.templateName, blocked: p!.blocked },
+    { step: 1, total: 2, kind: "text", message: "¿Pudiste verlo?", goal: null, templateName: null, blocked: null },
+  );
+  assert.equal(p!.dueAt, (s.convo.followUpDueAt as Date).toISOString());
+  assert.deepEqual(s.sent, [], "ver la vista previa no envía nada");
+});
+
+test("vista previa: una plantilla enseña su nombre y el texto con el nombre del cliente", async () => {
+  const s = setup(seq([template(120)]));
+  const p = await s.service.preview("cv1");
+  assert.deepEqual({ kind: p!.kind, templateName: p!.templateName, message: p!.message, blocked: p!.blocked }, {
+    kind: "template",
+    templateName: "recordatorio_curso",
+    message: "Hola Ana Torres, ¿seguimos con tu inscripción?",
+    blocked: null,
+  });
+});
+
+test("vista previa: lo que redacta la IA no tiene texto todavía; se ve su objetivo y se puede pedir un borrador", async () => {
+  const s = setup(seq([{ ...ai(120), text: "retomar la cotización" }]));
+  const p = await s.service.preview("cv1");
+  assert.deepEqual({ kind: p!.kind, message: p!.message, goal: p!.goal }, { kind: "ai", message: null, goal: "retomar la cotización" });
+  assert.deepEqual(await s.service.draft("cv1"), { text: "¿Seguimos con la cotización?" });
+  assert.deepEqual(s.sent, [], "el borrador no se envía");
+  // Solo los toques de IA tienen borrador.
+  const fixed = setup(seq([text(120)]));
+  await assert.rejects(() => fixed.service.draft("cv1"), /solo.*IA/i);
+});
+
+test("vista previa: avisa si el toque no va a poder salir", async () => {
+  // La ventana se cierra antes de la hora del toque y no es una plantilla.
+  const closing = setup(seq([text(120)]), { windowExpiresAt: new Date(Date.now() - 60_000) });
+  assert.match((await closing.service.preview("cv1"))!.blocked!, /ventana de 24 h/);
+  // Una plantilla sí sale con la ventana cerrada.
+  const tpl = setup(seq([template(120)]), { windowExpiresAt: new Date(Date.now() - 60_000) });
+  assert.equal((await tpl.service.preview("cv1"))!.blocked, null);
+  // Plantilla borrada.
+  const gone = setup(seq([{ ...template(120), templateId: "tpl_x" }]));
+  assert.match((await gone.service.preview("cv1"))!.blocked!, /plantilla ya no existe/);
+  // Plantilla en un canal que no es WhatsApp.
+  const ig = setup(seq([template(120)]), { channelKind: "instagram" });
+  assert.match((await ig.service.preview("cv1"))!.blocked!, /solo existen en WhatsApp/);
+});
+
+test("vista previa: sin seguimiento programado no hay nada que enseñar", async () => {
+  const none = setup(seq([text(120)]), { followUpDueAt: null });
+  assert.equal(await none.service.preview("cv1"), null);
+  // El agente ya no tiene ese toque (lo quitaron después de programarlo).
+  const removed = setup(seq([text(120)]), { followUpStep: 3 });
+  assert.equal(await removed.service.preview("cv1"), null);
 });

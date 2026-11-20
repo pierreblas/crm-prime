@@ -32,7 +32,7 @@ import { fold } from "../../common/utils/fold";
 import { searchProducts } from "./product-search";
 import { buttonsSummary, knowledgeCall, traceToolCall } from "./playground-trace";
 import { agentPrice, DEFAULT_DISCOUNT_TIME_ZONE } from "./product-agent-price";
-import { followUpDraftAsk } from "./follow-up.rules";
+import { consultedProductNames, followUpDraftAsk, productFactLine } from "./follow-up.rules";
 import { buttonRules, endsWithQuestion, parseReplyOptions, REPLY_OPTIONS_SYSTEM, replyOptionsInput } from "./reply-options";
 import { groundReview, parseSimulationReview, SIMULATION_REVIEW_MODEL, SIMULATION_REVIEW_SYSTEM, simulationReviewInput } from "./simulation-review";
 import { MediaUnderstandingService } from "./media-understanding.service";
@@ -1240,6 +1240,50 @@ export class AgentService {
    * servicio de seguimientos). Sin herramientas: retoma lo último que se
    * hablaba. null si el modelo no devolvió texto.
    */
+  /**
+   * Los datos de hoy de lo que el cliente consultó en este chat (precio y, si
+   * está rebajado, el de antes, el porcentaje y hasta cuándo): lo único de
+   * precios que un seguimiento puede citar. El chat puede traer un precio o
+   * una oferta que ya cambió.
+   */
+  private async followUpFacts(conversationId: string, contact: { phone: string; currency?: string | null }): Promise<string[]> {
+    const calls = await this.prisma.aiToolCall.findMany({
+      where: { toolName: "search_products", aiRun: { conversationId } },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: { output: true },
+    });
+    const names = consultedProductNames(calls.map((c) => c.output));
+    if (!names.length) return [];
+    const rows = await this.prisma.product.findMany({
+      where: { isActive: true, name: { in: names } },
+      select: { name: true, price: true, currency: true, regularPrice: true, saleEndsAt: true, prices: { select: { currency: true, amount: true, regularAmount: true } } },
+    });
+    const timeZone = rows.some((p) => p.saleEndsAt)
+      ? ((await this.prisma.bookingSettings.findFirst({ select: { timezone: true } }))?.timezone ?? DEFAULT_DISCOUNT_TIME_ZONE)
+      : DEFAULT_DISCOUNT_TIME_ZONE;
+    const currency = contactCurrency(contact);
+    return names
+      .map((name) => rows.find((r) => r.name === name))
+      .filter((p): p is NonNullable<typeof p> => !!p)
+      .map((p) =>
+        productFactLine(
+          p.name,
+          agentPrice(
+            {
+              price: Number(p.price),
+              currency: p.currency,
+              regularPrice: p.regularPrice == null ? null : Number(p.regularPrice),
+              saleEndsAt: p.saleEndsAt,
+              prices: p.prices.map((x) => ({ currency: x.currency, amount: Number(x.amount), regularAmount: x.regularAmount == null ? null : Number(x.regularAmount) })),
+            },
+            currency,
+            timeZone,
+          ),
+        ),
+      );
+  }
+
   async draftFollowUp(conversationId: string, goal: string): Promise<string | null> {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
@@ -1254,7 +1298,7 @@ export class AgentService {
       channel: conversation.channelKind,
     });
     const history = await this.buildHistory(conversationId);
-    const ask = followUpDraftAsk(goal);
+    const ask = followUpDraftAsk(goal, await this.followUpFacts(conversationId, conversation.contact));
     const res = await this.llm.generate({
       feature: "follow_up",
       system: system.system,
