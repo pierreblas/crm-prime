@@ -230,15 +230,19 @@ export function formatAiIncluded(n: number | null): string {
 }
 
 /**
- * Tokens en corto, como se leen en el medidor: «2,5 M», «850 mil», «420».
- * Siempre en español: es la unidad que vende Driony y así sale igual en la
- * landing, en Ajustes y en la consola.
+ * Tokens en corto, como se leen en el medidor: «2,5 M», «49,7 M», «850 mil»,
+ * «420». Siempre en español: es la unidad que vende Driony y así sale igual
+ * en la landing, en Ajustes y en la consola.
+ *
+ * Los millones llevan siempre un decimal (los redondos salen sin él: «50 M»).
+ * Antes, desde 10 M iban sin decimal y un cupo de 50 M seguía diciendo «50 M»
+ * hasta gastar medio millón de tokens: parecía que el contador no bajaba.
  */
 export function formatTokens(n: number): string {
   const abs = Math.abs(n);
   if (abs >= 1_000_000) {
     const m = n / 1_000_000;
-    return `${m.toLocaleString("es", { maximumFractionDigits: abs >= 10_000_000 ? 0 : 1 })} M`;
+    return `${m.toLocaleString("es", { maximumFractionDigits: 1 })} M`;
   }
   if (abs >= 1_000) {
     const k = n / 1_000;
