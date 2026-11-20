@@ -2933,3 +2933,53 @@ test("métodos de pago con el rol restringido: cada empresa ve, edita y envía s
   const tools = await ctx.runInOrg(orgs[1], () => actions.loadContext().catch(() => null));
   if (tools) assert.deepEqual(tools.paymentMethods, ["Nequi"]);
 });
+
+test("descuentos de producto con el rol restringido: se guardan, se leen, se filtran y cada empresa ve solo los suyos", async () => {
+  const { ProductsController } = await import("../src/modules/products/products.controller");
+  const { ProductCatalogService } = await import("../src/modules/products/product-catalog.service");
+  const { parseProductListQuery } = await import("@crm/shared");
+  const suf = String(Date.now()).slice(-7);
+  const orgs = [`o_disc_${suf}`, `o_disc2_${suf}`] as const;
+  await ctx.runUnscoped("prueba: empresas de descuentos", async () => {
+    for (const [i, id] of orgs.entries()) await prisma.organization.create({ data: { id, slug: `disc${i}-${suf}`, name: `Descuentos ${i}` } });
+  });
+  const tenantOf = (orgId: string) => ({ orgId: () => orgId }) as any;
+  const controller = (orgId: string) => new ProductsController(prisma, tenantOf(orgId), new ProductCatalogService(prisma, tenantOf(orgId)), {} as any);
+  const base = { sku: null, description: null, attributes: {}, imageUrl: null, isActive: true, currency: "USD" };
+  const ends = new Date(Date.now() + 5 * 86_400_000).toISOString();
+
+  const [sale, plain] = await ctx.runInOrg(orgs[0], async () => {
+    const c = controller(orgs[0]);
+    const sale = await c.create({ ...base, name: "Con descuento", price: 40, regularPrice: 50, saleEndsAt: ends, prices: [{ currency: "PEN", amount: 150, regularAmount: 190 }, { currency: "EUR", amount: 37 }] });
+    const plain = await c.create({ ...base, name: "Sin descuento", price: 50, regularPrice: null, saleEndsAt: null, prices: [] });
+    return [sale, plain];
+  });
+  assert.deepEqual(
+    { price: sale.price, regularPrice: sale.regularPrice, discountPercent: sale.discountPercent, saleEndsAt: sale.saleEndsAt },
+    { price: 40, regularPrice: 50, discountPercent: 20, saleEndsAt: ends },
+  );
+  assert.deepEqual(sale.prices, [
+    { currency: "EUR", amount: 37, regularAmount: null },
+    { currency: "PEN", amount: 150, regularAmount: 190 },
+  ]);
+  assert.equal(plain.regularPrice, null);
+
+  // El filtro «Con descuento» (SQL) trae solo el rebajado; y la otra empresa, nada.
+  const list = (orgId: string, qs: string) => ctx.runInOrg(orgId, () => new ProductCatalogService(prisma, tenantOf(orgId)).page(parseProductListQuery(new URLSearchParams(qs))));
+  assert.deepEqual((await list(orgs[0], "discount=1")).data.map((p: any) => p.name), ["Con descuento"]);
+  assert.equal((await list(orgs[0], "")).data.length, 2);
+  assert.equal((await list(orgs[1], "")).data.length, 0, "la otra empresa no ve los productos");
+
+  await ctx.runInOrg(orgs[0], async () => {
+    const c = controller(orgs[0]);
+    // Lo que no es un descuento se rechaza con su motivo.
+    await assert.rejects(() => c.update(sale.id, { regularPrice: 40 }), /El precio con descuento debe ser menor que el precio normal/);
+    await assert.rejects(() => c.update(sale.id, { prices: [{ currency: "PEN", amount: 190, regularAmount: 190 }] }), /\(PEN\)/);
+    // Se quita el descuento: vuelve al normal y se borra la fecha.
+    const cleared = await c.update(sale.id, { price: 50, regularPrice: null });
+    assert.deepEqual({ price: cleared.price, regularPrice: cleared.regularPrice, saleEndsAt: cleared.saleEndsAt, discountPercent: cleared.discountPercent }, { price: 50, regularPrice: null, saleEndsAt: null, discountPercent: null });
+    const row = await prisma.product.findUnique({ where: { id: sale.id }, select: { regularPrice: true, saleEndsAt: true } });
+    assert.deepEqual(row, { regularPrice: null, saleEndsAt: null });
+  });
+  assert.equal((await list(orgs[0], "discount=1")).data.length, 0);
+});

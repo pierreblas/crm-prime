@@ -30,6 +30,7 @@ import {
 import type { Prisma } from "@prisma/client";
 import { ProductCatalogService, cleanAttributes as clean } from "./product-catalog.service";
 import { CatalogGapsService } from "./catalog-gaps.service";
+import { assertPriceDiscounts, resolveDiscount } from "./product-discount";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -75,6 +76,8 @@ export class ProductsController {
     // El SKU es único en la BD: sin esta comprobación, un duplicado sale
     // como un 500 opaco en vez de decirle al usuario qué corregir.
     await this.assertSkuFree(body.sku, null);
+    const discount = resolveDiscount(body, null);
+    assertPriceDiscounts(body.prices);
     const p = await this.prisma.product.create({
       data: {
         orgId: this.tenant.orgId(),
@@ -82,6 +85,7 @@ export class ProductsController {
         sku: body.sku,
         description: body.description,
         price: body.price,
+        ...discount,
         currency: body.currency,
         imageUrl: body.imageUrl,
         isActive: body.isActive,
@@ -141,6 +145,10 @@ export class ProductsController {
           sku: row.sku,
           description: row.description,
           price: row.price,
+          // El archivo manda sobre su precio: con «precio con descuento» queda
+          // rebajado (sin fecha de fin); sin esa columna, sin descuento.
+          regularPrice: row.regularPrice,
+          saleEndsAt: null,
           currency: row.currency,
           imageUrl: row.imageUrl,
           isActive: row.isActive,
@@ -191,6 +199,8 @@ export class ProductsController {
     const existing = await this.prisma.product.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException("Producto no encontrado");
     if (body.sku !== undefined) await this.assertSkuFree(body.sku, id);
+    const discount = resolveDiscount(body, existing);
+    if (body.prices !== undefined) assertPriceDiscounts(body.prices);
     const p = await this.prisma.product.update({
       where: { id },
       data: {
@@ -198,6 +208,7 @@ export class ProductsController {
         ...(body.sku !== undefined ? { sku: body.sku } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.price !== undefined ? { price: body.price } : {}),
+        ...discount,
         ...(body.currency !== undefined ? { currency: body.currency } : {}),
         ...(body.imageUrl !== undefined ? { imageUrl: body.imageUrl } : {}),
         ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
@@ -240,7 +251,7 @@ export class ProductsController {
   private async setPrices(
     productId: string,
     base: string,
-    prices: { currency: string; amount: number }[],
+    prices: { currency: string; amount: number; regularAmount?: number | null }[],
   ): Promise<void> {
     await this.prisma.productPrice.deleteMany({ where: { productId } });
     const rows = prices.filter((p) => p.currency !== base);
@@ -251,6 +262,7 @@ export class ProductsController {
         productId,
         currency: p.currency,
         amount: p.amount,
+        regularAmount: p.regularAmount ?? null,
       })),
     });
   }
@@ -263,9 +275,10 @@ export class ProductsController {
   ): Promise<void> {
     for (const p of prices) {
       if (p.currency === base) continue;
+      // El archivo no trae descuento por moneda: su precio pasa a ser el de esa moneda, sin rebaja.
       await this.prisma.productPrice.upsert({
         where: { productId_currency: { productId, currency: p.currency } },
-        update: { amount: p.amount },
+        update: { amount: p.amount, regularAmount: null },
         create: { orgId: this.tenant.orgId(), productId, currency: p.currency, amount: p.amount },
       });
     }

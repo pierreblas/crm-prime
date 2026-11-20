@@ -40,6 +40,8 @@ export interface ProductListQuery {
   price: Range | null;
   /** Moneda del rango de precio; null = el precio base de cada producto. */
   currency: string | null;
+  /** Solo los que tienen un descuento vigente. */
+  discount: boolean;
   sort: ProductSort;
   page: number;
   pageSize: number;
@@ -127,6 +129,7 @@ export function parseProductListQuery(src: ParamSource): ProductListQuery {
     source: (one("source") ?? "").trim().slice(0, 40) || null,
     price: parseRange(one("price")),
     currency: /^[A-Z]{3}$/.test(currency) ? currency : null,
+    discount: one("discount") === "1",
     sort: (PRODUCT_SORTS as readonly string[]).includes(sort ?? "") ? (sort as ProductSort) : "recent",
     page: intIn(one("page"), 1, 100_000, 1),
     pageSize,
@@ -145,6 +148,7 @@ export function productListQueryToParams(q: ProductListQuery): URLSearchParams {
     if (r) p.set("price", r);
     if (r && q.currency) p.set("currency", q.currency);
   }
+  if (q.discount) p.set("discount", "1");
   for (const key of Object.keys(q.fields).sort()) {
     for (const v of q.fields[key]!) p.append(`${FIELD_FILTER_PREFIX}${key}`, v);
   }
@@ -156,7 +160,7 @@ export function productListQueryToParams(q: ProductListQuery): URLSearchParams {
 
 /** Cuántos filtros del panel hay puestos (estado y búsqueda se ven aparte). */
 export function countProductFilters(q: ProductListQuery): number {
-  return (q.source ? 1 : 0) + (q.price ? 1 : 0) + Object.keys(q.fields).length;
+  return (q.source ? 1 : 0) + (q.price ? 1 : 0) + (q.discount ? 1 : 0) + Object.keys(q.fields).length;
 }
 
 export interface ProductPage {

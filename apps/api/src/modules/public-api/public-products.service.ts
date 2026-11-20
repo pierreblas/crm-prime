@@ -10,6 +10,7 @@ import {
   type PublicProduct,
   type UpdatePublicProductInput,
 } from "@crm/shared";
+import { assertPriceDiscounts, pricedDto, resolveDiscount } from "../products/product-discount";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { ProductSourceService } from "../products/product-source.service";
@@ -68,6 +69,8 @@ export class PublicProductsService {
       throw new ConflictException(`Ya existe un producto con el SKU ${sku}; usa PATCH o la carga en bloque para actualizarlo`);
     }
     const source = await this.sources.ensureApiSource(keyName);
+    const discount = resolveDiscount(input, null);
+    if (input.prices) assertPriceDiscounts(input.prices);
     const row = await this.prisma.product.create({
       data: {
         orgId: this.tenant.orgId(),
@@ -75,6 +78,7 @@ export class PublicProductsService {
         sku,
         description: input.description ?? null,
         price: input.price ?? 0,
+        ...discount,
         currency: input.currency ?? "USD",
         imageUrl: input.imageUrl ?? null,
         isActive: input.isActive ?? true,
@@ -96,6 +100,8 @@ export class PublicProductsService {
       const dup = await this.prisma.product.findFirst({ where: { sku }, select: { id: true } });
       if (dup && dup.id !== id) throw new ConflictException(`Ya existe otro producto con el SKU ${sku}`);
     }
+    const discount = resolveDiscount(input, existing);
+    if (input.prices) assertPriceDiscounts(input.prices);
     const row = await this.prisma.product.update({
       where: { id },
       data: {
@@ -103,6 +109,7 @@ export class PublicProductsService {
         ...(sku !== undefined ? { sku } : {}),
         ...(input.description !== undefined ? { description: input.description } : {}),
         ...(input.price !== undefined ? { price: input.price } : {}),
+        ...discount,
         ...(input.currency !== undefined ? { currency: input.currency } : {}),
         ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl } : {}),
         ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
@@ -148,12 +155,15 @@ export class PublicProductsService {
         const fields = resolveFieldKeys(item.fields ?? {}, defs);
         if (existing) {
           const attributes = clean({ ...asRecord(existing.attributes), ...fields });
+          const discount = resolveDiscount(item, existing);
+          if (item.prices) assertPriceDiscounts(item.prices);
           await this.prisma.product.update({
             where: { id: existing.id },
             data: {
               name: item.name,
               ...(item.description !== undefined ? { description: item.description } : {}),
               ...(item.price !== undefined ? { price: item.price } : {}),
+              ...discount,
               ...(item.currency !== undefined ? { currency: item.currency } : {}),
               ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
               ...(item.isActive !== undefined ? { isActive: item.isActive } : {}),
@@ -166,6 +176,8 @@ export class PublicProductsService {
           if (item.prices) await this.setPrices(existing.id, item.currency ?? existing.currency, item.prices);
           result.updated++;
         } else {
+          const discount = resolveDiscount(item, null);
+          if (item.prices) assertPriceDiscounts(item.prices);
           const created = await this.prisma.product.create({
             data: {
               orgId: this.tenant.orgId(),
@@ -173,6 +185,7 @@ export class PublicProductsService {
               sku,
               description: item.description ?? null,
               price: item.price ?? 0,
+              ...discount,
               currency: item.currency ?? "USD",
               imageUrl: item.imageUrl ?? null,
               isActive: item.isActive ?? true,
@@ -220,7 +233,7 @@ export class PublicProductsService {
     return clean({ ...current, ...resolveFieldKeys(fields, defs) });
   }
 
-  private async setPrices(productId: string, base: string, prices: { currency: string; amount: number }[]): Promise<void> {
+  private async setPrices(productId: string, base: string, prices: { currency: string; amount: number; regularAmount?: number | null }[]): Promise<void> {
     const rows = prices.filter((p) => p.currency !== base);
     const seen = new Set<string>();
     for (const p of rows) {
@@ -230,7 +243,7 @@ export class PublicProductsService {
     await this.prisma.productPrice.deleteMany({ where: { productId } });
     if (!rows.length) return;
     await this.prisma.productPrice.createMany({
-      data: rows.map((p) => ({ orgId: this.tenant.orgId(), productId, currency: p.currency, amount: p.amount })),
+      data: rows.map((p) => ({ orgId: this.tenant.orgId(), productId, currency: p.currency, amount: p.amount, regularAmount: p.regularAmount ?? null })),
     });
   }
 
@@ -240,9 +253,8 @@ export class PublicProductsService {
       name: p.name,
       sku: p.sku,
       description: p.description,
-      price: Number(p.price),
       currency: p.currency,
-      prices: p.prices.map((x) => ({ currency: x.currency, amount: Number(x.amount) })),
+      ...pricedDto(p),
       imageUrl: p.imageUrl,
       isActive: p.isActive,
       fields: asRecord(p.attributes),

@@ -18,10 +18,15 @@ export const publicProductSchema = z.object({
   name: z.string(),
   sku: z.string().nullable(),
   description: z.string().nullable(),
+  /** Lo que se paga hoy. */
   price: z.number(),
   currency: z.string(),
+  /** Con descuento vigente: el precio de antes, el porcentaje y hasta cuándo vale (ISO); si no, null. */
+  regularPrice: z.number().nullable(),
+  discountPercent: z.number().nullable(),
+  saleEndsAt: z.string().nullable(),
   /** Precios en otras monedas; `price`/`currency` es el base. */
-  prices: z.array(z.object({ currency: z.string(), amount: z.number() })),
+  prices: z.array(z.object({ currency: z.string(), amount: z.number(), regularAmount: z.number().nullable() })),
   imageUrl: z.string().nullable(),
   isActive: z.boolean(),
   /** Campos propios del catálogo, por su clave (Productos › Campos). */
@@ -68,9 +73,16 @@ const productBody = {
   description: z.string().max(2000).nullable().optional(),
   price: priceField.optional(),
   currency: currencyField.optional(),
+  /**
+   * Descuento: `price` es lo que se paga hoy y `regularPrice` el precio de
+   * antes (tiene que ser mayor). `null` quita el descuento. Omitir para no tocarlo.
+   */
+  regularPrice: priceField.nullable().optional(),
+  /** Hasta cuándo vale el descuento (ISO 8601); `null` = sin fecha de fin. */
+  saleEndsAt: z.string().datetime({ message: "La fecha de fin del descuento no es válida" }).nullable().optional(),
   /** Reemplaza el juego de precios adicionales. Omitir para no tocarlos. */
   prices: z
-    .array(z.object({ currency: currencyField, amount: priceField }))
+    .array(z.object({ currency: currencyField, amount: priceField, regularAmount: priceField.nullable().optional() }))
     .max(20)
     .optional(),
   imageUrl: z.string().url("La imagen debe ser una URL http(s)").nullable().optional(),

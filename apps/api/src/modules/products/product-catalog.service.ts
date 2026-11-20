@@ -17,6 +17,7 @@ import {
   type Range,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { pricedDto } from "./product-discount";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { fold } from "../../common/utils/fold";
 import { escapeLike, foldSql } from "../../common/utils/fold-sql";
@@ -45,6 +46,8 @@ export interface ProductFilter {
   price?: Range | null;
   /** Moneda del rango de precio: el base si es esa, o el precio adicional en esa moneda. */
   currency?: string | null;
+  /** Solo con descuento vigente en el precio base. */
+  discount?: boolean;
   fields?: Record<string, string[]>;
   sku?: string;
   updatedSince?: Date;
@@ -215,6 +218,11 @@ export function productConditions(
   if (f.source === MANUAL_SOURCE) c.push(Prisma.sql`p."sourceId" IS NULL`);
   else if (f.source) c.push(Prisma.sql`p."sourceId" = ${f.source}`);
 
+  // Vigente: hay precio de antes mayor que el de hoy y la fecha (si tiene) no pasó.
+  if (f.discount) {
+    c.push(Prisma.sql`(p."regularPrice" IS NOT NULL AND p."regularPrice" > p.price AND (p."saleEndsAt" IS NULL OR p."saleEndsAt" > now()))`);
+  }
+
   if (f.price) {
     const min = rangeNumber(f.price.min);
     const max = rangeNumber(f.price.max);
@@ -272,9 +280,9 @@ export function toProductDto(p: Prisma.ProductGetPayload<{ include: typeof WITH 
     name: p.name,
     sku: p.sku,
     description: p.description,
-    price: Number(p.price),
     currency: p.currency,
-    prices: p.prices.map((x) => ({ currency: x.currency, amount: Number(x.amount) })),
+    // Precio de hoy, el de antes, porcentaje y fecha (un descuento vencido sale como precio normal).
+    ...pricedDto(p),
     attributes: cleanAttributes(p.attributes),
     imageUrl: p.imageUrl,
     isActive: p.isActive,
@@ -403,6 +411,7 @@ export class ProductCatalogService {
       source: q.source,
       price: q.price,
       currency: q.currency,
+      discount: q.discount,
       fields: q.fields,
     };
   }
