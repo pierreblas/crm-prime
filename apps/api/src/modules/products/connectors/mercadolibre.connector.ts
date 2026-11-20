@@ -1,3 +1,4 @@
+import { lenientDiscount } from "@crm/shared";
 import { MERCADO_LIBRE_SITES } from "@crm/shared";
 import { MercadoLibreApiError, MercadoLibreClient } from "./mercadolibre.client";
 import { clip, fieldKey, stripHtml } from "./text";
@@ -67,6 +68,8 @@ export interface MlItem {
   id: string;
   title?: string;
   price?: number | null;
+  /** Precio de antes cuando la publicación está en oferta. */
+  original_price?: number | null;
   currency_id?: string;
   available_quantity?: number | null;
   status?: string;
@@ -286,6 +289,7 @@ export function mapMercadoLibreItem(
         sku: itemSku,
         description,
         price: toPrice(item.price),
+        ...mercadoLibreDiscount(item),
         currency,
         imageUrl: baseImage,
         isActive: active,
@@ -310,6 +314,8 @@ export function mapMercadoLibreItem(
       sku: skuOf(v.attributes, v.seller_custom_field) ?? (variations.length === 1 ? itemSku : null),
       description,
       price: toPrice(v.price ?? item.price),
+      // El precio de antes es de la publicación, no de cada variante.
+      ...mercadoLibreDiscount({ price: v.price ?? item.price, original_price: item.original_price }),
       currency,
       imageUrl: pictureUrl(picture) ?? baseImage,
       isActive: active,
@@ -341,4 +347,12 @@ function siteCurrency(siteId: string | undefined): string | null {
 
 async function inBatches<T>(items: T[], size: number, fn: (item: T) => Promise<void>): Promise<void> {
   for (let i = 0; i < items.length; i += size) await Promise.all(items.slice(i, i + size).map(fn));
+}
+
+/** La oferta de una publicación: `original_price` es el precio de antes. */
+export function mercadoLibreDiscount(item: { price?: number | null; original_price?: number | null }): {
+  regularPrice: number | null;
+  saleEndsAt: Date | null;
+} {
+  return lenientDiscount(toPrice(item.price), item.original_price ?? null, null);
 }

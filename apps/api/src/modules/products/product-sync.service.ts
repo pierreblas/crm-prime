@@ -1,3 +1,4 @@
+import { lenientDiscount } from "@crm/shared";
 import { BadRequestException, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
@@ -48,13 +49,15 @@ type ProductRow = {
   sku: string | null;
   description: string | null;
   price: Prisma.Decimal;
+  regularPrice: Prisma.Decimal | null;
+  saleEndsAt: Date | null;
   currency: string;
   imageUrl: string | null;
   isActive: boolean;
   attributes: Prisma.JsonValue | null;
 };
 
-const PRODUCT_SELECT = { id: true, externalId: true, name: true, sku: true, description: true, price: true, currency: true, imageUrl: true, isActive: true, attributes: true } as const;
+const PRODUCT_SELECT = { id: true, externalId: true, name: true, sku: true, description: true, price: true, regularPrice: true, saleEndsAt: true, currency: true, imageUrl: true, isActive: true, attributes: true } as const;
 
 /**
  * Lee los catálogos conectados y los vuelca en los productos de la empresa.
@@ -272,6 +275,8 @@ export class ProductSyncService implements OnModuleInit, OnModuleDestroy {
         sku: item.sku?.slice(0, 60) || null,
         description: item.description,
         price: item.price,
+        // La oferta de la tienda, o sin oferta si no manda un precio de antes mayor.
+        ...lenientDiscount(item.price, item.regularPrice, item.saleEndsAt),
         currency: item.currency,
         imageUrl: item.imageUrl,
         isActive: item.isActive,
@@ -283,7 +288,7 @@ export class ProductSyncService implements OnModuleInit, OnModuleDestroy {
 
       if (target) {
         seen.add(target.id);
-        if (target.externalId === item.externalId && same(target, item, attributes)) {
+        if (target.externalId === item.externalId && sameAsStore(target, item, attributes)) {
           unchanged++;
           continue;
         }
@@ -363,13 +368,19 @@ export class ProductSyncService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Precios en otras monedas (hojas): se crean o actualizan solo las que vienen. */
-  private async upsertPrices(orgId: string, productId: string, base: string, prices: { currency: string; amount: number }[]): Promise<void> {
+  private async upsertPrices(
+    orgId: string,
+    productId: string,
+    base: string,
+    prices: { currency: string; amount: number; regularAmount?: number | null }[],
+  ): Promise<void> {
     for (const p of prices) {
       if (p.currency === base) continue;
+      const regularAmount = lenientDiscount(p.amount, p.regularAmount, null).regularPrice;
       await this.prisma.productPrice.upsert({
         where: { productId_currency: { productId, currency: p.currency } },
-        update: { amount: p.amount },
-        create: { orgId, productId, currency: p.currency, amount: p.amount },
+        update: { amount: p.amount, regularAmount },
+        create: { orgId, productId, currency: p.currency, amount: p.amount, regularAmount },
       });
     }
   }
@@ -388,12 +399,15 @@ function asRecord(raw: Prisma.JsonValue | null | undefined): Record<string, stri
 }
 
 /** ¿Lo que hay guardado ya es lo que trae la tienda? Entonces no se escribe. */
-function same(row: ProductRow, item: ExternalProduct, attributes: Record<string, string>): boolean {
+export function sameAsStore(row: ProductRow, item: ExternalProduct, attributes: Record<string, string>): boolean {
+  const offer = lenientDiscount(item.price, item.regularPrice, item.saleEndsAt);
   return (
     row.name === item.name.slice(0, 160) &&
     (row.sku ?? null) === (item.sku?.slice(0, 60) || null) &&
     (row.description ?? null) === (item.description ?? null) &&
     Number(row.price) === item.price &&
+    (row.regularPrice == null ? null : Number(row.regularPrice)) === offer.regularPrice &&
+    (row.saleEndsAt?.getTime() ?? null) === (offer.saleEndsAt?.getTime() ?? null) &&
     row.currency === item.currency &&
     (row.imageUrl ?? null) === (item.imageUrl ?? null) &&
     row.isActive === item.isActive &&

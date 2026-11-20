@@ -1,3 +1,4 @@
+import { lenientDiscount } from "@crm/shared";
 import { readJson, readText, safeFetch } from "./http";
 import { clip, fieldKey, hostOf, stripHtml, toNumber } from "./text";
 import {
@@ -50,6 +51,8 @@ interface WooProduct {
   sku?: string;
   price?: string;
   regular_price?: string;
+  /** Fin de la oferta programada, en UTC y sin zona («2026-11-30T23:59:59»). */
+  date_on_sale_to_gmt?: string | null;
   description?: string;
   short_description?: string;
   purchasable?: boolean;
@@ -66,6 +69,8 @@ interface WooVariation {
   id: number;
   sku?: string;
   price?: string;
+  regular_price?: string;
+  date_on_sale_to_gmt?: string | null;
   status?: string;
   purchasable?: boolean;
   description?: string;
@@ -241,6 +246,7 @@ export class WooCommerceConnector implements CatalogConnector {
       sku: p.sku?.trim() || null,
       description: clip(stripHtml(p.short_description) ?? stripHtml(p.description), 2000),
       price: toNumber(p.price ?? p.regular_price),
+      ...wooDiscount(p),
       currency,
       imageUrl: p.images?.[0]?.src ?? null,
       isActive: p.status === "publish" && p.purchasable !== false,
@@ -270,6 +276,11 @@ export class WooCommerceConnector implements CatalogConnector {
       sku: v.sku?.trim() || (p.sku?.trim() ? `${p.sku.trim()}-${v.id}` : null),
       description: clip(stripHtml(v.description) ?? stripHtml(p.short_description) ?? stripHtml(p.description), 2000),
       price: toNumber(v.price ?? p.price ?? p.regular_price),
+      ...wooDiscount({
+        price: v.price ?? p.price ?? p.regular_price,
+        regular_price: v.regular_price ?? p.regular_price,
+        date_on_sale_to_gmt: v.date_on_sale_to_gmt ?? p.date_on_sale_to_gmt,
+      }),
       currency,
       imageUrl: v.image?.src ?? p.images?.[0]?.src ?? null,
       isActive: v.purchasable !== false,
@@ -319,4 +330,18 @@ function stockOf(manage: boolean | string | undefined, quantity: number | null |
   if (manage === "parent" && parent?.manage_stock === true) return String(parent.stock_quantity ?? 0);
   if ((status ?? parent?.stock_status) === "outofstock") return "0";
   return undefined;
+}
+
+/**
+ * La oferta de un producto o variación: `price` es lo que se paga hoy (Woo ya
+ * pone ahí el rebajado mientras dura la oferta) y `regular_price` el de antes.
+ * La fecha de fin viene en UTC sin zona. Sin oferta (los dos iguales), nada.
+ */
+export function wooDiscount(p: { price?: string; regular_price?: string; date_on_sale_to_gmt?: string | null }): {
+  regularPrice: number | null;
+  saleEndsAt: Date | null;
+} {
+  const num = (v: string | undefined) => Number(v) || 0;
+  const ends = p.date_on_sale_to_gmt ? new Date(`${p.date_on_sale_to_gmt.replace(/Z$/, "")}Z`) : null;
+  return lenientDiscount(num(p.price ?? p.regular_price), num(p.regular_price) || null, ends && !Number.isNaN(ends.getTime()) ? ends : null);
 }

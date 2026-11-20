@@ -13,14 +13,19 @@ export interface ExternalProduct {
   name: string;
   sku: string | null;
   description: string | null;
+  /** Lo que se paga hoy (ya rebajado si la tienda lo tiene en oferta). */
   price: number;
+  /** Precio de antes si está en oferta; quien lo guarda descarta el que no sea mayor que `price`. */
+  regularPrice?: number | null;
+  /** Hasta cuándo vale la oferta, si la tienda lo dice. */
+  saleEndsAt?: Date | null;
   currency: string;
   imageUrl: string | null;
   isActive: boolean;
   /** Valores de campos (key → texto): opciones de la variante, stock, enlace… */
   attributes: Record<string, string>;
   /** Precios en otras monedas (solo las hojas los traen). */
-  prices?: { currency: string; amount: number }[];
+  prices?: { currency: string; amount: number; regularAmount?: number | null }[];
 }
 
 /** Campo de producto que la conexión necesita para guardar sus datos; se crea si no existe. */

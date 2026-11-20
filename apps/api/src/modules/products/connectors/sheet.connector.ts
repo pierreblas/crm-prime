@@ -61,6 +61,8 @@ export class SheetConnector implements CatalogConnector {
       sku: r.sku,
       description: r.description,
       price: r.price,
+      // Con la columna «precio con descuento», la de precio es el de antes.
+      regularPrice: r.regularPrice,
       currency: r.currency,
       imageUrl: r.imageUrl,
       isActive: r.isActive,

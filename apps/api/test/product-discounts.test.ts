@@ -10,6 +10,10 @@ import assert from "node:assert/strict";
 import { toProductDto } from "../src/modules/products/product-catalog.service";
 import { assertPriceDiscounts, resolveDiscount } from "../src/modules/products/product-discount";
 import { ProductDiscountsService } from "../src/modules/products/product-discounts.service";
+import { shopifyDiscount } from "../src/modules/products/connectors/shopify.connector";
+import { wooDiscount } from "../src/modules/products/connectors/woocommerce.connector";
+import { mercadoLibreDiscount } from "../src/modules/products/connectors/mercadolibre.connector";
+import { sameAsStore } from "../src/modules/products/product-sync.service";
 import { parseProductListQuery, productListQueryToParams, countProductFilters } from "@crm/shared";
 
 const FUTURE = new Date(Date.now() + 5 * 86_400_000);
@@ -159,4 +163,44 @@ test("barrido: lo vencido vuelve a su precio normal; lo vigente y lo que no tien
   assert.deepEqual({ amount: px.pen2!.amount, regularAmount: px.pen2!.regularAmount }, { amount: 150, regularAmount: 190 }, "la del producto vigente sigue rebajada");
   // Ya no queda nada vencido.
   assert.equal(await svc.sweep(), 0);
+});
+
+// ── Lo que mandan las tiendas ──────────────────────────────────
+const NONE = { regularPrice: null, saleEndsAt: null };
+
+test("Shopify: el precio de antes es compareAtPrice, solo si es mayor", () => {
+  assert.deepEqual(shopifyDiscount({ price: "40.00", compareAtPrice: "50.00" }), { regularPrice: 50, saleEndsAt: null });
+  for (const compareAtPrice of [null, "40.00", "30.00", "0", ""]) {
+    assert.deepEqual(shopifyDiscount({ price: "40.00", compareAtPrice }), NONE, `compareAtPrice ${JSON.stringify(compareAtPrice)}`);
+  }
+});
+
+test("WooCommerce: regular_price cuando hay oferta, con su fecha de fin", () => {
+  assert.deepEqual(wooDiscount({ price: "40", regular_price: "50", date_on_sale_to_gmt: "2026-11-30T23:59:59" }), {
+    regularPrice: 50,
+    saleEndsAt: new Date("2026-11-30T23:59:59Z"),
+  });
+  assert.deepEqual(wooDiscount({ price: "40", regular_price: "50", date_on_sale_to_gmt: null }), { regularPrice: 50, saleEndsAt: null });
+  // Sin oferta (los dos iguales), aunque quede una fecha de una oferta pasada o futura.
+  assert.deepEqual(wooDiscount({ price: "50", regular_price: "50", date_on_sale_to_gmt: "2026-11-30T23:59:59" }), NONE);
+  assert.deepEqual(wooDiscount({ price: "50", regular_price: "" }), NONE);
+  assert.deepEqual(wooDiscount({ regular_price: "50" }), NONE, "sin price se usa regular_price como precio: sin descuento");
+});
+
+test("Mercado Libre: el precio de antes es original_price", () => {
+  assert.deepEqual(mercadoLibreDiscount({ price: 40, original_price: 50 }), { regularPrice: 50, saleEndsAt: null });
+  assert.deepEqual(mercadoLibreDiscount({ price: 40, original_price: null }), NONE);
+  assert.deepEqual(mercadoLibreDiscount({ price: 40 }), NONE);
+  assert.deepEqual(mercadoLibreDiscount({ price: 50, original_price: 50 }), NONE);
+});
+
+test("sincronización: si cambia el descuento de la tienda, el producto se vuelve a escribir", () => {
+  const item = { externalId: "1", name: "Curso", sku: null, description: null, price: 40, currency: "USD", imageUrl: null, isActive: true, attributes: {}, regularPrice: 50, saleEndsAt: FUTURE };
+  const stored = { id: "p1", externalId: "1", name: "Curso", sku: null, description: null, price: 40, regularPrice: 50, saleEndsAt: FUTURE, currency: "USD", imageUrl: null, isActive: true, attributes: {} };
+  assert.equal(sameAsStore(stored as never, item, {}), true, "igual: no se escribe");
+  assert.equal(sameAsStore({ ...stored, regularPrice: null, saleEndsAt: null } as never, item, {}), false, "la tienda puso una oferta");
+  assert.equal(sameAsStore(stored as never, { ...item, regularPrice: null, saleEndsAt: null }, {}), false, "la tienda quitó la oferta");
+  assert.equal(sameAsStore(stored as never, { ...item, saleEndsAt: new Date(FUTURE.getTime() + 86_400_000) }, {}), false, "cambió la fecha");
+  // Un precio de antes que no es descuento (igual al precio) cuenta como «sin oferta».
+  assert.equal(sameAsStore({ ...stored, regularPrice: null, saleEndsAt: null } as never, { ...item, regularPrice: 40 }, {}), true);
 });

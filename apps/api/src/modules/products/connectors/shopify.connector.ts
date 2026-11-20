@@ -1,3 +1,4 @@
+import { lenientDiscount } from "@crm/shared";
 import { env } from "../../../common/utils/env";
 import { readJson, readText, safeFetch } from "./http";
 import { clip, fieldKey, sleep } from "./text";
@@ -310,12 +311,18 @@ export class ShopifyConnector implements CatalogConnector {
       sku: v?.sku?.trim() || null,
       description: clip(description?.trim() || null, 2000),
       price: Number(v?.price ?? 0) || 0,
+      ...(v ? shopifyDiscount(v) : {}),
       currency,
       imageUrl: v?.media?.nodes?.[0]?.preview?.image?.url ?? productImage,
       isActive: true,
       attributes,
     };
   }
+}
+
+/** La oferta de una variante: `compareAtPrice` es el precio de antes, solo si es mayor que el de hoy. */
+export function shopifyDiscount(v: { price: string; compareAtPrice: string | null }): { regularPrice: number | null; saleEndsAt: Date | null } {
+  return lenientDiscount(Number(v.price) || 0, Number(v.compareAtPrice) || null, null);
 }
 
 /** gid://shopify/Product/123 → 123 */
