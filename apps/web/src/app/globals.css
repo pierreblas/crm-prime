@@ -3649,6 +3649,8 @@ code {
 .agent-callout > svg { color: var(--accent-text); flex-shrink: 0; }
 .agent-callout > span { flex: 1; min-width: 220px; }
 .agent-callout.is-warn { border-color: rgba(240, 180, 90, 0.4); background: var(--warning-soft); }
+/* «No contesta en WhatsApp», pegado a la línea de «Atiende». */
+.agent-attends-warn { margin: -6px 0 14px; }
 .agent-callout.is-warn > svg { color: var(--warning); }.agent-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); }
 .agent-checklist li { display: inline-flex; align-items: center; gap: 5px; }
 .agent-checklist svg { color: var(--positive); }

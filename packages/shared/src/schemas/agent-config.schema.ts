@@ -328,6 +328,13 @@ const botFields = {
   monthlyTokenBudget: z.number().int().min(0),
   isActive: z.boolean(),
   channelId: z.string().nullable(),
+  /**
+   * `true`: pasa a ser el agente principal, el que contesta en los números sin
+   * agente propio («Todos los números sin agente propio» en «Atiende»); el
+   * anterior deja de serlo. `false` no le quita el puesto al principal: para
+   * eso se elige otro.
+   */
+  isDefault: z.boolean(),
   autopilotByDefault: z.boolean(),
   /** Segundos de espera desde el último mensaje del cliente antes de responder (0 = al instante). */
   replyDelaySec: z.number().int().min(0).max(60),
@@ -352,6 +359,7 @@ export const createBotSchema = z.object({
   monthlyTokenBudget: botFields.monthlyTokenBudget.default(0),
   isActive: botFields.isActive.default(true),
   channelId: botFields.channelId.default(null),
+  isDefault: botFields.isDefault.optional(),
   autopilotByDefault: botFields.autopilotByDefault.default(false),
   replyDelaySec: botFields.replyDelaySec.default(4),
   splitReplies: botFields.splitReplies.default(true),
@@ -376,6 +384,7 @@ export const updateBotSchema = z.object({
   monthlyTokenBudget: botFields.monthlyTokenBudget.optional(),
   isActive: botFields.isActive.optional(),
   channelId: botFields.channelId.optional(),
+  isDefault: botFields.isDefault.optional(),
   autopilotByDefault: botFields.autopilotByDefault.optional(),
   replyDelaySec: botFields.replyDelaySec.optional(),
   splitReplies: botFields.splitReplies.optional(),

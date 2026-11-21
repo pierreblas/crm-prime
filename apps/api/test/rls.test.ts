@@ -3106,3 +3106,35 @@ test("«Mejorar agente» con el rol restringido: casos, mediciones, conversacion
   const closed = await ctx.runInOrg(orgs[1], () => prisma.agentImprovementRun.findUnique({ where: { id: stuck.id } }));
   assert.equal(closed.status, "interrupted");
 });
+
+test("cambiar el agente principal con el rol restringido: queda uno por empresa y la otra no cambia", async () => {
+  const { BotService } = await import("../src/modules/ai/bot.service");
+  const { createBotSchema, updateBotSchema } = await import("@crm/shared");
+  const suf = String(Date.now()).slice(-7);
+  const orgs = [`o_pri_${suf}`, `o_pri2_${suf}`] as const;
+  const viejos: string[] = [];
+  await ctx.runUnscoped("prueba: empresas con agente principal", async () => {
+    for (const [i, id] of orgs.entries()) {
+      await prisma.organization.create({ data: { id, slug: `pri${i}-${suf}`, name: `Principal ${i}` } });
+      viejos.push((await prisma.agentConfig.create({ data: { orgId: id, name: `Por defecto ${i}`, systemPrompt: "Eres un asistente.", model: "gpt-test", isDefault: true } })).id);
+    }
+  });
+  const svc = (org: string) => new BotService(prisma, { orgId: () => org } as any, {} as any);
+  const principales = (org: string) =>
+    ctx.runInOrg(org, () => prisma.$queryRawUnsafe(`SELECT name FROM agent_configs WHERE "isDefault" ORDER BY name`)) as Promise<{ name: string }[]>;
+
+  // Empresa 0: Lia se crea sin número y después pasa a ser la principal.
+  const lia = await ctx.runInOrg(orgs[0], () => svc(orgs[0]).create(createBotSchema.parse({ name: "Lia", systemPrompt: "Eres Lia.", model: "gpt-test" })));
+  assert.equal(lia.isDefault, false);
+  await ctx.runInOrg(orgs[0], () => svc(orgs[0]).update(lia.id, updateBotSchema.parse({ isDefault: true, channelId: null })));
+  assert.deepEqual(await principales(orgs[0]), [{ name: "Lia" }]);
+  // Y otra creada ya como principal la releva.
+  await ctx.runInOrg(orgs[0], () => svc(orgs[0]).create(createBotSchema.parse({ name: "Mia", systemPrompt: "Eres Mia.", model: "gpt-test", isDefault: true })));
+  assert.deepEqual(await principales(orgs[0]), [{ name: "Mia" }]);
+
+  // La empresa 1 conserva el suyo y no puede tocar los de la 0.
+  assert.deepEqual(await principales(orgs[1]), [{ name: "Por defecto 1" }]);
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => svc(orgs[1]).update(lia.id, updateBotSchema.parse({ isDefault: true }))), /no encontrado/);
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => svc(orgs[1]).update(viejos[1]!, updateBotSchema.parse({ isDefault: false }))), /agente principal/);
+  assert.deepEqual(await principales(orgs[1]), [{ name: "Por defecto 1" }]);
+});

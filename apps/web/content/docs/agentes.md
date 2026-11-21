@@ -1,6 +1,6 @@
 # Agentes de IA
 
-Un agente es un asistente configurado por ti que atiende las conversaciones: responde con tu información, califica al cliente y actúa sobre el CRM. Puedes tener varios (uno por número, por ejemplo) y uno **por defecto** para lo que no tenga agente propio.
+Un agente es un asistente configurado por ti que atiende las conversaciones: responde con tu información, califica al cliente y actúa sobre el CRM. Puedes tener varios (uno por número, por ejemplo) y uno **principal**, que contesta en los números que no tienen agente propio.
 
 ## Quién paga la IA: la incluida en tu plan o tu propia clave
 
@@ -21,7 +21,12 @@ La forma más fácil es **Agentes IA › Con ayuda** (o «Armar mi agente» en P
 Para hacerlo a mano, **Agentes IA › Nuevo**. Arriba, siempre a la vista, están las tres decisiones clave:
 
 - **Activo o pausado**: pausado, no responde a nadie.
-- **Atiende**: el número de WhatsApp que atiende. Sin número, atiende todos los que no tengan un agente propio.
+- **Atiende**: dónde contesta en WhatsApp.
+  - **Un número**: contesta en ese número.
+  - **Todos los números sin agente propio**: es el agente **principal**. Solo hay uno: al elegirlo en otro agente, ese pasa a ser el principal y el anterior se queda con su número o sin ninguno. El principal no se puede borrar ni dejar sin números; se cambia eligiendo esta opción en otro agente.
+  - **Ningún número**: no contesta en WhatsApp. Solo responde en los [embudos](/docs/embudos), páginas de Facebook o cuentas de TikTok donde lo elijas, y en **Probar conversación**. El editor te avisa de quién contesta en su lugar.
+
+  Quién contesta un chat, en orden: el agente del embudo de la oportunidad del cliente, si tiene uno; si no, el del número; si no, el principal. Para comprobarlo en un chat real, pulsa **¿Por qué?** debajo de una respuesta de la IA en la bandeja: arriba sale el agente que la escribió.
 - **En los chats nuevos**: **Responde solo** (contesta sin esperar a nadie; tu equipo puede tomar el control de cualquier chat) o **Te sugiere** (redacta cada respuesta y espera a que alguien la revise y la envíe). Ver [Bandeja](/docs/bandeja#copilot-y-autopilot).
 
 Debajo, cinco pestañas:

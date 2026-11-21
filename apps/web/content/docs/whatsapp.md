@@ -42,7 +42,7 @@ En cada número, **Configurar** decide qué pasa cuando alguien le escribe:
 
 - **Alias** («Ventas», «Soporte»): el nombre con el que verás el número en la bandeja y los filtros.
 - **Embudo de entrada**: el [embudo](/docs/embudos) donde se crea la oportunidad al primer mensaje (y en qué etapa). Si no eliges ninguno, entra al predeterminado. Lo mismo se puede ver desde el embudo, en Ajustes › Embudos.
-- **Agente de IA**: el [agente](/docs/agentes) que atiende ese número. Un agente atiende un solo número; si eliges uno que ya atendía otro, pasa a este. Sin elegir ninguno, responde el agente predeterminado.
+- **Agente de IA**: el [agente](/docs/agentes) que atiende ese número. Un agente atiende un solo número; si eliges uno que ya atendía otro, pasa a este. Sin elegir ninguno, responde el agente principal (el que en «Atiende» tiene «Todos los números sin agente propio»).
 - Debajo verás cuántos [flujos](/docs/flujos) escuchan solo ese número; se asignan desde el propio flujo.
 
 ## Con tu propia app de Meta

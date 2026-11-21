@@ -213,6 +213,7 @@ export function BotsManager() {
               bot={null}
               availableTools={data.availableTools}
               channels={data.channels}
+              principalName={bots.find((b) => b.isDefault)?.name ?? null}
               onSaved={(b) => {
                 dirtyRef.current = false;
                 setSel({ kind: "edit", id: b.id });
@@ -229,7 +230,7 @@ export function BotsManager() {
             <div style={detailHead}>
               <h2 style={detailTitle}>{selectedBot.name}</h2>
               {selectedBot.isDefault && (
-                <span style={badge("#3f5b6b")} title="Atiende los números que no tienen un agente propio. No se puede eliminar.">
+                <span style={badge("#3f5b6b")} title="Contesta en los números que no tienen un agente propio. Para cambiarlo, elige «Todos los números sin agente propio» en otro agente.">
                   Principal
                 </span>
               )}
@@ -263,6 +264,7 @@ export function BotsManager() {
               bot={selectedBot}
               availableTools={data.availableTools}
               channels={data.channels}
+              principalName={bots.find((b) => b.isDefault)?.name ?? null}
               onSaved={() => queryClient.invalidateQueries({ queryKey: ["bots"] })}
               onCancel={() => setSel({ kind: "none" })}
               onDirtyChange={onDirtyChange}
@@ -368,10 +370,20 @@ function BotCard({
             : "Te sugiere respuestas"}
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-        <span style={badge(bot.channel ? "rgba(11, 108, 216, 0.32)" : "var(--surface-3)")}>
+        {/* Quién contesta de verdad: sin número, solo el principal cubre los demás números. */}
+        <span
+          style={badge(bot.channel ? "rgba(11, 108, 216, 0.32)" : "var(--surface-3)")}
+          title={!bot.channel && !bot.isDefault ? "No contesta en WhatsApp: solo en los embudos donde lo elijas y en las pruebas" : undefined}
+          data-agent-card-attends
+        >
           <NavIcon name="phone" size={10} />
-          {bot.channel ? bot.channel.label ?? bot.channel.displayPhoneNumber : "Todos los números"}
+          {bot.channel ? bot.channel.label ?? bot.channel.displayPhoneNumber : bot.isDefault ? "Todos los números" : "Sin número"}
         </span>
+        {bot.isDefault && (
+          <span style={badge("#3f5b6b")} title="Contesta en los números que no tienen un agente propio">
+            Principal
+          </span>
+        )}
         {bot.welcomeEnabled && <span style={badge("#3f5b6b")}>Saluda</span>}
         {bot.businessHoursEnabled && <span style={badge("#3f5b6b")}>Con horario</span>}
         {bot.keywordTriggers.length > 0 && (

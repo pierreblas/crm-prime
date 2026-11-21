@@ -395,7 +395,12 @@ export class AdminCopilotTools {
         nombre: a.name,
         activo: a.isActive,
         principal: a.isDefault,
-        numero: a.channel ? (a.channel.label ?? a.channel.displayPhoneNumber) : "todos los números sin agente propio",
+        // En WhatsApp, los números sin agente propio los contesta solo el principal.
+        numero: a.channel
+          ? (a.channel.label ?? a.channel.displayPhoneNumber)
+          : a.isDefault
+            ? "todos los números sin agente propio"
+            : "ninguno: no contesta en WhatsApp (solo en los embudos donde se elija y en las pruebas)",
         embudos: a.pipelines.map((p) => p.name),
         modelo: a.model,
         modeloEnUso: modelInUse(a.model),

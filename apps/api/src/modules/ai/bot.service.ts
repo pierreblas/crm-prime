@@ -22,6 +22,9 @@ import { availableTools } from "./tools.registry";
 import { recordPromptVersion } from "./prompt-versions";
 import { i18n } from "../../i18n/i18n";
 
+const PRINCIPAL_STAYS =
+  "Este es el agente principal: contesta en los números que no tienen un agente propio. Para cambiarlo, elige «Todos los números sin agente propio» en otro agente.";
+
 @Injectable()
 export class BotService {
   constructor(
@@ -136,8 +139,9 @@ export class BotService {
   // ── Escritura ────────────────────────────────────────────────
   async create(input: CreateBotInput): Promise<BotDto> {
     await this.assertChannelFree(input.channelId ?? null, null);
-    const bot = await this.prisma.agentConfig.create({
+    const create = (isDefault: boolean) => this.prisma.agentConfig.create({
       data: {
+        isDefault,
         orgId: this.tenant.orgId(),
         name: input.name,
         model: input.model,
@@ -161,12 +165,21 @@ export class BotService {
       },
       include: { channel: true },
     });
+    // «Todos los números sin agente propio»: entra como principal y releva al anterior.
+    const bot = input.isDefault
+      ? (await this.prisma.$transaction([this.dropPrincipal(null), create(true)]))[1]
+      : await create(false);
     return this.toDto(bot);
   }
 
   async update(id: string, input: UpdateBotInput): Promise<BotDto> {
     const existing = await this.prisma.agentConfig.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException("Bot no encontrado");
+    // Sin principal, los números sin agente propio no los contestaría nadie.
+    if (input.isDefault === false && existing.isDefault) {
+      throw new BadRequestException(PRINCIPAL_STAYS);
+    }
+    const promote = input.isDefault === true && !existing.isDefault;
     if (input.channelId !== undefined) {
       await this.assertChannelFree(input.channelId, id);
     }
@@ -175,9 +188,10 @@ export class BotService {
       await recordPromptVersion(this.prisma, { orgId: existing.orgId, agentConfigId: id, systemPrompt: existing.systemPrompt, source: "manual" });
     }
 
-    const bot = await this.prisma.agentConfig.update({
+    const update = () => this.prisma.agentConfig.update({
       where: { id },
       data: {
+        ...(promote ? { isDefault: true } : {}),
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.model !== undefined ? { model: input.model } : {}),
         ...(input.effort !== undefined ? { effort: input.effort } : {}),
@@ -233,6 +247,8 @@ export class BotService {
       },
       include: { channel: true },
     });
+    // Primero se le quita al anterior: la base admite un solo principal por empresa.
+    const bot = promote ? (await this.prisma.$transaction([this.dropPrincipal(id), update()]))[1] : await update();
     return this.toDto(bot);
   }
 
@@ -241,11 +257,19 @@ export class BotService {
     if (!bot) throw new NotFoundException("Bot no encontrado");
     if (bot.isDefault) {
       throw new BadRequestException(
-        "No puedes eliminar el bot por defecto. Crea otro y reasigna primero.",
+        "No puedes eliminar el agente principal. Antes elige «Todos los números sin agente propio» en otro agente para que lo releve.",
       );
     }
     await this.prisma.agentConfig.delete({ where: { id } });
     return { ok: true };
+  }
+
+  /** El principal actual (salvo `keepId`) deja de serlo; conserva su número, si tenía. */
+  private dropPrincipal(keepId: string | null) {
+    return this.prisma.agentConfig.updateMany({
+      where: { isDefault: true, ...(keepId ? { id: { not: keepId } } : {}) },
+      data: { isDefault: false },
+    });
   }
 
   // Un canal solo puede tener un bot. Evita el choque de la constraint única.

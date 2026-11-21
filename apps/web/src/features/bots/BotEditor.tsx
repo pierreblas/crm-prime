@@ -12,6 +12,7 @@ import {
   type AgentToolInfo,
   type BotChannelRef,
   type BotDto,
+  type BotsResponse,
   type BusinessHours,
   type CreateBotInput,
   type KeywordAction,
@@ -82,6 +83,8 @@ type Form = {
   monthlyTokenBudget: number;
   isActive: boolean;
   channelId: string | null;
+  /** «Todos los números sin agente propio» en uno que aún no es el principal: al guardar, pasa a serlo. */
+  makeDefault: boolean;
   escalateOnNegativeSentiment: boolean;
   handoffOnMedia: boolean;
   minConfidence: number;
@@ -129,6 +132,54 @@ function iterationsHint(n: number): string {
   return "Generoso: resuelve casos enredados, pero tarda más y gasta más en cada respuesta.";
 }
 
+/** Valor de «Todos los números sin agente propio» en «Atiende» (el vacío es «Ningún número»). */
+const ATTENDS_ALL = "__all";
+
+/**
+ * Debajo de «Atiende», quién contesta de verdad. En WhatsApp, un número sin
+ * agente propio lo contesta solo el principal: un agente sin número no
+ * contesta a nadie, aunque esté activo (antes la pantalla decía lo contrario).
+ */
+function AttendsNote({
+  isPrincipal,
+  channelId,
+  makeDefault,
+  principalName,
+}: {
+  isPrincipal: boolean;
+  channelId: string | null;
+  makeDefault: boolean;
+  principalName: string | null;
+}) {
+  const principal = principalName ? `«${principalName}»` : "el agente principal";
+  if (isPrincipal) {
+    return channelId ? (
+      <p className="agent-essentials__hint" data-agent-attends-note="principal-number">
+        Es el agente principal: además de este número, contesta en los que no tienen un agente propio. Para cambiarlo, elige «Todos los números sin
+        agente propio» en otro agente.
+      </p>
+    ) : null;
+  }
+  if (makeDefault) {
+    return (
+      <p className="agent-essentials__hint" data-agent-attends-note="becomes-principal">
+        Al guardar, pasa a ser el agente principal: contestará en los números que no tienen un agente propio, en lugar de {principal}.
+      </p>
+    );
+  }
+  if (channelId) return null;
+  return (
+    <div className="agent-callout is-warn agent-attends-warn" data-agent-attends-note="none">
+      <NavIcon name="alert" size={16} />
+      <span>
+        <strong>No contesta en WhatsApp.</strong> Los números sin agente propio los contesta {principal}, el agente principal. Este agente solo
+        responde en los embudos, páginas de Facebook o cuentas de TikTok donde lo elijas, y en «Probar conversación». Para que conteste, elige un
+        número o «Todos los números sin agente propio».
+      </span>
+    </div>
+  );
+}
+
 function defaultHours(): BusinessHours {
   return {
     timezone: "America/Lima",
@@ -158,6 +209,7 @@ function toForm(bot: BotDto | null): Form {
       monthlyTokenBudget: 0,
       isActive: true,
       channelId: null,
+      makeDefault: false,
       escalateOnNegativeSentiment: true,
       handoffOnMedia: false,
       minConfidence: 0.75,
@@ -184,6 +236,7 @@ function toForm(bot: BotDto | null): Form {
     monthlyTokenBudget: bot.monthlyTokenBudget,
     isActive: bot.isActive,
     channelId: bot.channelId,
+    makeDefault: false,
     escalateOnNegativeSentiment: bot.escalationRules.escalateOnNegativeSentiment ?? false,
     handoffOnMedia: bot.escalationRules.onMedia ?? false,
     minConfidence: bot.escalationRules.minConfidence ?? 0.6,
@@ -270,6 +323,7 @@ export function BotEditor({
   bot,
   availableTools,
   channels,
+  principalName,
   onSaved,
   onCancel,
   onDeleted,
@@ -279,6 +333,8 @@ export function BotEditor({
   bot: BotDto | null; // null = crear nuevo
   availableTools: AgentToolInfo[];
   channels: BotChannelRef[];
+  /** El agente principal de la empresa: el que contesta en los números sin agente propio. */
+  principalName?: string | null;
   onSaved: (b: BotDto) => void;
   onCancel: () => void;
   onDeleted?: () => void;
@@ -301,6 +357,8 @@ export function BotEditor({
   const [saved, setSaved] = useState<Form>(() => toForm(bot));
   const [justSaved, setJustSaved] = useState(false);
   const isNew = !bot;
+  // El principal contesta en los números que no tienen un agente propio (y en el suyo, si tiene).
+  const isPrincipal = !!bot?.isDefault;
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
   // Con qué responde de verdad este agente: la IA de Driony (modelo fijo, «Rápido»),
   // su modelo, o, si falta la clave de ese proveedor, la otra clave con el modelo
@@ -360,6 +418,8 @@ export function BotEditor({
         monthlyTokenBudget: Number(form.monthlyTokenBudget),
         isActive: form.isActive,
         channelId: form.channelId,
+        // Solo cuando pasa a ser el principal: el que ya lo es no manda nada.
+        ...(form.makeDefault && !isPrincipal ? { isDefault: true } : {}),
         autopilotByDefault: form.autopilotByDefault,
         replyDelaySec: Number(form.replyDelaySec),
         splitReplies: form.splitReplies,
@@ -387,6 +447,18 @@ export function BotEditor({
       setSaved(snapshot);
       setJustSaved(true);
       toast.success(isNew ? `Agente «${b.name}» creado` : "Cambios guardados");
+      // Lo guardado, ya en la lista: si pasó a ser el principal, el anterior deja de
+      // serlo al momento (sin esperar a recargar, la pantalla decía lo de antes).
+      queryClient.setQueryData<BotsResponse>(["bots"], (d) =>
+        d
+          ? {
+              ...d,
+              bots: d.bots.some((x) => x.id === b.id)
+                ? d.bots.map((x) => (x.id === b.id ? b : b.isDefault ? { ...x, isDefault: false } : x))
+                : d.bots,
+            }
+          : d,
+      );
       queryClient.invalidateQueries({ queryKey: ["bots"] });
       onSaved(b);
     },
@@ -474,13 +546,23 @@ export function BotEditor({
 
         <div className="agent-essentials__item">
           <span className="agent-essentials__label">Atiende</span>
-          <select className="field field-sm" value={form.channelId ?? ""} onChange={(e) => set("channelId", e.target.value || null)}>
-            <option value="">Todos los números sin agente propio</option>
+          <select
+            className="field field-sm"
+            value={form.channelId ?? (isPrincipal || form.makeDefault ? ATTENDS_ALL : "")}
+            onChange={(e) => {
+              const v = e.target.value;
+              setForm((f) => ({ ...f, channelId: v === ATTENDS_ALL || !v ? null : v, makeDefault: v === ATTENDS_ALL && !isPrincipal }));
+            }}
+            data-agent-attends
+          >
+            <option value={ATTENDS_ALL}>Todos los números sin agente propio</option>
             {channels.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label ?? c.displayPhoneNumber ?? c.id}
               </option>
             ))}
+            {/* El principal no se queda sin números: se cambia eligiendo «Todos» en otro. */}
+            {!isPrincipal && <option value="">Ningún número</option>}
           </select>
         </div>
 
@@ -501,6 +583,7 @@ export function BotEditor({
           ? "Responde a tus clientes sin esperar a nadie. Tu equipo puede tomar el control de cualquier chat cuando quiera."
           : "Redacta cada respuesta y espera a que alguien de tu equipo la revise y la envíe. Ideal mientras lo pruebas."}
       </p>
+      <AttendsNote isPrincipal={isPrincipal} channelId={form.channelId} makeDefault={form.makeDefault} principalName={principalName ?? null} />
 
       <nav className="agent-tabs" role="tablist">
         {TABS.map((t) => (
