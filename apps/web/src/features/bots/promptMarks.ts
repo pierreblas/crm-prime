@@ -17,7 +17,7 @@
  * Sin React ni DOM: solo posiciones en el texto, para poder probarlo solo.
  */
 
-import { BUILTIN_CONTACT_VARS, CONTACT_VAR_RE, parseVar, varKey, type ContactVarDef } from "@crm/shared";
+import { BUILTIN_CONTACT_VARS, CONTACT_VAR_RE, PRODUCT_DISCOUNT_DATA, parseVar, varKey, type ContactVarDef } from "@crm/shared";
 
 export interface PromptTool {
   name: string;
@@ -36,11 +36,13 @@ export const BUILTIN_VARS: PromptVar[] = BUILTIN_CONTACT_VARS;
 /**
  * Lo que trae cada producto al consultarlo con search_products, además de
  * sus campos propios. El precio llega en la moneda del cliente si el
- * producto la tiene.
+ * producto la tiene; con un descuento vigente, es el precio ya rebajado y
+ * vienen además el de antes, el porcentaje y hasta cuándo vale.
  */
 export const PRODUCT_BASE_FIELDS: { label: string; hint: string }[] = [
   { label: "Nombre", hint: "El nombre del producto." },
-  { label: "Precio", hint: "En la moneda del cliente si el producto la tiene; si no, en la suya." },
+  { label: "Precio", hint: "Lo que cuesta hoy (con el descuento, si lo tiene). En la moneda del cliente si el producto la tiene; si no, en la suya." },
+  ...PRODUCT_DISCOUNT_DATA.map((d) => ({ label: d.label, hint: d.hint })),
   { label: "Descripción", hint: "La descripción del producto." },
   { label: "SKU", hint: "El código del producto, si tiene." },
 ];

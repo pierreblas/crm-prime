@@ -32,7 +32,7 @@ const slice = (text: string, m: { start: number; end: number }) => text.slice(m.
 test("los datos del producto: los de siempre y los campos propios, sin repetir", () => {
   assert.deepEqual(
     FIELDS.map((f) => `${f.label}${f.visible ? "" : " (oculto)"}`),
-    ["Nombre", "Precio", "Descripción", "SKU", "Fecha de inicio", "Costo interno (oculto)"],
+    ["Nombre", "Precio", "Precio normal", "Descuento", "Descuento hasta", "Descripción", "SKU", "Fecha de inicio", "Costo interno (oculto)"],
   );
 });
 
@@ -100,6 +100,28 @@ test("los huecos [Campo] que son datos del producto se reconocen y se convierten
     convertBracketData(text, FIELDS),
     "📅 «Fecha de inicio» · 🕐 [Horario]\n📲 Temario: [Temario]\nHorario de atención: [HORARIO]. Interno: «Costo interno».",
   );
+});
+
+test("el descuento del producto tiene sus datos de siempre: precio normal, porcentaje y hasta cuándo", () => {
+  // Sin ellos, la presentación solo podía nombrar «Precio» y el agente decía el descuento por su cuenta, o no lo decía.
+  const base = productDataFields([]).map((f) => f.label);
+  for (const label of ["Precio normal", "Descuento", "Descuento hasta"]) assert.ok(base.includes(label), `falta «${label}»`);
+  assert.ok(productDataFields([]).every((f) => f.visible), "los de siempre los recibe siempre el agente");
+
+  const text = "💰 «Precio» (antes ~«Precio normal»~, «Descuento» de descuento hasta «Descuento hasta»)";
+  assert.deepEqual(
+    findProductData(text, productDataFields([])).map((m) => [m.kind, slice(text, m)]),
+    [
+      ["data", "«Precio»"],
+      ["data", "«Precio normal»"],
+      ["data", "«Descuento»"],
+      ["data", "«Descuento hasta»"],
+    ],
+  );
+  // Un catálogo que ya tenía un campo propio «Precio normal» no lo ve dos veces.
+  const withOwn = productDataFields([{ label: "precio normal", aiVisible: false }, { label: "Oferta", aiVisible: true }]);
+  assert.equal(withOwn.filter((f) => f.label.toLowerCase() === "precio normal").length, 1);
+  assert.equal(withOwn.find((f) => f.label === "Precio normal")?.visible, true, "manda el de siempre");
 });
 
 test("sin datos del producto (otros editores), el texto entre « » no se marca", () => {

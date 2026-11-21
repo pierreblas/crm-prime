@@ -59,7 +59,8 @@ Estructura recomendada, con títulos cortos en mayúsculas (sin markdown pesado)
    "antes de dar un precio usa search_products"). No menciones herramientas no habilitadas.
 6. PRESENTACIÓN DE UN PRODUCTO (si hay catálogo y search_products está habilitada): el speech
    que envía la primera vez que muestra un producto, como plantilla para WhatsApp con los datos
-   del producto entre « » (*«Nombre»*, «Precio» y los campos del catálogo que vengan al caso),
+   del producto entre « » (*«Nombre»*, «Precio», los del descuento —«Precio normal», «Descuento»,
+   «Descuento hasta», que solo salen si el producto está rebajado— y los campos del catálogo que vengan al caso),
    una línea por dato y un cierre con una sola pregunta. Parte del speech sugerido de abajo y
    adáptalo al negocio y al tono. Añade cómo responder a "es caro" y a "lo voy a pensar" sin
    inventar descuentos.

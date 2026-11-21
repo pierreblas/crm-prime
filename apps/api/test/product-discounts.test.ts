@@ -267,6 +267,9 @@ test("la regla del agente sobre descuentos va con el catálogo; el seguimiento n
   const withCatalog = build.call({}, "Eres Lia.", contact, ["search_products"], false, {}).system;
   assert.match(withCatalog, /Descuentos: si un producto trae «regularPrice», está rebajado/);
   assert.match(withCatalog, /No calcules otro precio ni otro porcentaje, no ofrezcas descuentos que no vengan en el producto y no alargues la fecha\./);
+  // Los nombres con los que el dueño los pone en su presentación, y qué hacer si el producto no está rebajado.
+  assert.match(withCatalog, /«Precio normal» es «regularPrice», «Descuento» es «discount» y «Descuento hasta» es «discountUntil»/);
+  assert.match(withCatalog, /Si el producto no trae «regularPrice», no está rebajado: quita la línea o la parte que lleve esos datos y da solo el precio/);
   const without = build.call({}, "Eres Lia.", contact, [], false, {}).system;
   assert.doesNotMatch(without, /Descuentos: si un producto trae/);
   // El seguimiento escribe desde el chat, donde puede haber una oferta que ya venció.

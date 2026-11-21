@@ -140,6 +140,13 @@ test("el speech de producto usa los campos del catálogo entre « » y no lleva 
   assert.ok(s.includes("• Fechas: «Fechas»") && s.includes("• Temario: «Temario»"));
   assert.equal((s.match(/• Fechas/g) ?? []).length, 1, "sin repetir");
   assert.ok(!s.includes("• precio"), "«Precio» ya va como dato de siempre");
+  // El descuento va en su línea, con los datos de siempre, y se quita si el producto no está rebajado.
+  assert.ok(s.includes("🏷️ Antes ~«Precio normal»~ · «Descuento» de descuento, hasta «Descuento hasta»"), "la línea del descuento");
+  assert.match(s, /solo si está rebajado; si no, quita esta línea/);
+  assert.ok(s.indexOf("💰 «Precio»") < s.indexOf("🏷️ Antes"), "debajo del precio");
+  const own = productPitchTemplate(["Precio normal", "descuento hasta", "Oferta"]);
+  assert.ok(!own.includes("• Precio normal") && !own.includes("• descuento hasta"), "un campo propio con ese nombre no se repite");
+  assert.ok(own.includes("• Oferta: «Oferta»"));
   assert.match(s, /send_product_image/);
   assert.match(s, /quita esa línea: nunca lo inventes ni digas que falta/);
   assert.doesNotMatch(productPitchTemplate([]), /send_product_image|•/);

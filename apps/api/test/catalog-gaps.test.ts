@@ -33,11 +33,11 @@ const GENOMICA = {
 const CONTACT = { id: "ct1", name: "Ana", phone: "+51999", optIn: true, lastMessageAt: null, metadata: {} };
 
 /** El agente con un catálogo de un producto (o una búsqueda sin coincidencias, que lista el catálogo). */
-function agent(opts: { match?: boolean } = {}) {
+function agent(opts: { match?: boolean; fields?: typeof FIELDS } = {}) {
   const saved: Row[] = [];
   const service = Object.create(AgentService.prototype) as Row;
   service.prisma = {
-    productField: { findMany: async () => FIELDS },
+    productField: { findMany: async () => opts.fields ?? FIELDS },
     product: { count: async () => 1, findMany: async () => [GENOMICA] },
     $queryRaw: async () => (opts.match === false ? [] : [{ id: "p1" }]),
     aiToolCall: { create: async ({ data }: Row) => saved.push(data) },
@@ -88,6 +88,31 @@ test("si el cliente pide un dato que el producto no tiene, se guarda con la cons
   assert.match(seen.note, /haz lo que tus instrucciones mandan para lo que no sabes/);
   assert.match(seen.note, /si no mandan nada, dile con naturalidad que ese dato no lo tienes a mano/);
   assert.doesNotMatch(seen.note, /details|dilo y sigue/);
+});
+
+test("más de dos datos «pedidos» a la vez son la presentación del agente, no el cliente: no cuentan", async () => {
+  // Visto con el modelo real: con una presentación de siete datos, los declaraba todos como pedidos por el
+  // cliente («Hola, info del curso») y después le decía que no los tenía.
+  const fields = [
+    ...FIELDS,
+    { key: "horario", label: "Horario", type: "text", unit: null, aiVisible: true },
+    { key: "requisitos", label: "Requisitos", type: "text", unit: null, aiVisible: true },
+  ];
+  const pitch = agent({ fields });
+  const r = await pitch.search({ query: "genómica", asks: ["Fechas", "Temario", "Horario", "Requisitos", "price"] });
+  assert.equal(pitch.saved[0]!.output.gaps, undefined, "no ensucia «Lo que preguntan y falta»");
+  const note = JSON.parse(r.output).note as string;
+  assert.doesNotMatch(note, /preguntó con sus palabras/);
+  assert.match(note, /Este producto no trae: «Temario», «Horario», «Requisitos»\./, "lo que falta se sigue diciendo, para quitar esas líneas");
+
+  // Una o dos preguntas sí son del cliente («¿qué temario tiene y qué requisitos pide?»); lo que no es un campo no cuenta.
+  const asked = agent({ fields });
+  const two = await asked.search({ query: "genómica", asks: ["Temario", "Requisitos", "price"] });
+  assert.deepEqual(asked.saved[0]!.output.gaps, [
+    { productId: "p1", field: "Temario" },
+    { productId: "p1", field: "Requisitos" },
+  ]);
+  assert.match(JSON.parse(two.output).note, /Si el cliente preguntó con sus palabras por «Temario», «Requisitos»/);
 });
 
 test("no se cuenta nada sin dato pedido, sin búsqueda o si la búsqueda no encontró el producto", async () => {

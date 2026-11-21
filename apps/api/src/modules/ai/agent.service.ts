@@ -13,6 +13,7 @@ import {
   stripOptionsNote,
   REPLY_BUTTONS_TOOL,
   PAYMENT_METHODS_TOOL,
+  PRODUCT_DISCOUNT_DATA,
 } from "@crm/shared";
 import type {
   AiSuggestion,
@@ -918,8 +919,8 @@ export class AgentService {
       // no cabe con detalle va al menos por nombre, para que con 200 productos
       // el agente sepa que existen y pueda volver a buscar.
       const q = String(tu.input.query ?? "").trim();
-      // Qué dato del producto pidió el cliente («Temario», «Fechas»…), si lo dijo.
-      const asks = Array.isArray(tu.input.asks) ? tu.input.asks.filter((a): a is string => typeof a === "string") : [];
+      // Qué dato del producto dice el modelo que pidió el cliente («Temario», «Fechas»…).
+      const claimed = Array.isArray(tu.input.asks) ? tu.input.asks.filter((a): a is string => typeof a === "string") : [];
       const MAX = 50;
       const select = {
         id: true,
@@ -943,6 +944,12 @@ export class AgentService {
         select: { key: true, label: true, type: true, unit: true },
       });
       const fieldDef = new Map(fieldDefs.map((f) => [f.key, f]));
+      // Un cliente pregunta por una cosa o dos. Más campos a la vez son los de la
+      // presentación del agente, que el modelo declara como «pedidos» aunque se le
+      // diga que no (visto con siete de golpe ante un «Hola, info del curso»): no
+      // cuentan como pregunta, ni para «Lo que preguntan y falta» ni para avisarle.
+      const askedFields = claimed.filter((a) => fieldDefs.some((f) => f.label === a));
+      const asks = askedFields.length > 2 ? [] : askedFields;
 
       const orgId = currentOrgId() ?? "";
       // Un listado del catálogo (sin término o sin coincidencias) va compacto:
@@ -1197,8 +1204,10 @@ export class AgentService {
         : "",
       // El agente no calcula descuentos: los recibe hechos (precio de hoy, el de
       // antes, porcentaje y fecha) y los dice tal cual. Ni inventa ni alarga uno.
+      // En la presentación del dueño van con su nombre de siempre («Precio
+      // normal», «Descuento», «Descuento hasta»), y sin descuento se quitan.
       enabledTools.includes("search_products")
-        ? "\n\nDescuentos: si un producto trae «regularPrice», está rebajado: hoy cuesta «price», antes costaba «regularPrice» y, si trae «discountUntil», el descuento vale hasta esa fecha. Dilo así, con esas cifras. No calcules otro precio ni otro porcentaje, no ofrezcas descuentos que no vengan en el producto y no alargues la fecha."
+        ? `\n\nDescuentos: si un producto trae «regularPrice», está rebajado: hoy cuesta «price», antes costaba «regularPrice» y, si trae «discountUntil», el descuento vale hasta esa fecha. Dilo así, con esas cifras. En tus instrucciones, ${PRODUCT_DISCOUNT_DATA.map((d) => `«${d.label}» es «${d.field}»`).join(", ").replace(/, ([^,]*)$/, " y $1")}. Si el producto no trae «regularPrice», no está rebajado: quita la línea o la parte que lleve esos datos y da solo el precio. No calcules otro precio ni otro porcentaje, no ofrezcas descuentos que no vengan en el producto y no alargues la fecha.`
         : "",
       "\n\nSi un mensaje del cliente aparece como [imagen], [documento] o [audio] sin descripción, no pudiste verlo ni oírlo: dilo con naturalidad y pídele que te cuente qué es (o pásalo a una persona si parece un comprobante o un documento importante).",
       // Un número de Yape o una cuenta inventados acaban en un pago perdido: visto
