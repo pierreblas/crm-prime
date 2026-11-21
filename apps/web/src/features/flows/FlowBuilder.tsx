@@ -91,6 +91,11 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
     queryKey: ["flow", flowId],
     queryFn: () => fetchFlow(flowId!),
     enabled: !isNew,
+    // El lienzo se siembra una sola vez con lo que llega, así que tiene que ser
+    // lo guardado ahora: sin copia en memoria entre una apertura y la siguiente.
+    // Con ella, reabrir un flujo recién guardado mostraba la versión anterior,
+    // y guardar de nuevo la escribía encima.
+    gcTime: 0,
   });
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
