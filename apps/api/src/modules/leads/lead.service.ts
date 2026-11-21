@@ -134,10 +134,13 @@ export class LeadService {
 
     // Campos personalizados → metadata (fusiona con lo existente). Se aceptan
     // la clave o el nombre del campo; lo desconocido se guarda con clave limpia.
-    const metadata = {
-      ...((existing?.metadata as Record<string, unknown> | null) ?? {}),
-      ...(await this.resolveFields(input.fields ?? {})),
-    } as Prisma.InputJsonValue;
+    const current = (existing?.metadata as Record<string, unknown> | null) ?? {};
+    const incoming = await this.resolveFields(input.fields ?? {});
+    // Los utm_* son la campaña que trajo al contacto la primera vez (como en
+    // WhatsApp): si ya tiene, los de este lead no entran. Mezclados darían una
+    // campaña que nunca existió (la fuente de una con el medio de otra).
+    if (utmKeys.some((k) => current[k])) for (const k of utmKeys) delete incoming[k];
+    const metadata = { ...current, ...incoming } as Prisma.InputJsonValue;
 
     const contact = await this.prisma.contact.upsert({
       where: { orgId_phone: { orgId, phone } },

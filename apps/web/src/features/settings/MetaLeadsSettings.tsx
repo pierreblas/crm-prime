@@ -242,8 +242,9 @@ export function MetaLeadsSettings({ hub = false }: { hub?: boolean }) {
             Leads sin teléfono ({pending.length})
           </h4>
           <p style={{ ...muted, marginTop: 0 }}>
-            El CRM identifica a cada contacto por su teléfono. Estos formularios
-            no lo pidieron, así que quedan aquí para que los completes tú.
+            El CRM identifica a cada contacto por su teléfono. Estos leads
+            llegaron sin él, o con algo que no es un número, así que quedan aquí
+            para que los completes tú.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {pending.map((lead) => (

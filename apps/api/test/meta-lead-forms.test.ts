@@ -31,11 +31,25 @@ function setup(
     fields?: Array<{ name: string; value: string }>;
     /** Un lead ya guardado, para reprocesarlo. */
     storedLead?: Record<string, unknown>;
+    /** Anuncio, campaña y plataforma que da Meta del lead (null = no los deja leer). */
+    ad?: { adName: string | null; campaignName: string | null; platform: string | null } | null;
+    /** Cuántas veces falla Meta al leer el lead antes de responder. */
+    failLead?: number;
   } = {},
 ) {
   const deals: Deal[] = [...(opts.deals ?? [])];
   const emitted: Array<{ name: string; payload: { stageId?: string; dealId?: string } }> = [];
-  const recorded: Array<{ status: string; createdAt?: Date }> = [];
+  const recorded: Array<{
+    leadgenId?: string;
+    status: string;
+    createdAt?: Date;
+    phone?: string | null;
+    error?: string | null;
+    adName?: string | null;
+    campaignName?: string | null;
+    platform?: string | null;
+  }> = [];
+  let leadFailures = opts.failLead ?? 0;
   // Lo que llega a LeadService.ingestLead, para ver nombre, teléfono, campos y etiquetas.
   const ingested: Array<{ name?: string; phone: string; source?: string; tags: string[]; fields: Record<string, string> }> = [];
   const ingestedOpts: Array<{ silent?: boolean }> = [];
@@ -79,9 +93,17 @@ function setup(
       findMany: async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.map((id) => ({ id, name: `tag-${id}` })),
     },
     metaLead: {
-      findUnique: async ({ where }: { where: { id?: string } }) =>
-        where.id && opts.storedLead ? { ...opts.storedLead, page: { isActive: true, accessToken: "tok", ...page } } : null,
-      create: async ({ data }: { data: { status: string; createdAt?: Date } }) => void recorded.push(data),
+      findUnique: async ({ where }: { where: { id?: string; leadgenId?: string } }) => {
+        if (where.id && opts.storedLead) return { ...opts.storedLead, page: { isActive: true, accessToken: "tok", ...page } };
+        // Un aviso repetido (Meta o la cola lo reintentan): el lead ya guardado, si lo hay.
+        return (where.leadgenId && recorded.find((r) => r.leadgenId === where.leadgenId)) || null;
+      },
+      create: async ({ data }: { data: (typeof recorded)[number] }) => void recorded.push(data),
+      upsert: async ({ where, create, update }: { where: { leadgenId: string }; create: (typeof recorded)[number]; update: Partial<(typeof recorded)[number]> }) => {
+        const row = recorded.find((r) => r.leadgenId === where.leadgenId);
+        if (row) Object.assign(row, update);
+        else recorded.push(create);
+      },
       update: async ({ data }: { data: Record<string, unknown> }) => {
         Object.assign(opts.storedLead!, data);
         return { ...opts.storedLead!, page: { name: "Mi página" } };
@@ -114,9 +136,12 @@ function setup(
     },
   };
   const graph = {
-    getLead: async () => ({ formId: opts.formId ?? "f-cursos", fields: opts.fields ?? [{ name: "full_name", value: "Ana" }, { name: "phone_number", value: "+51999888777" }] }),
+    getLead: async () => {
+      if (leadFailures-- > 0) throw new Error("No se pudo leer el lead en Meta: An unknown error has occurred.");
+      return { formId: opts.formId ?? "f-cursos", fields: opts.fields ?? [{ name: "full_name", value: "Ana" }, { name: "phone_number", value: "+51999888777" }] };
+    },
     getFormName: async () => "Formulario de prueba",
-    getLeadAdInfo: async () => null,
+    getLeadAdInfo: async () => opts.ad ?? null,
   };
   // Como LeadService: una fuente con nombre se crea si falta y se pone al contacto.
   const leads = {
@@ -390,6 +415,104 @@ test("reprocesar un lead pendiente con el mapeo corregido crea el contacto en si
   // Un formulario apagado no se reprocesa.
   const off = setup({ ...PAGE, createDeal: false, dealStageId: null, formRules: [{ formId: "f-cursos", formName: "", enabled: false }] }, { storedLead: { ...pending } });
   await assert.rejects(off.svc.reprocessLead("ml1"), /apagado/);
+});
+
+test("los parámetros de seguimiento del formulario (utm_*) entran con el lead, junto al anuncio y la campaña", async () => {
+  // Meta los manda dentro de las respuestas del lead (field_data), como una pregunta más.
+  const t = setup(
+    { ...PAGE, createDeal: false, dealStageId: null, formRules: [] },
+    {
+      fields: [
+        { name: "full_name", value: "Ana" },
+        { name: "phone_number", value: "+51999888777" },
+        { name: "utm_source", value: "facebook" },
+        { name: "utm_medium", value: "paid_social" },
+        { name: "utm_campaign", value: "cursos_nov" },
+        { name: "origen_lead", value: "form_cursos" },
+      ],
+      ad: { adName: "Video testimonio", campaignName: "Cursos noviembre", platform: "ig" },
+    },
+  );
+  await t.lead();
+  const got = t.ingested[0]!;
+  assert.equal(got.fields.utm_source, "facebook");
+  assert.equal(got.fields.utm_medium, "paid_social");
+  assert.equal(got.fields.utm_campaign, "cursos_nov");
+  assert.equal(got.fields.origen_lead, "form_cursos", "un parámetro propio también llega");
+  assert.equal(got.fields.anuncio, "Video testimonio");
+  assert.equal(got.fields.campana, "Cursos noviembre");
+  assert.equal(got.fields.formulario, "Formulario de prueba");
+  assert.deepEqual(
+    [t.recorded[0]?.adName, t.recorded[0]?.campaignName, t.recorded[0]?.platform],
+    ["Video testimonio", "Cursos noviembre", "ig"],
+    "y quedan en el lead guardado",
+  );
+
+  // Un lead orgánico (Meta no da anuncio) entra igual, sin esos datos.
+  const organic = setup({ ...PAGE, createDeal: false, dealStageId: null, formRules: [] }, { ad: null });
+  await organic.lead();
+  assert.equal(organic.recorded[0]?.status, "PROCESSED");
+  assert.equal(organic.ingested[0]!.fields.anuncio, undefined);
+});
+
+test("un teléfono que no es un número deja el lead pendiente: no crea un contacto sin teléfono", async () => {
+  const page = { ...PAGE, createDeal: true, dealStageId: "nuevo", welcomeTemplateId: "tpl1", formRules: [] };
+  // El lead de la herramienta de pruebas de Meta, texto libre y un número imposible.
+  for (const raw of ["<test lead: dummy data for phone_number>", "no tengo whatsapp", "12345"]) {
+    const t = setup(page, { fields: [{ name: "full_name", value: "Ana" }, { name: "phone_number", value: raw }] });
+    await t.lead();
+    assert.equal(t.recorded[0]?.status, "NO_PHONE", `«${raw}» queda pendiente`);
+    assert.equal(t.recorded[0]?.phone, null);
+    assert.equal(t.ingested.length, 0, `«${raw}» no crea contacto`);
+    assert.equal(t.deals.length, 0);
+    assert.deepEqual(t.welcomes, []);
+  }
+
+  // Uno válido entra con el número ya normalizado, también en el lead guardado.
+  const ok = setup(page, { fields: [{ name: "full_name", value: "Ana" }, { name: "phone_number", value: "+51 999 888 777" }] });
+  await ok.lead();
+  assert.equal(ok.recorded[0]?.status, "PROCESSED");
+  assert.equal(ok.recorded[0]?.phone, "+51999888777");
+  assert.equal(ok.ingested[0]?.phone, "+51999888777");
+
+  // Al reprocesar, lo mismo: sigue pendiente.
+  const stored = {
+    id: "ml1",
+    leadgenId: "lg-old",
+    pageId: "p1",
+    formId: "f-cursos",
+    formName: "Cursos",
+    status: "NO_PHONE",
+    createdAt: new Date("2026-11-01T10:00:00Z"),
+    phone: null,
+    name: "Ana",
+    email: null,
+    adName: null,
+    campaignName: null,
+    platform: null,
+    fieldData: [{ name: "full_name", value: "Ana" }, { name: "phone_number", value: "12345" }],
+  };
+  const again = setup({ ...PAGE, createDeal: false, dealStageId: null, formRules: [] }, { storedLead: stored });
+  const dto = await again.svc.reprocessLead("ml1");
+  assert.equal(dto.status, "NO_PHONE");
+  assert.equal(again.ingested.length, 0);
+});
+
+test("si Meta falla al leer el lead, el reintento de la cola lo recupera; uno que ya entró no entra dos veces", async () => {
+  const t = setup({ ...PAGE, createDeal: true, dealStageId: "nuevo", formRules: [] }, { failLead: 1 });
+  await assert.rejects(t.lead({ leadgenId: "lg-corte" }), /No se pudo leer el lead/, "falla: la cola lo reintentará");
+  assert.equal(t.recorded[0]?.status, "ERROR", "queda constancia del fallo");
+  assert.match(t.recorded[0]?.error ?? "", /unknown error/);
+
+  await t.lead({ leadgenId: "lg-corte" }); // el reintento
+  assert.equal(t.recorded.length, 1, "el mismo lead, no otro");
+  assert.equal(t.recorded[0]?.status, "PROCESSED");
+  assert.equal(t.recorded[0]?.error, null);
+  assert.equal(t.ingested.length, 1);
+
+  await t.lead({ leadgenId: "lg-corte" }); // Meta repite el aviso
+  assert.equal(t.ingested.length, 1, "ya entró: no se duplica");
+  assert.equal(t.deals.length, 1);
 });
 
 test("al conectar se eligen los formularios: los no marcados quedan apagados y se guarda qué pasa con los nuevos", async () => {

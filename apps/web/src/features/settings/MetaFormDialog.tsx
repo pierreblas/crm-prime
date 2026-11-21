@@ -13,6 +13,7 @@ import {
   metaQuestionFieldType,
   metaQuestionTypeLabel,
   resolveFieldKeys,
+  utmKeys,
   type CustomFieldType,
   type MetaFormQuestion,
   type MetaFormRule,
@@ -43,6 +44,13 @@ const STD_TARGETS = [
 const NEW_FIELD = "new";
 const TYPE_LABEL: Record<CustomFieldType, string> = { text: "Texto", number: "Número", date: "Fecha", select: "Lista de opciones" };
 const STATUS_LABEL: Record<MetaLeadDto["status"], string> = { PROCESSED: "Procesado", NO_PHONE: "Sin teléfono", ERROR: "Error" };
+
+/**
+ * Un parámetro de seguimiento del formulario (utm_source, utm_campaign…) llega
+ * como una respuesta más, pero no es un campo: es la campaña del contacto y
+ * sale en «De dónde vino». Devuelve su nombre corto («source») o null.
+ */
+const utmName = (key: string): string | null => ((utmKeys as readonly string[]).includes(key) ? key.replace("utm_", "") : null);
 
 type Creator = {
   /** La pregunta cuya respuesta irá al campo nuevo. */
@@ -214,6 +222,7 @@ export function MetaFormDialog({
     const std = metaFieldAutoTarget(key);
     if (std) return STD_TARGETS.find((t) => t.value === std)!.label;
     const resolved = Object.keys(resolveFieldKeys({ [key]: "" }, fields))[0]!;
+    if (utmName(resolved)) return "campaña (UTM)";
     const def = fields.find((f) => f.key === resolved);
     return def ? `campo «${def.label}»` : "no sale en la ficha";
   };
@@ -225,7 +234,11 @@ export function MetaFormDialog({
     if (!sample) return null;
     const m = mapMetaLeadFields(sample, rule.fieldMap);
     const resolved = resolveFieldKeys(m.extra, fields);
-    const extra = Object.entries(resolved).map(([key, value]) => ({ key, value, label: fields.find((f) => f.key === key)?.label ?? null }));
+    const extra = Object.entries(resolved).map(([key, value]) => ({
+      key,
+      value,
+      label: fields.find((f) => f.key === key)?.label ?? (utmName(key) ? `Campaña · ${utmName(key)}` : null),
+    }));
     const tagNames = [...new Set([...page.tagIds, ...rule.tagIds])].map((id) => tags.find((t) => t.id === id)?.name).filter(Boolean) as string[];
     return { ...m, extra, tagNames };
   }, [sample, rule.fieldMap, rule.tagIds, fields, page.tagIds, tags]);

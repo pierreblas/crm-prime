@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import {
   countryFromPhone,
   dialCodeOf,
+  isValidPhone,
   mapMetaLeadFields,
   parseMetaFormRules,
   phoneWithDefaultCountry,
@@ -101,11 +102,12 @@ export class MetaLeadService {
   }
 
   async processNotification(note: LeadgenNotification): Promise<void> {
-    // Meta reintenta el webhook si tardamos: no dupliques el lead.
+    // Meta reintenta el webhook si tardamos: no dupliques el lead. Uno que
+    // falló al leerse en Meta sí se vuelve a intentar: es el reintento de la cola.
     const already = await this.prisma.metaLead.findUnique({
       where: { leadgenId: note.leadgenId },
     });
-    if (already) {
+    if (already && already.status !== "ERROR") {
       this.logger.debug(`Lead ${note.leadgenId} ya procesado`);
       return;
     }
@@ -152,18 +154,22 @@ export class MetaLeadService {
 
     // Sin teléfono no se puede crear el contacto (es su identificador), así
     // que el lead queda en la bandeja de pendientes para revisarlo a mano.
-    if (!mapped.phone) {
+    // Tampoco vale lo que no es un número (texto libre, uno demasiado corto, el
+    // lead de la herramienta de pruebas de Meta): todos acabarían en un mismo
+    // contacto sin teléfono, pisándose el nombre y los datos.
+    const phone = await this.validPhone(mapped.phone);
+    if (!phone) {
       await this.record(
         { ...note, formId: detail.formId ?? undefined },
         page.pageId,
         detail.fields,
-        { status: "NO_PHONE", formName, ...ad, ...mapped },
+        { status: "NO_PHONE", formName, ...ad, ...mapped, phone: null },
       );
-      this.logger.log(`Lead ${note.leadgenId} sin teléfono: queda pendiente`);
+      this.logger.log(`Lead ${note.leadgenId} sin un teléfono válido: queda pendiente`);
       return;
     }
 
-    const contactId = await this.createContact(page, mapped, formName, ad, detail.formId ?? note.formId ?? null, {
+    const contactId = await this.createContact(page, { ...mapped, phone }, formName, ad, detail.formId ?? note.formId ?? null, {
       silent: !!note.backfill,
     });
 
@@ -171,7 +177,7 @@ export class MetaLeadService {
       { ...note, formId: detail.formId ?? undefined },
       page.pageId,
       detail.fields,
-      { status: "PROCESSED", formName, ...ad, ...mapped, contactId },
+      { status: "PROCESSED", formName, ...ad, ...mapped, phone, contactId },
     );
     this.logger.log(
       `Lead ${note.leadgenId} → contacto ${contactId} (${page.name})${note.backfill ? " [importado]" : ""}`,
@@ -251,6 +257,16 @@ export class MetaLeadService {
       },
       data: { sourceId: formId },
     });
+  }
+
+  /**
+   * El teléfono de un formulario en E.164 (con el prefijo de la empresa si no
+   * trae el suyo), o null si falta o lo escrito no es un número de teléfono.
+   */
+  private async validPhone(raw: string | null | undefined): Promise<string | null> {
+    if (!raw) return null;
+    const phone = phoneWithDefaultCountry(raw, await this.defaultDialCode());
+    return isValidPhone(phone) ? phone : null;
   }
 
   /** Prefijo del país del número de WhatsApp principal de la empresa («51»), o null. */
@@ -388,26 +404,32 @@ export class MetaLeadService {
       contactId?: string;
     },
   ): Promise<void> {
-    await this.prisma.metaLead.create({
-      data: {
+    const data = {
+      pageId,
+      formId: note.formId ?? null,
+      formName: extra.formName ?? null,
+      adId: note.adId ?? null,
+      adName: extra.adName ?? null,
+      campaignName: extra.campaignName ?? null,
+      platform: extra.platform ?? null,
+      fieldData: fields as unknown as Prisma.InputJsonValue,
+      name: extra.name ?? null,
+      phone: extra.phone ?? null,
+      email: extra.email ?? null,
+      status: extra.status,
+      error: extra.error ?? null,
+      contactId: extra.contactId ?? null,
+    };
+    // Si ya hay fila es la de un intento que falló: se actualiza con el resultado de este.
+    await this.prisma.metaLead.upsert({
+      where: { leadgenId: note.leadgenId },
+      create: {
         leadgenId: note.leadgenId,
-        pageId,
-        formId: note.formId ?? null,
-        formName: extra.formName ?? null,
-        adId: note.adId ?? null,
-        adName: extra.adName ?? null,
-        campaignName: extra.campaignName ?? null,
-        platform: extra.platform ?? null,
-        fieldData: fields as unknown as Prisma.InputJsonValue,
-        name: extra.name ?? null,
-        phone: extra.phone ?? null,
-        email: extra.email ?? null,
-        status: extra.status,
-        error: extra.error ?? null,
-        contactId: extra.contactId ?? null,
+        ...data,
         // Un lead importado conserva la fecha en que se envió (Meta la manda con «+0000», sin los dos puntos).
         ...(sentAt(note.createdTime) ? { createdAt: sentAt(note.createdTime)! } : {}),
       },
+      update: data,
     });
   }
 
@@ -492,8 +514,8 @@ export class MetaLeadService {
 
     const mapped = mapMetaLeadFields(fields, this.ruleFor(lead.page, formId)?.fieldMap);
     // El mismo número que recibe el contacto (E.164, con el prefijo de la empresa si falta). Uno
-    // puesto a mano al convertirlo se conserva si el formulario no trae ninguno.
-    const phone = mapped.phone ? phoneWithDefaultCountry(mapped.phone, await this.defaultDialCode()) : lead.phone;
+    // puesto a mano al convertirlo se conserva si el formulario no trae ninguno que valga.
+    const phone = (await this.validPhone(mapped.phone)) ?? (await this.validPhone(lead.phone));
     const base = {
       fieldData: fields as unknown as Prisma.InputJsonValue,
       formId,
