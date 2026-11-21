@@ -106,6 +106,8 @@ test("sin cliente elegido, uno de prueba sin país; los datos que faltan se quit
   const system = calls[0]!.system as string;
   assert.match(system, /su nombre, Cliente de prueba, de \(sin dato\)/);
   assert.match(system, /quita esa línea o esa parte del mensaje: nunca lo inventes/);
+  // Y sin contárselo al cliente: «no tengo los requisitos» cuando nadie los preguntó.
+  assert.match(system, /No le digas al cliente que ese dato falta ni le ofrezcas consultarlo si no lo ha preguntado/);
   assert.match(system, /Los resultados de turnos anteriores ya no los ves/);
 });
 
@@ -139,7 +141,7 @@ test("el speech de producto usa los campos del catálogo entre « » y no lleva 
   assert.equal((s.match(/• Fechas/g) ?? []).length, 1, "sin repetir");
   assert.ok(!s.includes("• precio"), "«Precio» ya va como dato de siempre");
   assert.match(s, /send_product_image/);
-  assert.match(s, /quita esa línea: nunca lo inventes/);
+  assert.match(s, /quita esa línea: nunca lo inventes ni digas que falta/);
   assert.doesNotMatch(productPitchTemplate([]), /send_product_image|•/);
 });
 

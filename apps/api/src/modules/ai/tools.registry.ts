@@ -521,8 +521,11 @@ export function searchProductsTool(fields: string[] = []): LlmTool {
         asks: {
           type: "array",
           items: { type: "string", enum: labels },
+          // «Con sus palabras»: el modelo ponía aquí los datos de su propia
+          // presentación («Qué incluye», «Requisitos») y, si el producto no los
+          // traía, le decía al cliente que faltaban sin que nadie los pidiera.
           description:
-            "Qué datos de esta lista pide el cliente en su último mensaje (si pregunta cuándo empieza, el de fechas; si pide el temario, el temario). Vacío si solo pregunta qué hay o el precio.",
+            "Qué datos de esta lista pregunta el cliente con sus palabras en su último mensaje (si pregunta cuándo empieza, el de fechas; si pide el temario, el temario). Los datos que lleva tu presentación o tus instrucciones no cuentan: el cliente no los ha pedido. Vacío si solo pide información del producto, pregunta qué hay o el precio.",
         },
       },
     },

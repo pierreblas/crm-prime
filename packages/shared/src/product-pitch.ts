@@ -19,7 +19,7 @@ export function productPitchTemplate(fields: string[], opts: { photo?: boolean }
   const own = [...new Map(fields.filter((f) => f.trim() && !base.has(varKey(f))).map((f) => [varKey(f), f.trim()])).values()];
   return [
     "PRESENTACIÓN DE UN PRODUCTO",
-    "Cuando pregunten por un producto, búscalo con search_products y preséntalo así, con sus datos tal cual. Si al producto le falta un dato, quita esa línea: nunca lo inventes.",
+    "Cuando pregunten por un producto, búscalo con search_products y preséntalo así, con sus datos tal cual. Si al producto le falta un dato, quita esa línea: nunca lo inventes ni digas que falta.",
     "",
     "*«Nombre»*",
     "«Descripción» (en una sola línea)",

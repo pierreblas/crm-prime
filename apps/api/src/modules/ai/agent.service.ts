@@ -1015,6 +1015,11 @@ export class AgentService {
           : [];
       if (gaps.length) saved = { gaps };
       const askedMissing = [...new Set(gaps.map((g) => `«${g.field}»`))];
+      // Lo que no trae el producto encontrado, dicho en el momento y con lo que
+      // hay que hacer: con la regla general sola, la línea de la presentación
+      // salía igual («Requisitos: No especificado») o rellena con la descripción.
+      const hit = !!q && !listedAll && rows.length <= 3;
+      const missing = hit ? [...new Set(rows.flatMap((p) => missingOf.get(p.id) ?? []))].map((l) => `«${l}»`) : [];
       output = JSON.stringify({
         clientCurrency,
         // Nota para el agente: si filtró y no hubo match, le devolvemos todo.
@@ -1026,8 +1031,19 @@ export class AgentService {
               : listedAll
                 ? "Catálogo completo."
                 : `Resultados para "${q}".${
+                    missing.length
+                      ? ` ${rows.length === 1 ? "Este producto no trae" : "No todos estos productos traen"}: ${missing.join(", ")}. Si tu presentación tiene una línea para alguno de esos datos, quítala entera, con su emoji y su etiqueta: no escribas «No especificado», «No disponible» ni «Por confirmar», no la rellenes con la descripción ni con otro dato, y no le digas al cliente que falta si no lo ha preguntado.`
+                      : ""
+                  }${
+                    // Sin ordenarle que lo diga sin más: quien «pide» el dato es a menudo
+                    // la presentación del agente, y con «dilo» el cliente leía «no tengo
+                    // los requisitos» sin haberlos preguntado, aunque las instrucciones
+                    // del agente dijeran que no lo mencionara. Y sin «no lo tienes»: que
+                    // el catálogo no lo traiga no quita que esté en sus instrucciones o
+                    // en el conocimiento; con esa frase respondía «no tengo esa
+                    // información» aunque el dueño se la hubiera escrito en el agente.
                     askedMissing.length
-                      ? ` El cliente pide ${askedMissing.join(", ")} y ${rows.length === 1 ? "este producto no lo trae" : "no viene"} en «details»: si tampoco lo dice la descripción, no lo tienes. No lo afirmes, no lo supongas y no lo inventes; dilo y sigue tus instrucciones para lo que no sabes.`
+                      ? ` Si el cliente preguntó con sus palabras por ${askedMissing.join(", ")}: si tus instrucciones o el conocimiento lo dicen, respóndelo con eso, sin decir antes que el producto no lo especifica. Si no lo dicen, no lo inventes ni lo supongas: haz lo que tus instrucciones mandan para lo que no sabes (consultarlo, pasar el chat a una persona…); si no mandan nada, dile con naturalidad que ese dato no lo tienes a mano.`
                       : ""
                   }`,
         total,
@@ -1177,7 +1193,7 @@ export class AgentService {
       // Una plantilla de presentación («📅 «Fechas» · 🕐 «Horario»») se rellena
       // con el producto; lo que el producto no trae no se inventa: se quita.
       enabledTools.includes("search_products")
-        ? "\n\nDatos de producto en tus instrucciones (entre « », como «Temario», o entre corchetes, como [Precio normal]): rellénalos solo con lo que devuelve search_products en este mismo turno. Los resultados de turnos anteriores ya no los ves: si vas a dar un precio, una fecha, un enlace o cualquier dato de un producto, vuelve a consultarlo antes. Si el producto no trae ese dato (no está en «details» o aparece en «missingDetails»), quita esa línea o esa parte del mensaje: nunca lo inventes, no lo calcules, no lo saques de otro producto ni uses una cifra de memoria. Si el cliente pregunta justo por ese dato, sigue tus instrucciones para lo que no sabes. Lo que va entre « » y no es un dato de producto (como el texto de un botón) es texto normal."
+        ? "\n\nDatos de producto en tus instrucciones (entre « », como «Temario», o entre corchetes, como [Precio normal]): rellénalos solo con lo que devuelve search_products en este mismo turno. Los resultados de turnos anteriores ya no los ves: si vas a dar un precio, una fecha, un enlace o cualquier dato de un producto, vuelve a consultarlo antes. Si el producto no trae ese dato (no está en «details» o aparece en «missingDetails»), quita esa línea o esa parte del mensaje: nunca lo inventes, no lo calcules, no lo saques de otro producto ni uses una cifra de memoria. No le digas al cliente que ese dato falta ni le ofrezcas consultarlo si no lo ha preguntado: una presentación con menos líneas está bien. Si el cliente pregunta justo por ese dato, respóndelo si tus instrucciones o el conocimiento lo dicen; si no, sigue tus instrucciones para lo que no sabes. «details» y «missingDetails» son nombres internos: no los uses con el cliente. Lo que va entre « » y no es un dato de producto (como el texto de un botón) es texto normal."
         : "",
       // El agente no calcula descuentos: los recibe hechos (precio de hoy, el de
       // antes, porcentaje y fecha) y los dice tal cual. Ni inventa ni alarga uno.

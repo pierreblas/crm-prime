@@ -53,6 +53,9 @@ test("search_products lleva «asks» con los campos reales del catálogo; sin ca
   assert.deepEqual(asks.items.enum, ["Fechas", "Temario"]);
   assert.equal(asks.type, "array");
   assert.ok((tool.input_schema as Row).properties.query, "conserva la búsqueda");
+  // Lo que pregunta el cliente, no lo que lleva la presentación del agente: si no, cada presentación «pide» sus propios datos.
+  assert.match(asks.description, /con sus palabras/);
+  assert.match(asks.description, /presentación/);
   assert.equal(searchProductsTool([]), TOOL_REGISTRY.search_products);
   assert.equal(searchProductsTool(undefined), TOOL_REGISTRY.search_products);
   const [resolved] = resolveTools(["search_products"], { ...EMPTY_TOOL_CONTEXT, productFields: ["Temario"] });
@@ -68,8 +71,23 @@ test("si el cliente pide un dato que el producto no tiene, se guarda con la cons
   const seen = JSON.parse(r.output);
   assert.deepEqual(seen.products[0].missingDetails, ["Temario"]);
   // Y se lo dice en el momento, no solo en las reglas: con la regla sola se lo inventaba a veces.
-  assert.match(seen.note, /El cliente pide «Temario» y este producto no lo trae en «details»/);
-  assert.match(seen.note, /no lo inventes/);
+  assert.match(seen.note, /Este producto no trae: «Temario»\./);
+  assert.match(seen.note, /no lo inventes ni lo supongas/);
+  // La línea de la presentación se quita entera: salía «Temario: No especificado» o rellena con la descripción.
+  assert.match(seen.note, /quítala entera, con su emoji y su etiqueta/);
+  assert.match(seen.note, /no escribas «No especificado», «No disponible» ni «Por confirmar»/);
+  // Y sin ordenarle que se lo diga al cliente. Quien «pide» el dato suele ser la presentación del agente,
+  // y el cliente acababa leyendo «no tengo el temario» sin haberlo preguntado, dijeran lo que dijeran las instrucciones.
+  assert.match(seen.note, /no le digas al cliente que falta si no lo ha preguntado/);
+  // Si lo pregunta, que el catálogo no lo traiga no quiere decir que el agente no lo sepa: puede estar en
+  // sus instrucciones o en el conocimiento. Con «no lo tienes» respondía «no tengo esa información» aunque
+  // el dueño acabara de escribírsela en el agente.
+  assert.match(seen.note, /Si el cliente preguntó con sus palabras por «Temario»: si tus instrucciones o el conocimiento lo dicen, respóndelo con eso/);
+  assert.match(seen.note, /sin decir antes que el producto no lo especifica/);
+  // Y si no está en ningún sitio, lo que el dueño mandó para lo que no sabe; sin regla, decirlo con naturalidad.
+  assert.match(seen.note, /haz lo que tus instrucciones mandan para lo que no sabes/);
+  assert.match(seen.note, /si no mandan nada, dile con naturalidad que ese dato no lo tienes a mano/);
+  assert.doesNotMatch(seen.note, /details|dilo y sigue/);
 });
 
 test("no se cuenta nada sin dato pedido, sin búsqueda o si la búsqueda no encontró el producto", async () => {
@@ -82,7 +100,10 @@ test("no se cuenta nada sin dato pedido, sin búsqueda o si la búsqueda no enco
     const { search, saved } = agent({ match });
     const r = await search(input);
     assert.equal(saved[0]!.output.gaps, undefined, JSON.stringify(input));
-    assert.doesNotMatch(JSON.parse(r.output).note, /El cliente pide/);
+    const note = JSON.parse(r.output).note as string;
+    assert.doesNotMatch(note, /preguntó con sus palabras/);
+    // Lo que falta se dice igual aunque nadie lo pida (la presentación puede llevarlo); en un listado, no.
+    assert.equal(/Este producto no trae: «Temario»/.test(note), match && !!input.query, JSON.stringify(input));
   }
 });
 
