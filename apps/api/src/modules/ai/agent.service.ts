@@ -423,7 +423,7 @@ export class AgentService {
   private async replyOptions(
     reply: string | null,
     enabledTools: string[],
-    req: { model?: string; feature: "agent" | "playground" | "simulator"; conversationId?: string; instructions?: string | null },
+    req: { model?: string; feature: "agent" | "playground" | "simulator" | "improve"; conversationId?: string; instructions?: string | null },
   ): Promise<{ options: string[]; inputTokens: number; outputTokens: number; asked: boolean }> {
     const none = { options: [], inputTokens: 0, outputTokens: 0, asked: false };
     if (!reply?.trim() || !enabledTools.includes(REPLY_BUTTONS_TOOL) || !endsWithQuestion(reply)) return none;
@@ -452,7 +452,13 @@ export class AgentService {
   // ── Playground: probar el agente con texto libre, sin persistir ─
   // No crea conversación, ni AiRun, ni envía nada. Reutiliza la config del bot
   // (prompt, herramientas, modelo) para que el resultado sea fiel al real.
-  async playground(input: PlaygroundRequest, feature: "playground" | "simulator" = "playground"): Promise<PlaygroundReply> {
+  // `opts.systemPrompt`: unas instrucciones distintas de las guardadas, sin guardarlas (la propuesta que
+  // está midiendo «Mejorar agente»). No sale del servidor: el navegador solo prueba lo guardado.
+  async playground(
+    input: PlaygroundRequest,
+    feature: "playground" | "simulator" | "improve" = "playground",
+    opts: { systemPrompt?: string } = {},
+  ): Promise<PlaygroundReply> {
     const config = input.botId
       ? await this.prisma.agentConfig.findUnique({ where: { id: input.botId } })
       : await this.bots.resolveForChannel(null);
@@ -474,7 +480,7 @@ export class AgentService {
     const splitReplies = !!config?.splitReplies;
     const toolContext = await this.actions.loadContext();
     const tools = resolveTools(config?.enabledTools ?? [], toolContext);
-    const system = this.buildSystemParts(config?.systemPrompt, contact, config?.enabledTools ?? [], splitReplies, {
+    const system = this.buildSystemParts(opts.systemPrompt ?? config?.systemPrompt, contact, config?.enabledTools ?? [], splitReplies, {
       catalogFields: catalogFields.map((f) => f.label),
       contactFields: contactFieldDefs,
       bookings: await this.bookingContext(config?.enabledTools ?? [], null),
@@ -578,7 +584,7 @@ export class AgentService {
 
     // Botones, igual que con un cliente de verdad.
     if (!escalate) {
-      const b = await this.replyOptions(reply, config?.enabledTools ?? [], { model: config?.model, feature, instructions: config?.systemPrompt });
+      const b = await this.replyOptions(reply, config?.enabledTools ?? [], { model: config?.model, feature, instructions: opts.systemPrompt ?? config?.systemPrompt });
       inputTokens += b.inputTokens;
       outputTokens += b.outputTokens;
       replyOptions = b.options;
@@ -617,7 +623,8 @@ export class AgentService {
    * sus herramientas y su conocimiento; nada se envía ni se aplica). Quien
    * llama pide los pasos uno a uno con lo hablado hasta ahora.
    */
-  async simulateTurn(input: SimulateTurnRequest): Promise<SimulateTurnReply> {
+  async simulateTurn(input: SimulateTurnRequest, opts: { systemPrompt?: string; feature?: "simulator" | "improve" } = {}): Promise<SimulateTurnReply> {
+    const feature = opts.feature ?? "simulator";
     const said = input.history.filter((h) => h.role === "user").length;
     if (said >= input.maxTurns) return { customer: null, agent: null, ended: "max_turns", error: null, tokens: 0 };
 
@@ -628,7 +635,7 @@ export class AgentService {
 
     let customer: { text: string; done: boolean; tokens: number };
     try {
-      customer = await this.simulatedCustomer(input, org?.name ?? "", config?.systemPrompt ?? "", await this.catalogNames());
+      customer = await this.simulatedCustomer(input, org?.name ?? "", opts.systemPrompt ?? config?.systemPrompt ?? "", await this.catalogNames(), feature);
     } catch (e) {
       this.logger.warn(`Simulador: el cliente simulado falló: ${(e as Error).message}`);
       return { customer: null, agent: null, ended: "error", error: (e as Error).message, tokens: 0 };
@@ -639,7 +646,8 @@ export class AgentService {
 
     const agent = await this.playground(
       { message: customer.text, botId: input.botId, history: input.history, ...(input.contact ? { contact: input.contact } : {}) },
-      "simulator",
+      feature,
+      opts.systemPrompt !== undefined ? { systemPrompt: opts.systemPrompt } : {},
     );
     const ended = agent.escalate ? "escalated" : customer.done ? "customer_done" : said + 1 >= input.maxTurns ? "max_turns" : null;
     return { customer: customer.text, agent, ended, error: null, tokens: customer.tokens + agent.inputTokens + agent.outputTokens };
@@ -657,6 +665,7 @@ export class AgentService {
     agentPrompt: string,
     /** Lo que vende el negocio: así pregunta por algo real, no por «lo que ofrecen». */
     catalog: string[] = [],
+    feature: "simulator" | "improve" = "simulator",
   ): Promise<{ text: string; done: boolean; tokens: number }> {
     const about = agentPrompt.replace(/\s+/g, " ").trim().slice(0, 700);
     const system = [
@@ -685,7 +694,7 @@ export class AgentService {
       { role: "user", content: "(Empieza la conversación. Escribe tu primer mensaje al negocio.)" },
       ...input.history.map((h) => ({ role: h.role === "user" ? ("assistant" as const) : ("user" as const), content: h.content })),
     ];
-    const res = await this.llm.generate({ feature: "simulator", system, messages, effort: "low", maxTokens: 220 });
+    const res = await this.llm.generate({ feature, system, messages, effort: "low", maxTokens: 220 });
     const raw = res.content
       .filter((b) => b.type === "text")
       .map((b) => (b as { text: string }).text)
@@ -726,8 +735,8 @@ export class AgentService {
    * instrucciones. Lanza si el modelo no responde.
    */
   async reviewTranscript(
-    input: Pick<SimulateReviewRequest, "scenario" | "lines" | "ended">,
-    opts: { instructions: string; model?: string; feature: "simulator" | "review"; conversationId?: string },
+    input: Pick<SimulateReviewRequest, "scenario" | "lines" | "ended" | "contact">,
+    opts: { instructions: string; model?: string; feature: "simulator" | "review" | "improve"; conversationId?: string },
   ): Promise<SimulationReview> {
     const ask = (model?: string) =>
       this.llm.generate({
@@ -752,7 +761,7 @@ export class AgentService {
     const parsed = parseSimulationReview(raw);
     if (!parsed) {
       this.logger.warn(`Revisión del simulador sin JSON válido: ${raw.replace(/\s+/g, " ").slice(0, 200)}`);
-      return { verdict: "review", summary: "No se pudo revisar automáticamente: léela tú.", findings: [], tokens };
+      return { verdict: "review", summary: "No se pudo revisar automáticamente: léela tú.", goal: null, findings: [], tokens };
     }
     const agentSaid = input.lines.filter((l) => l.who === "agent").map((l) => l.text);
     return { ...groundReview(parsed, agentSaid), tokens };

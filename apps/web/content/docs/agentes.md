@@ -201,3 +201,17 @@ En el mismo cajón de **Probar agente** hay dos modos. **Escribir yo** es el Pla
 Las conversaciones corren una detrás de otra y se ven en vivo. En cada una ves lo que respondió el agente, las herramientas que usó, las acciones que habría hecho (no se aplican) y si pasó el chat a una persona. Con **Detener** se corta cuando quieras.
 
 No se envía nada por WhatsApp ni se crea o cambia ningún contacto. Sí **gasta tokens**, por los dos lados (el cliente simulado y tu agente): salen de tu IA de Driony o los cobra tu proveedor si usas tu clave, y aparecen en **Consumo de IA** como «Simulador de conversaciones».
+
+## Mejorar agente
+
+Junto a **Probar conversación**, el botón **Mejorar** mide cómo atiende tu agente con una batería de casos, deja que la IA proponga cambios en sus instrucciones y compara el antes y el después con los mismos casos. Una sola prueba engaña: el mismo agente contesta distinto cada vez. Por eso aquí cada caso se repite varias veces y se cuenta.
+
+1. **Casos de prueba.** La primera vez aparecen los clientes de siempre del simulador (vienen marcados los de venta). Puedes escribir los tuyos con **Nuevo caso**, o sacarlos de un chat real con **Añadir desde un chat real**: una IA lee el chat y redacta la situación del cliente, sin su nombre ni su teléfono, y tú la revisas antes de guardarla. También puedes hacerlo desde **Revisión de chats**, con **Añadir a los casos de prueba** en cualquier chat marcado «Revisar» o «Mal».
+2. **Qué hacer.** Elige cuántas veces se repite cada caso (1, 3 o 5), cuántos mensajes escribe el cliente (4, 6 u 8) y si solo quieres **medir** cómo atiende hoy o **medir y proponer mejoras** (de 1 a 3 vueltas; cada vuelta parte de la mejor versión hasta el momento). Antes de empezar ves el gasto estimado en tokens.
+3. **Resultado.** Tres conteos, antes y después: **Atendió bien**, **Inventó un dato** y **Llegó a buen fin**, en total y por caso, con **ver chats** para leer cada conversación con lo que marcó la revisión. Debajo, **Qué cambió** (cada cambio, por qué y por qué caso) y las **instrucciones propuestas**, con lo añadido y lo quitado resaltado.
+
+La propuesta solo dice «**Mejora clara**» si gana al menos un 10 % y no inventa más datos que antes. Si la diferencia es pequeña, dice «sin diferencia clara»: puede ser azar, y es mejor no aplicarla o repetir con más repeticiones. La IA nunca añade datos de tu negocio (precios, fechas, descuentos, políticas) ni toca los datos entre « », los huecos entre [ ] o las herramientas: solo corrige o añade reglas de cómo atender. Los cambios que no cumplen se descartan solos.
+
+El agente **solo cambia cuando pulsas «Aplicar al agente»**. Las instrucciones anteriores quedan en **Versiones anteriores**, desde donde puedes restaurarlas. Ahí también se guarda la versión anterior cada vez que editas las instrucciones a mano. Se conservan las últimas 20.
+
+La medición corre en el servidor: puedes cerrar la ventana y volver para ver el avance o el resultado. Hay una sola a la vez por empresa, y la puedes **Detener**. Si la IA se queda sin tokens a mitad, se detiene con lo que llevaba y te lo dice. No se envía nada por WhatsApp. Sí **gasta tokens**, y bastantes (una medición de 3 casos con 3 repeticiones y una propuesta ronda los 300 000–400 000): aparecen en **Consumo de IA** como «Mejora del agente». Solo pueden usarla los administradores.

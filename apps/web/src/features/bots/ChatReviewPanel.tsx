@@ -16,6 +16,7 @@ import {
 import { NavIcon, type IconName } from "@/components/NavIcons";
 import { fetchChatReviews, runChatReviews, setChatReviewDaily, updateChatReview } from "@/lib/bff";
 import { toast } from "@/lib/toast";
+import { CaseFromChatDialog } from "./CaseFromChat";
 
 const VERDICT_LABEL: Record<SimulationVerdict, string> = { ok: "Bien", review: "Revisar", bad: "Mal" };
 const FINDING: Record<SimulationFindingKind, { icon: IconName; label: string }> = {
@@ -185,6 +186,8 @@ export function ChatReviewPanel() {
 }
 
 function ReviewItem({ review: r, onMark, busy }: { review: ConversationReviewDto; onMark: (status: "open" | "done") => void; busy: boolean }) {
+  // De un chat que salió mal sale el mejor caso de prueba para «Mejorar» a su agente.
+  const [asCase, setAsCase] = useState(false);
   return (
     <li className={`chat-review__item sim-review sim-review--${r.verdict}${r.status === "done" ? " is-done" : ""}`} data-chat-review-item={r.verdict}>
       <div className="chat-review__item-head">
@@ -213,6 +216,11 @@ function ReviewItem({ review: r, onMark, busy }: { review: ConversationReviewDto
         <Link href={`/?c=${r.conversationId}`} className="btn btn-sm" data-chat-review-open>
           <NavIcon name="inbox" size={13} /> Abrir chat
         </Link>
+        {r.agentConfigId && r.verdict !== "ok" && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAsCase(true)} title="Guardar esta situación como caso de prueba del agente, para «Mejorar»" data-chat-review-case>
+            <NavIcon name="plus" size={13} /> Añadir a los casos de prueba
+          </button>
+        )}
         {r.status === "open" ? (
           <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => onMark("done")} data-chat-review-done>
             <NavIcon name="check" size={13} /> Marcar como vista
@@ -223,6 +231,7 @@ function ReviewItem({ review: r, onMark, busy }: { review: ConversationReviewDto
           </button>
         )}
       </div>
+      {asCase && r.agentConfigId && <CaseFromChatDialog botId={r.agentConfigId} botName={r.agentName} conversationId={r.conversationId} onClose={() => setAsCase(false)} />}
     </li>
   );
 }

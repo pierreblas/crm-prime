@@ -40,8 +40,8 @@ interface Run {
   review: SimulationReview | "loading" | "failed" | null;
 }
 
-const VERDICT_LABEL: Record<SimulationVerdict, string> = { ok: "Bien", review: "Revisar", bad: "Mal" };
-const FINDING: Record<SimulationFindingKind, { icon: "alert" | "check" | "question" | "arrow-right" | "user" | "message"; label: string }> = {
+export const VERDICT_LABEL: Record<SimulationVerdict, string> = { ok: "Bien", review: "Revisar", bad: "Mal" };
+export const FINDING: Record<SimulationFindingKind, { icon: "alert" | "check" | "question" | "arrow-right" | "user" | "message"; label: string }> = {
   invented: { icon: "alert", label: "Inventó un dato" },
   unanswered: { icon: "question", label: "No respondió" },
   no_next_step: { icon: "arrow-right", label: "Sin siguiente paso" },
@@ -150,7 +150,7 @@ export function ConversationSimulator({
     // La revisión corre aparte: la siguiente conversación no la espera.
     const review = (run: Run, lines: Line[], ended: SimulatorEndReason) => {
       patch(run.key, (r) => ({ ...r, review: "loading" }));
-      reviewSimulation({ botId, scenario: run.scenario, lines: reviewLines(lines), ended })
+      reviewSimulation({ botId, scenario: run.scenario, lines: reviewLines(lines), ended, ...(contact ? { contact } : {}) })
         .then((rv) => patch(run.key, (r) => ({ ...r, review: rv, tokens: r.tokens + rv.tokens })))
         .catch(() => patch(run.key, (r) => ({ ...r, review: "failed" })));
     };

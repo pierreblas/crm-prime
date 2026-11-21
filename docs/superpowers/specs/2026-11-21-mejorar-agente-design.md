@@ -257,3 +257,34 @@ Se construye en tres tramos; cada uno deja algo que se puede usar.
 - Una sola medición a la vez por empresa.
 - Disponible en todos los planes; gasta de los tokens de IA de la empresa.
 - Al borrar un agente se borran sus casos, mediciones y versiones.
+
+## Notas de la construcción (21-11-2026)
+
+Decisiones tomadas al construirlo, medidas con el modelo real sobre un agente de
+prueba:
+
+- **La IA propone cambios puntuales, no reescribe las instrucciones.** Devuelve
+  una lista de cambios (añadir una regla tras una línea, corregir una línea,
+  quitarla) y el servidor los coloca sobre el texto del dueño. Así lo que no se
+  toca queda letra por letra, y la lista «Qué cambió» es exactamente lo que
+  cambia. Cada cambio se valida por separado: el que añade un dato del negocio
+  que no estaba (dinero, porcentajes, horas, plazos), quita algo entre « », [ ] o
+  una herramienta, o corrige una línea que no existe, se descarta solo y se dice
+  por qué; los demás siguen valiendo. Una regla nueva cuya línea de referencia
+  no existe va al final. Se conserva la viñeta del dueño.
+- **La propuesta la redacta gpt-5-mini** (el modelo del revisor) con
+  razonamiento medio, y si la clave no lo tiene, el modelo del agente. El diseño
+  decía «el modelo de la empresa»; con gpt-4o-mini confundía lo que dijo el
+  agente en el chat con sus instrucciones, y con razonamiento alto a veces se
+  quedaba sin margen y no respondía.
+- **El revisor sabe lo que el agente sabía del cliente de prueba** (nombre y
+  país). Sin eso marcaba «inventó un dato» cuando el agente usaba el nombre del
+  cliente, lo que falseaba los conteos. También vale para el simulador de
+  siempre.
+- **Si la IA se queda sin tokens o sin clave a mitad, la medición se para** con
+  lo que lleva y lo dice. Un fallo puntual (un tiempo de espera) no la para: esa
+  conversación no cuenta.
+- **Tope de 40 casos guardados por agente** (12 marcados por medición, como
+  estaba).
+- El coste estimado se queda corto o largo según el agente (±30 % en lo medido):
+  sigue siendo el estimador del simulador más unas 9 000 tokens por propuesta.

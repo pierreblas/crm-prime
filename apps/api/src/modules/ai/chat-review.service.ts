@@ -14,7 +14,7 @@ import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
 import { env } from "../../common/utils/env";
 import { AgentService } from "./agent.service";
 import { AiSettingsService } from "./ai-settings.service";
-import { CHAT_REVIEW_MESSAGES, chatReviewLines, type ReviewRun } from "./chat-review.lines";
+import { loadChatTranscript } from "./chat-transcript";
 
 /** Cada cuánto se mira si a alguna empresa le toca su revisión diaria. */
 const SWEEP_EVERY_MS = 30 * 60_000;
@@ -61,7 +61,7 @@ export class ChatReviewService implements OnModuleInit, OnModuleDestroy {
   async overview(status: "open" | "all" = "open"): Promise<ChatReviewOverview> {
     const orgId = this.tenant.orgId();
     const attention = { status: "open", verdict: { in: ["review", "bad"] } };
-    const [settings, open, rows] = await Promise.all([
+    const [settings, open, rows, agents] = await Promise.all([
       this.prisma.aiSetting.findUnique({ where: { orgId }, select: { chatReview: true, chatReviewAt: true } }),
       this.prisma.conversationReview.count({ where: attention }),
       this.prisma.conversationReview.findMany({
@@ -70,7 +70,10 @@ export class ChatReviewService implements OnModuleInit, OnModuleDestroy {
         take: 60,
         include: { conversation: { select: { channelKind: true, contact: { select: { name: true, phone: true } } } } },
       }),
+      this.prisma.agentConfig.findMany({ select: { id: true } }),
     ]);
+    // El agente que atendió puede haberse borrado: entonces el chat ya no es de ninguno.
+    const alive = new Set(agents.map((a) => a.id));
     return {
       enabled: !!settings?.chatReview,
       lastRunAt: settings?.chatReviewAt?.toISOString() ?? null,
@@ -82,6 +85,7 @@ export class ChatReviewService implements OnModuleInit, OnModuleDestroy {
         contactName: r.conversation.contact.name?.trim() || r.conversation.contact.phone,
         channel: CHANNEL_NAME[r.conversation.channelKind] ?? r.conversation.channelKind,
         agentName: r.agentName,
+        agentConfigId: r.agentConfigId && alive.has(r.agentConfigId) ? r.agentConfigId : null,
         verdict: r.verdict as ConversationReviewDto["verdict"],
         summary: r.summary,
         findings: (Array.isArray(r.findings) ? r.findings : []) as SimulationFinding[],
@@ -166,39 +170,16 @@ export class ChatReviewService implements OnModuleInit, OnModuleDestroy {
 
   /** Revisa una conversación y guarda el resultado. false si no había nada de la IA que revisar. */
   async reviewConversation(orgId: string, conversationId: string, lastMessageAt: Date, aiMessages: number): Promise<boolean> {
-    const conversation = await this.prisma.conversation.findUnique({ where: { id: conversationId }, select: { channelKind: true } });
-    if (!conversation) return false;
-    const recent = await this.prisma.message.findMany({
-      where: { conversationId },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: CHAT_REVIEW_MESSAGES,
-      select: { direction: true, author: true, type: true, content: true, transcript: true, note: true, aiRunId: true, interactive: true },
-    });
-    const messages = recent.reverse();
-    const runIds = [...new Set(messages.map((m) => m.aiRunId).filter((x): x is string => !!x))];
-    const runRows = runIds.length
-      ? await this.prisma.aiRun.findMany({
-          where: { id: { in: runIds }, conversationId },
-          orderBy: { createdAt: "asc" },
-          select: {
-            id: true,
-            status: true,
-            escalationReason: true,
-            agentConfigId: true,
-            toolCalls: { orderBy: { createdAt: "asc" }, select: { toolName: true, input: true, output: true } },
-          },
-        })
-      : [];
-    const runs = new Map<string, ReviewRun>(runRows.map((r) => [r.id, r]));
-    const lines = chatReviewLines(messages, runs);
+    const chat = await loadChatTranscript(this.prisma, conversationId);
+    if (!chat) return false;
+    const { lines, agentConfigId } = chat;
     if (!lines.some((l) => l.who === "agent")) return false;
 
     // Las instrucciones del agente que respondió (el de la última respuesta con agente).
-    const agentConfigId = [...runRows].reverse().find((r) => r.agentConfigId)?.agentConfigId ?? null;
     const config = agentConfigId
       ? await this.prisma.agentConfig.findUnique({ where: { id: agentConfigId }, select: { name: true, systemPrompt: true, model: true } })
       : null;
-    const channel = CHANNEL_NAME[conversation.channelKind] ?? conversation.channelKind;
+    const channel = CHANNEL_NAME[chat.channelKind] ?? chat.channelKind;
     const review = await this.agent.reviewTranscript(
       {
         scenario: { title: "Conversación real", brief: `Cliente real por ${channel}: no se sabe de antemano qué buscaba; júzgalo por lo que pasó en la conversación.` },

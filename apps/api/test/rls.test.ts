@@ -3028,3 +3028,81 @@ test("barrido de descuentos vencidos con el rol restringido: restaura lo de cada
   assert.deepEqual({ price: Number(live!.price), regularPrice: Number(live!.regularPrice) }, { price: 40, regularPrice: 50 }, "el vigente sigue rebajado");
   assert.equal(await svc.sweep(), 0, "segunda pasada: nada que hacer");
 });
+
+test("«Mejorar agente» con el rol restringido: casos, mediciones, conversaciones y versiones quedan en su empresa", async () => {
+  const { AgentImproveService } = await import("../src/modules/ai/agent-improve.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgs = [`o_imp_${suf}`, `o_imp2_${suf}`] as const;
+  const PROMPT = "Eres Lia.\n- Responde completo.";
+  const bots: string[] = [];
+  await ctx.runUnscoped("prueba: empresas de «Mejorar agente»", async () => {
+    for (const [i, id] of orgs.entries()) {
+      await prisma.organization.create({ data: { id, slug: `imp${i}-${suf}`, name: `Mejora ${i}` } });
+      bots.push((await prisma.agentConfig.create({ data: { orgId: id, name: `Lia ${i}`, systemPrompt: PROMPT, model: "gpt-test" } })).id);
+    }
+  });
+  // El agente, el revisor y la IA, simulados: aquí se prueba dónde queda cada fila, no el modelo.
+  const agent = {
+    simulateTurn: async (input: any) => ({
+      customer: "hola",
+      agent: { reply: "hola, ¿en qué te ayudo?", simulatedActions: [], escalate: false, escalationReason: null, toolsUsed: [], toolCalls: [], options: [] },
+      ended: input.history.length ? "max_turns" : null,
+      error: null,
+      tokens: 10,
+    }),
+    reviewTranscript: async (_i: any, o: any) => ({
+      verdict: o.instructions.includes("siguiente paso") ? "ok" : "review",
+      summary: "",
+      goal: o.instructions.includes("siguiente paso"),
+      findings: [],
+      tokens: 5,
+    }),
+  };
+  const llm = {
+    generate: async () => ({
+      content: [{ type: "text", text: '<cambios>[{"what":"Siguiente paso","why":"No avanzaba","action":"add","anchor":"","text":"- Propón el siguiente paso."}]</cambios>' }],
+      usage: { inputTokens: 100, outputTokens: 50 },
+    }),
+  };
+  const svc = (orgId: string) =>
+    new AgentImproveService(prisma, { orgId: () => orgId } as any, agent as any, { status: async () => ({ ready: true, included: null }) } as any, llm as any);
+
+  // Una instancia por empresa, como el servicio de la API (la medición en marcha vive en ella).
+  const s0 = svc(orgs[0]);
+  const s1 = svc(orgs[1]);
+  // La empresa 0 mide, propone y aplica.
+  const mine = await ctx.runInOrg(orgs[0], () => s0.overview(bots[0]!));
+  assert.equal(mine.cases.length, 6, "los casos de serie se crean en su empresa");
+  const own = await ctx.runInOrg(orgs[0], () => s0.createCase(bots[0]!, { title: "Pide factura", brief: "Quiere factura a nombre de su empresa antes de pagar." }));
+  const run = await ctx.runInOrg(orgs[0], () => s0.start(bots[0]!, { caseIds: [own.id], repetitions: 2, turns: 4, rounds: 1 }));
+  await s0.settled(run.id);
+  const done = await ctx.runInOrg(orgs[0], () => s0.run(bots[0]!, run.id));
+  assert.equal(done.status, "done");
+  assert.deepEqual([done.done, done.variants[1]?.comparison], [4, "better"]);
+  await ctx.runInOrg(orgs[0], () => s0.apply(bots[0]!, run.id, { variant: 1, force: false }));
+  const after = await ctx.runInOrg(orgs[0], () => s0.overview(bots[0]!));
+  assert.deepEqual(after.versions.map((v: any) => v.source), ["improve"]);
+
+  // La empresa 1 no ve ni toca nada de eso, ni por el servicio ni con SQL crudo.
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => s1.overview(bots[0]!)), /Agente no encontrado/);
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => s1.results(bots[0]!, run.id, 0)), /Agente no encontrado|Medición no encontrada/);
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => s1.updateCase(bots[1]!, own.id, { isActive: false })), /no encontrado/);
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => s1.restore(bots[1]!, after.versions[0].id)), /ya no existe/);
+  const raw = await ctx.runInOrg(orgs[1], () =>
+    prisma.$queryRawUnsafe(
+      `SELECT (SELECT count(*) FROM agent_test_cases)::int AS cases, (SELECT count(*) FROM agent_improvement_runs)::int AS runs,
+              (SELECT count(*) FROM agent_improvement_results)::int AS results, (SELECT count(*) FROM agent_prompt_versions)::int AS versions`,
+    ),
+  );
+  assert.deepEqual(raw[0], { cases: 0, runs: 0, results: 0, versions: 0 }, "con SQL crudo, la otra empresa no ve ninguna fila");
+  const theirs = await ctx.runInOrg(orgs[1], () => s1.overview(bots[1]!));
+  assert.equal(theirs.busy, false, "una medición de otra empresa no bloquea las suyas");
+
+  // Al reiniciar la API, lo que quedó «en marcha» se cierra en todas las empresas (atraviesa RLS a propósito).
+  const stuck = await ctx.runInOrg(orgs[1], () =>
+    prisma.agentImprovementRun.create({ data: { orgId: orgs[1], agentConfigId: bots[1], status: "running", repetitions: 1, turns: 4, rounds: 0, cases: [], variants: [] } }),
+  );
+  await s1.onModuleInit();
+  const closed = await ctx.runInOrg(orgs[1], () => prisma.agentImprovementRun.findUnique({ where: { id: stuck.id } }));
+  assert.equal(closed.status, "interrupted");
+});

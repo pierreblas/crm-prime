@@ -219,6 +219,7 @@ test("el panel: lo de mirar, con el canal y el contacto; marcar como vista y una
   let listWhere: Row = {};
   s.prisma = {
     aiSetting: { findUnique: async () => ({ chatReview: true, chatReviewAt: day(3) }) },
+    agentConfig: { findMany: async () => [{ id: "bot1" }] },
     conversationReview: {
       count: async () => 2,
       findMany: async (args: Row) => {
@@ -227,6 +228,7 @@ test("el panel: lo de mirar, con el canal y el contacto; marcar como vista y una
           {
             id: "r1",
             conversationId: "c1",
+            agentConfigId: "bot1",
             agentName: "Venta flyteek",
             verdict: "bad",
             summary: "Inventó el temario.",
@@ -237,6 +239,21 @@ test("el panel: lo de mirar, con el canal y el contacto; marcar como vista y una
             createdAt: day(2),
             lastMessageAt: day(3),
             conversation: { channelKind: "instagram", contact: { name: "", phone: "+51987654321" } },
+          },
+          {
+            id: "r2",
+            conversationId: "c2",
+            agentConfigId: "borrado",
+            agentName: "Agente antiguo",
+            verdict: "review",
+            summary: "No propuso el siguiente paso.",
+            findings: [],
+            aiMessages: 2,
+            tokens: 900,
+            status: "open",
+            createdAt: day(2),
+            lastMessageAt: day(3),
+            conversation: { channelKind: "whatsapp", contact: { name: "Ana", phone: "+51911111111" } },
           },
         ];
       },
@@ -251,6 +268,8 @@ test("el panel: lo de mirar, con el canal y el contacto; marcar como vista y una
   assert.equal(o.open, 2);
   assert.equal(o.reviews[0]!.contactName, "+51987654321", "sin nombre, el teléfono");
   assert.equal(o.reviews[0]!.channel, "Instagram");
+  // A qué agente iría un caso sacado de ese chat; si el agente ya no existe, a ninguno.
+  assert.deepEqual(o.reviews.map((r) => r.agentConfigId), ["bot1", null]);
   await s.setStatus("r1", "done");
   assert.equal(updated[0]!.data.status, "done");
   assert.ok(updated[0]!.data.doneAt instanceof Date);

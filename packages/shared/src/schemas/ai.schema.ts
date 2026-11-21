@@ -277,6 +277,8 @@ export const simulateReviewRequestSchema = z.object({
   scenario: simulatorScenarioSchema,
   lines: z.array(simulationReviewLineSchema).min(1).max(SIMULATOR_MAX_TURNS * 2),
   ended: z.enum(simulatorEndReasons).nullable().default(null),
+  /** El cliente de prueba («Probar como»): lo que el agente ya sabía de él, para que usar su nombre no cuente como inventado. */
+  contact: playgroundContactSchema.optional(),
 });
 export type SimulateReviewRequest = z.infer<typeof simulateReviewRequestSchema>;
 export type SimulateReviewPayload = z.input<typeof simulateReviewRequestSchema>;
@@ -294,6 +296,11 @@ export const simulationReviewSchema = z.object({
   summary: z.string(),
   findings: z.array(simulationFindingSchema),
   tokens: z.number(),
+  /**
+   * ¿Terminó como le conviene al negocio, dado lo que quería el cliente? (venta, cita o pago
+   * encaminados, o pase a una persona cuando tocaba). Null si el revisor no lo dijo.
+   */
+  goal: z.boolean().nullable().default(null),
 });
 export type SimulationReview = z.infer<typeof simulationReviewSchema>;
 
@@ -323,6 +330,8 @@ export const conversationReviewDtoSchema = z.object({
   contactName: z.string(),
   channel: z.string(),
   agentName: z.string().nullable(),
+  /** El agente que atendió el chat, si sigue existiendo: a su batería va el caso que se saque de aquí. */
+  agentConfigId: z.string().nullable(),
   verdict: z.enum(simulationVerdicts),
   summary: z.string(),
   findings: z.array(simulationFindingSchema),

@@ -58,6 +58,10 @@ const TENANT_MODELS = new Set<string>([
   "EmailUnsubscribe",
   "AdminCopilotQuestion",
   "PasswordReset",
+  "AgentTestCase",
+  "AgentImprovementRun",
+  "AgentImprovementResult",
+  "AgentPromptVersion",
 ]);
 
 /**

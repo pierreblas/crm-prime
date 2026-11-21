@@ -23,6 +23,8 @@ import { FollowUpService } from "./follow-up.service";
 import { StageWebhookController } from "./stage-webhook.controller";
 import { AiController } from "./ai.controller";
 import { BotsController } from "./bots.controller";
+import { AgentImproveController } from "./agent-improve.controller";
+import { AgentImproveService } from "./agent-improve.service";
 import { FlowsController } from "./flows.controller";
 import { AiSettingsController } from "./ai-settings.controller";
 import { CopilotController } from "./copilot.controller";
@@ -42,6 +44,7 @@ import { EmailModule } from "../email/email.module";
   controllers: [
     AiController,
     BotsController,
+    AgentImproveController,
     FlowsController,
     AiSettingsController,
     CopilotController,
@@ -56,6 +59,7 @@ import { EmailModule } from "../email/email.module";
     AgentService,
     AiTraceService,
     ChatReviewService,
+    AgentImproveService,
     AgentActionsService,
     AutopilotService,
     AutomationService,

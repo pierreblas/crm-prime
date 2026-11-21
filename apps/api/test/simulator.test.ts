@@ -216,6 +216,19 @@ test("el revisor recibe las instrucciones, la situación y la conversación con 
   // Unas instrucciones larguísimas se recortan.
   assert.match(simulationReviewInput(input, "x".repeat(9000)), /Instrucciones del agente \(recortadas\)/);
   assert.equal(simulateReviewRequestSchema.safeParse({ scenario, lines: [] }).success, false, "sin conversación no hay nada que revisar");
+  assert.doesNotMatch(text, /Lo que el agente sabe del cliente/, "sin cliente de prueba no se dice nada");
+});
+
+test("el revisor sabe lo que el agente ya sabía del cliente de prueba: usar su nombre no es inventarlo", () => {
+  const input = simulateReviewRequestSchema.parse({ ...conversation, contact: { name: "Ana", phone: "+51900000000" } });
+  const text = simulationReviewInput(input, "Eres Lia.");
+  assert.match(text, /## Lo que el agente sabe del cliente \(de su perfil, no lo inventa\)\nNombre: Ana\nPaís: Perú/);
+  // Solo lo que hay: sin nombre, el país; sin país reconocible, el nombre.
+  const onlyCountry = simulationReviewInput(simulateReviewRequestSchema.parse({ ...conversation, contact: { phone: "+52900000000" } }), "x");
+  assert.match(onlyCountry, /País: México/);
+  assert.doesNotMatch(onlyCountry, /Nombre:/);
+  assert.doesNotMatch(simulationReviewInput(simulateReviewRequestSchema.parse({ ...conversation, contact: {} }), "x"), /Lo que el agente sabe/);
+  assert.match(SIMULATION_REVIEW_SYSTEM, /Lo que el agente sabe del cliente/);
 });
 
 test("del veredicto se queda lo válido: tipos conocidos, como mucho 4 hallazgos; sin JSON, null", () => {

@@ -220,6 +220,14 @@ import type {
   PricingSettings,
   PricingSettingsDto,
   ImplementationActualInput,
+  AgentTestCase,
+  CaseDraft,
+  ImproveOverview,
+  ImproveResult,
+  ImproveRun,
+  SaveAgentTestCaseInput,
+  StartImproveRunPayload,
+  UpdateAgentTestCaseInput,
 } from "@crm/shared";
 
 // Fetchers del lado del cliente: llaman al BFF (mismo origen, cookie httpOnly).
@@ -2849,3 +2857,59 @@ export async function simulateAgentTurn(input: SimulateTurnPayload): Promise<Sim
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo simular la conversación"));
   return res.json();
 }
+
+// ── «Mejorar agente» ──────────────────────────────────────────
+// La batería de casos de un agente, sus mediciones (corren en el servidor) y
+// las versiones anteriores de sus instrucciones.
+
+/** Un error del servidor con su código, para distinguir el aviso de «el agente cambió» (409) de un fallo. */
+export class HttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+async function improveCall<T>(botId: string, path: string, fallback: string, init?: { method: string; body?: unknown }): Promise<T> {
+  const res = await bffFetch(`/api/bff/bots/${botId}/improve${path}`, {
+    ...(init
+      ? { method: init.method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(init.body ?? {}) }
+      : {}),
+  });
+  if (!res.ok) throw new HttpError(await errorMessage(res, fallback), res.status);
+  return res.json();
+}
+
+export const fetchImprove = (botId: string) => improveCall<ImproveOverview>(botId, "", "No se pudo cargar «Mejorar agente»");
+
+export const createTestCase = (botId: string, input: SaveAgentTestCaseInput) =>
+  improveCall<AgentTestCase>(botId, "/cases", "No se pudo guardar el caso", { method: "POST", body: input });
+
+export const updateTestCase = (botId: string, caseId: string, input: UpdateAgentTestCaseInput) =>
+  improveCall<AgentTestCase>(botId, `/cases/${caseId}`, "No se pudo guardar el caso", { method: "PATCH", body: input });
+
+export const deleteTestCase = (botId: string, caseId: string) =>
+  improveCall<{ ok: true }>(botId, `/cases/${caseId}`, "No se pudo borrar el caso", { method: "DELETE" });
+
+/** El borrador de un caso a partir de un chat real: lo redacta la IA y no se guarda hasta que el dueño lo acepta. */
+export const draftTestCaseFromChat = (botId: string, conversationId: string) =>
+  improveCall<CaseDraft>(botId, "/cases/draft", "No se pudo redactar el caso", { method: "POST", body: { conversationId } });
+
+export const startImproveRun = (botId: string, input: StartImproveRunPayload) =>
+  improveCall<ImproveRun>(botId, "/runs", "No se pudo empezar la medición", { method: "POST", body: input });
+
+export const fetchImproveRun = (botId: string, runId: string) => improveCall<ImproveRun>(botId, `/runs/${runId}`, "No se pudo cargar la medición");
+
+export const fetchImproveResults = (botId: string, runId: string, variant: number, caseId: string) =>
+  improveCall<ImproveResult[]>(botId, `/runs/${runId}/results?variant=${variant}&caseId=${encodeURIComponent(caseId)}`, "No se pudieron cargar las conversaciones");
+
+export const cancelImproveRun = (botId: string, runId: string) =>
+  improveCall<ImproveRun>(botId, `/runs/${runId}/cancel`, "No se pudo detener la medición", { method: "POST" });
+
+export const applyImprovement = (botId: string, runId: string, variant: number, force = false) =>
+  improveCall<ImproveRun>(botId, `/runs/${runId}/apply`, "No se pudo aplicar la propuesta", { method: "POST", body: { variant, force } });
+
+export const restorePromptVersion = (botId: string, versionId: string) =>
+  improveCall<ImproveOverview>(botId, `/versions/${versionId}/restore`, "No se pudo restaurar esa versión", { method: "POST" });

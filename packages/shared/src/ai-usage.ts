@@ -25,6 +25,7 @@ export const AI_FEATURES = [
   "media",
   "follow_up",
   "review",
+  "improve",
 ] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];
 
@@ -42,6 +43,7 @@ export const AI_FEATURE_LABELS: Record<AiFeature, string> = {
   media: "Audios e imágenes de clientes",
   follow_up: "Seguimientos automáticos",
   review: "Revisión de conversaciones",
+  improve: "Mejora del agente",
 };
 
 // ── IA de Driony (incluida en el plan) ──────────────────────

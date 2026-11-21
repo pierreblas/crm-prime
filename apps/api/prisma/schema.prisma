@@ -179,6 +179,10 @@ model Organization {
   agentConfigs         AgentConfig[]
   flows                Flow[]
   conversionEvents     ConversionEvent[]
+  agentTestCases          AgentTestCase[]
+  agentImprovementRuns    AgentImprovementRun[]
+  agentImprovementResults AgentImprovementResult[]
+  agentPromptVersions     AgentPromptVersion[]
   stageAutomations     StageAutomation[]
   stageAutomationRuns  StageAutomationRun[]
   metaPages            MetaPage[]
@@ -1422,10 +1426,116 @@ model AgentConfig {
   tiktokAccounts TikTokAccount[] @relation("TikTokAccountBot")
   pipelines Pipeline[]          @relation("PipelineBot")
   runs      AiRun[]
+  testCases       AgentTestCase[]
+  improvementRuns AgentImprovementRun[]
+  promptVersions  AgentPromptVersion[]
 
   @@index([orgId])
   @@index([isActive])
   @@map("agent_configs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// «Mejorar agente»: medir, proponer y comparar
+// ─────────────────────────────────────────────────────────────
+
+// Un caso de prueba del agente: una situación de cliente (título y
+// descripción) con la que el simulador conversa. Los de serie del simulador,
+// los que escribe el dueño y los sacados de un chat real.
+model AgentTestCase {
+  id             String   @id @default(cuid())
+  orgId          String
+  agentConfigId  String
+  title          String
+  brief          String
+  source         String   @default("custom") // preset | custom | chat
+  presetId       String? // el de serie del que salió (SIMULATOR_SCENARIOS)
+  conversationId String? // el chat real del que salió (sin FK: el caso sobrevive al chat)
+  isActive       Boolean  @default(true) // marcado para la próxima medición
+  createdAt      DateTime @default(now())
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  agent AgentConfig  @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, agentConfigId])
+  @@map("agent_test_cases")
+}
+
+// Una medición: la batería de casos contra las instrucciones de partida y,
+// si se pidió, contra la propuesta de cada vuelta. Corre en el servidor.
+model AgentImprovementRun {
+  id             String    @id @default(cuid())
+  orgId          String
+  agentConfigId  String
+  status         String    @default("running") // running | done | cancelled | failed | interrupted
+  repetitions    Int
+  turns          Int
+  rounds         Int // vueltas de «proponer y comparar» pedidas (0 = solo medir)
+  contact        Json? // el cliente de «Probar como»: { name, phone }
+  cases          Json // los casos tal como estaban al lanzarla: [{ id, title, brief }]
+  // Las versiones medidas: [{ index, kind, status, prompt, changes, score, comparison, error }]
+  // (ImproveVariant en @crm/shared). La 0 son las instrucciones de partida.
+  variants       Json      @default("[]")
+  best           Int? // la propuesta que mejora con claridad, si alguna
+  done           Int       @default(0)
+  total          Int       @default(0)
+  tokens         Int       @default(0)
+  error          String?
+  appliedVariant Int?
+  appliedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  finishedAt     DateTime?
+
+  org     Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  agent   AgentConfig              @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
+  results AgentImprovementResult[]
+
+  @@index([orgId, status])
+  @@index([agentConfigId, createdAt])
+  @@map("agent_improvement_runs")
+}
+
+// Una conversación simulada de una medición, con lo que dijo el revisor.
+model AgentImprovementResult {
+  id         String   @id @default(cuid())
+  orgId      String
+  runId      String
+  caseId     String
+  caseTitle  String
+  variant    Int // 0 = instrucciones de partida; N = propuesta de la vuelta N
+  repetition Int
+  verdict    String? // ok | review | bad; null si no se pudo simular o revisar
+  goal       Boolean? // ¿llegó a buen fin?
+  summary    String   @default("")
+  findings   Json     @default("[]")
+  lines      Json     @default("[]") // la conversación, como la leyó el revisor
+  ended      String?
+  error      String?
+  tokens     Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  org Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  run AgentImprovementRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, variant])
+  @@map("agent_improvement_results")
+}
+
+// Las instrucciones que tenía el agente antes de cada cambio (a mano, por una
+// mejora aplicada o al restaurar otra versión), para poder volver atrás.
+model AgentPromptVersion {
+  id            String   @id @default(cuid())
+  orgId         String
+  agentConfigId String
+  systemPrompt  String
+  source        String // manual | improve | restore: qué cambio la dejó atrás
+  createdAt     DateTime @default(now())
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  agent AgentConfig  @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
+
+  @@index([agentConfigId, createdAt])
+  @@map("agent_prompt_versions")
 }
 
 // Una "corrida" del agente: el procesamiento de un mensaje entrante.

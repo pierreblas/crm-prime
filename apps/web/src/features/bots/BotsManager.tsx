@@ -9,6 +9,7 @@ import { formatTokens, aiQuotaLevel, type BotDto } from "@crm/shared";
 import { deleteBot, fetchBots, fetchChatReviews } from "@/lib/bff";
 import { BotEditor } from "./BotEditor";
 import { AgentPlayground } from "./AgentPlayground";
+import { AgentImprove } from "./AgentImprove";
 import { AgentSetupWizard } from "./AgentSetupWizard";
 import { ChatReviewPanel } from "./ChatReviewPanel";
 import { isGenericPrompt } from "./agentCopy";
@@ -30,6 +31,10 @@ export function BotsManager() {
   const [testing, setTesting] = useState<{ id?: string; name?: string } | null>(
     null,
   );
+  // «Mejorar agente»: medir, proponer y comparar sobre casos de prueba.
+  const [improving, setImproving] = useState<{ id: string; name: string } | null>(null);
+  // El editor guarda su copia de las instrucciones: al cambiarlas desde «Mejorar» se vuelve a montar.
+  const [promptRev, setPromptRev] = useState(0);
   // Asistente paso a paso: con un agente, lo configura; sin él, crea uno.
   const [wizard, setWizard] = useState<{ bot: BotDto | null } | null>(null);
   // El editor avisa si hay cambios sin guardar; así no se pierden al cambiar de agente.
@@ -239,9 +244,22 @@ export function BotsManager() {
                 <NavIcon name="flask" size={15} />
                 Probar conversación
               </button>
+              <button
+                onClick={() => {
+                  // La medición usa lo guardado: con cambios a medias mediría otra cosa que lo que se ve.
+                  if (dirtyRef.current) return void toast.info("Guarda los cambios antes de mejorar: la medición usa las instrucciones guardadas.");
+                  setImproving({ id: selectedBot.id, name: selectedBot.name });
+                }}
+                style={softBtn}
+                title="Medir cómo atiende con casos de prueba, proponer cambios y comparar"
+                data-improve-open
+              >
+                <NavIcon name="chart" size={15} />
+                Mejorar
+              </button>
             </div>
             <BotEditor
-              key={selectedBot.id}
+              key={`${selectedBot.id}:${promptRev}`}
               bot={selectedBot}
               availableTools={data.availableTools}
               channels={data.channels}
@@ -280,6 +298,20 @@ export function BotsManager() {
           botName={testing.name}
           promptChars={(testing.id ? bots.find((b) => b.id === testing.id) : bots.find((b) => b.isDefault))?.systemPrompt.length}
           onClose={() => setTesting(null)}
+        />
+      )}
+
+      {improving && (
+        <AgentImprove
+          botId={improving.id}
+          botName={improving.name}
+          promptChars={bots.find((b) => b.id === improving.id)?.systemPrompt.length}
+          onClose={() => setImproving(null)}
+          onPromptChanged={() => {
+            // Con las instrucciones nuevas ya cargadas, el editor se monta de nuevo: si no, guardaría las viejas encima.
+            dirtyRef.current = false;
+            void queryClient.invalidateQueries({ queryKey: ["bots"] }).then(() => setPromptRev((n) => n + 1));
+          }}
         />
       )}
     </div>

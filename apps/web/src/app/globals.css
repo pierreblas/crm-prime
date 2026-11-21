@@ -7185,6 +7185,176 @@ button[style*="background:var(--accent)"]:focus-visible {
 .sim-finding__quote::after { content: "»"; }
 @media (prefers-reduced-motion: reduce) { .sim-review--loading { animation: none; } }
 
+/* «Mejorar agente»: batería de casos, medición en el servidor y antes/después. */
+.improve { width: min(940px, calc(100vw - 32px)); height: calc(100dvh - 48px); max-height: none; display: flex; flex-direction: column; padding: 0; }
+.improve__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px 14px 22px; border-bottom: 1px solid var(--border); }
+.improve__head h2 { margin: 0; min-width: 0; font-size: 18px; text-wrap: balance; overflow-wrap: anywhere; }
+.improve__lead { margin: 0 0 -12px; max-width: 72ch; font-size: 13px; line-height: 1.5; color: var(--muted); text-wrap: pretty; }
+.improve__body { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 22px 28px; display: flex; flex-direction: column; gap: 30px; }
+.improve .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.improve-sec { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.improve-sec__head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 14px; }
+.improve-sec__head h3 { margin: 0; font-size: 15px; }
+.improve-sec__step { font-family: var(--font-mono); font-weight: 500; color: var(--muted); }
+.improve-sec__count { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 11.5px; color: var(--muted); }
+.improve-sec__lead { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.improve-sec__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.improve-note { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.improve-note:has(> svg) { display: flex; gap: 7px; align-items: flex-start; }
+.improve-note > svg { flex: none; margin-top: 3px; }
+.improve-note.is-error { color: var(--danger); }
+.improve-note.is-warn { padding: 8px 10px; border: 1px solid var(--warning-border); background: var(--warning-soft); color: var(--warning); }
+.improve-note.is-ok { color: var(--positive); }
+.improve-note.is-loading { animation: chatPulse 1.4s ease-in-out infinite; }
+.improve-link { padding: 0; border: 0; background: none; color: var(--cyan); font: inherit; font-size: 12.5px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.improve-link:hover { color: var(--text); }
+
+/* 1. Casos de prueba */
+.improve-cases { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.improve-case { display: flex; align-items: flex-start; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); background: var(--panel); }
+.improve-case:hover { border-color: var(--border-strong); }
+.improve-case.is-on { border-color: rgba(0, 229, 255, 0.42); background: rgba(0, 229, 255, 0.06); }
+.improve-case__main { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.improve-case__main input { margin-top: 3px; accent-color: var(--lemon); flex: none; }
+.improve-case__main input:disabled + .improve-case__text { opacity: 0.5; }
+.improve-case__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.improve-case__text strong { font-size: 13.5px; }
+.improve-case__text span { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.improve-case__source { flex: none; margin-top: 2px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+.improve-case__actions { flex: none; display: inline-flex; gap: 2px; margin: -5px -6px -5px 0; }
+.improve-case__actions .btn-icon { width: 28px; height: 28px; }
+.improve-cases__form { list-style: none; padding: 12px; border: 1px solid var(--border-strong); background: var(--panel); }
+.improve-form { display: flex; flex-direction: column; gap: 4px; }
+.improve-form .label { margin: 6px 0 2px; }
+.improve-form .label:first-child { margin-top: 0; }
+.improve-form textarea { resize: vertical; }
+.improve-form__hint { margin: 4px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.improve-form__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.improve-picker { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border-strong); background: var(--panel); }
+.improve-picker__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13.5px; }
+.improve-picker__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: 280px; overflow-y: auto; }
+.improve-picker__list li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
+.improve-picker__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.improve-picker__text span { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.improve-dialog { width: min(520px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 12px; }
+.improve-dialog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.improve-dialog__head h3 { margin: 0; font-size: 16px; }
+.improve-dialog__head p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+
+/* 2. Qué hacer, y el avance mientras mide */
+.improve-setup { display: flex; flex-direction: column; gap: 12px; }
+.improve-setup__row { display: flex; flex-wrap: wrap; gap: 12px 28px; }
+.improve-setup__choice { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.improve-setup__choice .label { margin: 0; }
+.improve-setup__why { margin: -4px 0 0; max-width: 72ch; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.improve-setup__modes { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.improve-setup__modes > legend { padding: 0; margin-bottom: 6px; }
+.improve-setup__modes > .improve-setup__choice { margin-top: 6px; }
+.improve-mode { display: flex; align-items: flex-start; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; }
+.improve-mode:hover { border-color: var(--border-strong); }
+.improve-mode.is-on { border-color: rgba(0, 229, 255, 0.42); background: rgba(0, 229, 255, 0.06); }
+.improve-mode input { margin-top: 3px; accent-color: var(--lemon); flex: none; }
+.improve-mode > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.improve-mode strong { font-size: 13.5px; }
+.improve-mode span span { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.improve-setup__foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; }
+.improve-setup__tester { flex: 1; min-width: 220px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.improve-progress { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid rgba(0, 229, 255, 0.42); background: var(--panel); }
+.improve-progress__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.improve-progress__phase { font-size: 14px; }
+.improve-progress__bar { height: 6px; background: var(--surface-2); overflow: hidden; }
+.improve-progress__bar > span { display: block; width: 100%; height: 100%; background: var(--accent); transform-origin: left; transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+.improve-progress__meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
+.improve-progress__hint { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+
+/* 3. Resultado: los tres conteos, por caso, qué cambió y las instrucciones propuestas */
+.improve-result__pick { align-self: flex-start; }
+.improve-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.improve-table caption { caption-side: top; padding: 6px 0 4px; text-align: left; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.improve-table th, .improve-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: right; vertical-align: baseline; }
+.improve-table th:first-child { padding-left: 0; text-align: left; }
+.improve-table thead th { font-size: 12px; font-weight: 600; color: var(--muted); }
+.improve-table tbody th { font-weight: 500; overflow-wrap: anywhere; }
+.improve-table td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.improve-table td.is-better { color: var(--positive); }
+.improve-table td.is-worse { color: var(--danger); }
+.improve-table__delta { margin-left: 8px; font-size: 11.5px; }
+.improve-table__invented { font-size: 11.5px; color: var(--danger); }
+.improve-table__invented::before { content: " · "; }
+.improve-table--cases td:last-child { width: 1%; padding-right: 0; font-family: inherit; }
+.improve-verdict { display: flex; gap: 9px; align-items: flex-start; margin: 0; padding: 10px 12px; border: 1px solid var(--border); background: var(--surface); font-size: 13.5px; line-height: 1.5; }
+.improve-verdict > svg { flex: none; margin-top: 3px; color: var(--muted); }
+.improve-verdict.is-better { border-color: var(--positive-border); background: var(--positive-soft); }
+.improve-verdict.is-better > svg, .improve-verdict.is-better strong { color: var(--positive); }
+.improve-verdict.is-worse { border-color: var(--danger-border); background: var(--danger-soft); }
+.improve-verdict.is-worse > svg, .improve-verdict.is-worse strong { color: var(--danger); }
+.improve-changes h4 { margin: 0 0 6px; font-size: 13.5px; }
+.improve-changes ul { margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 8px; }
+.improve-changes li { font-size: 13.5px; line-height: 1.5; }
+.improve-changes li > span { display: block; max-width: 78ch; }
+.improve-changes small { display: block; max-width: 78ch; font-size: 12.5px; color: var(--muted); }
+.improve-result__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.improve-result__actions > :first-child { margin-right: auto; }
+.improve-diff { display: flex; flex-direction: column; gap: 6px; }
+.improve-diff__legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; font-family: var(--font-mono); font-size: 12px; }
+.improve-diff__legend .is-added { color: var(--positive); }
+.improve-diff__legend .is-removed { color: var(--danger); }
+.improve-diff__text { max-height: 460px; overflow-y: auto; padding: 8px 0; border: 1px solid var(--border); background: var(--panel); font-size: 13px; line-height: 1.55; }
+.improve-diff__line { display: flex; padding-right: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.improve-diff__line ins { text-decoration: none; }
+.improve-diff__mark { flex: none; width: 26px; text-align: center; font-family: var(--font-mono); color: var(--muted); user-select: none; }
+.improve-diff__line.is-added { background: var(--positive-soft); }
+.improve-diff__line.is-added .improve-diff__mark { color: var(--positive); }
+.improve-diff__line.is-removed { background: var(--danger-soft); color: var(--muted); }
+.improve-diff__line.is-removed .improve-diff__mark { color: var(--danger); }
+.improve-discarded { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.improve-discarded li { display: flex; gap: 7px; align-items: flex-start; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.improve-discarded li > svg { flex: none; margin-top: 3px; color: var(--warning); }
+.improve-discarded b { color: var(--text); }
+
+/* Versiones anteriores y «ver chats» */
+.improve-versions { list-style: none; margin: 0; padding: 0; }
+.improve-versions li { display: flex; align-items: flex-start; gap: 12px; padding: 9px 0; border-top: 1px solid var(--border); }
+.improve-versions__when { flex: none; width: 112px; padding-top: 2px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.improve-versions__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.improve-versions__text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12.5px; }
+.improve-chats { display: flex; flex-direction: column; gap: 12px; }
+.improve-chats__bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.improve-chats__title { margin: 0; font-size: 16px; }
+.improve-goal { display: flex; align-items: center; gap: 5px; margin: 0 0 4px; font-size: 12.5px; }
+.improve-goal[data-improve-goal="true"] > svg { color: var(--positive); }
+.improve-goal[data-improve-goal="false"] > svg { color: var(--warning); }
+.improve-options { list-style: none; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; margin: 0; padding: 0; max-width: 86%; }
+.improve-options li { padding: 3px 9px; border: 1px solid var(--border-strong); font-size: 12px; color: var(--cyan); }
+.improve-consulted { max-width: 86%; font-size: 11.5px; color: var(--muted); }
+.improve-consulted summary { cursor: pointer; text-align: right; }
+.improve-consulted ul { margin: 4px 0 0; padding: 7px 9px 7px 22px; border: 1px solid var(--border); background: var(--panel-2); font-family: var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .improve { width: calc(100vw - 16px); height: calc(100dvh - 16px); }
+  .improve__head { padding: 10px 8px 10px 14px; }
+  .improve__head h2 { font-size: 16px; }
+  .improve__body { padding: 16px 14px 22px; gap: 24px; }
+  .improve-case { flex-wrap: wrap; }
+  .improve-case__main { flex-basis: 100%; }
+  .improve-case__source { margin-left: 23px; }
+  .improve-case__actions { margin-left: auto; }
+  .improve-versions li { flex-wrap: wrap; }
+  .improve-versions__when { width: auto; }
+  .improve-versions__text { order: 3; flex-basis: 100%; }
+  .improve-form .field { font-size: 16px; } /* evita el zoom de iOS al enfocar */
+  .improve-table th, .improve-table td { padding: 8px 6px; }
+  /* Los nombres de los casos necesitan sitio: «inventó» baja a su línea y las cifras no ensanchan la columna. */
+  .improve-table--cases tbody th { min-width: 120px; }
+  .improve-table__invented { display: block; font-size: 11px; }
+  .improve-table__invented::before { content: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .improve-note.is-loading { animation: none; }
+  .improve-progress__bar > span { transition: none; }
+}
+
 /* Revisión de chats reales (Agentes IA): la pasada diaria, «Revisar ahora» y lo que hay que mirar. */
 .chat-review { display: flex; flex-direction: column; gap: 16px; }
 .chat-review__head h2 { margin: 0 0 6px; font-size: 20px; }

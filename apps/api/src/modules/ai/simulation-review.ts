@@ -1,4 +1,5 @@
 import {
+  countryFromPhone,
   simulationFindingKinds,
   simulationVerdicts,
   type SimulateReviewRequest,
@@ -31,13 +32,15 @@ export const SIMULATION_REVIEW_SYSTEM = [
   "Revisa, en este orden:",
   "1. Datos inventados (lo más grave): precios, fechas, horarios, enlaces, datos de pago, certificados, condiciones o características que el agente afirmó y que NO están ni en lo que consultó ni en sus instrucciones. Cuenta como válido todo lo que le devolvieron en cualquier turno de la conversación, incluida la descripción de cada producto. Afirmar que algo NO se incluye o no existe sin que lo diga lo consultado también es inventar. Decir que no tiene un dato no es inventar.",
   "Lo que consultó puede venir recortado (termina en «…»): si un dato pudo estar en la parte que falta, no lo marques como inventado.",
+  "Si hay una sección «Lo que el agente sabe del cliente», el agente lo tenía de su perfil: usar ese nombre o ese país no es inventar.",
   "2. Preguntas del cliente sin responder, o respuestas vagas cuando el dato sí estaba.",
   "3. Siguiente paso: si el cliente mostró interés, ¿le propuso avanzar (inscribirse, pagar, agendar)? Revisa todos sus mensajes antes de decir que no lo hizo.",
   "4. Pasar a una persona: ¿lo hizo cuando tocaba (lo pidió, está molesto, faltaba un dato importante)? ¿O lo pasó sin necesidad?",
   "5. Forma: mensajes demasiado largos o robóticos para WhatsApp, repetir lo mismo, no adaptarse a lo que dice el cliente.",
+  "6. Buen fin: ¿la conversación terminó como le conviene al negocio, dado lo que quería el cliente? Sí («goal»: true) si quedó encaminada una venta, una cita o un pago, o si pasó el chat a una persona cuando tocaba. No («goal»: false) si el cliente se fue sin siguiente paso, molesto o con su duda sin resolver.",
   "Veredicto: «bad» si inventó algún dato o trató mal al cliente; «review» si hay algo que mejorar; «ok» si atendió bien.",
   "Hallazgos: como mucho 4, los más importantes, en español sencillo para alguien que no es técnico; cada nota, de 25 palabras como mucho. Si citas al agente, copia su frase exacta (corta). Si estuvo bien, incluye un hallazgo «good» con lo que hizo bien.",
-  'Responde solo con JSON: {"verdict": "ok|review|bad", "summary": "una frase", "findings": [{"kind": "invented|unanswered|no_next_step|handoff|tone|good", "note": "…", "quote": "…" o null}]}',
+  'Responde solo con JSON: {"verdict": "ok|review|bad", "summary": "una frase", "goal": true|false, "findings": [{"kind": "invented|unanswered|no_next_step|handoff|tone|good", "note": "…", "quote": "…" o null}]}',
 ].join("\n");
 
 const END_TEXT: Record<string, string> = {
@@ -63,18 +66,23 @@ export function simulationReviewInput(input: SimulateReviewRequest, instructions
     return [`AGENTE dijo: «${l.text || "(sin mensaje)"}»`, ...extra].join("\n");
   });
   const prompt = instructions.trim();
+  // El cliente de prueba: su nombre y su país los tenía el agente de su perfil.
+  const name = input.contact?.name?.trim();
+  const country = input.contact?.phone ? countryFromPhone(input.contact.phone)?.name : null;
+  const known = [name ? `Nombre: ${name}` : "", country ? `País: ${country}` : ""].filter(Boolean).join("\n");
   return [
     `## Instrucciones del agente${prompt.length > INSTRUCTIONS_MAX ? " (recortadas)" : ""}\n${prompt.slice(0, INSTRUCTIONS_MAX) || "(sin instrucciones)"}`,
     `## Situación del cliente\n${input.scenario.title}: ${input.scenario.brief}`,
+    ...(known ? [`## Lo que el agente sabe del cliente (de su perfil, no lo inventa)\n${known}`] : []),
     `## Conversación${input.ended ? ` (terminó porque ${END_TEXT[input.ended] ?? input.ended})` : ""}\n${lines.join("\n")}`,
   ].join("\n\n");
 }
 
 /** El veredicto del JSON del modelo; si no se entiende, null. */
-export function parseSimulationReview(raw: string): { verdict: SimulationVerdict; summary: string; findings: SimulationFinding[] } | null {
+export function parseSimulationReview(raw: string): { verdict: SimulationVerdict; summary: string; goal: boolean | null; findings: SimulationFinding[] } | null {
   const m = raw.match(/\{[\s\S]*\}/);
   if (!m) return null;
-  let parsed: { verdict?: unknown; summary?: unknown; findings?: unknown };
+  let parsed: { verdict?: unknown; summary?: unknown; goal?: unknown; findings?: unknown };
   try {
     parsed = JSON.parse(m[0]);
   } catch {
@@ -91,7 +99,13 @@ export function parseSimulationReview(raw: string): { verdict: SimulationVerdict
       note: String(f.note).trim().slice(0, 400),
       quote: typeof f.quote === "string" && f.quote.trim() ? f.quote.trim().slice(0, 300) : null,
     }));
-  return { verdict, summary: typeof parsed.summary === "string" ? parsed.summary.trim().slice(0, 300) : "", findings };
+  return {
+    verdict,
+    summary: typeof parsed.summary === "string" ? parsed.summary.trim().slice(0, 300) : "",
+    // Un revisor que no lo dice (o una revisión guardada de antes) deja el buen fin sin saber.
+    goal: typeof parsed.goal === "boolean" ? parsed.goal : null,
+    findings,
+  };
 }
 
 /** Para comparar citas: minúsculas, sin tildes, sin signos ni espacios repetidos. */

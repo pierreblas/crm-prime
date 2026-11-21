@@ -60,6 +60,7 @@
     "test:order": "tsx --test test/inbound-order.test.ts",
     "test:metaforms": "tsx --test test/meta-lead-forms.test.ts",
     "test:leadingest": "tsx --test test/lead-ingest.test.ts",
+    "test:improve": "tsx --test test/agent-improve.test.ts",
     "test:admincopilot": "tsx --test test/admin-copilot.test.ts",
     "test:implpricing": "tsx --test test/implementation-pricing.test.ts",
     "test:implquotes": "tsx --test test/implementation-quotes.test.ts",

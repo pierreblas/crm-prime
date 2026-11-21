@@ -13,7 +13,7 @@ import { AgentBubbles, ReplyButtons, ToolTrace } from "./PlayReply";
 type Tester = { name: string; country: string };
 const TESTER_KEY = "driony.playground.tester";
 
-function loadTester(): Tester {
+export function loadTester(): Tester {
   try {
     const raw = JSON.parse(localStorage.getItem(TESTER_KEY) ?? "null") as Partial<Tester> | null;
     return { name: typeof raw?.name === "string" ? raw.name : "", country: typeof raw?.country === "string" ? raw.country : "" };

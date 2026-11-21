@@ -19,6 +19,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { AgentActionsService } from "./agent-actions.service";
 import { availableTools } from "./tools.registry";
+import { recordPromptVersion } from "./prompt-versions";
 import { i18n } from "../../i18n/i18n";
 
 @Injectable()
@@ -168,6 +169,10 @@ export class BotService {
     if (!existing) throw new NotFoundException("Bot no encontrado");
     if (input.channelId !== undefined) {
       await this.assertChannelFree(input.channelId, id);
+    }
+    // Las instrucciones que se dejan atrás quedan guardadas: «Mejorar agente» las puede restaurar.
+    if (input.systemPrompt !== undefined && input.systemPrompt !== existing.systemPrompt) {
+      await recordPromptVersion(this.prisma, { orgId: existing.orgId, agentConfigId: id, systemPrompt: existing.systemPrompt, source: "manual" });
     }
 
     const bot = await this.prisma.agentConfig.update({
