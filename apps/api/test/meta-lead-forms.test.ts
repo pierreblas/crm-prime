@@ -38,7 +38,10 @@ function setup(
   } = {},
 ) {
   const deals: Deal[] = [...(opts.deals ?? [])];
-  const emitted: Array<{ name: string; payload: { stageId?: string; dealId?: string } }> = [];
+  const emitted: Array<{
+    name: string;
+    payload: { stageId?: string; dealId?: string; contactId?: string; leadgenId?: string; pageId?: string; metaLead?: { leadgenId: string; pageId: string } };
+  }> = [];
   const recorded: Array<{
     leadgenId?: string;
     status: string;
@@ -155,7 +158,7 @@ function setup(
       return { id: "ct1", created: true };
     },
   };
-  const events = { emit: (name: string, payload: { stageId?: string; dealId?: string }) => void emitted.push({ name, payload }) };
+  const events = { emit: (name: string, payload: (typeof emitted)[number]["payload"]) => void emitted.push({ name, payload }) };
   const messaging = { sendTemplateMessage: async (input: { templateId: string }) => void welcomes.push(input.templateId) };
   const svc = new MetaLeadService(prisma as never, {} as never, graph as never, leads as never, messaging as never, events as never);
   const lead = (extra: Partial<LeadgenNotification> = {}) =>
@@ -513,6 +516,45 @@ test("si Meta falla al leer el lead, el reintento de la cola lo recupera; uno qu
   await t.lead({ leadgenId: "lg-corte" }); // Meta repite el aviso
   assert.equal(t.ingested.length, 1, "ya entró: no se duplica");
   assert.equal(t.deals.length, 1);
+});
+
+test("un lead recién llegado avisa para devolverle a Meta sus conversiones; uno importado o reprocesado no", async () => {
+  const page = { ...PAGE, createDeal: true, dealStageId: "nuevo", formRules: [] };
+  const live = setup(page);
+  await live.lead({ leadgenId: "900100200300400" });
+  const received = live.emitted.filter((e) => e.name === "meta_lead.received");
+  assert.deepEqual(
+    received.map((e) => e.payload),
+    [{ orgId: "org1", contactId: "ct1", leadgenId: "900100200300400", pageId: "p1" }],
+    "con el id del lead y la página por la que entró",
+  );
+  const stage = live.emitted.find((e) => e.name === "deal.stage_changed")!;
+  assert.deepEqual(stage.payload.metaLead, { leadgenId: "900100200300400", pageId: "p1" }, "la etapa de entrada sabe de qué lead nace la oportunidad");
+  assert.ok(live.emitted.indexOf(received[0]!) < live.emitted.indexOf(stage), "«Lead» sale antes que los eventos de la etapa");
+
+  // Sin oportunidad también cuenta: el lead entró.
+  const noDeal = setup({ ...page, createDeal: false });
+  await noDeal.lead();
+  assert.equal(noDeal.emitted.filter((e) => e.name === "meta_lead.received").length, 1);
+
+  // Uno importado puede ser de hace semanas, y uno pendiente no tiene contacto: no avisan.
+  const imported = setup(page);
+  await imported.lead({ backfill: true });
+  assert.equal(imported.emitted.filter((e) => e.name === "meta_lead.received").length, 0);
+  const pending = setup(page, { fields: [{ name: "full_name", value: "Ana" }] });
+  await pending.lead();
+  assert.equal(pending.emitted.filter((e) => e.name === "meta_lead.received").length, 0);
+
+  // Al convertir a mano uno que llegó sin teléfono, por fin entra: avisa.
+  const stored = { id: "ml1", createdAt: new Date("2026-11-20T10:00:00Z"), leadgenId: "900100200300401", pageId: "p1", formId: "f-cursos", formName: "Cursos", status: "NO_PHONE", phone: null, name: "Ana", email: null, adName: null, campaignName: null, platform: null, fieldData: [{ name: "full_name", value: "Ana" }] };
+  const converted = setup({ ...page, createDeal: false }, { storedLead: stored });
+  await converted.svc.convertLead("ml1", "+51999888777");
+  assert.deepEqual(converted.emitted.filter((e) => e.name === "meta_lead.received").map((e) => e.payload.leadgenId), ["900100200300401"]);
+
+  // Reprocesar no: el lead ya había entrado (o es antiguo).
+  const again = setup({ ...page, createDeal: false }, { storedLead: { ...stored, fieldData: [{ name: "full_name", value: "Ana" }, { name: "phone_number", value: "+51999888777" }] } });
+  await again.svc.reprocessLead("ml1");
+  assert.equal(again.emitted.filter((e) => e.name === "meta_lead.received").length, 0);
 });
 
 test("al conectar se eligen los formularios: los no marcados quedan apagados y se guarda qué pasa con los nuevos", async () => {

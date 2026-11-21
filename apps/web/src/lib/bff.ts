@@ -2602,6 +2602,26 @@ export async function disableConversions(channelId: string): Promise<import("@cr
   return res.json();
 }
 
+/** Conecta (o cambia) el conjunto de datos de Meta de una página, para los leads de sus formularios. */
+export async function enableFormConversions(
+  pageId: string,
+  input: import("@crm/shared").EnableFormConversionsInput,
+): Promise<import("@crm/shared").ConversionsOverview> {
+  const res = await bffFetch(`/api/bff/conversions/forms/${pageId}/enable`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron activar las conversiones de formularios"));
+  return res.json();
+}
+
+export async function disableFormConversions(pageId: string): Promise<import("@crm/shared").ConversionsOverview> {
+  const res = await bffFetch(`/api/bff/conversions/forms/${pageId}/disable`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron desactivar las conversiones"));
+  return res.json();
+}
+
 export async function retryConversion(eventId: string): Promise<import("@crm/shared").ConversionsOverview> {
   const res = await bffFetch(`/api/bff/conversions/events/${eventId}/retry`, { method: "POST" });
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudo reintentar"));

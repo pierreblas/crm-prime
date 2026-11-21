@@ -1,9 +1,12 @@
 import { z } from "zod";
 
 /**
- * Conversiones de anuncios: eventos que Driony envía a Meta (Conversions API
- * for Business Messaging) cuando un chat que vino de un anuncio Click to
- * WhatsApp avanza en el embudo. Se atribuyen con el ctwa_clid del anuncio.
+ * Conversiones de anuncios: eventos que Driony envía a Meta cuando un cliente
+ * que vino de un anuncio avanza en el embudo. Dos vías:
+ *  - chats de un anuncio Click to WhatsApp (Conversions API for Business
+ *    Messaging), atribuidos con el ctwa_clid del anuncio;
+ *  - leads de formularios de Meta (Conversions API, integración de CRM),
+ *    atribuidos con el id del lead.
  * Cada etapa del embudo lleva su propia lista de eventos (varios por etapa);
  * un embudo nuevo arranca con LeadSubmitted en «Potencial» y Purchase en «Ganada».
  *
@@ -70,8 +73,17 @@ export const META_EVENT_INFO: Record<MetaStandardEvent, { label: string; help: s
   ReviewProvided: { label: "Dejó una reseña", help: "Escribió una opinión sobre tu negocio.", group: "reviews" },
 };
 
+/**
+ * El evento que Driony manda solo, sin configurarlo en ninguna etapa, cuando
+ * entra un lead de un formulario de Meta. Meta pide todas las etapas, también
+ * la inicial, y solo configura el embudo si recibe eventos de la mayoría de
+ * los leads: con este, cada lead que entra cuenta.
+ */
+export const META_FORM_LEAD_EVENT = "Lead";
+
 /** «Compra (Purchase)»: el nombre del negocio y el de Meta, para encontrarlo en el Administrador de eventos. */
 export function metaEventLabel(name: string): string {
+  if (name === META_FORM_LEAD_EVENT) return `Lead recibido (${name})`;
   const info = (META_EVENT_INFO as Record<string, { label: string } | undefined>)[name];
   return info ? `${info.label} (${name})` : name;
 }
@@ -111,6 +123,36 @@ export const conversionChannelSchema = z.object({
 });
 export type ConversionChannel = z.infer<typeof conversionChannelSchema>;
 
+/**
+ * Una página de Facebook y el conjunto de datos (píxel) de Meta que recibe
+ * las conversiones de los leads de sus formularios. El token del conjunto de
+ * datos NUNCA sale de la API: el navegador solo sabe si hay uno guardado.
+ */
+export const conversionFormChannelSchema = z.object({
+  /** La página conectada (su fila en Driony). */
+  id: z.string(),
+  name: z.string(),
+  enabled: z.boolean(),
+  /** Identificador del conjunto de datos (píxel) en el Administrador de eventos. */
+  datasetId: z.string().nullable(),
+  hasToken: z.boolean(),
+});
+export type ConversionFormChannel = z.infer<typeof conversionFormChannelSchema>;
+
+/** Conectar (o cambiar) el conjunto de datos de una página. Sin token se conserva el guardado. */
+export const enableFormConversionsSchema = z.object({
+  datasetId: z
+    .string()
+    .trim()
+    .regex(/^\d{5,25}$/, "El identificador del conjunto de datos son solo números: cópialo del Administrador de eventos"),
+  accessToken: z.string().trim().min(20, "Ese token es demasiado corto: cópialo entero").max(1000).optional(),
+});
+export type EnableFormConversionsInput = z.infer<typeof enableFormConversionsSchema>;
+
+/** Por dónde vino el cliente del evento: un anuncio de clic a WhatsApp o un formulario de Meta. */
+export const conversionEventChannels = ["whatsapp", "form"] as const;
+export type ConversionEventChannel = (typeof conversionEventChannels)[number];
+
 export const conversionEventDtoSchema = z.object({
   id: z.string(),
   eventName: z.string(),
@@ -119,9 +161,12 @@ export const conversionEventDtoSchema = z.object({
   value: z.number().nullable(),
   currency: z.string().nullable(),
   error: z.string().nullable(),
-  dealId: z.string(),
+  channel: z.enum(conversionEventChannels).default("whatsapp"),
+  /** Null: el «Lead» de un lead de formulario recién llegado, que aún no es de ninguna oportunidad. */
+  dealId: z.string().nullable(),
   dealTitle: z.string().nullable(),
   contactName: z.string().nullable(),
+  /** El número de WhatsApp o la página de Facebook por donde salió. */
   channelLabel: z.string().nullable(),
   sentAt: z.string().nullable(),
   createdAt: z.string(),
@@ -130,6 +175,7 @@ export type ConversionEventDto = z.infer<typeof conversionEventDtoSchema>;
 
 export const conversionsOverviewSchema = z.object({
   channels: z.array(conversionChannelSchema),
+  forms: z.array(conversionFormChannelSchema).default([]),
   events: z.array(conversionEventDtoSchema),
 });
 export type ConversionsOverview = z.infer<typeof conversionsOverviewSchema>;

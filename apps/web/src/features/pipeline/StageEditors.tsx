@@ -137,8 +137,9 @@ export function StageConfigDialog({ stage, onClose, onChanged }: { stage: StageD
               </h4>
             </div>
             <p style={hint}>
-              Le dicen a Meta qué chats de tus anuncios de WhatsApp terminan en algo bueno, para que busque más clientes así. Se
-              envían cuando una oportunidad que vino de un anuncio llega a esta etapa, cada uno una sola vez por oportunidad.
+              Le dicen a Meta qué clientes de tus anuncios (de clic a WhatsApp o de formulario) terminan en algo bueno, para que
+              busque más así. Se envían cuando una oportunidad que vino de un anuncio llega a esta etapa, cada uno una sola vez
+              por oportunidad.
             </p>
             <ConversionsEditor stage={stage} onChanged={onChanged} />
           </section>

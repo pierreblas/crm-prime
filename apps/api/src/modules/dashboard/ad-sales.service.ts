@@ -109,7 +109,8 @@ export class AdSalesService {
         : Promise.resolve([]),
       Promise.all(
         chunks(dealIds).map((ids) =>
-          this.prisma.conversionEvent.findMany({ where: { orgId, dealId: { in: ids }, status: "sent" }, select: { dealId: true } }),
+          // Solo las de la vía de WhatsApp: este informe es de anuncios de clic a WhatsApp.
+          this.prisma.conversionEvent.findMany({ where: { orgId, dealId: { in: ids }, status: "sent", channel: "whatsapp" }, select: { dealId: true } }),
         ),
       ).then((r) => r.flat()),
       this.prisma.deal.groupBy({ by: ["currency"], where: { orgId, discardedAt: null }, _count: { _all: true }, orderBy: { _count: { currency: "desc" } }, take: 1 }),
@@ -131,7 +132,7 @@ export class AdSalesService {
         isQualified: d.stage.isQualified,
       })),
       qualifiedSteps: steps.map((s) => ({ dealId: s.dealId, at: s.createdAt })),
-      sentDealIds: new Set(sent.map((s) => s.dealId)),
+      sentDealIds: new Set(sent.flatMap((s) => (s.dealId ? [s.dealId] : []))),
       fallbackCurrency: fallback[0]?.currency ?? "USD",
     });
   }

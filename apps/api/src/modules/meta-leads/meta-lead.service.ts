@@ -49,8 +49,11 @@ export interface LeadgenNotification {
   createdTime?: string | null;
 }
 
-/** Al crear el contacto: `silent` = sin plantilla de bienvenida ni flujos (importaciones y reprocesados). */
-type ContactOpts = { silent?: boolean };
+/**
+ * Al crear el contacto: `silent` = sin plantilla de bienvenida ni flujos (importaciones y reprocesados);
+ * `leadgenId` = el lead de Meta del que sale, para devolverle a Meta sus conversiones.
+ */
+type ContactOpts = { silent?: boolean; leadgenId?: string };
 
 /** La fecha de envío que da Meta («2026-10-01T10:00:00+0000»), como Date; null si no viene o no se entiende. */
 function sentAt(raw: string | null | undefined): Date | null {
@@ -171,6 +174,7 @@ export class MetaLeadService {
 
     const contactId = await this.createContact(page, { ...mapped, phone }, formName, ad, detail.formId ?? note.formId ?? null, {
       silent: !!note.backfill,
+      leadgenId: note.leadgenId,
     });
 
     await this.record(
@@ -229,9 +233,15 @@ export class MetaLeadService {
     );
     if (!source) await this.formSource(page.orgId, contactId);
 
+    // Un lead recién llegado es la primera etapa del embudo para Meta: se avisa
+    // antes de crear la oportunidad, para que salga antes que los de su etapa.
+    // Uno importado o reprocesado puede ser de hace semanas: no se avisa.
+    const lead = opts.leadgenId ? { leadgenId: opts.leadgenId, pageId: page.pageId } : undefined;
+    if (lead && !opts.silent) this.events.emit("meta_lead.received", { orgId: page.orgId, contactId, ...lead });
+
     const target = this.dealTarget(page, formId);
     if (target) {
-      await runAsActor("system:meta", () => this.createDeal(page.orgId, contactId, mapped.name, formName, target.stageId, !!opts.silent));
+      await runAsActor("system:meta", () => this.createDeal(page.orgId, contactId, mapped.name, formName, target.stageId, !!opts.silent, lead));
     }
     // Un lead importado o reprocesado puede ser de hace semanas: no se le escribe solo.
     if (page.welcomeTemplateId && !opts.silent) {
@@ -295,6 +305,9 @@ export class MetaLeadService {
     formName: string | null,
     stageId: string | null,
     silent = false,
+    // El lead del que nace: va en el aviso de etapa porque aún no está guardado
+    // y las conversiones de Meta lo necesitan para atribuirla.
+    metaLead?: { leadgenId: string; pageId: string },
   ): Promise<void> {
     const select = { id: true, pipelineId: true } as const;
     const stage =
@@ -335,7 +348,7 @@ export class MetaLeadService {
                 },
               })
             ).id;
-      if (!silent) this.events.emit("deal.stage_changed", { orgId, dealId, contactId, stageId: stage.id });
+      if (!silent) this.events.emit("deal.stage_changed", { orgId, dealId, contactId, stageId: stage.id, ...(metaLead ? { metaLead } : {}) });
       this.events.emit("pipeline.changed", { orgId, dealId });
     } catch (e) {
       this.logger.warn(`No se pudo crear la oportunidad: ${(e as Error).message}`);
@@ -558,6 +571,7 @@ export class MetaLeadService {
       lead.formName,
       { adName: lead.adName, campaignName: lead.campaignName },
       lead.formId,
+      { leadgenId: lead.leadgenId },
     );
 
     await this.prisma.metaLead.update({

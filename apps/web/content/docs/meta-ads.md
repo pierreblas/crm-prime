@@ -72,7 +72,7 @@ Con la API `stats/*` puedes cruzar fuente, embudo y vendedor en tu propio panel.
 
 ## Conversiones de anuncios
 
-Driony devuelve a Meta las etapas del embudo de los chats que vinieron de un anuncio click-to-WhatsApp (Conversions API for Business Messaging), con el `ctwa_clid` del clic, para que las campañas optimicen hacia clientes de verdad y no solo hacia clics.
+Driony devuelve a Meta las etapas del embudo de los chats que vinieron de un anuncio click-to-WhatsApp (Conversions API for Business Messaging), con el `ctwa_clid` del clic, para que las campañas optimicen hacia clientes de verdad y no solo hacia clics. También las de los leads de formularios, que se conectan aparte (más abajo).
 
 En **Ajustes › Integraciones › Conversiones de anuncios (Meta)** activa cada número de WhatsApp. Al activarlo, Driony obtiene (o crea) el *dataset* de su cuenta de WhatsApp Business.
 
@@ -91,6 +91,24 @@ Para tiendas hay también *Vio un producto*, *Añadió al carrito*, *Empezó a p
 **La compra necesita el valor.** Al pasar a Ganada una oportunidad sin valor, el tablero te pregunta «¿Cuánto fue la venta?». Si la marca la IA o eliges «Ganada sin valor», la compra no se envía con 0: espera, y sale sola en cuanto le pongas el valor a la oportunidad (en la tarjeta de Integraciones aparece como «Espera el valor»).
 
 Cuando una oportunidad cuyo chat vino de un anuncio llega a una etapa, se envían sus eventos, cada uno una sola vez por oportunidad, con el **último clic** del cliente que traiga `ctwa_clid`. El agente de IA mueve a Potencial y Ganada con `mark_lead`; el resto, con las automatizaciones o a mano. En la tarjeta de Integraciones ves los últimos eventos enviados y puedes reintentar los que fallaron. Los chats que no vinieron de un anuncio no envían nada. Requiere que la app de Meta tenga el permiso `whatsapp_business_manage_events`.
+
+### Conversiones de los formularios (campañas de clientes potenciales)
+
+Las campañas con formulario de Facebook o Instagram también pueden aprender de quién compra. Es lo que Meta llama conectar tu CRM: Driony le devuelve las etapas de cada lead con el identificador que Meta le dio al lead, sin Zapier ni otra herramienta en medio.
+
+1. En el **Administrador de eventos** de Meta pulsa **Conectar orígenes de datos**, elige **CRM** y crea un conjunto de datos nuevo para Driony (Meta recomienda no mezclarlo con el de tu sitio web).
+2. Copia su **identificador** (el número bajo el nombre) y, en su pestaña **Configuración**, sección «API de conversiones», pulsa **Generar token de acceso**. Hace falta ser administrador del negocio; no hay que pedir ningún permiso para la app.
+3. En **Ajustes › Integraciones › Conversiones de anuncios (Meta) › Formularios de clientes potenciales**, pulsa **Conectar** en la página y pega los dos datos. El token se guarda cifrado y no se vuelve a mostrar; para cambiar solo el conjunto de datos, deja el token vacío.
+
+Desde ese momento, por cada lead de esa página:
+
+- En cuanto entra sale **Lead recibido** (`Lead`), sin que tengas que configurarlo. Meta pide todas las etapas, también la primera, y solo deja configurar el embudo si recibe eventos de la mayoría de tus leads.
+- Cada vez que su oportunidad llega a una etapa salen **los mismos eventos** que ya tienes en esa etapa (los de la tabla de arriba), una sola vez por oportunidad. Así una misma configuración sirve para WhatsApp y para formularios.
+- La **compra no espera el valor**: sale al llegar a Ganada y lleva el valor si la oportunidad ya lo tiene.
+
+Un cliente que llenó un formulario y además llegó por un anuncio de WhatsApp cuenta en los dos sitios, cada uno con su identificador. Los leads **importados o reprocesados** y los que quedan **sin teléfono** no envían nada hasta que se convierten en contacto.
+
+Para que la campaña optimice hacia compras, Meta pide además: al menos 200 leads al mes, que la etapa que elijas ocurra dentro de los 28 días desde el lead, y que llegue a ella entre el 1 % y el 40 % de los leads. Los eventos tardan hasta una hora en verse en el Administrador de eventos; después Meta te pide ordenar ahí las etapas y elegir cuál optimizar, y el aprendizaje tarda de 2 a 4 semanas.
 
 ## Ventana gratuita de los anuncios
 
