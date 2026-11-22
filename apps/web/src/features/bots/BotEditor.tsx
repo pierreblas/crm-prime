@@ -30,6 +30,7 @@ import {
   REPLY_BUTTONS_TOOL,
 } from "@crm/shared";
 import type { PromptAssistantTarget } from "@crm/shared";
+import Link from "next/link";
 import { createBot, fetchAgents, fetchCustomFields, fetchProductFields, fetchSources, fetchStages, fetchTags, fetchWhatsappChannels, updateBot } from "@/lib/bff";
 import { RuleRow, newRule, type RuleLookups } from "@/features/flows/RuleRow";
 import { CONDITION_FIELD_BY, OP_LABEL } from "@/features/flows/flowShared";
@@ -892,15 +893,25 @@ export function BotEditor({
         {/* ── Modelo y gasto ── */}
         {tab === "gasto" && (
           <>
-            <Card title="Qué IA usa" subtitle="Todas sirven para vender por WhatsApp. Empieza por la económica y sube solo si notas que se queda corta.">
+            <Card
+              title="Qué IA usa"
+              subtitle={
+                viaDriony
+                  ? "Con la IA de Driony el modelo no se elige: todos tus agentes responden con el mismo."
+                  : "Todas sirven para vender por WhatsApp. Empieza por la económica y sube solo si notas que se queda corta."
+              }
+            >
               {viaDriony && aiStatus && (
                 <div className="agent-callout" data-agent-ai="driony">
                   <NavIcon name="sparkles" size={16} />
                   <span>
-                    <strong>Ahora responde con la IA de Driony</strong>, con los tokens de tu plan: el modelo {aiStatus.model}, el
-                    mismo para todos tus agentes. El que elijas aquí queda guardado y se usa cuando conectes tu propia clave en
-                    Ajustes › Inteligencia Artificial.
+                    <strong>Responde con {aiStatus.model}, el modelo de la IA de Driony</strong>, con los tokens de tu plan y
+                    siempre en «{EFFORT_LABEL.low?.title ?? "Rápido"}». Para elegir otro modelo, conecta tu propia clave: entonces
+                    se usará el que tengas marcado abajo.
                   </span>
+                  <Link href="/settings?tab=ai" className="btn btn-sm" data-agent-ai-connect>
+                    Conectar mi clave
+                  </Link>
                 </div>
               )}
               {missingKey && aiStatus && modelProvider && (
@@ -921,8 +932,9 @@ export function BotEditor({
                   const provider = m.provider === "OpenAI" ? "openai" : "anthropic";
                   const noKey = !viaDriony && !!aiStatus?.keys && !aiStatus.keys[provider];
                   return (
-                    <label key={m.value} className={`agent-model${on ? " is-on" : ""}`}>
-                      <input type="radio" name="model" checked={on} onChange={() => set("model", m.value)} />
+                    // Con la IA de Driony no se aplica: se ve lo guardado, sin poder cambiarlo.
+                    <label key={m.value} className={`agent-model${on ? " is-on" : ""}${viaDriony ? " is-locked" : ""}`}>
+                      <input type="radio" name="model" checked={on} disabled={viaDriony} onChange={() => set("model", m.value)} />
                       <span className="agent-model__body">
                         <span className="agent-model__title">
                           {m.title}
@@ -981,8 +993,8 @@ export function BotEditor({
                     {effortValues.map((ef) => {
                       const on = form.effort === ef;
                       return (
-                        <label key={ef} className={`agent-option${on ? " is-on" : ""}`}>
-                          <input type="radio" name="effort" checked={on} onChange={() => set("effort", ef)} />
+                        <label key={ef} className={`agent-option${on ? " is-on" : ""}${viaDriony ? " is-locked" : ""}`}>
+                          <input type="radio" name="effort" checked={on} disabled={viaDriony} onChange={() => set("effort", ef)} />
                           <span>
                             <strong>{EFFORT_LABEL[ef]?.title ?? ef}</strong>
                             <small>{EFFORT_LABEL[ef]?.desc}</small>

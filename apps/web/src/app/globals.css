@@ -3700,6 +3700,8 @@ code {
 .agent-model__body small { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
 .agent-model__meta { font-size: 11.5px; color: var(--muted); opacity: 0.85; }
 .agent-model__nokey { color: var(--warning); }
+/* Con la IA de Driony el modelo y el esfuerzo no se eligen: se ve lo guardado, apagado. */
+.agent-model.is-locked, .agent-option.is-locked { cursor: not-allowed; opacity: 0.55; }
 
 /* Enlace para elegir contraseña nueva (Vendedores y consola): se ve una sola vez. */
 .reset-link { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding: 12px 14px; border: 1px solid rgba(0, 229, 255, 0.42); background: var(--accent-soft); font-size: 13px; line-height: 1.45; }
