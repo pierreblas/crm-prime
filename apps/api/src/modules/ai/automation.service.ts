@@ -22,7 +22,7 @@ import { MediaUnderstandingService } from "./media-understanding.service";
 import { FlowEngineService } from "./flow-engine.service";
 import { StageAutomationsService } from "./stage-automations.service";
 import { BookingNotificationsService } from "../bookings/booking-notifications.service";
-import { customerText, customerTextFor } from "./contact-vars";
+import { customerTextFor } from "./contact-vars";
 
 // getDay(): 0=domingo … 6=sábado.
 
@@ -103,7 +103,7 @@ export class AutomationService {
       if (!bot) return false;
 
       if (bot.welcomeEnabled && bot.welcomeMessage?.trim()) {
-        const text = await customerText(this.prisma, convo.contact, bot.welcomeMessage.trim());
+        const text = await customerTextFor(this.prisma, conversationId, bot.welcomeMessage.trim());
         if (text) {
           await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text }, MessageAuthor.AI);
           this.logger.log(`Bienvenida enviada en ${conversationId}`);
@@ -212,7 +212,7 @@ export class AutomationService {
         const hours = bot.businessHours as BusinessHours;
         if (!this.isWithinHours(hours)) {
           const notice = hours.outOfHoursMessage?.trim()
-            ? await customerText(this.prisma, convo.contact, hours.outOfHoursMessage.trim())
+            ? await customerTextFor(this.prisma, conversationId, hours.outOfHoursMessage.trim())
             : "";
           if (notice) {
             await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text: notice }, MessageAuthor.AI);

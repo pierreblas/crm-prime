@@ -58,6 +58,8 @@ export const contactListItemSchema = z.object({
   // capturados y el anuncio que abrió la conversación, si vino de uno.
   attribution: z.object({
     utms: z.record(z.string()),
+    /** Los de la última vez que llegó por una campaña, si fue otra; vacío si solo vino una vez. */
+    lastUtms: z.record(z.string()).default({}),
     ad: z
       .object({
         sourceId: z.string().nullable(),

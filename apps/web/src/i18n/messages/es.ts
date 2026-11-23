@@ -466,6 +466,8 @@ export const es: Messages = {
     originFirstAd: "Primer anuncio que lo trajo",
     originForm: "Formulario de Meta",
     originCampaign: "Campaña",
+    originLastTime: "Última campaña (la que usa el agente)",
+    originFirstTime: "Primera campaña",
     originAd: "Anuncio",
     reply: "Responder",
     react: "Reaccionar",

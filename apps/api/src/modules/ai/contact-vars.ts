@@ -9,7 +9,7 @@ import type { PrismaService } from "../../infra/prisma/prisma.service";
  * (`fillContactText`). Un texto sin llaves sale tal cual, sin tocar la base.
  */
 
-type VarsContact = { name: string | null; phone: string; currency?: string | null; metadata?: unknown };
+type VarsContact = { name: string | null; phone: string; currency?: string | null; metadata?: unknown; source?: string | null; referral?: unknown };
 
 async function valuesOf(prisma: PrismaService, contact: VarsContact): Promise<ContactVarValues> {
   const fields = await prisma.customField.findMany({ select: { key: true, label: true } });
@@ -27,7 +27,8 @@ export async function customerTextFor(prisma: PrismaService, conversationId: str
   if (!text.includes("{{")) return text;
   const convo = await prisma.conversation.findUnique({
     where: { id: conversationId },
-    select: { contact: { select: { name: true, phone: true, currency: true, metadata: true } } },
+    select: { referral: true, contact: { select: { name: true, phone: true, currency: true, metadata: true, source: { select: { name: true } } } } },
   });
-  return fillContactText(text, convo ? await valuesOf(prisma, convo.contact) : {}).trim();
+  const contact = convo ? { ...convo.contact, source: convo.contact.source?.name, referral: convo.referral } : null;
+  return fillContactText(text, contact ? await valuesOf(prisma, contact) : {}).trim();
 }

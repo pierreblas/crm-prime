@@ -10,15 +10,16 @@ import { ConversationSimulator } from "./ConversationSimulator";
 import { AgentBubbles, ReplyButtons, ToolTrace } from "./PlayReply";
 
 /** Con quién se prueba: un nombre y un país. Se recuerda en este navegador. */
-type Tester = { name: string; country: string };
+type Tester = { name: string; country: string; campaign: string; term: string };
 const TESTER_KEY = "driony.playground.tester";
 
 export function loadTester(): Tester {
   try {
     const raw = JSON.parse(localStorage.getItem(TESTER_KEY) ?? "null") as Partial<Tester> | null;
-    return { name: typeof raw?.name === "string" ? raw.name : "", country: typeof raw?.country === "string" ? raw.country : "" };
+    const text = (v: unknown) => (typeof v === "string" ? v : "");
+    return { name: text(raw?.name), country: text(raw?.country), campaign: text(raw?.campaign), term: text(raw?.term) };
   } catch {
-    return { name: "", country: "" };
+    return { name: "", country: "", campaign: "", term: "" };
   }
 }
 
@@ -26,8 +27,15 @@ export function loadTester(): Tester {
 export function testerContact(t: Tester): PlaygroundContact | undefined {
   const dial = t.country ? dialCodeOf(t.country) : null;
   const name = t.name.trim();
-  if (!name && !dial) return undefined;
-  return { ...(name ? { name } : {}), ...(dial ? { phone: `+${dial}900000000` } : {}) };
+  const campaign = t.campaign.trim();
+  const term = t.term.trim();
+  if (!name && !dial && !campaign && !term) return undefined;
+  return {
+    ...(name ? { name } : {}),
+    ...(dial ? { phone: `+${dial}900000000` } : {}),
+    ...(campaign ? { campaign } : {}),
+    ...(term ? { term } : {}),
+  };
 }
 
 type ChatMsg =
@@ -51,7 +59,7 @@ export function AgentPlayground({
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [text, setText] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
-  const [tester, setTester] = useState<Tester>({ name: "", country: "" });
+  const [tester, setTester] = useState<Tester>({ name: "", country: "", campaign: "", term: "" });
   useEffect(() => setTester(loadTester()), []);
   const changeTester = (patch: Partial<Tester>) =>
     setTester((t) => {
@@ -170,8 +178,24 @@ export function AgentPlayground({
               </option>
             ))}
           </select>
+          <input
+            className="field field-sm"
+            value={tester.campaign}
+            onChange={(e) => changeTester({ campaign: e.target.value })}
+            placeholder="utm_campaign"
+            maxLength={120}
+            aria-label="Campaña por la que llega el cliente de prueba"
+          />
+          <input
+            className="field field-sm"
+            value={tester.term}
+            onChange={(e) => changeTester({ term: e.target.value })}
+            placeholder="utm_term"
+            maxLength={120}
+            aria-label="utm_term con el que llega el cliente de prueba"
+          />
           <p className="play-tester__hint">
-            Rellena {"{{nombre}}"}, {"{{pais}}"} y {"{{moneda}}"}, y el catálogo da el precio en su moneda si el producto la tiene.
+            Rellena {"{{nombre}}"}, {"{{pais}}"}, {"{{moneda}}"}, {"{{utm_campaign}}"} y {"{{utm_term}}"}, y el catálogo da el precio en su moneda si el producto la tiene.
           </p>
         </div>
 

@@ -101,6 +101,7 @@ export function ContactDrawer({
   });
 
   const utms = Object.entries(contact.attribution.utms);
+  const lastUtms = Object.entries(contact.attribution.lastUtms ?? {});
   const ad = contact.attribution.ad;
 
   return (
@@ -250,6 +251,14 @@ export function ContactDrawer({
                     <dd style={dd}>{v}</dd>
                   </div>
                 ))}
+                {lastUtms.length > 0 && (
+                  <div style={{ ...utmRow, gridColumn: "1 / -1" }} data-last-utms>
+                    <dt style={dt}>Última vez</dt>
+                    <dd style={dd} title="La campaña más reciente: la que usan el agente de IA y los flujos. Arriba, la primera que lo trajo.">
+                      {lastUtms.map(([k, v]) => `${k.replace("utm_", "")}: ${v}`).join(" · ")}
+                    </dd>
+                  </div>
+                )}
               </dl>
             ) : (
               !ad && (

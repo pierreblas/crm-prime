@@ -1,3 +1,4 @@
+import { adReferralLabel, cleanOrigin, currentUtms, readAdReferral, utmKeys } from "./attribution.js";
 import { contactCurrency, countryFromPhone } from "./money.js";
 import { isDialable } from "./phone.js";
 
@@ -29,6 +30,12 @@ export const BUILTIN_CONTACT_VARS: ContactVarDef[] = [
   { key: "telefono", label: "Teléfono" },
   { key: "pais", label: "País" },
   { key: "moneda", label: "Moneda" },
+  // De dónde viene: la campaña más reciente que lo trajo.
+  { key: "campana", label: "Campaña" },
+  { key: "anuncio", label: "Anuncio" },
+  { key: "formulario", label: "Formulario" },
+  { key: "fuente", label: "Fuente" },
+  ...utmKeys.map((key) => ({ key, label: key })),
 ];
 
 /** Una variable en el texto. El grupo 1 es lo de dentro: «nombre» o «nombre|amigo». */
@@ -58,7 +65,16 @@ export type ContactVarValues = Record<string, string>;
  * una de siempre con la misma clave; uno vacío no la borra.
  */
 export function contactVarValues(
-  contact: { name: string | null; phone: string; currency?: string | null; metadata?: unknown },
+  contact: {
+    name: string | null;
+    phone: string;
+    currency?: string | null;
+    metadata?: unknown;
+    /** Nombre de su fuente. */
+    source?: string | null;
+    /** El anuncio que abrió su chat (Conversation.referral). */
+    referral?: unknown;
+  },
   fields: ContactVarDef[] = [],
 ): ContactVarValues {
   const name = (contact.name ?? "").trim();
@@ -71,6 +87,14 @@ export function contactVarValues(
     moneda: contactCurrency(contact) ?? "",
   };
   const meta = contact.metadata && typeof contact.metadata === "object" ? (contact.metadata as Record<string, unknown>) : {};
+  const utms = currentUtms(meta);
+  for (const k of utmKeys) out[k] = cleanOrigin(utms[k]);
+  const ad = readAdReferral(contact.referral);
+  // La campaña de Meta (formularios) o, si no, la del UTM; el anuncio que abrió el chat o el del formulario.
+  out.campana = cleanOrigin(meta.campana) || out.utm_campaign!;
+  out.anuncio = cleanOrigin(ad ? adReferralLabel(ad) : meta.anuncio);
+  out.formulario = cleanOrigin(meta.formulario);
+  out.fuente = cleanOrigin(contact.source);
   for (const f of fields) {
     const value = valueText(meta[f.key]);
     for (const k of [varKey(f.key), varKey(f.label)]) {

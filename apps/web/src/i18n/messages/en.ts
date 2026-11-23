@@ -467,6 +467,8 @@ export const en = {
     originFirstAd: "First ad that brought them",
     originForm: "Meta lead form",
     originCampaign: "Campaign",
+    originLastTime: "Latest campaign (the one the agent uses)",
+    originFirstTime: "First campaign",
     originAd: "Ad",
     reply: "Reply",
     react: "React",

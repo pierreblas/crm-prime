@@ -8,6 +8,7 @@ import {
   contactCurrency,
   MessageAuthor,
   MessageType,
+  allUtmKeys,
   utmKeys,
   type CreatePublicContactInput,
   type CreatePublicDealInput,
@@ -415,6 +416,7 @@ export class PublicApiService {
       if (v == null) continue;
       // Los utm_* se devuelven aparte: son atribución, no datos del negocio.
       if ((utmKeys as readonly string[]).includes(k)) utm[k] = String(v);
+      else if (allUtmKeys.includes(k)) continue;
       else fields[k] = String(v);
     }
 

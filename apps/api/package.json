@@ -42,6 +42,7 @@
     "test:agentbuttons": "tsx --test test/agent-buttons.test.ts",
     "test:botprincipal": "tsx --test test/bot-principal.test.ts",
     "test:productfile": "tsx --test test/product-file.test.ts",
+    "test:origin": "tsx --test test/origin.test.ts",
     "test:chatreview": "tsx --test test/chat-review.test.ts",
     "test:adsales": "tsx --test test/ad-sales.test.ts",
     "test:reopen": "tsx --test test/reopen-autopilot.test.ts",

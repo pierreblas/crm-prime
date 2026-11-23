@@ -71,8 +71,18 @@ export type PlaygroundTurn = z.infer<typeof playgroundTurnSchema>;
 export const playgroundContactSchema = z.object({
   name: z.string().trim().max(120).optional(),
   phone: z.string().trim().max(20).optional(),
+  /** Campaña por la que «llega» (utm_campaign), para probar qué responde. */
+  campaign: z.string().trim().max(120).optional(),
+  /** Su utm_term (a menudo, el curso o el producto del anuncio). */
+  term: z.string().trim().max(120).optional(),
 });
 export type PlaygroundContact = z.infer<typeof playgroundContactSchema>;
+
+/** Los UTM del cliente de prueba, como los guardaría un cliente real; undefined si no se eligió ninguno. */
+export function playgroundUtms(contact: PlaygroundContact | undefined): Record<string, string> | undefined {
+  const utms = { ...(contact?.campaign ? { utm_campaign: contact.campaign } : {}), ...(contact?.term ? { utm_term: contact.term } : {}) };
+  return Object.keys(utms).length ? utms : undefined;
+}
 
 export const playgroundRequestSchema = z.object({
   message: z.string().min(1).max(4000),

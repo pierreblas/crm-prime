@@ -17,6 +17,7 @@ import {
   MessageType,
   adReferralLabel,
   adSummaryOf,
+  addUtmTouch,
   mediaName,
   stripMediaName,
   parseUtms,
@@ -276,24 +277,15 @@ export class MessagingService {
   // Pausa la IA tras intervención humana (ventana configurable).
   private readonly humanPauseMs = 15 * 60 * 1000;
 
-  // Fusiona los utm_* en metadata SIN pisar los que ya tuviera: interesa la
-  // campaña que trajo al contacto la primera vez.
+  // Los utm_* de la primera vez se conservan (los reportes); los de una vuelta
+  // por otra campaña se guardan como los últimos (lo que usan el agente y los flujos).
   private async mergeUtms(contactId: string, utms: Utms): Promise<void> {
     const current = await this.prisma.contact.findUnique({
       where: { id: contactId },
       select: { metadata: true },
     });
-    const metadata = {
-      ...((current?.metadata as Record<string, unknown> | null) ?? {}),
-    };
-    let changed = false;
-    for (const [key, value] of Object.entries(utms)) {
-      if (metadata[key] === undefined || metadata[key] === "") {
-        metadata[key] = value;
-        changed = true;
-      }
-    }
-    if (!changed) return;
+    const metadata = addUtmTouch(current?.metadata, utms);
+    if (!metadata) return;
     await this.prisma.contact.update({
       where: { id: contactId },
       data: { metadata: metadata as Prisma.InputJsonObject },
@@ -407,8 +399,7 @@ export class MessagingService {
       });
     }
 
-    // Contacto ya existente: fusionar los utm_* nuevos sin pisar los previos
-    // (interesa la PRIMERA campaña que lo trajo, no la última).
+    // Contacto ya existente: la primera campaña se conserva y esta queda como la última.
     if (hasUtms) await this.mergeUtms(contact.id, utms);
 
     // Reusar conversación abierta o crear una nueva. La ventana de 24h se

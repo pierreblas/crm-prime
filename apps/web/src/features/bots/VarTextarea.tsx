@@ -16,7 +16,21 @@ import type { PromptVar } from "./promptMarks";
 
 type Menu = { mode: "button" } | { mode: "typing"; from: number; query: string };
 
-const SAMPLE: ContactVarValues = { nombre: "Ana", telefono: "+51 987 654 321", pais: "Perú", moneda: "PEN" };
+const SAMPLE: ContactVarValues = {
+  nombre: "Ana",
+  telefono: "+51 987 654 321",
+  pais: "Perú",
+  moneda: "PEN",
+  campana: "Power BI noviembre",
+  anuncio: "Power BI · Testimonio",
+  formulario: "Inscripción Power BI",
+  fuente: "Anuncios de Meta",
+  utm_source: "facebook",
+  utm_medium: "cpc",
+  utm_campaign: "powerbi_noviembre",
+  utm_content: "video_1",
+  utm_term: "curso power bi",
+};
 // Lo rellenado en la vista previa va entre estas dos marcas para pintarlo aparte.
 const OPEN = "\u0001";
 const CLOSE = "\u0002";

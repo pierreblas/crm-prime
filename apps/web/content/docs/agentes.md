@@ -135,6 +135,28 @@ Con catálogos grandes (cientos de productos) el agente no los lee todos de golp
 - **Catálogo**: el agente lee los productos con `search_products`: nombre, precio (en la moneda del cliente), descripción y los **campos del catálogo** que tengan activado «lo usa el agente de IA» (temario, duración, modalidad…). Las instrucciones le dicen qué campos existen; para que los use, pídeselo: «cuando pregunten por el temario, consulta el curso y cítalo tal cual». Escribir «[Temario]» en las instrucciones no sustituye nada: hay muchos productos y es el agente quien busca el que toca.
 - **Contacto**: conoce el nombre, teléfono, país, moneda y los **campos personalizados del contacto** con valor, y puedes insertarlos en las instrucciones con `{{nombre}}`, `{{telefono}}`, `{{pais}}`, `{{moneda}}` o `{{clave del campo}}` (en «Cómo debe atender», el desplegable *Cómo nombrar sus acciones* lista las claves). Si a un cliente le falta ese dato, el agente lee «(sin dato)» y no se lo inventa.
 
+### De dónde viene el cliente
+
+El agente sabe por dónde llegó y lo usa para entender de qué le hablan: si escribe solo «info», se refiere a lo de su campaña. Lo sabe sin que configures nada:
+
+- **Anuncio que abre WhatsApp**: el titular, el texto y el saludo del anuncio.
+- **Formulario de Meta**: el formulario, la campaña y el anuncio.
+- **UTM**: los de la URL del anuncio, los de un enlace `wa.me`, los que mande tu web por la [API](/docs/api) o los **parámetros de seguimiento** de un formulario de Meta (en el formulario, *Configuración › Agregar parámetro*).
+
+Son datos internos: se le pide que no los mencione ni los copie al cliente. Si quieres decidir tú la respuesta, tienes las variables `{{campana}}`, `{{anuncio}}`, `{{formulario}}`, `{{fuente}}`, `{{utm_source}}`, `{{utm_medium}}`, `{{utm_campaign}}`, `{{utm_content}}` y `{{utm_term}}`:
+
+> El cliente viene de la campaña {{utm_campaign}}.
+>
+> Si la campaña contiene «powerbi», preséntale Power BI. Si contiene «excel», preséntale Excel avanzado.
+>
+> Si dice «(sin dato)», pregúntale qué curso le interesa.
+
+- **Si el producto va en otro UTM**, usa esa variable: «El curso por el que llegó este cliente es: {{utm_term}}. Si hay un curso, búscalo con `search_products` y preséntalo directo». Conviene escribirlo como el nombre del producto en tu catálogo: de un código la IA no sabe qué producto es.
+- **El más reciente manda.** Si un cliente vuelve por otra campaña, el agente y las condiciones «UTM con que llegó» de los flujos usan la última; la primera se conserva en su ficha y en la API para tus reportes.
+- `{{campana}}` es la campaña de Meta del formulario y, si no hay, el `utm_campaign`.
+- **Para probarlo**, en *Probar conversación* escribe un `utm_campaign` o un `utm_term` en «Probar como».
+- **Para que cada campaña tenga su propio agente**, llévala a un embudo con su agente: en **Configurar** de cada formulario de Meta, o con un flujo que cree la oportunidad según el UTM.
+
 ### Datos del cliente en los mensajes fijos
 
 Las mismas variables funcionan en los textos que se envían tal cual, sin pasar por la IA: el **saludo automático**, el **mensaje fuera de horario**, las **respuestas por palabra clave** (y sus versiones), lo que dice **al pasarte el chat** y los **seguimientos de texto fijo**. «¡Hola {{nombre}}!» le llega a Ana como «¡Hola Ana!».

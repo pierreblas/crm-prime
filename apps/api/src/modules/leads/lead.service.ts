@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Prisma } from "@prisma/client";
-import { CONTACT_EMAIL_KEY, fieldKeyFromLabel, phoneVariants, resolveFieldKeys, utmKeys } from "@crm/shared";
+import { addUtmTouch, allUtmKeys, CONTACT_EMAIL_KEY, fieldKeyFromLabel, phoneVariants, resolveFieldKeys, utmKeys } from "@crm/shared";
 import type {
   UnmappedField,
   CreateCustomFieldInput,
@@ -97,7 +97,7 @@ export class LeadService {
       ORDER BY count(*) DESC
       LIMIT 200`;
     // El correo tiene su sitio fijo en la ficha: no hace falta crearle un campo.
-    const skip = new Set<string>([...(utmKeys as readonly string[]), CONTACT_EMAIL_KEY]);
+    const skip = new Set<string>([...allUtmKeys, CONTACT_EMAIL_KEY]);
     return rows.filter((r) => !defined.has(r.key) && !skip.has(r.key)).slice(0, 50);
   }
 
@@ -136,11 +136,12 @@ export class LeadService {
     // la clave o el nombre del campo; lo desconocido se guarda con clave limpia.
     const current = (existing?.metadata as Record<string, unknown> | null) ?? {};
     const incoming = await this.resolveFields(input.fields ?? {});
-    // Los utm_* son la campaña que trajo al contacto la primera vez (como en
-    // WhatsApp): si ya tiene, los de este lead no entran. Mezclados darían una
-    // campaña que nunca existió (la fuente de una con el medio de otra).
-    if (utmKeys.some((k) => current[k])) for (const k of utmKeys) delete incoming[k];
-    const metadata = { ...current, ...incoming } as Prisma.InputJsonValue;
+    // Los utm_* de la primera vez se conservan (como en WhatsApp) y los de este
+    // lead quedan como los últimos: es la campaña de la que habla ahora.
+    const utms = Object.fromEntries(utmKeys.filter((k) => incoming[k]).map((k) => [k, incoming[k]!]));
+    for (const k of allUtmKeys) delete incoming[k];
+    const touched = addUtmTouch(current, utms) ?? current;
+    const metadata = { ...touched, ...incoming } as Prisma.InputJsonValue;
 
     const contact = await this.prisma.contact.upsert({
       where: { orgId_phone: { orgId, phone } },

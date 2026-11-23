@@ -16,6 +16,8 @@ export function OriginSection({ ad, contact }: { ad: AdSummary | null; contact: 
   const fields = contact?.fields ?? {};
   const form = fields.formulario;
   const utms = Object.entries(contact?.attribution.utms ?? {});
+  // Si volvió por otra campaña: la que usan el agente y los flujos.
+  const lastUtms = Object.entries(contact?.attribution.lastUtms ?? {});
   const firstIsOther = !!first && (!ad || first.sourceId !== ad.sourceId);
 
   return (
@@ -40,20 +42,28 @@ export function OriginSection({ ad, contact }: { ad: AdSummary | null; contact: 
             </span>
           </div>
         )}
-        {utms.length > 0 && (
-          <div className="origin__utms">
-            {utms.map(([k, v]) => (
-              <span key={k} className="origin__utm" title={k}>
-                {k.replace("utm_", "")}: {v}
-              </span>
-            ))}
-          </div>
-        )}
+        {lastUtms.length > 0 && <Utms label={t("inbox.originLastTime")} utms={lastUtms} last />}
+        {utms.length > 0 && <Utms label={lastUtms.length > 0 ? t("inbox.originFirstTime") : null} utms={utms} />}
         {!ad && !first && !form && utms.length === 0 && (
           <p className="cp-empty">{contact ? contactOriginLabels[contact.origin] : "—"}</p>
         )}
       </div>
     </section>
+  );
+}
+
+function Utms({ label, utms, last = false }: { label: string | null; utms: [string, string][]; last?: boolean }) {
+  return (
+    <div data-origin-utms={last ? "last" : "first"}>
+      {label && <span className="origin__label">{label}</span>}
+      <div className="origin__utms">
+        {utms.map(([k, v]) => (
+          <span key={k} className="origin__utm" title={k}>
+            {k.replace("utm_", "")}: {v}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 

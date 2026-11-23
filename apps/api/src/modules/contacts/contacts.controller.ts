@@ -21,7 +21,10 @@ import {
   normalizeEmail,
   setContactTagsSchema,
   updateContactSchema,
+  allUtmKeys,
+  currentUtms,
   utmKeys,
+  utmLastKeys,
   type ContactDto,
   type ContactListItem,
   type ContactTagsDto,
@@ -200,6 +203,8 @@ export class ContactsController {
       originDetail: c.originDetail,
       attribution: {
         utms: this.utmsFrom(c.metadata),
+        // Si volvió por otra campaña: la que usan el agente y los flujos.
+        lastUtms: this.lastUtmsFrom(c.metadata),
         ad: this.adFrom(c.conversations[0]?.messages[0]?.referral ?? c.conversations[0]?.referral),
       },
       // Sin los utm_*: van en `attribution`, y si salieran también aquí el
@@ -226,9 +231,14 @@ export class ContactsController {
     return out;
   }
 
+  private lastUtmsFrom(metadata: unknown): Record<string, string> {
+    const all = this.fieldsFrom(metadata);
+    return utmLastKeys.some((k) => all[k]) ? (currentUtms(all) as Record<string, string>) : {};
+  }
+
   private businessFields(metadata: unknown): Record<string, string> {
     const all = this.fieldsFrom(metadata);
-    for (const key of utmKeys) delete all[key];
+    for (const key of allUtmKeys) delete all[key];
     return all;
   }
 

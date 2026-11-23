@@ -10,7 +10,7 @@ Cada disparador tiene cuatro partes:
 
 1. **El evento** y su filtro propio (las palabras, las etiquetas, las etapas, los formularios o las horas).
 2. **Cuándo** (en los de embudo, etiquetas, cierre, leads y llamadas): *al momento*, *a los 5 o 10 min*, *a la 1 h*, *al día siguiente* u otro tiempo. Al vencer se comprueba otra vez que sigue valiendo: que la oportunidad siga en la etapa, que siga teniendo (o no) la etiqueta, el mismo responsable, y las condiciones.
-3. **Condiciones** que también tienen que cumplirse, *todas* o *alguna*: tiene o no tiene una etiqueta, está en una etapa, el responsable de su oportunidad, el valor de su oportunidad, la fuente, los UTM con que llegó, el país, un campo del contacto, el número de WhatsApp… Por ejemplo: «Cambia de etapa a Propuesta», solo si tiene la etiqueta *VIP* y su oportunidad vale más de 500.
+3. **Condiciones** que también tienen que cumplirse, *todas* o *alguna*: tiene o no tiene una etiqueta, está en una etapa, el responsable de su oportunidad, el valor de su oportunidad, la fuente, los UTM con que llegó (los de la última vez), el país, un campo del contacto, el número de WhatsApp… Por ejemplo: «Cambia de etapa a Propuesta», solo si tiene la etiqueta *VIP* y su oportunidad vale más de 500.
 4. **Horario activo**: si lo marcas, fuera de esos días y horas el disparador no arranca nada.
 
 | Disparador | Cuándo | Filtro |

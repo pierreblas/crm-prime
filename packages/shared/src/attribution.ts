@@ -76,6 +76,69 @@ export const utmKeys = [
 ] as const;
 export type UtmKey = (typeof utmKeys)[number];
 
+/**
+ * Los UTM de la ÚLTIMA vez que llegó, si vino otra vez por una campaña. Los de
+ * `utmKeys` son los de la primera (los reportes) y no cambian nunca; estos son
+ * los que usan el agente y los flujos, que necesitan saber de qué le hablan hoy.
+ */
+const lastOf = (k: UtmKey) => k.replace("utm_", "utm_last_");
+export const utmLastKeys: readonly string[] = utmKeys.map(lastOf);
+/** Todas: ninguna es un dato del negocio ni se edita a mano. */
+export const allUtmKeys: readonly string[] = [...utmKeys, ...utmLastKeys];
+
+const textOf = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+function utmSet(meta: Record<string, unknown>, keyOf: (k: UtmKey) => string): Utms {
+  const out: Utms = {};
+  for (const k of utmKeys) {
+    const v = textOf(meta[keyOf(k)]);
+    if (v) out[k] = v;
+  }
+  return out;
+}
+
+const sameUtms = (a: Utms, b: Utms) => utmKeys.every((k) => (a[k] ?? "") === (b[k] ?? ""));
+
+/** Los UTM que valen hoy: los de la última vez y, si solo vino una, los de la primera. */
+export function currentUtms(metadata: unknown): Utms {
+  const meta = metadata && typeof metadata === "object" ? (metadata as Record<string, unknown>) : {};
+  const last = utmSet(meta, lastOf);
+  return Object.keys(last).length ? last : utmSet(meta, (k) => k);
+}
+
+/**
+ * Suma una llegada con UTM a lo guardado del contacto: la primera se queda y las
+ * siguientes reemplazan la «última» entera (a trozos darían una campaña que
+ * nunca existió). Devuelve la metadata nueva, o null si no cambia nada.
+ */
+export function addUtmTouch(metadata: unknown, incoming: Utms): Record<string, unknown> | null {
+  const meta = { ...(metadata && typeof metadata === "object" ? (metadata as Record<string, unknown>) : {}) };
+  const next = utmSet(incoming as Record<string, unknown>, (k) => k);
+  if (!Object.keys(next).length) return null;
+  const first = utmSet(meta, (k) => k);
+  if (!Object.keys(first).length) return { ...meta, ...next };
+  if (sameUtms(currentUtms(meta), next)) return null;
+  for (const k of utmKeys) {
+    if (next[k]) meta[lastOf(k)] = next[k];
+    else delete meta[lastOf(k)];
+  }
+  return meta;
+}
+
+/**
+ * Un dato de origen listo para dárselo a la IA. Lo escribe quien arma el enlace
+ * (o quien lo toca), así que va en una línea, corto y sin los signos con los que
+ * se marcan secciones, variables y citas.
+ */
+export function cleanOrigin(value: unknown, max = 80): string {
+  return textOf(value)
+    .replace(/[\u0000-\u001f\u007f{}«»#`<>]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max)
+    .trim();
+}
+
 export type Utms = Partial<Record<UtmKey, string>>;
 
 // Acepta las formas en que suele llegar el texto prellenado:

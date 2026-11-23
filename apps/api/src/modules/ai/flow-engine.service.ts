@@ -16,6 +16,8 @@ import {
   type FlowTrigger,
   type FlowTriggerType,
   templateVarCount,
+  currentUtms,
+  type UtmKey,
 } from "@crm/shared";
 import { isWithinHours } from "../../common/utils/business-hours";
 import { fold } from "../../common/utils/fold";
@@ -1479,8 +1481,8 @@ export class FlowEngineService {
       case "contact_field":
         return ctx.contact.fields[r.key ?? ""] ?? "";
       case "utm":
-        // Se guardan en la ficha con su nombre: utm_source, utm_campaign…
-        return ctx.contact.fields[r.key ?? ""] ?? "";
+        // Los de la última vez que llegó: la campaña de la que habla ahora.
+        return currentUtms(ctx.contact.fields)[(r.key ?? "") as UtmKey] ?? "";
       case "source":
         return ctx.contact.sourceId ?? "";
       case "channel":
