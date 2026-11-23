@@ -557,6 +557,7 @@ export const en = {
     deliveryDelivered: "Delivered",
     deliveryRead: "Read",
     deliveryFailed: "Could not be sent",
+    failedNoReason: "Meta did not give a reason.",
     today: "Today",
     yesterday: "Yesterday",
     // Modo del agente

@@ -1119,22 +1119,26 @@ export class MessagingService {
   }
 
   // ── Actualización de estado (sent/delivered/read/failed) ───────
-  async handleStatus(waMessageId: string, status: MessageStatus, errorReason?: string): Promise<void> {
+  /** Devuelve false si el mensaje no está (todavía): quien avisa decide si vale la pena reintentar. */
+  async handleStatus(waMessageId: string, status: MessageStatus, errorReason?: string): Promise<boolean> {
     const msg = await this.prisma.message.findUnique({
       where: { waMessageId },
       select: { conversationId: true, campaignId: true, status: true },
     });
-    if (!msg) return;
+    if (!msg) return false;
     // Meta no garantiza el orden de los avisos: un «entregado» que llega
-    // después de «leído» no debe devolver el mensaje atrás.
-    const RANK: Record<string, number> = { QUEUED: 0, SENT: 1, DELIVERED: 2, READ: 3 };
-    if (status !== MessageStatus.FAILED && (RANK[msg.status] ?? 0) > (RANK[status] ?? 0)) return;
+    // después de «leído» no debe devolver el mensaje atrás, ni un «enviado»
+    // atrasado tapar un fallo (quedaba como enviado algo que nunca llegó).
+    const RANK: Record<string, number> = { QUEUED: 0, SENT: 1, FAILED: 1.5, DELIVERED: 2, READ: 3 };
+    if (status !== MessageStatus.FAILED && (RANK[msg.status] ?? 0) > (RANK[status] ?? 0)) return true;
     await this.prisma.message.update({
       where: { waMessageId },
       data: {
         status,
         // Meta aceptó el envío y luego no pudo entregarlo: el motivo llega aquí.
         ...(status === MessageStatus.FAILED && errorReason ? { errorReason: errorReason.slice(0, 500) } : {}),
+        // Al final sí llegó: el motivo del fallo ya no vale.
+        ...(status !== MessageStatus.FAILED && msg.status === MessageStatus.FAILED ? { errorReason: null } : {}),
       },
     });
     // Métricas de la difusión: se recalculan desde los mensajes (no se suman a ciegas).
@@ -1142,6 +1146,7 @@ export class MessagingService {
       this.events.emit("campaign.stats_stale", { campaignId: msg.campaignId });
     }
     this.notify(msg.conversationId);
+    return true;
   }
 
   /**
@@ -1241,25 +1246,51 @@ export class MessagingService {
     if (conversation.channelKind !== "whatsapp") {
       throw new BadRequestException("Las plantillas son de WhatsApp. En Messenger e Instagram escribe un mensaje normal.");
     }
-    if (template.status !== "APPROVED") {
-      throw new BadRequestException(
-        "La plantilla no está aprobada por Meta, así que no se puede enviar.",
-      );
-    }
-
     const from = conversation.channel?.phoneNumberId;
-    const spec = await this.fills.build(
-      {
-        name: template.name,
-        language: template.language,
-        header: (template.header as TemplateHeader | null) ?? null,
-        buttons: (template.buttons as TemplateButton[] | null) ?? [],
-        body: template.body,
-      },
-      input.fill,
-      conversation.contact,
-      from,
-    );
+    let spec: Awaited<ReturnType<TemplateFillService["build"]>>;
+    try {
+      if (template.status !== "APPROVED") {
+        throw new BadRequestException(
+          "La plantilla no está aprobada por Meta, así que no se puede enviar.",
+        );
+      }
+      spec = await this.fills.build(
+        {
+          name: template.name,
+          language: template.language,
+          header: (template.header as TemplateHeader | null) ?? null,
+          buttons: (template.buttons as TemplateButton[] | null) ?? [],
+          body: template.body,
+        },
+        input.fill,
+        conversation.contact,
+        from,
+      );
+    } catch (e) {
+      // No llegó a salir. A mano, quien la envía ve el motivo al momento; una
+      // automática (la bienvenida de un formulario, un flujo, un seguimiento,
+      // una cita) solo dejaba una línea en el registro del servidor: queda en
+      // el chat, como fallida y con el motivo.
+      if (author === MessageAuthor.AI) {
+        await this.prisma.message
+          .create({
+            data: {
+              orgId: conversation.orgId,
+              conversationId: conversation.id,
+              templateId: template.id,
+              direction: MessageDirection.OUTBOUND,
+              type: MessageType.TEMPLATE,
+              author,
+              content: template.body,
+              status: MessageStatus.FAILED,
+              errorReason: (e as Error).message.slice(0, 500),
+            },
+          })
+          .catch((err: unknown) => this.logger.warn(`No se pudo dejar constancia de la plantilla: ${(err as Error).message}`));
+        this.notify(conversation.id);
+      }
+      throw e;
+    }
 
     const message = await this.prisma.message.create({
       data: {
@@ -2015,6 +2046,7 @@ export class MessagingService {
     } | null;
     reaction?: string | null;
     status: string;
+    errorReason?: string | null;
     createdAt: Date;
     interactive?: unknown;
     referral?: unknown;
@@ -2047,6 +2079,7 @@ export class MessagingService {
         : null,
       reaction: m.reaction ?? null,
       status: m.status as MessageStatus,
+      failedReason: m.status === MessageStatus.FAILED ? (m.errorReason ?? null) : null,
       createdAt: m.createdAt.toISOString(),
     };
   }

@@ -1,6 +1,7 @@
 import { Inject, Logger } from "@nestjs/common";
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
+import { MessageStatus } from "@crm/shared";
 import { QUEUE_INBOUND } from "../../../infra/queue/queue.constants";
 import { MessagingService } from "../../messaging/messaging.service";
 import { WhatsappConnectionService } from "../whatsapp-connection.service";
@@ -79,7 +80,13 @@ export class InboundProcessor extends WorkerHost {
     const data = job.data;
 
     if (data.kind === "status") {
-      await this.messaging.handleStatus(data.waMessageId, data.status, data.errorReason);
+      const found = await this.messaging.handleStatus(data.waMessageId, data.status, data.errorReason);
+      // El aviso de fallo puede llegar antes de que se guarde el identificador
+      // del mensaje: se reintenta dos veces (la cola espera entre medias). Si
+      // sigue sin estar, no es nuestro (salió del celular o de otra app).
+      if (!found && data.status === MessageStatus.FAILED && job.attemptsMade < 2) {
+        throw new Error(`El mensaje ${data.waMessageId} todavía no está guardado: se reintenta su aviso de fallo`);
+      }
       return;
     }
 

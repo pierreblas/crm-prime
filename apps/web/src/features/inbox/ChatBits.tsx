@@ -27,16 +27,19 @@ const STATUS_KEY: Record<string, MessageKey> = {
 export function MessageStatus({
   status,
   author,
+  reason = null,
 }: {
   status: string;
   author: string;
+  /** Por qué falló; se ve entero debajo del mensaje (FailedReason). */
+  reason?: string | null;
 }) {
   const t = useT();
   const key = STATUS_KEY[status];
   const label = key ? t(key) : status.toLowerCase();
 
   return (
-    <span style={row} title={label}>
+    <span style={row} title={reason ? `${label}: ${reason}` : label}>
       {author === "AI" && (
         <span style={aiMark}>
           <NavIcon name="sparkles" size={11} />
@@ -68,6 +71,16 @@ export function MessageStatus({
         </span>
       )}
     </span>
+  );
+}
+
+/** Por qué no se envió un mensaje, a la vista (en el celular no hay cursor para un aviso emergente). */
+export function FailedReason({ reason }: { reason: string | null }) {
+  const t = useT();
+  return (
+    <p className="msg-failed" data-failed-reason>
+      {reason || t("inbox.failedNoReason")}
+    </p>
   );
 }
 

@@ -157,6 +157,8 @@ export const messageDtoSchema = z.object({
   note: z.string().nullable().optional(),
   reaction: z.string().nullable(),
   status: z.nativeEnum(MessageStatus),
+  /** Por qué no se pudo enviar o entregar (solo si falló). */
+  failedReason: z.string().nullable().optional(),
   createdAt: z.string(),
   /** Botones enviados con el mensaje (interactivo), para pintarlos en el hilo. */
   buttons: z.array(z.object({ id: z.string(), title: z.string() })).nullable(),

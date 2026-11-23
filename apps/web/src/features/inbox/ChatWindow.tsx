@@ -55,6 +55,7 @@ import type { RewriteMode } from "@crm/shared";
 import {
   AiTypingBubble,
   DaySeparator,
+  FailedReason,
   MessageStatus,
   MessagesSkeleton,
   isNewDay,
@@ -944,8 +945,9 @@ function MessageBubble({
               minute: "2-digit",
             })}
           </span>
-          {out && <MessageStatus status={m.status} author={m.author} />}
+          {out && <MessageStatus status={m.status} author={m.author} reason={m.failedReason ?? null} />}
         </div>
+        {out && m.status === "FAILED" && <FailedReason reason={m.failedReason ?? null} />}
         {whyRunId && <AiWhy conversationId={conversationId} runId={whyRunId} />}
         {m.reaction && (
           <span

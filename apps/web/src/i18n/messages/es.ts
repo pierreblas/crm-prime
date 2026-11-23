@@ -557,6 +557,7 @@ export const es: Messages = {
     deliveryDelivered: "Entregado",
     deliveryRead: "Leído",
     deliveryFailed: "No se pudo enviar",
+    failedNoReason: "Meta no dio el motivo.",
     today: "Hoy",
     yesterday: "Ayer",
     // Modo del agente
