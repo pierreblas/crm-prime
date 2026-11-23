@@ -106,7 +106,7 @@ export class PromptAssistantService {
       }),
       // Qué datos trae cada producto, para que las instrucciones pidan consultarlos.
       Promise.all([
-        this.prisma.productField.findMany({ orderBy: { order: "asc" }, select: { label: true, unit: true, aiVisible: true } }),
+        this.prisma.productField.findMany({ orderBy: { order: "asc" }, select: { label: true, unit: true, aiVisible: true, type: true } }),
         this.prisma.product.groupBy({ by: ["currency"], where: { isActive: true } }),
         this.prisma.productPrice.groupBy({ by: ["currency"], where: { product: { isActive: true } } }),
         this.prisma.product.count({ where: { isActive: true, imageUrl: { not: null } } }),
@@ -136,8 +136,10 @@ export class PromptAssistantService {
           name: p.name,
           price: `${p.currency} ${Number(p.price).toLocaleString("es")}`,
         })),
-        fields: productFields.filter((f) => f.aiVisible).map((f) => (f.unit ? `${f.label} (${f.unit})` : f.label)),
+        fields: productFields.filter((f) => f.aiVisible && f.type !== "file").map((f) => (f.unit ? `${f.label} (${f.unit})` : f.label)),
         hiddenFields: productFields.filter((f) => !f.aiVisible).map((f) => f.label),
+        // Los archivos (brochure, temario) no se citan: se envían con send_product_file.
+        files: productFields.filter((f) => f.aiVisible && f.type === "file").map((f) => f.label),
         currencies: [...new Set([...baseCurrencies, ...extraCurrencies].map((c) => c.currency))],
         withImage,
       },

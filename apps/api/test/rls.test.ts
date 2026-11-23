@@ -3138,3 +3138,49 @@ test("cambiar el agente principal con el rol restringido: queda uno por empresa 
   await assert.rejects(() => ctx.runInOrg(orgs[1], () => svc(orgs[1]).update(viejos[1]!, updateBotSchema.parse({ isDefault: false }))), /agente principal/);
   assert.deepEqual(await principales(orgs[1]), [{ name: "Por defecto 1" }]);
 });
+
+test("archivo de producto con el rol restringido: la acción, el envío y la retención, cada empresa con los suyos", async () => {
+  const { AgentActionsService } = await import("../src/modules/ai/agent-actions.service");
+  const { MediaRetentionService } = await import("../src/modules/plans/media-retention.service");
+  const { withMediaName } = await import("@crm/shared");
+  const suf = String(Date.now()).slice(-7);
+  const orgs = [`o_pf_${suf}`, `o_pf2_${suf}`] as const;
+  const file = "6f1c2a34-5b6d-4e7f-8a90-123456789abc";
+  const stored = withMediaName(`storage://${file}`, "brochure.pdf");
+  let convo = "";
+  await ctx.runUnscoped("prueba: empresas con archivos de producto", async () => {
+    for (const [i, id] of orgs.entries()) {
+      await prisma.organization.create({ data: { id, slug: `pf${i}-${suf}`, name: `Archivos ${i}` } });
+      await prisma.productField.create({ data: { orgId: id, key: "brochure", label: "Brochure", type: "file" } });
+      await prisma.productField.create({ data: { orgId: id, key: "interno", label: "Contrato", type: "file", aiVisible: false } });
+    }
+    await prisma.product.create({ data: { orgId: orgs[0], name: "Power BI", price: 249, attributes: { brochure: stored, interno: "https://web.com/contrato.pdf" } } });
+    await prisma.product.create({ data: { orgId: orgs[0], name: "Excel", price: 149, attributes: { brochure: "", interno: "https://web.com/contrato.pdf" } } });
+    await prisma.product.create({ data: { orgId: orgs[0], name: "Python", price: 199, isActive: false, attributes: { brochure: "https://web.com/p.pdf" } } });
+    const c = await prisma.contact.create({ data: { orgId: orgs[0], phone: `+5190${suf}`, name: "Ana" } });
+    convo = (await prisma.conversation.create({ data: { orgId: orgs[0], contactId: c.id, windowExpiresAt: new Date(Date.now() + 3600_000) } })).id;
+  });
+  const sent: any[] = [];
+  const storage = { read: async () => ({ buffer: Buffer.from("x"), mimeType: "application/pdf", size: 1, fileName: "b.pdf" }), remove: async (id: string) => void removed.push(id) };
+  const removed: string[] = [];
+  const actions = (org: string) =>
+    new AgentActionsService(prisma, { orgId: () => org } as any, { queueOutbound: async (m: any) => void sent.push(m) } as any, { emit: () => true } as any, { agentCatalog: async () => ({ services: [], staff: [] }) } as any, storage as any);
+
+  const mine = await ctx.runInOrg(orgs[0], () => actions(orgs[0]).loadContext());
+  assert.deepEqual(mine.productFiles, [{ product: "Power BI", files: ["Brochure"] }], "solo activos, con archivo y en campos que ve la IA");
+  const theirs = await ctx.runInOrg(orgs[1], () => actions(orgs[1]).loadContext());
+  assert.deepEqual(theirs.productFiles, []);
+
+  await ctx.runInOrg(orgs[0], () => actions(orgs[0]).execute("send_product_file", { product: "power bi" }, "c", convo));
+  assert.equal(sent.at(-1).mediaUrl, withMediaName(`storage://${file}`, "Brochure Power BI.pdf"));
+  await assert.rejects(() => ctx.runInOrg(orgs[0], () => actions(orgs[0]).execute("send_product_file", { product: "Power BI", file: "Contrato" }, "c", convo)), /no tiene «Contrato»/);
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => actions(orgs[1]).execute("send_product_file", { product: "Power BI" }, "c", convo)), /no existe/, "el producto de otra empresa no existe para esta");
+
+  // El mensaje que lo envió vence: se marca, pero el archivo del producto no se borra.
+  await ctx.runUnscoped("prueba: mensaje viejo con el archivo", () =>
+    prisma.message.create({ data: { orgId: orgs[0], conversationId: convo, direction: "OUTBOUND", type: "DOCUMENT", author: "AI", mediaUrl: sent.at(-1).mediaUrl, createdAt: new Date(Date.now() - 400 * 86_400_000) } }),
+  );
+  const purged = await ctx.runUnscoped("prueba: retención", () => new MediaRetentionService(prisma, storage as any).purgeOrg(orgs[0], 30));
+  assert.equal(purged, 1);
+  assert.deepEqual(removed, []);
+});

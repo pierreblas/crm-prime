@@ -49,6 +49,11 @@ export const TOOL_COPY: Record<string, { title: string; desc: string; icon: Icon
     desc: "Manda la foto del producto por WhatsApp cuando el cliente quiere verlo.",
     icon: "image",
   },
+  send_product_file: {
+    title: "Enviar archivos de productos",
+    desc: "Manda el brochure, el temario o la ficha del producto como archivo cuando el cliente lo pide. Se cargan en cada producto, en un campo de tipo «Archivo».",
+    icon: "paperclip",
+  },
   add_tag: {
     title: "Etiquetar clientes",
     desc: "Marca al cliente con tus etiquetas (Interesado, VIP…) según lo que conversa.",
@@ -112,6 +117,7 @@ export const TOOL_SNIPPET: Record<string, string> = {
   search_contact: "Antes de preguntarle algo al cliente, revisa su ficha con search_contact para no repetir preguntas.",
   handoff_to_human: "Si el cliente pide hablar con una persona, se molesta o no sabes la respuesta, despídete con amabilidad y usa handoff_to_human.",
   send_product_image: "Si el cliente quiere ver un producto, envíale la foto con send_product_image.",
+  send_product_file: "Si el cliente pide el brochure o más información de un producto, envíale el archivo con send_product_file.",
   send_payment_methods: "Cuando el cliente quiera pagar, envíale los datos con send_payment_methods y pídele que mande el comprobante.",
   reply_with_buttons: "Cuando le preguntes si quiere separar su cupo, usa los botones «Sí, sepárame» y «Tengo dudas». Nunca uses botones cuando le pidas su nombre o su correo.",
   add_tag: "Cuando el cliente muestre interés claro en comprar, ponle la etiqueta [ETIQUETA] con add_tag.",

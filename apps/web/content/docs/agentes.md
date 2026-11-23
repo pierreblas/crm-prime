@@ -79,10 +79,36 @@ Se pasa a texto con OpenAI, igual que los audios de tus clientes: con tu clave d
 | `update_contact` | Actualiza la ficha y los campos personalizados |
 | `assign_to_seller` | Asigna un vendedor |
 | `send_product_image` | Envía la foto de un producto |
+| `send_product_file` | Envía un [archivo de un producto](#enviar-archivos-de-un-producto): su brochure, su temario, su ficha |
 | `book_appointment` / `reschedule_appointment` / `cancel_appointment` | Reserva, mueve o cancela una cita del contacto en la [agenda](/docs/agenda) |
 | `handoff_to_human` | Pasa la conversación a una persona: el chat queda *Pendiente*, el equipo recibe un aviso y una nota con el motivo, y el cliente recibe la despedida que la IA redactó (o el aviso configurado en *Cuándo te pasa el chat*) |
 
 En Copilot las acciones quedan pendientes de aprobación; en Autopilot se aplican solas.
+
+### Enviar archivos de un producto
+
+Para que la IA mande el brochure o el temario **como archivo**:
+
+1. En **Productos › Campos** crea un campo de tipo **Archivo** («Brochure»). Puedes tener varios.
+2. En cada producto, **sube el archivo** o **pega un enlace público**. Por la API, la importación o una tienda conectada entra el enlace.
+3. En el agente, en **Qué puede hacer**, activa **Enviar archivos de productos**. Aparece cuando algún producto activo tiene un archivo.
+
+El cliente lo recibe con un nombre claro, como «Brochure Power BI.pdf». La IA sabe qué archivos tiene cada producto, pero no ve la dirección: no puede pegarla ni inventarla. Si quieres que lo mande en un caso concreto, dilo en *Cómo debe atender*: «Si pide el brochure o más información, envíale el archivo con `send_product_file`».
+
+- **Enlaces.** Se comprueban al enviar. Los de Google Drive, Google Docs y Dropbox se convierten solos a descarga directa, siempre que el archivo sea público. Si el enlace abre una página en vez de un archivo, pesa más de 16 MB o no responde, al cliente le llega **el enlace en un mensaje** y la IA lo sabe, para que no diga que mandó un archivo. En «¿Por qué?» ves qué pasó.
+- **Canales.** Como archivo en WhatsApp y Messenger. Instagram y TikTok no admiten documentos: ahí va el enlace, y si el archivo está subido a Driony, la IA ofrece mandarlo por otro medio.
+
+### Botones en las respuestas
+
+Con **Responder con botones** activado en *Qué puede hacer*, cuando la respuesta de la IA **termina en una pregunta para elegir** (sí o no, o entre pocas opciones), las opciones le llegan al cliente como botones. Son automáticos; para decidir tú cuándo y cuáles, escríbelo en **Cómo debe atender** con la palabra **botón** o **botones**:
+
+> Cuando el mensaje ofrezca el brochure, usa los botones «Sí, sepárame» y «Ver brochure».
+>
+> Cuando preguntes si quiere separar su cupo y el mensaje no ofrezca el brochure, usa los botones «Sí, sepárame» y «Tengo dudas».
+>
+> Nunca uses botones cuando le pidas su nombre o su correo.
+
+Cada regla va en su línea y manda sobre lo automático: si la pregunta encaja, salen exactamente esos textos. La regla se decide leyendo **el mensaje que va a salir**, no el producto: por eso conviene describir el mensaje («cuando ofrezca el brochure») y no el dato («si el curso tiene brochure»). Cada botón tiene hasta 20 caracteres y hay de 2 a 10 opciones (con más de 3, WhatsApp las muestra como lista). Se toman las 12 primeras reglas, de hasta 300 caracteres. Cuando el cliente pulsa uno, la IA lo lee como si lo hubiera escrito: «Ver brochure» le pide el archivo.
 
 ## Copiloto, memoria y conocimiento que aprende
 
@@ -145,7 +171,7 @@ A cada contacto se le cotiza en la moneda de **su país**, que Driony deduce del
 
 El catálogo sirve para productos, servicios, talleres o lo que vendas. En **Productos › Campos** decides qué datos guardas de cada uno: talla o color, duración o modalidad, fecha de inicio y cupos… No hay campos fijos.
 
-- **Tipos**: texto corto, texto largo, número (con unidad, como `min` o `cupos`), fecha, hora, sí / no, una opción de una lista, varias opciones y enlace.
+- **Tipos**: texto corto, texto largo, número (con unidad, como `min` o `cupos`), fecha, hora, sí / no, una opción de una lista, varias opciones, enlace y archivo.
 - **Configuración de cada campo**: texto de ayuda, obligatorio, si se ve en la tarjeta y si lo usa el agente de IA. Apaga esto último para datos internos, como el costo o el proveedor. El orden se cambia con las flechas.
 - **Ideas para empezar**: grupos listos para tiendas, servicios, talleres y uso interno. Un clic los añade y después se pueden cambiar.
 - **Importar desde Excel o CSV**: añade una columna con el nombre del campo; la plantilla de ejemplo (Excel o CSV, con productos en varias monedas) ya la incluye. Las columnas van en inglés (`name`, `sku`, `price`, `currency`, `description`, `image_url`, `active`), aunque los títulos en español también se reconocen. Las fechas aceptan `31/12/2026`, los sí / no aceptan `si` o `no`, y en las listas se rechaza un valor que no esté entre las opciones.

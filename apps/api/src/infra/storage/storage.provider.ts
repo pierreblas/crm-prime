@@ -38,5 +38,6 @@ export function toStorageRef(id: string): string {
 /** Extrae el id de una referencia "storage://…"; null si es una URL externa o vacía. */
 export function parseStorageRef(ref: string | null | undefined): string | null {
   if (!ref || !ref.startsWith(STORAGE_REF_PREFIX)) return null;
-  return ref.slice(STORAGE_REF_PREFIX.length);
+  // Puede traer pegado el nombre del archivo («#nombre=Brochure.pdf»): no es parte del id.
+  return ref.slice(STORAGE_REF_PREFIX.length).split("#")[0]!;
 }

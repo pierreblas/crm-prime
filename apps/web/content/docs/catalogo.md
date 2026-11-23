@@ -9,6 +9,7 @@ El catálogo es lo que el agente de IA consulta para cotizar, recomendar y envia
 - **Imagen (URL).** El agente puede enviársela al cliente.
 - **Descripción.** El agente la usa para responder: qué incluye, tallas, condiciones.
 - **Campos propios.** Los datos que necesite tu negocio: talla, color, duración, modalidad, fecha, cupos. Se crean en Productos › Campos y cada uno dice si lo ve el agente y si se muestra en la tarjeta. Cada campo tiene una **clave** (`talla`, `fecha_de_inicio`…): Driony la propone a partir del nombre, puedes cambiarla al crear el campo y después es fija aunque lo renombres, para que ninguna integración se rompa. La ves y la copias en Productos › Campos, y es la que usan la [API](/docs/api) (`fields`), la importación por archivo y las tiendas conectadas.
+- **Archivos** (brochure, temario, ficha técnica). Son campos propios de tipo **Archivo**: en cada producto subes el PDF (o Word, Excel, imagen, video MP4; hasta 16 MB) o pegas un enlace público. El agente los manda como archivo cuando el cliente los pide; ver [Enviar archivos](/docs/agentes#enviar-archivos-de-un-producto).
 - **Activo.** Los inactivos siguen en el catálogo, pero el agente no los ofrece.
 
 ## Buscar, filtrar y ordenar

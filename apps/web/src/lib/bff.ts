@@ -16,6 +16,7 @@ import type {
   ChatReviewOverview,
   UpdateEmailAccountPayload,
 } from "@crm/shared";
+import { stripMediaName } from "@crm/shared";
 import type {
   BookingDto,
   BookingServiceDto,
@@ -757,10 +758,11 @@ export async function uploadMedia(file: File): Promise<UploadedMedia> {
 export function mediaSrc(mediaUrl: string | null): string | null {
   if (!mediaUrl) return null;
   if (mediaUrl.startsWith("storage://")) {
-    return `/api/bff/media/${mediaUrl.slice("storage://".length)}`;
+    // Sin el nombre del archivo, que va pegado a la referencia («#nombre=…»).
+    return `/api/bff/media/${stripMediaName(mediaUrl).slice("storage://".length)}`;
   }
   // URL externa (o un medio antiguo previo al almacenamiento propio).
-  return mediaUrl.startsWith("http") ? mediaUrl : null;
+  return mediaUrl.startsWith("http") ? stripMediaName(mediaUrl) : null;
 }
 
 // ── Flujos (constructor visual) ──────────────────────────────

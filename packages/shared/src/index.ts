@@ -54,6 +54,7 @@ export * from "./schemas/public-products.schema.js";
 export * from "./schemas/webhook-out.schema.js";
 export * from "./schemas/tiktok.schema.js";
 export * from "./reply-parts.js";
+export * from "./product-file.js";
 export * from "./schemas/conversions.schema.js";
 export * from "./schemas/agent-improve.schema.js";
 export * from "./permissions.js";

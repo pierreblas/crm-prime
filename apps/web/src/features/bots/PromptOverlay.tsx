@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { NavIcon } from "@/components/NavIcons";
 import { smBtn } from "@/components/ui";
 import { ghostBtn } from "./styles";
-import { productPitchTemplate, varKey } from "@crm/shared";
+import { PRODUCT_FILE_TOOL, productPitchTemplate, varKey } from "@crm/shared";
 import {
   collectMarks,
   convertBracketData,
@@ -41,6 +41,7 @@ export function PromptOverlay({
   onAssist,
   tools,
   productFields,
+  productFiles,
   contactVars,
 }: {
   value: string;
@@ -50,6 +51,8 @@ export function PromptOverlay({
   tools: PromptTool[];
   /** Campos propios del catálogo; los apagados para la IA se enseñan aparte. */
   productFields: { label: string; aiVisible: boolean }[];
+  /** Campos «Archivo» que ve la IA: no son datos, se envían con send_product_file. */
+  productFiles: string[];
   /** Variables del contacto que se reemplazan en el texto ({{nombre}}…). */
   contactVars: PromptVar[];
 }) {
@@ -117,6 +120,7 @@ export function PromptOverlay({
   const offMentioned = tools.filter((t) => !t.enabled && mentioned.has(t.name));
   const unknownVars = [...new Set(marks.filter((m) => m.kind === "var-off").map((m) => m.text))];
   const sendsImages = tools.some((t) => t.name === "send_product_image" && t.enabled);
+  const sendsFiles = productFiles.length > 0 && tools.some((t) => t.name === PRODUCT_FILE_TOOL && t.enabled);
   const readsCatalog = tools.some((t) => t.name === "search_products" && t.enabled);
   const visibleData = dataFields.filter((f) => f.visible);
   const hiddenFields = productFields.filter((f) => !f.aiVisible);
@@ -498,6 +502,17 @@ export function PromptOverlay({
                     <NavIcon name="image" size={11} /> Foto {mentioned.has("send_product_image") && <NavIcon name="check" size={11} />}
                   </button>
                 )}
+                {sendsFiles && (
+                  <button
+                    type="button"
+                    className={`prompt-chip prompt-chip--data${mentioned.has(PRODUCT_FILE_TOOL) ? " is-used" : ""}`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => insert(PRODUCT_FILE_TOOL)}
+                    title={`Pone ${PRODUCT_FILE_TOOL} donde está el cursor: la acción que envía el archivo del producto (${productFiles.join(", ")}).`}
+                  >
+                    <NavIcon name="paperclip" size={11} /> Archivo {mentioned.has(PRODUCT_FILE_TOOL) && <NavIcon name="check" size={11} />}
+                  </button>
+                )}
               </div>
               <p className="prompt-rail__hint">
                 Al pulsar uno se pone, donde está el cursor, como <span className="pm pm-data">«Fecha de inicio»</span>: el agente lo busca con{" "}
@@ -512,7 +527,7 @@ export function PromptOverlay({
                     insertBlockAt(
                       productPitchTemplate(
                         visibleData.filter((f) => !PRODUCT_BASE_FIELDS.some((b) => b.label === f.label)).map((f) => f.label),
-                        { photo: sendsImages },
+                        { photo: sendsImages, files: sendsFiles ? productFiles : [] },
                       ),
                       at,
                     ),

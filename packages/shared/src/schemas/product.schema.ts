@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readProductFile } from "../product-file.js";
 import { fieldKeyFromLabel, fieldKeySchema } from "./contact-import.schema.js";
 
 export const productDtoSchema = z.object({
@@ -251,6 +252,8 @@ export const productFieldTypes = [
   "select",
   "multiselect",
   "url",
+  // Un archivo (brochure, temario): subido a Driony o un enlace. La IA lo envía como archivo (product-file.ts).
+  "file",
 ] as const;
 export type ProductFieldType = (typeof productFieldTypes)[number];
 
@@ -352,6 +355,8 @@ export function formatFieldValue(field: { type: string; unit?: string | null }, 
     const [y, m, d] = value.split("-");
     return `${d}/${m}/${y}`;
   }
+  // De un archivo se enseña el nombre, nunca su referencia interna.
+  if (field.type === "file") return readProductFile(value)?.name ?? value;
   return value;
 }
 
@@ -417,6 +422,12 @@ export function parseFieldValue(
       const t = v.match(/^(\d{1,2})[:.h](\d{2})/i);
       if (!t || Number(t[1]) > 23 || Number(t[2]) > 59) return bad("no es una hora (usa 18:30)");
       return { ok: true, value: `${t[1]!.padStart(2, "0")}:${t[2]}` };
+    }
+    case "file": {
+      // Desde un archivo, una tienda o la API solo entra un enlace: un archivo subido se elige en el CRM.
+      const link = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+      const ok = !/\s/.test(v) && !/^[a-z]+:\/\//i.test(link.replace(/^https?:\/\//i, "")) && /^https?:\/\/[^/]+\.[^/]+/i.test(link);
+      return ok && readProductFile(link)?.kind === "link" ? { ok: true, value: link } : bad("no es el enlace de un archivo (https://…)");
     }
     case "url":
       return /\s/.test(v) ? bad("no es un enlace") : { ok: true, value: /^https?:\/\//i.test(v) ? v : `https://${v}` };

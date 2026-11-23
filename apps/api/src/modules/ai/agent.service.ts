@@ -6,7 +6,6 @@ import {
   countryFromPhone,
   estimateAiCost,
   fillInstructions,
-  formatFieldValue,
   HANDOFF_REASON_AI_INCLUDED_FULL,
   HANDOFF_REASON_MEDIA,
   readAdReferral,
@@ -34,6 +33,7 @@ import { searchProducts } from "./product-search";
 import { buttonsSummary, knowledgeCall, traceToolCall } from "./playground-trace";
 import { agentPrice, DEFAULT_DISCOUNT_TIME_ZONE } from "./product-agent-price";
 import { consultedProductNames, followUpDraftAsk, productFactLine } from "./follow-up.rules";
+import { missingFilesNote, productDetails } from "./product-details";
 import { buttonRules, endsWithQuestion, parseReplyOptions, REPLY_OPTIONS_SYSTEM, replyOptionsInput } from "./reply-options";
 import { groundReview, parseSimulationReview, SIMULATION_REVIEW_MODEL, SIMULATION_REVIEW_SYSTEM, simulationReviewInput } from "./simulation-review";
 import { MediaUnderstandingService } from "./media-understanding.service";
@@ -952,7 +952,6 @@ export class AgentService {
         orderBy: { order: "asc" },
         select: { key: true, label: true, type: true, unit: true },
       });
-      const fieldDef = new Map(fieldDefs.map((f) => [f.key, f]));
       // Un cliente pregunta por una cosa o dos. Más campos a la vez son los de la
       // presentación del agente, que el modelo declara como «pedidos» aunque se le
       // diga que no (visto con siete de golpe ante un «Hola, info del curso»): no
@@ -963,7 +962,7 @@ export class AgentService {
       const orgId = currentOrgId() ?? "";
       // Un listado del catálogo (sin término o sin coincidencias) va compacto:
       // 20 con detalle y el resto por nombre. Una búsqueda que acierta, hasta 50.
-      const found = await searchProducts(this.prisma, orgId, q, { max: MAX, listMax: 20, attrKeys: fieldDefs.map((f) => f.key) });
+      const found = await searchProducts(this.prisma, orgId, q, { max: MAX, listMax: 20, attrKeys: fieldDefs.filter((f) => f.type !== "file").map((f) => f.key) });
       const byId = new Map(
         (await this.prisma.product.findMany({ where: { ...baseWhere, id: { in: found.ids } }, select })).map((p) => [p.id, p]),
       );
@@ -999,21 +998,11 @@ export class AgentService {
         ),
         sku: p.sku,
         description: trim(p.description),
+        // Datos, archivos que puede enviar (con send_product_file) y lo que no tiene.
         ...(() => {
-          const attrs = (p.attributes as Record<string, string> | null) ?? {};
-          const details = Object.fromEntries(
-            Object.entries(attrs)
-              .filter(([k, v]) => fieldDef.has(k) && typeof v === "string" && v)
-              .map(([k, v]) => [fieldDef.get(k)!.label, formatFieldValue(fieldDef.get(k)!, v)]),
-          );
-          // Los campos que este producto no tiene, dichos: si no, una plantilla con
-          // «Temario» o [Con certificado UNALM] invitaba al modelo a rellenarlos.
-          const missingDetails = fieldDefs.filter((f) => !(f.label in details)).map((f) => f.label);
-          missingOf.set(p.id, missingDetails);
-          return {
-            ...(Object.keys(details).length ? { details } : {}),
-            ...(missingDetails.length ? { missingDetails } : {}),
-          };
+          const d = productDetails(p.attributes, fieldDefs);
+          missingOf.set(p.id, d.missingDetails ?? []);
+          return d;
         })(),
         // Se expone solo si TIENE foto, no la URL: así el modelo sabe que
         // puede mandarla (con send_product_image) pero no puede inventarse
@@ -1060,6 +1049,13 @@ export class AgentService {
                     // información» aunque el dueño se la hubiera escrito en el agente.
                     askedMissing.length
                       ? ` Si el cliente preguntó con sus palabras por ${askedMissing.join(", ")}: si tus instrucciones o el conocimiento lo dicen, respóndelo con eso, sin decir antes que el producto no lo especifica. Si no lo dicen, no lo inventes ni lo supongas: haz lo que tus instrucciones mandan para lo que no sabes (consultarlo, pasar el chat a una persona…); si no mandan nada, dile con naturalidad que ese dato no lo tienes a mano.`
+                      : ""
+                  }${
+                    hit
+                      ? missingFilesNote(
+                          rows.map((p) => ({ name: p.name, missing: missingOf.get(p.id) ?? [] })),
+                          fieldDefs.filter((f) => f.type === "file").map((f) => f.label),
+                        )
                       : ""
                   }`,
         total,

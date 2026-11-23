@@ -348,7 +348,7 @@ export function BotEditor({
   // Lo que el agente puede consultar (catálogo) e insertar (contacto): para la ayuda de «Cómo debe atender».
   const { data: productFieldDefs = NO_FIELDS } = useQuery({ queryKey: ["product-fields"], queryFn: fetchProductFields });
   // Los campos del catálogo para «Cómo debe atender»: los que se nombran entre « » y si el agente los recibe.
-  const promptProductFields = useMemo(() => productFieldDefs.map((f) => ({ label: f.label, aiVisible: f.aiVisible })), [productFieldDefs]);
+  const promptProductFields = useMemo(() => productFieldDefs.filter((f) => f.type !== "file").map((f) => ({ label: f.label, aiVisible: f.aiVisible })), [productFieldDefs]);
   const promptData = useMemo(() => productDataFields(promptProductFields), [promptProductFields]);
   const { data: contactFieldDefs = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
   // Con la IA incluida el modelo es el de la plataforma: «Modelo y gasto» lo dice.
@@ -683,6 +683,7 @@ export function BotEditor({
                   }}
                   tools={promptTools}
                   productFields={promptProductFields}
+                  productFiles={productFieldDefs.filter((f) => f.type === "file" && f.aiVisible).map((f) => f.label)}
                   contactVars={contactVars}
                 />
               )}

@@ -70,9 +70,29 @@ export class MediaRetentionService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Los archivos que la empresa sigue usando: el brochure de un producto, una
+   * respuesta rápida, el QR de un método de pago, un flujo. El mensaje que los
+   * envió apunta al mismo archivo, así que borrarlos al vencer ese mensaje los
+   * dejaba rotos.
+   */
+  private async filesInUse(orgId: string): Promise<Set<string>> {
+    const where = { orgId };
+    const [products, quick, payments, flows] = await Promise.all([
+      this.prisma.product.findMany({ where, select: { attributes: true } }),
+      this.prisma.quickReply.findMany({ where: { orgId, mediaUrl: { startsWith: "storage://" } }, select: { mediaUrl: true } }),
+      this.prisma.paymentMethod.findMany({ where: { orgId, imageUrl: { startsWith: "storage://" } }, select: { imageUrl: true } }),
+      this.prisma.flow.findMany({ where, select: { nodes: true } }),
+    ]);
+    const all = JSON.stringify([products, quick, payments, flows]);
+    return new Set([...all.matchAll(/storage:\/\/([0-9a-f-]{36})/gi)].map((m) => m[1]!));
+  }
+
   /** Borra los adjuntos de una empresa anteriores al plazo, en lotes. */
   async purgeOrg(orgId: string, days: number): Promise<number> {
     const cutoff = new Date(Date.now() - days * 86_400_000);
+    // Solo se mira si hay algo que borrar.
+    let inUse: Set<string> | null = null;
     let total = 0;
     for (;;) {
       const batch = await this.prisma.message.findMany({
@@ -82,9 +102,10 @@ export class MediaRetentionService implements OnModuleInit, OnModuleDestroy {
         take: BATCH,
       });
       if (batch.length === 0) return total;
+      inUse ??= await this.filesInUse(orgId);
       for (const m of batch) {
         const id = parseStorageRef(m.mediaUrl);
-        if (id) await this.storage.remove(id).catch(() => undefined);
+        if (id && !inUse.has(id)) await this.storage.remove(id).catch(() => undefined);
       }
       await this.prisma.message.updateMany({
         where: { id: { in: batch.map((m) => m.id) } },

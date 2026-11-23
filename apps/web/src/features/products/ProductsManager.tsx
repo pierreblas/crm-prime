@@ -711,7 +711,7 @@ function ProductDrawer({
                     key={f.id}
                     text={f.required ? `${f.label} *` : f.label}
                     hint={f.help ?? (f.aiVisible ? undefined : "Interno: el agente de IA no lo ve.")}
-                    wide={f.type === "longtext" || f.type === "multiselect"}
+                    wide={f.type === "longtext" || f.type === "multiselect" || f.type === "file"}
                     fieldKey={f.key}
                     asked={f.key === focusField && !(attributes[f.key] ?? "").trim()}
                   >

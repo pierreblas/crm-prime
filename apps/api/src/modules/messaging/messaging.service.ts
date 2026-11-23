@@ -17,6 +17,8 @@ import {
   MessageType,
   adReferralLabel,
   adSummaryOf,
+  mediaName,
+  stripMediaName,
   parseUtms,
   phoneVariants,
   isWaUserId,
@@ -42,6 +44,7 @@ import {
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { FOLLOW_UP_CANCELLED } from "../ai/follow-up.rules";
+import { downloadFileLink } from "../products/file-link";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { QUEUE_OUTBOUND } from "../../infra/queue/queue.constants";
@@ -1424,21 +1427,33 @@ export class MessagingService {
     const caption = message.content ?? undefined;
     const storageId = parseStorageRef(message.mediaUrl);
 
+    // El nombre con que le llega al cliente («Brochure Power BI.pdf»): el pegado a
+    // la referencia o, si no hay, el del archivo que se subió.
+    const named = mediaName(message.mediaUrl);
+
     if (!storageId) {
-      return this.wa.sendMedia(to, kind, message.mediaUrl ?? "", caption, from);
+      const url = stripMediaName(message.mediaUrl ?? "");
+      // El enlace de un archivo de producto: se baja y se sube con su nombre (ver file-link.ts).
+      if (named) {
+        const link = await this.fetchFile(url);
+        const id = await this.wa.uploadMedia(link.buffer, link.mimeType, named, from);
+        return this.wa.sendMediaById(to, kind, id, caption, from, kind === "DOCUMENT" ? named : undefined);
+      }
+      return this.wa.sendMedia(to, kind, url, caption, from);
     }
 
     const file = await this.storage.read(storageId);
     if (!file) {
       throw new Error("El archivo ya no está disponible en el almacenamiento");
     }
-    const mediaId = await this.wa.uploadMedia(
-      file.buffer,
-      file.mimeType,
-      storageId,
-      from,
-    );
-    return this.wa.sendMediaById(to, kind, mediaId, caption, from);
+    const fileName = named ?? file.fileName ?? storageId;
+    const mediaId = await this.wa.uploadMedia(file.buffer, file.mimeType, fileName, from);
+    return this.wa.sendMediaById(to, kind, mediaId, caption, from, kind === "DOCUMENT" ? fileName : undefined);
+  }
+
+  /** Aparte para poder sustituirlo en las pruebas: sale a internet. */
+  private fetchFile(url: string): Promise<{ buffer: Buffer; mimeType: string }> {
+    return downloadFileLink(url);
   }
 
   async setAiMode(id: string, mode: AiMode): Promise<ConversationDto> {
@@ -1587,9 +1602,9 @@ export class MessagingService {
     if (storageId) {
       const file = await this.storage.read(storageId);
       if (!file) throw new Error("El archivo ya no está disponible en el almacenamiento");
-      ref = { attachmentId: await meta.uploadMedia(creds, kind, file.buffer, file.mimeType, file.fileName ?? storageId) };
+      ref = { attachmentId: await meta.uploadMedia(creds, kind, file.buffer, file.mimeType, mediaName(message.mediaUrl) ?? file.fileName ?? storageId) };
     } else {
-      ref = { url: message.mediaUrl ?? "" };
+      ref = { url: stripMediaName(message.mediaUrl ?? "") };
     }
     const sent = await meta.sendMedia(creds, to, kind, ref, opts);
     if (body.trim()) await meta.sendText(creds, to, body, { humanAgent: opts.humanAgent });

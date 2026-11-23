@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { mediaName } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { mediaSrc } from "@/lib/bff";
 import { useT } from "@/i18n/I18nProvider";
@@ -82,7 +83,7 @@ export function MediaBubble({
       <a href={src} target="_blank" rel="noopener noreferrer" style={docRow}>
         <NavIcon name="file" size={19} />
         <span style={{ textDecoration: "underline" }}>
-          {caption || t("inbox.openDocument")}
+          {mediaName(mediaUrl) || caption || t("inbox.openDocument")}
         </span>
       </a>
     );

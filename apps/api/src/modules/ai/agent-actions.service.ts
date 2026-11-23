@@ -1,22 +1,28 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Prisma } from "@prisma/client";
 import {
   contactCurrency,
   countryFromPhone,
   COUNTRIES,
+  directFileUrl,
   MessageAuthor,
   MessageType,
   paymentMethodsFor,
   paymentMethodsText,
+  productFileName,
+  readProductFile,
+  withMediaName,
   type CountryInfo,
   type ResolveActionsResult,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { parseStorageRef, STORAGE_PROVIDER, type StorageProvider } from "../../infra/storage/storage.provider";
 import { runAsActor } from "../../infra/tenant/actor";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { MessagingService } from "../messaging/messaging.service";
 import { BookingsService } from "../bookings/bookings.service";
+import { checkFileLink, fileKind } from "../products/file-link";
 import { isActionTool, type ToolContext } from "./tools.registry";
 
 // Lo que se guarda en AiToolCall.input para poder re-ejecutar tras aprobar.
@@ -47,6 +53,7 @@ export class AgentActionsService {
     private readonly messaging: MessagingService,
     private readonly events: EventEmitter2,
     private readonly bookings: BookingsService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
 
   // Valores reales del workspace para construir los esquemas de las tools.
@@ -88,7 +95,7 @@ export class AgentActionsService {
       // Campos de producto que ve la IA: con ellos search_products dice qué dato pide el cliente.
       this.prisma.productField.findMany({
         where: { aiVisible: true },
-        select: { label: true },
+        select: { key: true, label: true, type: true },
         orderBy: { order: "asc" },
       }),
       // Métodos de pago activos: habilitan send_payment_methods.
@@ -110,6 +117,7 @@ export class AgentActionsService {
       sellers: sellers.map((u) => u.name ?? u.email),
       customFields,
       productsWithImage: products.map((p) => p.name),
+      productFiles: await this.productFiles(productFields),
       leadStatuses,
       bookingServices: booking.services,
       bookingStaff: booking.staff,
@@ -138,6 +146,8 @@ export class AgentActionsService {
         }`;
       case "send_product_image":
         return `Enviar la foto de «${String(input.product)}»`;
+      case "send_product_file":
+        return `Enviar «${String(input.file ?? "el archivo")}» de «${String(input.product)}»`;
       case "send_payment_methods": {
         const only = Array.isArray(input.methods) ? input.methods.map(String).filter(Boolean) : [];
         return `Enviar los métodos de pago${only.length ? ` (${only.join(", ")})` : ""}${input.country ? ` de ${String(input.country)}` : " de su país"}`;
@@ -190,6 +200,8 @@ export class AgentActionsService {
         return this.updateContact(contactId, input);
       case "send_product_image":
         return this.sendProductImage(conversationId, input);
+      case "send_product_file":
+        return this.sendProductFile(conversationId, input);
       case "send_payment_methods":
         return this.sendPaymentMethods(contactId, conversationId, input);
       case "book_appointment":
@@ -431,6 +443,108 @@ export class AgentActionsService {
       MessageAuthor.AI,
     );
     return `Foto de "${product.name}" enviada.`;
+  }
+
+  // ── Archivos de producto ────────────────────────────────────
+  /** Los productos activos con algún archivo en un campo que ve la IA, y cuáles. */
+  private async productFiles(fields: { key: string; label: string; type: string }[]): Promise<{ product: string; files: string[] }[]> {
+    const defs = fields.filter((f) => f.type === "file");
+    if (!defs.length) return [];
+    const rows = await this.prisma.product.findMany({
+      // Un archivo siempre es una referencia o un enlace: ambos llevan «://».
+      where: { isActive: true, OR: defs.map((d) => ({ attributes: { path: [d.key], string_contains: "://" } })) },
+      select: { name: true, attributes: true },
+      orderBy: { name: "asc" },
+      take: 100,
+    });
+    return rows
+      .map((p) => {
+        const attrs = (p.attributes as Record<string, string> | null) ?? {};
+        return { product: p.name, files: defs.filter((d) => readProductFile(attrs[d.key])).map((d) => d.label) };
+      })
+      .filter((p) => p.files.length);
+  }
+
+  /** Aparte para poder sustituirlo en las pruebas: sale a internet. */
+  private checkLink(url: string) {
+    return checkFileLink(url);
+  }
+
+  /**
+   * El brochure, el temario… como archivo. Uno subido a Driony va como documento
+   * (o foto, si es una imagen); un enlace se comprueba antes: si no es un archivo
+   * que se pueda enviar, o el canal no admite documentos, sale el enlace en texto
+   * y el modelo se entera, para que no diga que mandó un archivo.
+   */
+  private async sendProductFile(conversationId: string | null, input: ActionInput): Promise<string> {
+    if (!conversationId) throw new Error("No hay conversación a la que enviar el archivo");
+    const wanted = String(input.product ?? "").trim();
+    const product = await this.prisma.product.findFirst({
+      where: { name: { equals: wanted, mode: "insensitive" }, isActive: true },
+      select: { name: true, attributes: true },
+    });
+    if (!product) throw new Error(`El producto "${wanted}" no existe: búscalo con search_products y usa su nombre exacto`);
+
+    const defs = await this.prisma.productField.findMany({
+      where: { type: "file", aiVisible: true },
+      orderBy: { order: "asc" },
+      select: { key: true, label: true },
+    });
+    const attrs = (product.attributes as Record<string, string> | null) ?? {};
+    const files = defs.flatMap((d) => {
+      const file = readProductFile(attrs[d.key]);
+      return file ? [{ label: d.label, file }] : [];
+    });
+    if (!files.length) throw new Error(`"${product.name}" no tiene archivos cargados`);
+    const options = files.map((f) => `«${f.label}»`).join(", ");
+    const asked = String(input.file ?? "").trim();
+    const pick = asked ? files.find((f) => f.label.toLowerCase() === asked.toLowerCase()) : files.length === 1 ? files[0] : undefined;
+    if (!pick) {
+      throw new Error(asked ? `"${product.name}" no tiene «${asked}». Tiene: ${options}` : `"${product.name}" tiene varios archivos: di cuál en «file» (${options})`);
+    }
+
+    const convo = await this.prisma.conversation.findUnique({ where: { id: conversationId }, select: { channelKind: true } });
+    const channel = convo?.channelKind ?? "whatsapp";
+    const documents = channel === "whatsapp" || channel === "messenger";
+    const caption = String(input.caption ?? "").trim() || undefined;
+    const { label, file } = pick;
+    const sent = `Archivo «${label}» de "${product.name}" enviado. No pegues enlaces ni repitas lo que dice: sigue con lo demás.`;
+
+    if (file.kind === "stored") {
+      const stored = await this.storage.read(parseStorageRef(file.ref)!);
+      if (!stored) throw new Error(`El archivo «${label}» de "${product.name}" ya no está: hay que volver a subirlo en Productos`);
+      const kind = fileKind(stored.mimeType) ?? "DOCUMENT";
+      if (!documents && kind !== "IMAGE") {
+        const name = channel === "tiktok" ? "TikTok" : "Instagram";
+        throw new Error(`${name} no admite documentos: no digas que lo enviaste; ofrécele mandarlo por WhatsApp o por correo`);
+      }
+      await this.messaging.queueOutbound(
+        {
+          conversationId,
+          type: MessageType[kind],
+          mediaUrl: withMediaName(file.ref, productFileName(label, product.name, { name: stored.fileName, mimeType: stored.mimeType })),
+          caption,
+        },
+        MessageAuthor.AI,
+      );
+      return sent;
+    }
+
+    const check = documents ? await this.checkLink(file.ref) : { ok: false as const, reason: "este canal no admite documentos" };
+    if (check.ok) {
+      await this.messaging.queueOutbound(
+        {
+          conversationId,
+          type: MessageType[check.kind],
+          mediaUrl: withMediaName(directFileUrl(file.ref), productFileName(label, product.name, { name: file.name, mimeType: check.mimeType })),
+          caption,
+        },
+        MessageAuthor.AI,
+      );
+      return sent;
+    }
+    await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text: `${label} de ${product.name}: ${file.ref}` }, MessageAuthor.AI);
+    return `No se pudo enviar «${label}» como archivo (el enlace ${check.reason.replace(/^el enlace /, "")}): al cliente le llegó el enlace en un mensaje aparte. No digas que le mandaste un archivo ni vuelvas a pegar el enlace.`;
   }
 
   // ── Métodos de pago ─────────────────────────────────────────

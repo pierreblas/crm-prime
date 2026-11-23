@@ -15,6 +15,8 @@ export interface PromptContext {
     hiddenFields: string[];
     /** Monedas en que hay precios (la base y las adicionales). */
     currencies: string[];
+    /** Campos «Archivo» que ve la IA (el agente los envía con send_product_file). */
+    files?: string[];
     /** Productos con foto (el agente la puede enviar con send_product_image). */
     withImage: number;
   };
@@ -164,10 +166,13 @@ function buildContextBlock(ctx: PromptContext): string {
     if (p.withImage > 0) {
       lines.push(`${p.withImage} producto(s) tienen foto: el agente puede enviarla con send_product_image (solo si está habilitada).`);
     }
+    if (p.files?.length) {
+      lines.push(`Archivos que puede tener cada producto: ${p.files.join(", ")}. El agente los manda como archivo con send_product_file (solo si está habilitada); no los cites como datos ni pidas que pegue enlaces.`);
+    }
     // El speech de producto con los campos reales del catálogo: la sección
     // PRESENTACIÓN parte de aquí en vez de inventar nombres de datos.
     lines.push(
-      `Speech sugerido para presentar un producto (adáptalo; usa estos nombres de datos tal cual, entre « »):\n${productPitchTemplate(p.fields, { photo: p.withImage > 0 })}`,
+      `Speech sugerido para presentar un producto (adáptalo; usa estos nombres de datos tal cual, entre « »):\n${productPitchTemplate(p.fields, { photo: p.withImage > 0, files: p.files })}`,
     );
     if (p.hiddenFields.length) {
       lines.push(`Campos del catálogo que el agente NO ve (apagados para la IA): ${p.hiddenFields.join(", ")}. No le pidas usarlos.`);
@@ -402,7 +407,7 @@ export function fallbackTemplate(
           : null,
         "",
         ...(has("search_products") && ctx.products.total > 0
-          ? [productPitchTemplate(ctx.products.fields, { photo: has("send_product_image") && ctx.products.withImage > 0 }), ""]
+          ? [productPitchTemplate(ctx.products.fields, { photo: has("send_product_image") && ctx.products.withImage > 0, files: has("send_product_file") ? ctx.products.files : [] }), ""]
           : []),
         "LÍMITES",
         "No prometas plazos, descuentos ni stock que no consten. No pidas datos sensibles (contraseñas, tarjetas). No hables de la competencia. Si te preguntan algo ajeno al negocio, redirige con amabilidad.",

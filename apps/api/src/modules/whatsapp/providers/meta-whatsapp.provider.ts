@@ -62,6 +62,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     mediaUrl: string,
     caption?: string,
     fromPhoneNumberId?: string,
+    filename?: string,
   ): Promise<SendResult> {
     const creds = await this.connection.resolveCreds(fromPhoneNumberId);
     if (!creds) return this.simulate(kind, to, mediaUrl);
@@ -71,7 +72,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
       to,
       type: key,
       // El audio no admite pie de foto.
-      [key]: { link: mediaUrl, ...(caption && kind !== "AUDIO" ? { caption } : {}) },
+      [key]: { link: mediaUrl, ...(caption && kind !== "AUDIO" ? { caption } : {}), ...(filename && kind === "DOCUMENT" ? { filename } : {}) },
     });
   }
 
@@ -255,6 +256,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     mediaId: string,
     caption?: string,
     fromPhoneNumberId?: string,
+    filename?: string,
   ): Promise<SendResult> {
     const creds = await this.connection.resolveCreds(fromPhoneNumberId);
     if (!creds) return this.simulate(kind, to, mediaId);
@@ -263,7 +265,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
       messaging_product: "whatsapp",
       to,
       type: key,
-      [key]: { id: mediaId, ...(caption && kind !== "AUDIO" ? { caption } : {}) },
+      [key]: { id: mediaId, ...(caption && kind !== "AUDIO" ? { caption } : {}), ...(filename && kind === "DOCUMENT" ? { filename } : {}) },
     });
   }
 

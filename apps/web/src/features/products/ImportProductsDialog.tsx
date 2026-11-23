@@ -177,6 +177,8 @@ export function ImportProductsDialog({
           return "si";
         case "url":
           return "https://misitio.com";
+        case "file":
+          return "https://misitio.com/brochure.pdf";
         default:
           return f.required ? "…" : "";
       }

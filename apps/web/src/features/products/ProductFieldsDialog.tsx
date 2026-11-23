@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,15 +8,18 @@ import {
   isListFieldType,
   MULTI_SEPARATOR,
   nextProductFieldKey,
+  PRODUCT_FILE_MAX_BYTES,
   productFieldTypes,
+  readProductFile,
   splitMulti,
+  withMediaName,
   type CreateProductFieldInput,
   type ProductFieldDto,
   type ProductFieldType,
 } from "@crm/shared";
 import { NavIcon, type IconName as NavIconName } from "@/components/NavIcons";
 import { toast } from "@/lib/toast";
-import { createProductField, deleteProductField, reorderProductFields, updateProductField } from "@/lib/bff";
+import { createProductField, deleteProductField, mediaSrc, reorderProductFields, updateProductField, uploadMedia } from "@/lib/bff";
 
 export const TYPE_INFO: Record<ProductFieldType, { label: string; example: string; icon: NavIconName }> = {
   text: { label: "Texto corto", example: "Marca, color, lugar", icon: "note" },
@@ -28,6 +31,7 @@ export const TYPE_INFO: Record<ProductFieldType, { label: string; example: strin
   select: { label: "Una opción", example: "Modalidad: presencial u online", icon: "chevron-down" },
   multiselect: { label: "Varias opciones", example: "Días: lun, mié, vie", icon: "check-double" },
   url: { label: "Enlace", example: "Ficha técnica, video", icon: "link" },
+  file: { label: "Archivo", example: "Brochure o temario en PDF: la IA lo envía", icon: "paperclip" },
 };
 
 type Draft = {
@@ -646,6 +650,87 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (o:
 
 type InputField = Pick<ProductFieldDto, "type" | "options" | "unit" | "label"> & { required?: boolean };
 
+/** Lo que admite WhatsApp como archivo; hasta 16 MB. */
+const FILE_ACCEPT = "application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,image/jpeg,image/png,video/mp4";
+
+/** Un archivo del producto: subido a Driony o un enlace. Se ve su nombre, nunca la referencia interna. */
+function FileFieldInput({
+  label,
+  required,
+  value,
+  onChange,
+  style,
+  cls,
+}: {
+  label: string;
+  required?: boolean;
+  value: string;
+  onChange: (v: string) => void;
+  style?: CSSProperties;
+  cls?: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const picker = useRef<HTMLInputElement>(null);
+  const file = readProductFile(value);
+  // Subido: una ficha con su nombre. Enlace o vacío: se escribe, o se sube.
+  const stored = file?.kind === "stored";
+  const href = stored ? mediaSrc(file.ref) : null;
+
+  function upload(f: File | undefined) {
+    if (!f) return;
+    if (f.size > PRODUCT_FILE_MAX_BYTES) return void toast.error("El archivo pasa de 16 MB, el máximo de WhatsApp");
+    setBusy(true);
+    uploadMedia(f)
+      .then((m) => onChange(withMediaName(m.mediaUrl, m.fileName)))
+      .catch((e: Error) => toast.error(e.message))
+      .finally(() => {
+        setBusy(false);
+        if (picker.current) picker.current.value = "";
+      });
+  }
+
+  return (
+    <div className="pf-file" data-file-field>
+      {stored ? (
+        <span className="pf-file__name">
+          <NavIcon name="paperclip" size={14} />
+          {href ? (
+            <a href={href} target="_blank" rel="noopener noreferrer" title={file.name}>
+              {file.name}
+            </a>
+          ) : (
+            <span title={file.name}>{file.name}</span>
+          )}
+        </span>
+      ) : (
+        <input
+          className={cls}
+          style={style}
+          type="url"
+          aria-label={`Enlace de ${label}`}
+          placeholder="Pega un enlace (https://…) o sube el archivo"
+          value={value}
+          maxLength={1500}
+          required={required}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+      <span className="pf-file__acts">
+        <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => picker.current?.click()}>
+          <NavIcon name="paperclip" size={13} /> {busy ? "Subiendo…" : stored ? "Cambiar" : "Subir archivo"}
+        </button>
+        {value && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange("")}>
+            Quitar
+          </button>
+        )}
+      </span>
+      <input ref={picker} type="file" hidden accept={FILE_ACCEPT} aria-label={`Archivo de ${label}`} onChange={(e) => upload(e.target.files?.[0])} />
+      {!stored && file?.kind === "link" && <small className="pf-file__hint">Tiene que ser público. Los de Google Drive y Dropbox se convierten solos a descarga directa.</small>}
+    </div>
+  );
+}
+
 /** El control que corresponde a cada tipo de campo, para la ficha del producto. */
 export function ProductFieldInput({
   field,
@@ -695,6 +780,8 @@ export function ProductFieldInput({
           ))}
         </div>
       );
+    case "file":
+      return <FileFieldInput label={field.label} required={field.required} value={value} onChange={onChange} style={style} cls={cls} />;
     case "longtext":
       return (
         <textarea

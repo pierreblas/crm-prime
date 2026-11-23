@@ -77,6 +77,8 @@ export interface WhatsAppProvider {
     mediaUrl: string,
     caption?: string,
     fromPhoneNumberId?: string,
+    /** Nombre con que le llega un documento. Solo en los documentos. */
+    filename?: string,
   ): Promise<SendResult>;
 
   /**
@@ -142,6 +144,8 @@ export interface WhatsAppProvider {
     mediaId: string,
     caption?: string,
     fromPhoneNumberId?: string,
+    /** Nombre con que le llega un documento: sin él, WhatsApp no enseña el del archivo. */
+    filename?: string,
   ): Promise<SendResult>;
 
   /**

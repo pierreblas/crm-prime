@@ -142,6 +142,11 @@ test("la retención borra solo los adjuntos antiguos del almacén y marca el men
           .map((m) => ({ id: m.id, mediaUrl: m.mediaUrl })),
       updateMany: async ({ where }: { where: { id: { in: string[] } } }) => { marcados.push(...where.id.in); return { count: where.id.in.length }; },
     },
+    // Lo que sigue en uso no se borra (ver product-file.test.ts); aquí, nada.
+    product: { findMany: async () => [] },
+    quickReply: { findMany: async () => [] },
+    paymentMethod: { findMany: async () => [] },
+    flow: { findMany: async () => [] },
   };
   const borrados: string[] = [];
   const storage = { remove: async (id: string) => { borrados.push(id); } };

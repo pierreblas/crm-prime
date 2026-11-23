@@ -25,7 +25,7 @@ export const PRODUCT_DISCOUNT_DATA = [
 /** Los datos que trae todo producto; los campos propios van detrás. */
 const BASE = ["Nombre", "Precio", ...PRODUCT_DISCOUNT_DATA.map((d) => d.label), "Descripción", "SKU"];
 
-export function productPitchTemplate(fields: string[], opts: { photo?: boolean } = {}): string {
+export function productPitchTemplate(fields: string[], opts: { photo?: boolean; files?: string[] } = {}): string {
   const base = new Set(BASE.map(varKey));
   const own = [...new Map(fields.filter((f) => f.trim() && !base.has(varKey(f))).map((f) => [varKey(f), f.trim()])).values()];
   return [
@@ -39,6 +39,7 @@ export function productPitchTemplate(fields: string[], opts: { photo?: boolean }
     ...own.map((f) => `• ${f}: «${f}»`),
     "",
     ...(opts.photo ? ["Si tiene foto, envíala con send_product_image."] : []),
+    ...(opts.files?.length ? [`Si pide ${opts.files.join(" o ")}, envíale el archivo con send_product_file.`] : []),
     'Cierra con una sola pregunta para avanzar, por ejemplo: "¿Te lo reservo?" o "¿Te comparto los datos de pago?".',
     "Si ya lo presentaste en esta conversación, no lo repitas: responde solo lo que pregunte.",
   ].join("\n");

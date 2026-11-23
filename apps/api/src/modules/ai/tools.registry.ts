@@ -94,6 +94,7 @@ export const ACTION_TOOL_NAMES = [
   "update_contact",
   "assign_to_seller",
   "send_product_image",
+  "send_product_file",
   "send_payment_methods",
   "mark_lead",
   "book_appointment",
@@ -114,6 +115,8 @@ export interface ToolContext {
   customFields: { key: string; label: string; options: string[] }[];
   /** Productos que TIENEN foto cargada: los únicos que se pueden enviar. */
   productsWithImage: string[];
+  /** Productos con algún archivo (campo «Archivo») y cuáles: «Power BI» → Brochure, Temario. */
+  productFiles: { product: string; files: string[] }[];
   /** Clasificaciones con etapa configurada: potential (Potencial), purchase (Ganada), lost (Perdida). */
   leadStatuses: string[];
   /** Servicios de la agenda que se pueden reservar (activos y con alguien que los atienda). */
@@ -134,6 +137,7 @@ export const EMPTY_TOOL_CONTEXT: ToolContext = {
   sellers: [],
   customFields: [],
   productsWithImage: [],
+  productFiles: [],
   leadStatuses: [],
   bookingServices: [],
   bookingStaff: [],
@@ -200,6 +204,13 @@ const ACTION_META: Record<
       c.productsWithImage.length
         ? null
         : "Ningún producto tiene URL de imagen cargada (Productos › editar).",
+  },
+  send_product_file: {
+    label: "Enviar un archivo de un producto",
+    needs: (c) =>
+      c.productFiles.length
+        ? null
+        : "Ningún producto tiene un archivo: crea un campo de tipo «Archivo» en Productos › Campos y cárgalo en el producto.",
   },
 };
 
@@ -301,6 +312,31 @@ function actionTool(name: ActionToolName, c: ToolContext): LlmTool | null {
           required: ["product"],
         },
       };
+
+    case "send_product_file": {
+      if (!c.productFiles.length) return null;
+      const names = c.productFiles.map((p) => p.product);
+      const files = [...new Set(c.productFiles.flatMap((p) => p.files))];
+      return {
+        name,
+        description:
+          "Envía al cliente un archivo de un producto (por ejemplo su brochure o su temario) como documento. Úsala cuando lo pida, o cuando tus instrucciones lo indiquen. search_products dice en «files» qué archivos tiene cada producto: si no aparece ahí, no lo prometas. No escribas tú enlaces ni digas que lo enviaste sin llamar a esta acción.",
+        input_schema: {
+          type: "object",
+          properties: {
+            product: {
+              type: "string",
+              description: "Nombre exacto del producto, tal como lo devuelve search_products",
+              // En un catálogo grande la lista no cabe: el nombre sale de search_products.
+              ...(names.length <= 60 ? { enum: names } : {}),
+            },
+            ...(files.length > 1 ? { file: { type: "string", enum: files, description: "Qué archivo enviar" } } : {}),
+            caption: { type: "string", description: "Texto breve que acompaña al archivo (opcional)" },
+          },
+          required: files.length > 1 ? ["product", "file"] : ["product"],
+        },
+      };
+    }
 
     case "send_payment_methods": {
       if (!c.paymentMethods.length) return null;
