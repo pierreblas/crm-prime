@@ -40,6 +40,7 @@ import type {
   UpdateStageInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { withContactLock } from "../../infra/prisma/contact-lock";
 import { runAsActor } from "../../infra/tenant/actor";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { PlansService } from "../plans/plans.service";
@@ -519,23 +520,14 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     const entry = pipeline.stages.find((s) => s.id === pipeline.inboundStageId) ?? pipeline.stages[0];
     if (!entry) return;
 
-    const last = await this.prisma.deal.findFirst({
-      where: { contactId },
-      orderBy: { createdAt: "desc" },
-      include: { stage: { select: { isWon: true, isLost: true, pipelineId: true } } },
-    });
-    const decision = decideIntake(last, pipeline.id);
-    if (decision === "skip") return;
-
-    if (decision === "restore" && last) {
-      await this.prisma.deal.update({
-        where: { id: last.id },
-        data: { discardedAt: null, discardReason: null, stageId: entry.id },
+    const latest = (db: Pick<Prisma.TransactionClient, "deal">) =>
+      db.deal.findFirst({
+        where: { contactId },
+        orderBy: { createdAt: "desc" },
+        include: { stage: { select: { isWon: true, isLost: true, pipelineId: true } } },
       });
-      this.changed(last.id);
-      this.enteredStage(last.id, contactId, entry.id);
-      return;
-    }
+    // Lo normal (ya tiene una en curso) no espera turno: corre con cada mensaje.
+    if (decideIntake(await latest(this.prisma), pipeline.id) === "skip") return;
 
     const contact = await this.prisma.contact.findUnique({
       where: { id: contactId },
@@ -543,19 +535,30 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     });
     if (!contact) return;
     const ownerId = await this.pickOwner(contact.sourceId, pipeline.id);
-    const deal = await this.prisma.deal.create({
-      data: {
-        orgId: contact.orgId,
-        contactId,
-        stageId: entry.id,
-        ownerId,
-        title: contact.name ?? contact.phone,
-        currency: contactCurrency(contact) ?? "USD",
-      },
+    const deal = await withContactLock(this.prisma, contactId, async (tx) => {
+      const last = await latest(tx);
+      const decision = decideIntake(last, pipeline.id);
+      if (decision === "skip") return null;
+      if (decision === "restore" && last) {
+        await tx.deal.update({ where: { id: last.id }, data: { discardedAt: null, discardReason: null, stageId: entry.id } });
+        return { id: last.id, created: false };
+      }
+      const made = await tx.deal.create({
+        data: {
+          orgId: contact.orgId,
+          contactId,
+          stageId: entry.id,
+          ownerId,
+          title: contact.name ?? contact.phone,
+          currency: contactCurrency(contact) ?? "USD",
+        },
+      });
+      return { id: made.id, created: true };
     });
+    if (!deal) return;
     // La conversación sigue al mismo vendedor: le aparece en "Mías" sin que
     // nadie la reparta a mano. Solo si nadie la había asignado ya.
-    if (ownerId && conversationId) {
+    if (deal.created && ownerId && conversationId) {
       await this.prisma.conversation.updateMany({
         where: { id: conversationId, assignedAgentId: null },
         data: { assignedAgentId: ownerId },
@@ -597,6 +600,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     const SYSTEM: Record<string, string> = {
       "auto-discard": "Descarte automático",
       whatsapp: "Entrada desde WhatsApp",
+      meta: "Formulario de Meta",
       cotizador: "Cotizador de implementaciones",
     };
     const actorOf = (a: string | null): DealEventDto["actor"] => {

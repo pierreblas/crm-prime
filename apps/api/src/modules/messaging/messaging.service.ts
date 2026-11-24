@@ -45,6 +45,7 @@ import {
 } from "@crm/shared";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { findOrOpenConversation } from "../../infra/prisma/contact-lock";
 import { FOLLOW_UP_CANCELLED } from "../ai/follow-up.rules";
 import { downloadFileLink } from "../products/file-link";
 import { TenantService } from "../../infra/tenant/tenant.service";
@@ -411,7 +412,6 @@ export class MessagingService {
     });
     // La ventana de 24 h cuenta desde que escribió el cliente, no desde que llegó.
     const windowExpiresAt = new Date(sentAt.getTime() + (social?.windowMs ?? WINDOW_MS));
-    const isNewConversation = !open;
     // Tras cerrar, el siguiente mensaje abre otra conversación: hereda el modo
     // de la IA de la anterior. Si el agente responde solo, AutomationService la
     // pasa a Autopilot salvo que la IA estuviera apagada (OFF) para el cliente.
@@ -422,9 +422,31 @@ export class MessagingService {
           orderBy: { createdAt: "desc" },
           select: { aiMode: true },
         });
-    const conversation = open
-      ? await this.prisma.conversation.update({
-          where: { id: open.id },
+    // Si otro proceso (el formulario, un flujo) lo abrió mientras tanto, se usa ese.
+    const opened = open
+      ? { conversation: open, created: false }
+      : await findOrOpenConversation(this.prisma, contact.id, {
+          orgId,
+          channelId,
+          channelKind: social?.kind ?? "whatsapp",
+          metaPageId: social?.metaPageId ?? null,
+          tiktokAccountId: social?.tiktokAccountId ?? null,
+          externalId: social?.externalId ?? null,
+          status: "OPEN",
+          windowExpiresAt,
+          lastMessageAt: now,
+          awaitingReply: true,
+          unreadCount: 1,
+          ...(previous ? { aiMode: previous.aiMode } : {}),
+          // Qué anuncio abrió esta conversación (null si no vino de uno).
+          ...(referral ? { referral: referral as unknown as Prisma.InputJsonObject } : {}),
+        });
+    const isNewConversation = opened.created;
+    const current = opened.conversation;
+    const conversation = isNewConversation
+      ? current
+      : await this.prisma.conversation.update({
+          where: { id: current.id },
           data: {
             windowExpiresAt,
             lastMessageAt: now,
@@ -435,34 +457,13 @@ export class MessagingService {
             followUpDueAt: null,
             unreadCount: { increment: 1 },
             // Fija el canal si aún no lo tenía (conversaciones previas).
-            ...(channelId && !open.channelId ? { channelId } : {}),
-            ...(social && !open.metaPageId && !open.tiktokAccountId
+            ...(channelId && !current.channelId ? { channelId } : {}),
+            ...(social && !current.metaPageId && !current.tiktokAccountId
               ? { metaPageId: social.metaPageId ?? null, tiktokAccountId: social.tiktokAccountId ?? null, externalId: social.externalId ?? null, channelKind: social.kind }
               : {}),
             // Volvió por un anuncio con el chat abierto: Meta manda el referral
             // en este mensaje y es el clic que cuenta para las conversiones.
             ...(referral ? { referral: referral as unknown as Prisma.InputJsonObject } : {}),
-          },
-        })
-      : await this.prisma.conversation.create({
-          data: {
-            orgId,
-            contactId: contact.id,
-            channelId,
-            channelKind: social?.kind ?? "whatsapp",
-            metaPageId: social?.metaPageId ?? null,
-            tiktokAccountId: social?.tiktokAccountId ?? null,
-            externalId: social?.externalId ?? null,
-            status: "OPEN",
-            windowExpiresAt,
-            lastMessageAt: now,
-            awaitingReply: true,
-            unreadCount: 1,
-            ...(previous ? { aiMode: previous.aiMode } : {}),
-            // Qué anuncio abrió esta conversación (null si no vino de uno).
-            ...(referral
-              ? { referral: referral as unknown as Prisma.InputJsonObject }
-              : {}),
           },
         });
 
@@ -692,26 +693,27 @@ export class MessagingService {
       where: { contactId: contact.id, status: { not: "CLOSED" } },
       orderBy: { createdAt: "desc" },
     });
-    const conversation = open
-      ? await this.prisma.conversation.update({
-          where: { id: open.id },
+    const opened = open
+      ? { conversation: open, created: false }
+      : await findOrOpenConversation(this.prisma, contact.id, {
+          orgId,
+          channelId,
+          status: "OPEN",
+          lastMessageAt: now,
+          awaitingReply: false,
+          aiPausedUntil: new Date(now.getTime() + this.humanPauseMs),
+        });
+    const current = opened.conversation;
+    const conversation = opened.created
+      ? current
+      : await this.prisma.conversation.update({
+          where: { id: current.id },
           data: {
             lastMessageAt: now,
             awaitingReply: false, // contestamos desde el celular
             // Un humano contestó desde el celular → pausar la IA.
             aiPausedUntil: new Date(now.getTime() + this.humanPauseMs),
-            ...(channelId && !open.channelId ? { channelId } : {}),
-          },
-        })
-      : await this.prisma.conversation.create({
-          data: {
-            orgId,
-            contactId: contact.id,
-            channelId,
-            status: "OPEN",
-            lastMessageAt: now,
-            awaitingReply: false,
-            aiPausedUntil: new Date(now.getTime() + this.humanPauseMs),
+            ...(channelId && !current.channelId ? { channelId } : {}),
           },
         });
 
@@ -818,30 +820,31 @@ export class MessagingService {
       orderBy: { createdAt: "desc" },
     });
     const paused = { aiPausedUntil: new Date(now.getTime() + this.humanPauseMs) };
-    const conversation = open
-      ? await this.prisma.conversation.update({
-          where: { id: open.id },
+    const opened = open
+      ? { conversation: open, created: false }
+      : await findOrOpenConversation(this.prisma, contact.id, {
+          orgId,
+          channelKind: echo.social.kind,
+          metaPageId: echo.social.metaPageId ?? null,
+          tiktokAccountId: echo.social.tiktokAccountId ?? null,
+          externalId: echo.social.externalId ?? null,
+          status: "OPEN",
+          lastMessageAt: now,
+          awaitingReply: false,
+          ...paused,
+        });
+    const current = opened.conversation;
+    const conversation = opened.created
+      ? current
+      : await this.prisma.conversation.update({
+          where: { id: current.id },
           data: {
             lastMessageAt: now,
             awaitingReply: false,
             ...paused,
-            ...(!open.metaPageId && !open.tiktokAccountId
+            ...(!current.metaPageId && !current.tiktokAccountId
               ? { metaPageId: echo.social.metaPageId ?? null, tiktokAccountId: echo.social.tiktokAccountId ?? null, externalId: echo.social.externalId ?? null, channelKind: echo.social.kind }
               : {}),
-          },
-        })
-      : await this.prisma.conversation.create({
-          data: {
-            orgId,
-            contactId: contact.id,
-            channelKind: echo.social.kind,
-            metaPageId: echo.social.metaPageId ?? null,
-            tiktokAccountId: echo.social.tiktokAccountId ?? null,
-            externalId: echo.social.externalId ?? null,
-            status: "OPEN",
-            lastMessageAt: now,
-            awaitingReply: false,
-            ...paused,
           },
         });
     const saved = await this.prisma.message.create({

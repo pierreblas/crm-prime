@@ -17,6 +17,7 @@ import {
   type ResolveActionsResult,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { withContactLock } from "../../infra/prisma/contact-lock";
 import { parseStorageRef, STORAGE_PROVIDER, type StorageProvider } from "../../infra/storage/storage.provider";
 import { runAsActor } from "../../infra/tenant/actor";
 import { TenantService } from "../../infra/tenant/tenant.service";
@@ -272,15 +273,9 @@ export class AgentActionsService {
       select: { orgId: true, name: true, phone: true, currency: true },
     });
     if (!contact) throw new Error("El contacto ya no existe");
-    const created = await this.prisma.deal.create({
-      data: {
-        orgId: contact.orgId,
-        contactId,
-        stageId: stage.id,
-        title: contact.name ?? contact.phone,
-        currency: contactCurrency(contact) ?? "USD",
-      },
-    });
+    const created = await this.firstDeal(contactId, contact, stage.id);
+    // Se creó por otro lado mientras tanto: se mueve esa.
+    if (!created) return this.markLead(contactId, status, reason);
     this.events.emit("deal.stage_changed", { orgId, dealId: created.id, contactId, stageId: stage.id });
     this.events.emit("pipeline.changed", { orgId, dealId: created.id });
     return `Marcado como ${label}: oportunidad creada en «${stage.name}»${why}.`;
@@ -319,16 +314,22 @@ export class AgentActionsService {
       select: { orgId: true, name: true, phone: true, currency: true },
     });
     if (!contact) throw new Error("El contacto ya no existe");
-    await this.prisma.deal.create({
-      data: {
-        orgId: contact.orgId,
-        contactId,
-        stageId: stage.id,
-        title: contact.name ?? contact.phone,
-        currency: contactCurrency(contact) ?? "USD",
-      },
-    });
+    if (!(await this.firstDeal(contactId, contact, stage.id))) return this.moveDeal(contactId, stageName);
     return `Oportunidad creada en "${stageName}".`;
+  }
+
+  /** La primera oportunidad del contacto; null si ya tiene una (la creó otro proceso a la vez). */
+  private firstDeal(
+    contactId: string,
+    contact: { orgId: string; name: string | null; phone: string; currency: string | null },
+    stageId: string,
+  ): Promise<{ id: string } | null> {
+    return withContactLock(this.prisma, contactId, async (tx) => {
+      if (await tx.deal.findFirst({ where: { contactId, discardedAt: null }, select: { id: true } })) return null;
+      return tx.deal.create({
+        data: { orgId: contact.orgId, contactId, stageId, title: contact.name ?? contact.phone, currency: contactCurrency(contact) ?? "USD" },
+      });
+    });
   }
 
   private async assignSeller(

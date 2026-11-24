@@ -55,7 +55,7 @@ function setup(
   let leadFailures = opts.failLead ?? 0;
   // Lo que llega a LeadService.ingestLead, para ver nombre, teléfono, campos y etiquetas.
   const ingested: Array<{ name?: string; phone: string; source?: string; tags: string[]; fields: Record<string, string> }> = [];
-  const ingestedOpts: Array<{ silent?: boolean }> = [];
+  const ingestedOpts: Array<{ silent?: boolean; hold?: boolean }> = [];
   // Plantillas de bienvenida que se mandaron.
   const welcomes: string[] = [];
   // Fuentes de la empresa por nombre → id, y la del contacto que deja el lead.
@@ -64,6 +64,9 @@ function setup(
   let seq = 0;
   const stageSel = (s: (typeof STAGES)[number] | undefined) => (s ? { id: s.id, pipelineId: s.pipelineId } : null);
   const prisma = {
+    // El cerrojo por contacto es de la base (se prueba en rls.test.ts).
+    $transaction: (run: (tx: unknown) => Promise<unknown>): Promise<unknown> => run(prisma),
+    $executeRaw: async () => 0,
     source: {
       findUnique: async ({ where }: { where: { id?: string; orgId_name?: { name: string } } }) => {
         const hit = [...sources].find(([name, id]) => (where.id ? id === where.id : name === where.orgId_name!.name));
@@ -148,14 +151,14 @@ function setup(
   };
   // Como LeadService: una fuente con nombre se crea si falta y se pone al contacto.
   const leads = {
-    ingestLead: async (input: (typeof ingested)[number], _via: string, o?: { silent?: boolean }) => {
+    ingestLead: async (input: (typeof ingested)[number], _via: string, o?: { silent?: boolean; hold?: boolean }) => {
       ingested.push(input);
       ingestedOpts.push(o ?? {});
       if (input.source) {
         if (!sources.has(input.source)) sources.set(input.source, `src-${input.source}`);
         contact.sourceId = sources.get(input.source)!;
       }
-      return { id: "ct1", created: true };
+      return { id: "ct1", created: true, ...(o?.hold ? { announce: () => void emitted.push({ name: "lead.created", payload: {} as (typeof emitted)[number]["payload"] }) } : {}) };
     },
   };
   const events = { emit: (name: string, payload: (typeof emitted)[number]["payload"]) => void emitted.push({ name, payload }) };
@@ -179,6 +182,17 @@ test("cada formulario entra en la etapa elegida, también de otro embudo", async
     t.emitted.some((e) => e.name === "deal.stage_changed" && e.payload.stageId === "inscritos"),
     "avisa del cambio de etapa: corren sus automatizaciones, conversiones y flujos",
   );
+});
+
+test("los flujos de «lead nuevo» arrancan con la oportunidad ya creada: si ellos crean una, no es otra", async () => {
+  const t = setup({ ...PAGE, createDeal: true, dealStageId: "nuevo", formRules: [] }, { formId: "f-cursos" });
+  await t.lead();
+  const order = t.emitted.map((e) => e.name).filter((n) => n === "lead.created" || n === "deal.stage_changed");
+  assert.deepEqual(order, ["deal.stage_changed", "lead.created"]);
+  // Aunque la página no cree oportunidades, el aviso sale igual (una sola vez).
+  const none = setup({ ...PAGE, createDeal: false, dealStageId: null, formRules: [] }, { formId: "f-cursos" });
+  await none.lead();
+  assert.equal(none.emitted.filter((e) => e.name === "lead.created").length, 1);
 });
 
 test("un formulario sin regla sigue a la página, y la página puede elegir su etapa", async () => {

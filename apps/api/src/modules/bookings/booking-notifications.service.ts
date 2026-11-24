@@ -14,6 +14,7 @@ import {
 import { env } from "../../common/utils/env";
 import { fold } from "../../common/utils/fold";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { findOrOpenConversation } from "../../infra/prisma/contact-lock";
 import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
 import { MessagingService } from "../messaging/messaging.service";
 import { WebhookOutService } from "../webhooks-out/webhook-out.service";
@@ -282,10 +283,7 @@ export class BookingNotificationsService implements OnModuleInit, OnModuleDestro
     const channelId =
       last?.channelId ?? (await this.prisma.whatsappConnection.findFirst({ where: { isActive: true, status: "connected" }, select: { id: true } }))?.id ?? null;
     if (!channelId) return null;
-    return this.prisma.conversation.create({
-      data: { orgId: row.orgId, contactId: row.contactId, channelId, status: ConversationStatus.OPEN, lastMessageAt: new Date() },
-      select,
-    });
+    return (await findOrOpenConversation(this.prisma, row.contactId, { orgId: row.orgId, channelId, status: ConversationStatus.OPEN }, { updatedAt: "desc" })).conversation;
   }
 
   private load(id: string): Promise<Row | null> {

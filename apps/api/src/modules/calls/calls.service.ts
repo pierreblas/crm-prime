@@ -22,6 +22,7 @@ import {
   type UpdateCallInput,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { findOrOpenConversation } from "../../infra/prisma/contact-lock";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { runUnscoped } from "../../infra/tenant/tenant.context";
 import { STORAGE_PROVIDER, toStorageRef, type StorageProvider } from "../../infra/storage/storage.provider";
@@ -444,11 +445,9 @@ export class CallsService {
     });
     if (open) return open.id;
     const contact = await this.prisma.contact.findUnique({ where: { id: contactId }, select: { orgId: true } });
-    const created = await this.prisma.conversation.create({
-      data: { orgId: contact?.orgId ?? this.tenant.orgId(), contactId, status: ConversationStatus.OPEN },
-      select: { id: true },
-    });
-    return created.id;
+    return (
+      await findOrOpenConversation(this.prisma, contactId, { orgId: contact?.orgId ?? this.tenant.orgId(), status: ConversationStatus.OPEN }, { updatedAt: "desc" })
+    ).conversation.id;
   }
 
   private changed(callId: string, conversationId: string | null): void {

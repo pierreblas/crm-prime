@@ -3256,3 +3256,68 @@ test("bandeja con el rol restringido: ordena por lo último que se envió, sea d
     .catch(() => undefined);
   assert.deepEqual((await list()).map((c) => [c.contact.name, c.lastMessageAt]), before);
 });
+
+test("un lead que entra por varios lados a la vez queda con una sola oportunidad y un solo chat", async () => {
+  const { MetaLeadService } = await import("../src/modules/meta-leads/meta-lead.service");
+  const { PipelineService } = await import("../src/modules/pipeline/pipeline.service");
+  const { FlowEngineService } = await import("../src/modules/ai/flow-engine.service");
+  const { AgentActionsService } = await import("../src/modules/ai/agent-actions.service");
+  const { CallsService } = await import("../src/modules/calls/calls.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgId = `o_dup_${suf}`;
+  const people: string[] = [];
+  let stage = "";
+  await ctx.runUnscoped("prueba: empresa con leads repetidos", async () => {
+    await prisma.organization.create({ data: { id: orgId, slug: `dup-${suf}`, name: "Duplicados" } });
+    const p = await prisma.pipeline.create({ data: { orgId, name: "Ventas", isDefault: true, inboundEnabled: true } });
+    stage = (await prisma.pipelineStage.create({ data: { orgId, pipelineId: p.id, name: "Nuevo", order: 0 } })).id;
+    for (let i = 0; i < 12; i++) people.push((await prisma.contact.create({ data: { orgId, phone: `+5192${String(i).padStart(2, "0")}${suf}`, name: `Lead ${i}`, optIn: true } })).id);
+  });
+  const stub = <T>(cls: { prototype: T }, props: Record<string, unknown>) => Object.assign(Object.create(cls.prototype as object), { prisma, tenant: { orgId: () => orgId }, events: { emit: () => true }, logger: { log() {}, warn() {}, debug() {}, error() {} }, ...props }) as any;
+  const meta = stub(MetaLeadService, {});
+  const pipeline = stub(PipelineService, { changed() {}, enteredStage() {}, pickOwner: async () => null });
+  const flows = stub(FlowEngineService, { loadFlow: async () => ({ id: "f" }), startIfIdle: async () => true });
+  const agent = stub(AgentActionsService, {});
+  const calls = stub(CallsService, {});
+
+  // El mismo lead, a la vez: formulario (aviso y reenvío), WhatsApp, flujo y llamada.
+  await ctx.runInOrg(orgId, () =>
+    Promise.all(
+      people.flatMap((id) => [
+        meta.ensureConversation(orgId, id),
+        flows.runFlowForContact("f", id),
+        calls.openConversation(id),
+        meta.ensureConversation(orgId, id),
+      ]),
+    ),
+  );
+  const chats = await ctx.runInOrg(orgId, () => prisma.conversation.groupBy({ by: ["contactId"], where: { orgId }, _count: { _all: true } }));
+  assert.deepEqual(chats.map((c: any) => c._count._all).filter((n: number) => n !== 1), [], "un solo chat abierto por persona");
+
+  const convo = new Map<string, string>((await ctx.runInOrg(orgId, () => prisma.conversation.findMany({ where: { orgId }, select: { id: true, contactId: true } }))).map((c: any) => [c.contactId, c.id]));
+  await ctx.runInOrg(orgId, () =>
+    Promise.all(
+      people.flatMap((id) => [
+        meta.createDeal(orgId, id, "Lead", "Formulario", stage),
+        pipeline.intakeFromWhatsapp(id, null, convo.get(id)),
+        flows.createDeal(convo.get(id), { data: { stageId: stage, dealTitle: "Flujo" } }, {}),
+        agent.moveDeal(id, "Nuevo"),
+        meta.createDeal(orgId, id, "Lead", "Formulario", stage),
+      ]),
+    ),
+  );
+  const deals = await ctx.runInOrg(orgId, () => prisma.deal.groupBy({ by: ["contactId"], where: { orgId, discardedAt: null }, _count: { _all: true } }));
+  assert.equal(deals.length, people.length, "todos tienen oportunidad");
+  assert.deepEqual(deals.map((d: any) => d._count._all).filter((n: number) => n !== 1), [], "una sola oportunidad por persona");
+
+  // El historial sigue diciendo quién la creó, y una descartada por inactividad vuelve en vez de duplicarse.
+  const late = await ctx.runInOrg(orgId, () => prisma.contact.create({ data: { orgId, phone: `+5192zz${suf}`.replace("zz", "99"), name: "Tarde" } }));
+  await ctx.runInOrg(orgId, () => pipeline.intakeFromWhatsapp(late.id, null, null));
+  const [made] = await ctx.runInOrg(orgId, () => prisma.deal.findMany({ where: { contactId: late.id } }));
+  const born = await ctx.runInOrg(orgId, () => prisma.dealEvent.findFirst({ where: { dealId: made.id, kind: "created" } }));
+  assert.equal(born?.actor, "system:whatsapp");
+  await ctx.runInOrg(orgId, () => prisma.deal.update({ where: { id: made.id }, data: { discardedAt: new Date(), discardReason: "auto" } }));
+  await ctx.runInOrg(orgId, () => Promise.all([pipeline.intakeFromWhatsapp(late.id, null, null), meta.createDeal(orgId, late.id, "Lead", "F", stage)]));
+  const after = await ctx.runInOrg(orgId, () => prisma.deal.findMany({ where: { contactId: late.id } }));
+  assert.deepEqual(after.map((d: any) => [d.id, d.discardedAt]), [[made.id, null]]);
+});

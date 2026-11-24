@@ -23,6 +23,7 @@ import { isWithinHours } from "../../common/utils/business-hours";
 import { fold } from "../../common/utils/fold";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { findOrOpenConversation, withContactLock } from "../../infra/prisma/contact-lock";
 import { runAsActor } from "../../infra/tenant/actor";
 import { currentOrgId } from "../../infra/tenant/tenant.context";
 import { TenantService } from "../../infra/tenant/tenant.service";
@@ -299,10 +300,8 @@ export class FlowEngineService {
     const conversationId =
       open?.id ??
       (
-        await this.prisma.conversation.create({
-          data: { orgId: contact.orgId, contactId, status: ConversationStatus.OPEN },
-        })
-      ).id;
+        await findOrOpenConversation(this.prisma, contactId, { orgId: contact.orgId, status: ConversationStatus.OPEN }, { updatedAt: "desc" })
+      ).conversation.id;
     await this.startIfIdle(now.flow, conversationId);
   }
 
@@ -351,10 +350,8 @@ export class FlowEngineService {
     const conversationId =
       open?.id ??
       (
-        await this.prisma.conversation.create({
-          data: { orgId: contact.orgId, contactId: d.contactId, status: ConversationStatus.OPEN },
-        })
-      ).id;
+        await findOrOpenConversation(this.prisma, d.contactId, { orgId: contact.orgId, status: ConversationStatus.OPEN }, { updatedAt: "desc" })
+      ).conversation.id;
     return this.startIfIdle(flow, conversationId);
   }
 
@@ -427,10 +424,8 @@ export class FlowEngineService {
     const conversationId =
       open?.id ??
       (
-        await this.prisma.conversation.create({
-          data: { orgId: contact.orgId, contactId, status: ConversationStatus.OPEN },
-        })
-      ).id;
+        await findOrOpenConversation(this.prisma, contactId, { orgId: contact.orgId, status: ConversationStatus.OPEN }, { updatedAt: "desc" })
+      ).conversation.id;
     return this.startIfIdle(flow, conversationId, vars);
   }
 
@@ -1025,22 +1020,25 @@ export class FlowEngineService {
       select: { id: true, pipelineId: true },
     });
     if (!convo || !stage) return;
-    const open = await this.prisma.deal.findFirst({
-      where: { contactId: convo.contactId, discardedAt: null, stage: { pipelineId: stage.pipelineId } },
-      select: { id: true },
+    const deal = await withContactLock(this.prisma, convo.contactId, async (tx) => {
+      const open = await tx.deal.findFirst({
+        where: { contactId: convo.contactId, discardedAt: null, stage: { pipelineId: stage.pipelineId } },
+        select: { id: true },
+      });
+      if (open) return null;
+      return tx.deal.create({
+        data: {
+          orgId: convo.orgId,
+          contactId: convo.contactId,
+          stageId: stage.id,
+          title:
+            this.interpolate(node.data.dealTitle, vars).trim() ||
+            `Oportunidad: ${convo.contact.name ?? convo.contact.phone}`,
+          currency: contactCurrency(convo.contact) ?? "USD",
+        },
+      });
     });
-    if (open) return;
-    const deal = await this.prisma.deal.create({
-      data: {
-        orgId: convo.orgId,
-        contactId: convo.contactId,
-        stageId: stage.id,
-        title:
-          this.interpolate(node.data.dealTitle, vars).trim() ||
-          `Oportunidad: ${convo.contact.name ?? convo.contact.phone}`,
-        currency: contactCurrency(convo.contact) ?? "USD",
-      },
-    });
+    if (!deal) return;
     this.events.emit("pipeline.changed", { orgId: convo.orgId, dealId: deal.id });
     this.events.emit("deal.stage_changed", {
       orgId: convo.orgId,

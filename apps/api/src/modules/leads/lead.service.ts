@@ -109,8 +109,9 @@ export class LeadService {
     viaApiKey: string | null = null,
     // Por dónde entró, para los flujos que arrancan con un lead nuevo.
     // `silent`: importación o reprocesado, no despierta flujos.
-    opts: { via?: "meta" | "webhook" | "api"; formName?: string | null; formId?: string | null; silent?: boolean } = {},
-  ): Promise<{ id: string; created: boolean }> {
+    // `hold`: quien llama avisa del lead (con `announce`) cuando termine lo suyo.
+    opts: { via?: "meta" | "webhook" | "api"; formName?: string | null; formId?: string | null; silent?: boolean; hold?: boolean } = {},
+  ): Promise<{ id: string; created: boolean; announce?: () => void }> {
     // Ya viene normalizado a E.164 por el esquema (phoneField). Si el contacto
     // ya existe con otra forma del mismo móvil (su WhatsApp de México «+521…»
     // o Argentina «+549…»), el lead se une a ese y conserva su número.
@@ -179,17 +180,20 @@ export class LeadService {
       if (added && !opts.silent) this.events.emit("contact.tagged", { orgId, contactId: contact.id, tag: tag.name });
     }
 
-    this.events.emit("lead.created", {
-      orgId,
-      contactId: contact.id,
-      created: !existing,
-      via: opts.via ?? (viaApiKey ? "api" : "webhook"),
-      formName: opts.formName ?? null,
-      formId: opts.formId ?? null,
-      silent: !!opts.silent,
-    });
+    const announce = (): void => {
+      this.events.emit("lead.created", {
+        orgId,
+        contactId: contact.id,
+        created: !existing,
+        via: opts.via ?? (viaApiKey ? "api" : "webhook"),
+        formName: opts.formName ?? null,
+        formId: opts.formId ?? null,
+        silent: !!opts.silent,
+      });
+    };
+    if (!opts.hold) announce();
 
-    return { id: contact.id, created: !existing };
+    return { id: contact.id, created: !existing, ...(opts.hold ? { announce } : {}) };
   }
 
   // ── Helpers ──────────────────────────────────────────────────

@@ -14,6 +14,7 @@ import {
   type MetaLeadStatusValue,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { findOrOpenConversation, withContactLock } from "../../infra/prisma/contact-lock";
 import { runAsActor } from "../../infra/tenant/actor";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { LeadService } from "../leads/lead.service";
@@ -217,7 +218,7 @@ export class MetaLeadService {
     if (ad.adName) fields.anuncio = ad.adName;
     if (ad.campaignName) fields.campana = ad.campaignName;
 
-    const { id: contactId } = await this.leads.ingestLead(
+    const { id: contactId, announce } = await this.leads.ingestLead(
       {
         // Sin prefijo de país, el del número de WhatsApp de la empresa: así el
         // lead y su chat de WhatsApp son el mismo contacto.
@@ -229,7 +230,7 @@ export class MetaLeadService {
         integration: `Meta · ${page.name}`,
       },
       `Meta Lead Ads · ${page.name}`,
-      { via: "meta", formName, formId, silent: !!opts.silent },
+      { via: "meta", formName, formId, silent: !!opts.silent, hold: true },
     );
     if (!source) await this.formSource(page.orgId, contactId);
 
@@ -243,6 +244,9 @@ export class MetaLeadService {
     if (target) {
       await runAsActor("system:meta", () => this.createDeal(page.orgId, contactId, mapped.name, formName, target.stageId, !!opts.silent, lead));
     }
+    // Los flujos de «lead nuevo» arrancan con la oportunidad ya en la etapa de
+    // su formulario: si la crean ellos, no es otra.
+    announce?.();
     // Un lead importado o reprocesado puede ser de hace semanas: no se le escribe solo.
     if (page.welcomeTemplateId && !opts.silent) {
       await this.sendWelcome(page.orgId, contactId, page.welcomeTemplateId);
@@ -318,36 +322,28 @@ export class MetaLeadService {
       return;
     }
 
-    const last = await this.prisma.deal.findFirst({
-      where: { contactId },
-      orderBy: { createdAt: "desc" },
-      include: { stage: { select: { isWon: true, isLost: true, pipelineId: true } } },
-    });
-    const decision = decideIntake(last, stage.pipelineId);
-    if (decision === "skip") {
-      this.logger.log(`El contacto ${contactId} ya tiene una oportunidad en curso: no se crea otra`);
-      return;
-    }
-
     try {
-      const dealId =
-        decision === "restore" && last
-          ? (
-              await this.prisma.deal.update({
-                where: { id: last.id },
-                data: { discardedAt: null, discardReason: null, stageId: stage.id },
-              })
-            ).id
-          : (
-              await this.prisma.deal.create({
-                data: {
-                  orgId,
-                  contactId,
-                  stageId: stage.id,
-                  title: formName ? `${name ?? "Lead"} · ${formName}` : (name ?? "Lead de Meta"),
-                },
-              })
-            ).id;
+      const dealId = await withContactLock(this.prisma, contactId, async (tx) => {
+        const last = await tx.deal.findFirst({
+          where: { contactId },
+          orderBy: { createdAt: "desc" },
+          include: { stage: { select: { isWon: true, isLost: true, pipelineId: true } } },
+        });
+        const decision = decideIntake(last, stage.pipelineId);
+        if (decision === "skip") return null;
+        if (decision === "restore" && last) {
+          await tx.deal.update({ where: { id: last.id }, data: { discardedAt: null, discardReason: null, stageId: stage.id } });
+          return last.id;
+        }
+        const created = await tx.deal.create({
+          data: { orgId, contactId, stageId: stage.id, title: formName ? `${name ?? "Lead"} · ${formName}` : (name ?? "Lead de Meta") },
+        });
+        return created.id;
+      });
+      if (!dealId) {
+        this.logger.log(`El contacto ${contactId} ya tiene una oportunidad en curso: no se crea otra`);
+        return;
+      }
       if (!silent) this.events.emit("deal.stage_changed", { orgId, dealId, contactId, stageId: stage.id, ...(metaLead ? { metaLead } : {}) });
       this.events.emit("pipeline.changed", { orgId, dealId });
     } catch (e) {
@@ -389,15 +385,7 @@ export class MetaLeadService {
     orgId: string,
     contactId: string,
   ): Promise<string> {
-    const open = await this.prisma.conversation.findFirst({
-      where: { contactId, status: { not: "CLOSED" } },
-      orderBy: { createdAt: "desc" },
-    });
-    if (open) return open.id;
-    const created = await this.prisma.conversation.create({
-      data: { orgId, contactId, status: "OPEN" },
-    });
-    return created.id;
+    return (await findOrOpenConversation(this.prisma, contactId, { orgId, status: "OPEN" })).conversation.id;
   }
 
   private async record(

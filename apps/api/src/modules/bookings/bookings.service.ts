@@ -38,6 +38,7 @@ import {
   type WeeklyHours,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { withContactLock } from "../../infra/prisma/contact-lock";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { currentActor } from "../../infra/tenant/actor";
 
@@ -764,15 +765,20 @@ export class BookingsService {
       }
       return deal.id;
     }
-    const created = await this.prisma.deal.create({
-      data: {
-        orgId: contact.orgId,
-        contactId: contact.id,
-        stageId: stage.id,
-        title: contact.name ?? contact.phone,
-        currency: contactCurrency(contact) ?? "USD",
-      },
+    const created = await withContactLock(this.prisma, contact.id, async (tx) => {
+      if (await tx.deal.findFirst({ where: { contactId: contact.id, discardedAt: null }, select: { id: true } })) return null;
+      return tx.deal.create({
+        data: {
+          orgId: contact.orgId,
+          contactId: contact.id,
+          stageId: stage.id,
+          title: contact.name ?? contact.phone,
+          currency: contactCurrency(contact) ?? "USD",
+        },
+      });
     });
+    // Se creó por otro lado mientras tanto: la cita se cuelga de esa.
+    if (!created) return this.attachDeal(contact, bookedStageId);
     this.events.emit("deal.stage_changed", { orgId, dealId: created.id, contactId: contact.id, stageId: stage.id });
     this.events.emit("pipeline.changed", { orgId, dealId: created.id });
     return created.id;

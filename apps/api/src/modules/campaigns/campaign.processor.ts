@@ -11,6 +11,7 @@ import {
 } from "@crm/shared";
 import { QUEUE_CAMPAIGN } from "../../infra/queue/queue.constants";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { findOrOpenConversation } from "../../infra/prisma/contact-lock";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { runUnscoped } from "../../infra/tenant/tenant.context";
 import { runJobInOrg } from "../../infra/tenant/job-org";
@@ -167,23 +168,14 @@ export class CampaignProcessor extends WorkerHost {
     contactId: string,
     channelId: string | null,
   ): Promise<string> {
-    const open = await this.prisma.conversation.findFirst({
-      where: { contactId, status: { not: "CLOSED" } },
-      orderBy: { createdAt: "desc" },
+    const { conversation } = await findOrOpenConversation(this.prisma, contactId, {
+      orgId,
+      channelId,
+      status: "OPEN",
+      // Una plantilla nuestra no abre la ventana de 24 h: la abre el cliente
+      // cuando escribe. Hasta entonces en este chat solo caben plantillas.
+      windowExpiresAt: null,
     });
-    if (open) return open.id;
-    const created = await this.prisma.conversation.create({
-      data: {
-        orgId,
-        contactId,
-        channelId,
-        status: "OPEN",
-        // Una plantilla nuestra no abre la ventana de 24 h: la abre el cliente
-        // cuando escribe. Hasta entonces en este chat solo caben plantillas.
-        windowExpiresAt: null,
-        lastMessageAt: new Date(),
-      },
-    });
-    return created.id;
+    return conversation.id;
   }
 }
