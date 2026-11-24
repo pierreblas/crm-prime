@@ -20,7 +20,7 @@ import {
   type WhatsAppProvider,
 } from "../whatsapp/whatsapp-provider.interface";
 import { CampaignService } from "./campaign.service";
-import { TemplateFillService, normalizeFill } from "./template-fill.service";
+import { headerMediaFor, TemplateFillService, normalizeFill } from "./template-fill.service";
 
 // `orgId` lo pone quien encola. Los trabajos anteriores al cambio no lo traen
 // y la empresa se deduce de la plantilla de la campaña.
@@ -92,6 +92,7 @@ export class CampaignProcessor extends WorkerHost {
     try {
       spec = await this.fills.build(
         {
+          id: campaign.template.id,
           name: campaign.template.name,
           language: campaign.template.language,
           header: (campaign.template.header as TemplateHeader | null) ?? null,
@@ -125,6 +126,7 @@ export class CampaignProcessor extends WorkerHost {
         type: MessageType.TEMPLATE,
         author: MessageAuthor.HUMAN,
         content: preview,
+        mediaUrl: spec ? headerMediaFor(spec.header ?? null, fill) : null,
         status: fillError ? MessageStatus.FAILED : MessageStatus.QUEUED,
         ...(fillError ? { errorReason: fillError.slice(0, 500) } : {}),
       },

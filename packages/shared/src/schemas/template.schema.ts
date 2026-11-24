@@ -63,6 +63,16 @@ export const templateHeaderSchema = z.discriminatedUnion("format", [
 ]);
 export type TemplateHeader = z.infer<typeof templateHeaderSchema>;
 
+export type MediaHeader = Extract<TemplateHeader, { format: "IMAGE" | "VIDEO" | "DOCUMENT" }>;
+/** Encabezado con archivo: sin él, Meta rechaza el envío (#132012). */
+export function isMediaHeader(header: TemplateHeader | null | undefined): header is MediaHeader {
+  return header?.format === "IMAGE" || header?.format === "VIDEO" || header?.format === "DOCUMENT";
+}
+
+/** El archivo que sale si en el envío no se elige otro (el de la plantilla). */
+export const setHeaderMediaSchema = z.object({ mediaUrl: z.string().min(1).max(300) });
+export type SetHeaderMediaInput = z.infer<typeof setHeaderMediaSchema>;
+
 // ── Botones ──────────────────────────────────────────────────
 export const templateButtonSchema = z.discriminatedUnion("type", [
   z.object({

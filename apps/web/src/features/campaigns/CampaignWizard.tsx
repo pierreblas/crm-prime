@@ -22,6 +22,7 @@ import { AudienceBuilder } from "./AudienceBuilder";
 import type { CampaignPreset } from "./preset";
 import { toast } from "@/lib/toast";
 import { box, ghostBtn, input, label, primaryBtn } from "./styles";
+import { useHeaderMedia } from "./useHeaderMedia";
 
 const SOURCE_LABEL: Record<VariableSource, string> = {
   static: "Texto fijo",
@@ -76,6 +77,8 @@ export function CampaignWizard({ onDone, preset }: { onDone: () => void; preset?
     template?.header?.format === "IMAGE" ||
     template?.header?.format === "VIDEO" ||
     template?.header?.format === "DOCUMENT";
+  // Sin elegir otro, sale el que aprobó Meta (si Driony no lo tenía, lo trae).
+  const { media: defaultMedia, loading: loadingMedia } = useHeaderMedia(template);
   // Botones cuyo enlace acaba en un hueco: se completa al enviar.
   const dynamicUrlButtons = (template?.buttons ?? [])
     .map((b, index) => ({ b, index }))
@@ -225,11 +228,15 @@ export function CampaignWizard({ onDone, preset }: { onDone: () => void; preset?
                       .catch((err: Error) => toast.error(err.message));
                   }}
                 />
-                {headerFileName && (
-                  <div style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 4 }}>
-                    Se enviará: {headerFileName}
-                  </div>
-                )}
+                <div style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 4 }}>
+                  {headerFileName
+                    ? `Se enviará: ${headerFileName}`
+                    : loadingMedia
+                      ? "Trayendo de Meta el archivo de la plantilla…"
+                      : defaultMedia
+                        ? "Se envía el de la plantilla. Elige otro solo si quieres cambiarlo."
+                        : "Esta plantilla necesita un archivo: sin él, los envíos fallan."}
+                </div>
               </div>
             )}
 

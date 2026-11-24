@@ -72,19 +72,22 @@ export class MediaRetentionService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Los archivos que la empresa sigue usando: el brochure de un producto, una
-   * respuesta rápida, el QR de un método de pago, un flujo. El mensaje que los
-   * envió apunta al mismo archivo, así que borrarlos al vencer ese mensaje los
+   * respuesta rápida, el QR de un método de pago, un flujo, la imagen de una
+   * plantilla o de una difusión. El mensaje que los envió apunta al mismo archivo, así que borrarlos al vencer ese mensaje los
    * dejaba rotos.
    */
   private async filesInUse(orgId: string): Promise<Set<string>> {
     const where = { orgId };
-    const [products, quick, payments, flows] = await Promise.all([
+    const [products, quick, payments, flows, templates, campaigns] = await Promise.all([
       this.prisma.product.findMany({ where, select: { attributes: true } }),
       this.prisma.quickReply.findMany({ where: { orgId, mediaUrl: { startsWith: "storage://" } }, select: { mediaUrl: true } }),
       this.prisma.paymentMethod.findMany({ where: { orgId, imageUrl: { startsWith: "storage://" } }, select: { imageUrl: true } }),
       this.prisma.flow.findMany({ where, select: { nodes: true } }),
+      this.prisma.template.findMany({ where, select: { header: true } }),
+      // La campaña no lleva empresa: cuelga de su plantilla.
+      this.prisma.campaign.findMany({ where: { template: { orgId } }, select: { variableValues: true } }),
     ]);
-    const all = JSON.stringify([products, quick, payments, flows]);
+    const all = JSON.stringify([products, quick, payments, flows, templates, campaigns]);
     return new Set([...all.matchAll(/storage:\/\/([0-9a-f-]{36})/gi)].map((m) => m[1]!));
   }
 

@@ -313,6 +313,8 @@ test("el borrado por plan no toca un archivo que sigue en uso", async () => {
     quickReply: { findMany: async () => [{ mediaUrl: `storage://${id(2)}` }] },
     paymentMethod: { findMany: async () => [] as unknown[] },
     flow: { findMany: async () => [{ nodes: [{ data: { mediaUrl: `storage://${id(3)}` } }] }] },
+    template: { findMany: async () => [] as unknown[] },
+    campaign: { findMany: async () => [] as unknown[] },
   };
   const svc = new MediaRetentionService(prisma as never, { remove: async (x: string) => void removed.push(x) } as never);
   assert.equal(await svc.purgeOrg("org1", 30), 4);

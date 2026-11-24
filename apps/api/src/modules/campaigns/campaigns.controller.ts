@@ -6,6 +6,7 @@ import {
   HttpCode,
   Param,
   Patch,
+  Put,
   Post,
   Query,
   UseGuards,
@@ -14,6 +15,7 @@ import {
   createCampaignSchema,
   createTemplateSchema,
   updateCampaignSchema,
+  setHeaderMediaSchema,
   updateTemplateSchema,
   Role,
   campaignAudienceSchema,
@@ -25,6 +27,7 @@ import {
   type CreateCampaignInput,
   type CreateTemplateInput,
   type UpdateCampaignInput,
+  type SetHeaderMediaInput,
   type UpdateTemplateInput,
 } from "@crm/shared";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -65,6 +68,19 @@ export class CampaignsController {
     @Body(new ZodValidationPipe(updateTemplateSchema)) body: UpdateTemplateInput,
   ) {
     return this.templates.update(id, body);
+  }
+
+  @Put("templates/:id/header-media")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  setTemplateHeaderMedia(@Param("id") id: string, @Body(new ZodValidationPipe(setHeaderMediaSchema)) body: SetHeaderMediaInput) {
+    return this.templates.setHeaderMedia(id, body.mediaUrl);
+  }
+
+  // También los vendedores: la necesitan para enviarla desde el chat.
+  @Post("templates/:id/header-media/recover")
+  recoverTemplateHeaderMedia(@Param("id") id: string) {
+    return this.templates.withHeaderMedia(id);
   }
 
   @Delete("templates/:id")

@@ -923,6 +923,24 @@ export async function updateTemplate(
 }
 
 /** Trae del panel de Meta las plantillas ya creadas y sus estados. */
+/** El archivo del encabezado que sale si el envío no elige otro. No cambia nada en Meta. */
+export async function setTemplateHeaderMedia(id: string, mediaUrl: string): Promise<TemplateDto> {
+  const res = await bffFetch(`/api/bff/templates/${id}/header-media`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mediaUrl }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo guardar el archivo"));
+  return res.json();
+}
+
+/** La plantilla con el archivo de su encabezado, traído de Meta si Driony no lo tenía. */
+export async function recoverTemplateHeaderMedia(id: string): Promise<TemplateDto> {
+  const res = await bffFetch(`/api/bff/templates/${id}/header-media/recover`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo traer el archivo de Meta"));
+  return res.json();
+}
+
 export async function syncTemplates(): Promise<SyncTemplatesResult> {
   const res = await bffFetch("/api/bff/templates/sync", { method: "POST" });
   if (!res.ok) {

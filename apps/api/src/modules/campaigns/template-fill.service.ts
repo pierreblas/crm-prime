@@ -1,7 +1,8 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import {
   cleanTemplateParam,
   fillTemplateText,
+  isMediaHeader,
   namedTemplateVars,
   templateVarCount,
   type TemplateButton,
@@ -20,8 +21,11 @@ import {
   type TemplateSendSpec,
   type WhatsAppProvider,
 } from "../whatsapp/whatsapp-provider.interface";
+import { TemplateService } from "./template.service";
 
 export interface FillableTemplate {
+  /** Para traer de Meta el archivo del encabezado si no está guardado. */
+  id?: string;
   name: string;
   language: string;
   header: TemplateHeader | null;
@@ -34,6 +38,33 @@ export interface FillContact {
   phone: string;
 }
 
+const MEDIA_WORD = { IMAGE: "una imagen", VIDEO: "un video", DOCUMENT: "un documento" } as const;
+
+/**
+ * El archivo del encabezado que sale: el elegido en el envío o, si no, el de la
+ * plantilla. null si no lleva archivo (o si le falta).
+ */
+export function headerMediaFor(header: TemplateHeader | null, fill: Pick<TemplateFill, "headerMediaUrl">): string | null {
+  return isMediaHeader(header) ? (fill.headerMediaUrl ?? header.example ?? null) : null;
+}
+
+/** Los huecos obligatorios que este envío no rellena, dichos antes de que Meta los rechace con un código. */
+function missingParts(template: FillableTemplate, fill: TemplateFill): string | null {
+  const h = template.header;
+  if (isMediaHeader(h) && !headerMediaFor(h, fill)) {
+    return `La plantilla «${template.name}» lleva ${MEDIA_WORD[h.format]} arriba y no tiene ningún archivo guardado. Elígelo en Difusiones › Plantillas de WhatsApp, o pulsa ahí «Importar de Meta» para traer el suyo.`;
+  }
+  if (h?.format === "TEXT" && h.text.includes("{{") && !fill.headerText) {
+    return `El encabezado de la plantilla «${template.name}» lleva una variable y este envío no trae su valor.`;
+  }
+  if (h?.format === "LOCATION" && !fill.headerLocation) {
+    return `La plantilla «${template.name}» lleva una ubicación arriba y este envío no trae ninguna.`;
+  }
+  const button = template.buttons.find((b, i) => b.type === "URL" && b.url.includes("{{") && !fill.urlButtons.find((u) => u.index === i)?.value);
+  if (button?.type === "URL") return `El botón «${button.text}» de la plantilla «${template.name}» necesita el final de su enlace y este envío no lo trae.`;
+  return null;
+}
+
 /**
  * Prepara una plantilla para enviarla: resuelve los valores de cada hueco
  * (fijos o tomados del contacto) y deja el archivo del encabezado listo.
@@ -43,14 +74,19 @@ export class TemplateFillService {
   constructor(
     @Inject(WHATSAPP_PROVIDER) private readonly wa: WhatsAppProvider,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
+    @Optional() private readonly templates?: TemplateService,
   ) {}
 
   async build(
-    template: FillableTemplate,
+    given: FillableTemplate,
     fill: TemplateFill,
     contact: FillContact,
     fromPhoneNumberId?: string,
   ): Promise<TemplateSendSpec> {
+    // Una aprobada que aún no tiene su archivo guardado lo trae de Meta: quien
+    // envía no tiene que volver a elegir una imagen que Meta ya aprobó.
+    const recover = isMediaHeader(given.header) && !headerMediaFor(given.header, fill) && given.id && this.templates;
+    const template = recover ? { ...given, header: (await this.templates!.recoverHeader(given.id!)) ?? given.header } : given;
     const values = [...fill.body].sort((a, b) => a.index - b.index);
     // Meta rechaza el envío si la plantilla tiene más variables de las que
     // llegan: mejor decirlo claro que dejar que falle con un código.
@@ -62,6 +98,9 @@ export class TemplateFillService {
           "Sincroniza las plantillas con Meta y vuelve a elegir los valores.",
       );
     }
+    const missing = missingParts(template, fill);
+    if (missing) throw new Error(missing);
+    const media = headerMediaFor(template.header, fill);
     const bodyParams = values.map((v) => cleanTemplateParam(resolveValue(v, contact), fallbackFor(v)));
     const headerName =
       template.header?.format === "TEXT" ? namedTemplateVars(template.header.text)[0] : undefined;
@@ -80,14 +119,7 @@ export class TemplateFillService {
           }
         : {}),
       ...(fill.headerLocation ? { headerLocation: fill.headerLocation } : {}),
-      ...(fill.headerMediaUrl
-        ? {
-            headerMedia: await this.resolveMedia(
-              fill.headerMediaUrl,
-              fromPhoneNumberId,
-            ),
-          }
-        : {}),
+      ...(media ? { headerMedia: await this.resolveMedia(media, fromPhoneNumberId) } : {}),
       urlButtonParams: fill.urlButtons,
     };
   }

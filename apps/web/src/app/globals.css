@@ -4236,6 +4236,10 @@ code {
 .origin__row > svg { flex-shrink: 0; margin-top: 2px; color: var(--accent-text); }
 .origin__row > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .origin__row strong { font-weight: 600; overflow-wrap: anywhere; }
+/* Archivo del encabezado de una plantilla. */
+.tpl-media { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; padding: 8px 10px; background: var(--surface); font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.tpl-media > span { flex: 1 1 220px; min-width: 0; }
+.tpl-media.is-missing { background: var(--warning-soft); color: var(--text); }
 /* Motivo de un envío fallido, bajo el mensaje. */
 .msg-failed { margin: 4px 0 0; padding: 6px 8px; background: var(--danger-soft); color: var(--text); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
 .origin__label { font-size: 11px; color: var(--muted); }

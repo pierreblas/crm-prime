@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
-import type { TemplateDto } from "@crm/shared";
-import { deleteTemplate, fetchTemplates, syncTemplates } from "@/lib/bff";
+import { isMediaHeader, type TemplateDto } from "@crm/shared";
+import { deleteTemplate, fetchTemplates, setTemplateHeaderMedia, syncTemplates, uploadMedia } from "@/lib/bff";
 import { toast } from "@/lib/toast";
 import { badge, box, ghostBtn, primaryBtn } from "./styles";
 import { TemplateEditor } from "./TemplateEditor";
 import { TemplatePreview } from "./TemplatePreview";
+import { useHeaderMedia } from "./useHeaderMedia";
 
 const TEMPLATE_STATUS_COLOR: Record<string, string> = {
   APPROVED: "#0a6b42",
@@ -147,6 +148,48 @@ export function TemplatesPanel() {
   );
 }
 
+const MEDIA_TEXT = { IMAGE: "Imagen", VIDEO: "Video", DOCUMENT: "Documento" } as const;
+const MEDIA_ACCEPT = { IMAGE: "image/jpeg,image/png", VIDEO: "video/mp4", DOCUMENT: "application/pdf,.doc,.docx,.xls,.xlsx" } as const;
+
+/**
+ * El archivo del encabezado que sale en los envíos que no eligen uno: flujos,
+ * seguimientos, citas y la bienvenida de los formularios. Sin él, Meta los rechaza.
+ */
+function HeaderMediaField({ template }: { template: TemplateDto }) {
+  const queryClient = useQueryClient();
+  const picker = useRef<HTMLInputElement>(null);
+  const header = isMediaHeader(template.header) ? template.header : null;
+  const save = useMutation({
+    mutationFn: async (file: File) => setTemplateHeaderMedia(template.id, (await uploadMedia(file)).mediaUrl),
+    onSuccess: (t) => {
+      queryClient.setQueryData<TemplateDto[]>(["templates"], (old) => old?.map((x) => (x.id === t.id ? t : x)));
+      toast.success("Archivo del encabezado guardado.");
+    },
+    onError: (e) => toast.error((e as Error).message),
+    onSettled: () => {
+      if (picker.current) picker.current.value = "";
+    },
+  });
+  const { loading } = useHeaderMedia(template);
+  if (!header) return null;
+  const what = MEDIA_TEXT[header.format];
+  return (
+    <div className={`tpl-media${header.example || loading ? "" : " is-missing"}`} data-header-media={header.example ? "ok" : "missing"}>
+      <span>
+        {loading && !header.example
+          ? "Trayendo de Meta el archivo del encabezado…"
+          : header.example
+          ? `${what} del encabezado: lista. Sale en los flujos, seguimientos, citas y bienvenidas que usen esta plantilla.`
+          : `Falta ${what.toLowerCase() === "imagen" ? "la imagen" : `el ${what.toLowerCase()}`} del encabezado: los flujos, seguimientos, citas y bienvenidas que usen esta plantilla fallarán. Súbela aquí o pulsa «Importar de Meta».`}
+      </span>
+      <button type="button" style={ghostBtn} disabled={save.isPending} onClick={() => picker.current?.click()}>
+        {save.isPending ? "Subiendo…" : header.example ? "Cambiar" : "Subir"}
+      </button>
+      <input ref={picker} type="file" hidden accept={MEDIA_ACCEPT[header.format]} aria-label={`${what} del encabezado de ${template.name}`} onChange={(e) => e.target.files?.[0] && save.mutate(e.target.files[0])} />
+    </div>
+  );
+}
+
 function TemplateRow({
   template,
   onEdit,
@@ -199,6 +242,8 @@ function TemplateRow({
         >
           {template.body}
         </div>
+
+        {isMediaHeader(template.header) && <HeaderMediaField template={template} />}
 
         {open && (
           <div style={{ maxWidth: 320, marginTop: 12 }}>

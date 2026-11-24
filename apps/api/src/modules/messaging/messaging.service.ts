@@ -18,6 +18,7 @@ import {
   adReferralLabel,
   adSummaryOf,
   addUtmTouch,
+  isMediaHeader,
   mediaName,
   stripMediaName,
   parseUtms,
@@ -61,7 +62,7 @@ import {
   type StorageProvider,
 } from "../../infra/storage/storage.provider";
 import type { MetaReferral } from "../whatsapp/webhook.types";
-import { TemplateFillService } from "../campaigns/template-fill.service";
+import { headerMediaFor, TemplateFillService } from "../campaigns/template-fill.service";
 import { PipelineService } from "../pipeline/pipeline.service";
 import { PermissionsService } from "../permissions/permissions.service";
 import { fuenteAutomatica } from "../sources/fuente-automatica";
@@ -1256,6 +1257,7 @@ export class MessagingService {
       }
       spec = await this.fills.build(
         {
+          id: template.id,
           name: template.name,
           language: template.language,
           header: (template.header as TemplateHeader | null) ?? null,
@@ -1301,7 +1303,7 @@ export class MessagingService {
         type: MessageType.TEMPLATE,
         author,
         content: this.fills.preview(template.body, spec),
-        mediaUrl: input.fill.headerMediaUrl ?? null,
+        mediaUrl: headerMediaFor(spec.header ?? null, input.fill),
         status: MessageStatus.QUEUED,
       },
     });
@@ -2012,7 +2014,11 @@ export class MessagingService {
       orderBy: { createdAt: "asc" },
       take: 200,
       // Lo justo para pintar la cita, como en WhatsApp.
-      include: { replyTo: { select: { id: true, content: true, note: true, type: true, direction: true } } },
+      include: {
+        replyTo: { select: { id: true, content: true, note: true, type: true, direction: true } },
+        // Para enseñar como foto, video o documento el archivo de una plantilla.
+        template: { select: { header: true } },
+      },
     });
     return rows.map((m) => this.toMessageDto(m));
   }
@@ -2047,6 +2053,7 @@ export class MessagingService {
     reaction?: string | null;
     status: string;
     errorReason?: string | null;
+    template?: { header: unknown } | null;
     createdAt: Date;
     interactive?: unknown;
     referral?: unknown;
@@ -2055,6 +2062,7 @@ export class MessagingService {
     const interactive = m.interactive as {
       buttons?: { id: string; title: string }[];
     } | null;
+    const header = m.type === MessageType.TEMPLATE ? ((m.template?.header as TemplateHeader | null | undefined) ?? null) : null;
     return {
       id: m.id,
       direction: m.direction as MessageDirection,
@@ -2062,6 +2070,7 @@ export class MessagingService {
       author: m.author as MessageAuthor,
       content: m.content,
       mediaUrl: m.mediaUrl,
+      mediaKind: m.mediaUrl && isMediaHeader(header) ? header.format : null,
       mediaPurgedAt: m.mediaPurgedAt?.toISOString() ?? null,
       transcript: m.transcript ?? null,
       note: m.note ?? null,

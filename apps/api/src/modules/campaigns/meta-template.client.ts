@@ -204,6 +204,18 @@ export class MetaTemplateClient {
     return templates;
   }
 
+  /** Una plantilla por su id, con el enlace de muestra de su encabezado. */
+  async get(waTemplateId: string): Promise<MetaTemplate> {
+    const creds = await this.requireWaba();
+    const res = await fetch(
+      `https://graph.facebook.com/${creds.version}/${encodeURIComponent(waTemplateId)}?fields=id,name,language,category,status,components`,
+      { headers: { Authorization: `Bearer ${creds.token}` }, signal: AbortSignal.timeout(15_000) },
+    );
+    const data = (await res.json()) as MetaTemplate & { error?: { message?: string } };
+    if (!res.ok) throw new Error(data.error?.message ?? `HTTP ${res.status}`);
+    return data;
+  }
+
   async remove(name: string, waTemplateId: string | null): Promise<void> {
     const creds = await this.requireWaba();
     const qs = new URLSearchParams({ name });

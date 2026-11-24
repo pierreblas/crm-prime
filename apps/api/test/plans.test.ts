@@ -147,6 +147,8 @@ test("la retención borra solo los adjuntos antiguos del almacén y marca el men
     quickReply: { findMany: async () => [] },
     paymentMethod: { findMany: async () => [] },
     flow: { findMany: async () => [] },
+    template: { findMany: async () => [] },
+    campaign: { findMany: async () => [] },
   };
   const borrados: string[] = [];
   const storage = { remove: async (id: string) => { borrados.push(id); } };

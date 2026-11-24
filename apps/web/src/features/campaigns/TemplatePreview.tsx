@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import type { TemplateButton, TemplateHeader } from "@crm/shared";
 import { NavIcon, type IconName } from "@/components/NavIcons";
+import { mediaSrc } from "@/lib/bff";
 
 const HEADER_ICON: Record<string, IconName> = {
   IMAGE: "image",
@@ -42,7 +43,10 @@ export function TemplatePreview({
         {header?.format === "TEXT" && header.text && (
           <div style={{ fontWeight: 700, marginBottom: 6 }}>{header.text}</div>
         )}
-        {header && header.format !== "TEXT" && (
+        {header?.format === "IMAGE" && header.example && mediaSrc(header.example) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={mediaSrc(header.example)!} alt="Imagen del encabezado" style={{ display: "block", width: "100%", maxHeight: 220, objectFit: "cover", marginBottom: 8 }} />
+        ) : header && header.format !== "TEXT" && (
           <div style={mediaBox}>
             <NavIcon name={HEADER_ICON[header.format]} size={24} />
             <span style={{ fontSize: 12 }}>{HEADER_TEXT[header.format]}</span>

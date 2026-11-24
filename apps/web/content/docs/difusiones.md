@@ -6,6 +6,10 @@ Una difusión es un envío masivo de una **plantilla aprobada por Meta** a un se
 
 En **Difusiones › Plantillas** ves las plantillas de tu cuenta de WhatsApp Business y su estado en Meta (aprobada, pendiente, rechazada). Puedes crear plantillas nuevas desde el CRM —texto con variables, encabezado con imagen o documento, botones— y enviarlas a revisión; Meta suele responder en minutos u horas.
 
+Si la plantilla lleva una **imagen, un video o un documento arriba**, Driony guarda ese archivo con ella y lo manda siempre que el envío no elija otro: en los flujos, los seguimientos, las citas y la bienvenida de los formularios. Si la plantilla está en Meta y Driony todavía no tiene su archivo, **lo trae solo** (el de muestra con el que se aprobó) al enviarla, al abrir «Enviar plantilla» o al **Importar de Meta**; si ya tenía uno, lo conserva. En la lista ves si lo tiene; con **Subir** o **Cambiar** lo eliges tú, también en las aprobadas, porque no cambia nada en Meta. Si falta, Driony no la envía y dice por qué, en vez de que Meta la rechace.
+
+Cuando un envío falla, el **motivo** se ve debajo del mensaje en la bandeja, con el código de Meta.
+
 Consejos para que las aprueben:
 
 - Nada de mensajes genéricos tipo «Hola»: la plantilla debe tener un propósito claro.

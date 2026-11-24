@@ -17,6 +17,7 @@ import {
   type TemplateStatusValue,
   type TemplateVariable,
   type UpdateTemplateInput,
+  isMediaHeader,
   validateButtons,
 } from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
@@ -24,8 +25,10 @@ import { TenantService } from "../../infra/tenant/tenant.service";
 import {
   STORAGE_PROVIDER,
   parseStorageRef,
+  toStorageRef,
   type StorageProvider,
 } from "../../infra/storage/storage.provider";
+import { downloadFileLink, fileKind } from "../products/file-link";
 import {
   MetaTemplateClient,
   countVariables,
@@ -164,6 +167,94 @@ export class TemplateService {
     return { ok: true };
   }
 
+  /**
+   * El archivo que sale en el encabezado si el envío no elige otro: flujos,
+   * seguimientos, citas y la bienvenida de formularios. No cambia nada en Meta,
+   * así que vale también para las aprobadas y las que vinieron de allí.
+   */
+  async setHeaderMedia(id: string, mediaUrl: string): Promise<TemplateDto> {
+    const t = await this.prisma.template.findUnique({ where: { id } });
+    if (!t) throw new NotFoundException("Plantilla no encontrada");
+    const header = (t.header as TemplateHeader | null) ?? null;
+    if (!isMediaHeader(header)) throw new BadRequestException("Esta plantilla no lleva archivo en el encabezado.");
+    const storageId = parseStorageRef(mediaUrl);
+    if (!storageId) throw new BadRequestException("Sube el archivo del encabezado.");
+    const file = await this.storage.read(storageId);
+    if (!file) throw new BadRequestException("El archivo ya no está: vuelve a subirlo.");
+    if (fileKind(file.mimeType) !== header.format) {
+      const wanted = { IMAGE: "una imagen JPG o PNG", VIDEO: "un video MP4", DOCUMENT: "un documento (PDF, Word o Excel)" }[header.format];
+      throw new BadRequestException(`El encabezado de esta plantilla pide ${wanted}.`);
+    }
+    const row = await this.prisma.template.update({
+      where: { id },
+      data: { header: { format: header.format, example: toStorageRef(storageId) } as unknown as Prisma.InputJsonValue },
+    });
+    return this.toDto(row);
+  }
+
+  /** Cuándo se intentó traer el archivo de cada plantilla: si falla, no se insiste en cada destinatario de una difusión. */
+  private readonly recoverTried = new Map<string, number>();
+
+  /**
+   * El encabezado de una plantilla, con su archivo: si está aprobada en Meta y
+   * Driony no lo tiene guardado, lo trae (el de muestra con el que se aprobó) y
+   * lo guarda. Nunca lanza: sin archivo, quien envía dice qué hacer.
+   */
+  async recoverHeader(id: string): Promise<TemplateHeader | null> {
+    const t = await this.prisma.template.findUnique({ where: { id }, select: { id: true, name: true, waTemplateId: true, header: true } });
+    const header = (t?.header as TemplateHeader | null | undefined) ?? null;
+    if (!t || !isMediaHeader(header) || header.example || !t.waTemplateId) return header;
+    if (Date.now() - (this.recoverTried.get(id) ?? 0) < 10 * 60_000) return header;
+    this.recoverTried.set(id, Date.now());
+    try {
+      const parsed = parseMetaTemplate(await this.meta.get(t.waTemplateId));
+      if (parsed.header?.format !== header.format) return header;
+      const saved = await this.headerToSave(parsed.header, parsed.headerSample, null, t.name);
+      if (!isMediaHeader(saved) || !saved.example) return header;
+      await this.prisma.template.update({ where: { id }, data: { header: saved as unknown as Prisma.InputJsonValue } });
+      return saved;
+    } catch (e) {
+      this.logger.warn(`Plantilla ${t.name}: no se pudo traer de Meta el archivo de su encabezado (${(e as Error).message})`);
+      return header;
+    }
+  }
+
+  /** Para la pantalla: la plantilla con su archivo, traído de Meta si hacía falta. */
+  async withHeaderMedia(id: string): Promise<TemplateDto> {
+    await this.recoverHeader(id);
+    const t = await this.prisma.template.findUnique({ where: { id } });
+    if (!t) throw new NotFoundException("Plantilla no encontrada");
+    return this.toDto(t);
+  }
+
+  /** Aparte para poder sustituirlo en las pruebas: sale a internet. */
+  private fetchSample(url: string): Promise<{ buffer: Buffer; mimeType: string }> {
+    return downloadFileLink(url);
+  }
+
+  /**
+   * El encabezado que se guarda al sincronizar. Se conserva el archivo que ya
+   * tenía (antes se perdía); si no tiene, se baja el de muestra con el que Meta
+   * la aprobó, que es el que todos los envíos esperan. Que no se pueda bajar no
+   * corta la sincronización.
+   */
+  private async headerToSave(header: TemplateHeader | null, sample: string | null, previous: unknown, name: string): Promise<TemplateHeader | null> {
+    if (!isMediaHeader(header)) return header;
+    const before = previous as TemplateHeader | null | undefined;
+    if (isMediaHeader(before) && before.format === header.format && before.example) return { ...header, example: before.example };
+    if (!sample) return header;
+    try {
+      const file = await this.fetchSample(sample);
+      if (fileKind(file.mimeType) !== header.format) throw new Error(`es ${file.mimeType}`);
+      const ext = { "image/jpeg": "jpg", "image/png": "png", "video/mp4": "mp4", "application/pdf": "pdf" }[file.mimeType] ?? "bin";
+      const stored = await this.storage.save(file.buffer, file.mimeType, `${name}.${ext}`);
+      return { ...header, example: toStorageRef(stored.id) };
+    } catch (e) {
+      this.logger.warn(`Plantilla ${name}: no se pudo guardar el archivo de su encabezado (${(e as Error).message})`);
+      return header;
+    }
+  }
+
   /** Trae de Meta las plantillas de la cuenta y las refleja en el CRM. */
   async importFromMeta(): Promise<SyncTemplatesResult> {
     const remote = await this.meta.list();
@@ -175,13 +266,14 @@ export class TemplateService {
       const existing = await this.prisma.template.findFirst({
         where: { OR: [{ waTemplateId: t.id }, { name: t.name, language: t.language }] },
       });
+      const header = await this.headerToSave(parsed.header, parsed.headerSample, existing?.header, t.name);
       const data = {
         waTemplateId: t.id,
         name: t.name,
         language: t.language,
         category: (t.category?.toUpperCase() ?? "MARKETING") as TemplateCategory,
         status: normalizeStatus(t.status),
-        header: (parsed.header ?? undefined) as unknown as Prisma.InputJsonValue,
+        header: (header ?? undefined) as unknown as Prisma.InputJsonValue,
         body: parsed.body,
         footer: parsed.footer,
         buttons: parsed.buttons as unknown as Prisma.InputJsonValue,
@@ -343,6 +435,8 @@ function variablesOf(body: string, stored: unknown): TemplateVariable[] {
 /** Convierte los componentes de Meta al modelo del CRM. */
 export function parseMetaTemplate(t: MetaTemplate): {
   header: TemplateHeader | null;
+  /** Enlace del archivo de muestra con el que Meta aprobó el encabezado. */
+  headerSample: string | null;
   body: string;
   footer: string | null;
   buttons: TemplateButton[];
@@ -350,6 +444,7 @@ export function parseMetaTemplate(t: MetaTemplate): {
   readOnly: boolean;
 } {
   let header: TemplateHeader | null = null;
+  let headerSample: string | null = null;
   let body = "";
   let footer: string | null = null;
   const buttons: TemplateButton[] = [];
@@ -364,6 +459,10 @@ export function parseMetaTemplate(t: MetaTemplate): {
       else if (format === "LOCATION") header = { format: "LOCATION" };
       else if (format === "IMAGE" || format === "VIDEO" || format === "DOCUMENT") {
         header = { format };
+        // Al leerla, Meta da un enlace; al crearla era un identificador («4::…»), que no sirve para bajarla.
+        const handle = typeof c.example === "object" ? (c.example as { header_handle?: unknown }).header_handle : null;
+        const first = Array.isArray(handle) ? handle[0] : null;
+        headerSample = typeof first === "string" && /^https:\/\//.test(first) ? first : null;
       } else readOnly = true;
     } else if (type === "BODY") {
       body = c.text ?? "";
@@ -390,7 +489,7 @@ export function parseMetaTemplate(t: MetaTemplate): {
         label: `Variable ${i + 1}`,
       }));
 
-  return { header, body, footer, buttons, variables, readOnly };
+  return { header, headerSample, body, footer, buttons, variables, readOnly };
 }
 
 function parseMetaButton(b: Record<string, unknown>): TemplateButton | null {

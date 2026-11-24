@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { TemplateFill, VariableSource, VariableValue } from "@crm/shared";
+import { isMediaHeader, type TemplateFill, type VariableSource, type VariableValue } from "@crm/shared";
 import { fetchTemplates, sendTemplateMessage, uploadMedia } from "@/lib/bff";
+import { useHeaderMedia } from "../campaigns/useHeaderMedia";
 import { toast } from "@/lib/toast";
 import { TemplatePreview } from "../campaigns/TemplatePreview";
 import { dialogInput, dialogLabel, ghostBtn, primaryBtn } from "./dialogStyles";
@@ -79,7 +80,15 @@ export function SendTemplateDialog({
     onError: (e) => toast.error((e as Error).message),
   });
 
-  const ready = !!template && (!headerNeedsFile || !!headerMediaUrl);
+  // Sin elegir otro, sale el que aprobó Meta (si Driony no lo tenía, lo trae).
+  const { media: defaultMedia, loading: loadingMedia } = useHeaderMedia(template);
+  const [another, setAnother] = useState(false);
+  // Un hueco vacío llegaría como «-» al cliente.
+  const varsReady = fill.body.every((v) => v.source !== "static" || !!v.value?.trim()) && (!headerHasVar || !!headerText.trim()) && fill.urlButtons.every((u) => !!u.value.trim());
+  const ready = !!template && !loadingMedia && varsReady && (!headerNeedsFile || !!headerMediaUrl || !!defaultMedia);
+  const shown = headerMediaUrl ?? defaultMedia;
+  const preview = template && isMediaHeader(template.header) && shown ? { ...template.header, example: shown } : (template?.header ?? null);
+  const mediaWord = template?.header?.format === "VIDEO" ? "el video" : template?.header?.format === "DOCUMENT" ? "el documento" : "la imagen";
 
   return (
     <div className="confirm-backdrop" onClick={onClose}>
@@ -111,6 +120,10 @@ export function SendTemplateDialog({
                 setVars({});
                 setHeaderMediaUrl(null);
                 setHeaderFileName(null);
+                setAnother(false);
+                // Lo habitual: {{1}} es el nombre del cliente.
+                const t = approved.find((x) => x.id === e.target.value);
+                if (t?.variables.some((v) => v.index === 1)) setVars({ 1: { index: 1, source: "contact_name" } });
               }}
             >
               <option value="">Elige una…</option>
@@ -138,11 +151,23 @@ export function SendTemplateDialog({
 
                   {headerNeedsFile && (
                     <div>
-                      <div style={dialogLabel}>
-                        Archivo ({template.header?.format.toLowerCase()})
+                      <div style={dialogLabel} data-header-default={defaultMedia ? "si" : "no"}>
+                        {loadingMedia
+                          ? `Trayendo de Meta ${mediaWord}…`
+                          : headerFileName
+                            ? `Se envía ${headerFileName}`
+                            : defaultMedia
+                              ? `Se envía ${mediaWord} de la plantilla.`
+                              : `Sube ${mediaWord} de la plantilla`}
+                        {defaultMedia && !another && (
+                          <button type="button" style={{ ...ghostBtn, marginLeft: 8, padding: "2px 8px", fontSize: 12 }} onClick={() => setAnother(true)}>
+                            Usar otro archivo
+                          </button>
+                        )}
                       </div>
                       <input
                         type="file"
+                        hidden={loadingMedia || (!!defaultMedia && !another)}
                         style={{ ...dialogInput, padding: 7 }}
                         onChange={(e) => {
                           const file = e.target.files?.[0];
@@ -155,11 +180,6 @@ export function SendTemplateDialog({
                             .catch((err: Error) => toast.error(err.message));
                         }}
                       />
-                      {headerFileName && (
-                        <div style={{ color: "var(--muted)", fontSize: 12 }}>
-                          {headerFileName}
-                        </div>
-                      )}
                     </div>
                   )}
 
@@ -231,7 +251,7 @@ export function SendTemplateDialog({
 
                 <div style={{ flex: "0 1 260px" }}>
                   <TemplatePreview
-                    header={template.header}
+                    header={preview}
                     body={template.body}
                     footer={template.footer}
                     buttons={template.buttons}

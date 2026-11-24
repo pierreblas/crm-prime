@@ -249,6 +249,7 @@ export class CampaignService {
     // Las variables que vienen del contacto se rellenan como si fuera uno llamado «Prueba».
     const spec = await this.fills.build(
       {
+        id: template.id,
         name: template.name,
         language: template.language,
         header: (template.header as TemplateHeader | null) ?? null,
