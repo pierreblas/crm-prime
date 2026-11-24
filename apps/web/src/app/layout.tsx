@@ -4,6 +4,8 @@ import { body, display, mono } from "./fonts";
 import { Providers } from "@/providers";
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { getLocale, getMessages } from "@/i18n/server";
+import { cookies } from "next/headers";
+import { serverTheme, THEME_COOKIE, THEME_SCRIPT, themeFrom } from "@/lib/theme";
 
 export const metadata: Metadata = {
   title: "Driony — Sell on WhatsApp with AI agents",
@@ -23,9 +25,14 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const locale = await getLocale();
+  const pref = themeFrom((await cookies()).get(THEME_COOKIE)?.value);
 
   return (
-    <html lang={locale} className={`${display.variable} ${body.variable} ${mono.variable}`}>
+    // El guion corrige el tema antes de pintar: en automático y en las páginas estáticas el servidor no lo sabe.
+    <html lang={locale} data-theme={serverTheme(pref)} data-theme-pref={pref} suppressHydrationWarning className={`${display.variable} ${body.variable} ${mono.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>
         <I18nProvider locale={locale} messages={getMessages(locale)}>
           <Providers>{children}</Providers>

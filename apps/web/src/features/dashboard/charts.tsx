@@ -104,7 +104,7 @@ export function TimeChart({
             />
           ))}
           {hover !== null && (
-            <line x1={x(hover)} x2={x(hover)} y1={0} y2={H} stroke="rgba(154, 185, 194, .35)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+            <line x1={x(hover)} x2={x(hover)} y1={0} y2={H} stroke="rgb(var(--mist-rgb) / .35)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
           )}
         </svg>
         {hover !== null && (

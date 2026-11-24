@@ -548,8 +548,8 @@ function BarButton({
       aria-pressed={active}
       style={{
         ...iconBtn,
-        color: active ? "var(--accent)" : "var(--muted)",
-        borderColor: active ? "var(--accent)" : "var(--border)",
+        color: active ? "var(--accent-text)" : "var(--muted)",
+        borderColor: active ? "var(--accent-edge)" : "var(--border)",
         background: active ? "var(--accent-soft)" : "transparent",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled && !busy ? 0.5 : 1,
@@ -662,7 +662,7 @@ const quoteBar: React.CSSProperties = {
   gap: 10,
   padding: "8px 16px",
   borderTop: "1px solid var(--border)",
-  background: "rgba(154, 185, 194, 0.03)",
+  background: "rgb(var(--mist-rgb) / 0.03)",
 };
 
 const quoteIcon: React.CSSProperties = {

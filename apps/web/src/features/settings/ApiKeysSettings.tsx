@@ -361,7 +361,7 @@ const card: React.CSSProperties = {
 
 const banner: React.CSSProperties = {
   ...card,
-  background: "rgba(126, 226, 168, 0.12)",
+  background: "rgb(var(--ok-rgb) / 0.12)",
   border: "1px solid var(--positive-border)",
 };
 

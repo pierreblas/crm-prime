@@ -300,7 +300,7 @@ export function AiSettings() {
         </div>
 
         {sinRespaldo && !included && data.activeProvider === "fake" && (
-          <div style={{ ...testBox(false), borderColor: "var(--warning-border)", background: "rgba(240, 180, 90, 0.08)", color: "var(--warning)" }}>
+          <div style={{ ...testBox(false), borderColor: "var(--warning-border)", background: "rgb(var(--amber-rgb) / 0.08)", color: "var(--warning)" }}>
             <strong>Para activar la IA necesitas una API key tuya.</strong> Crea una
             en <em>platform.openai.com</em> (OpenAI) o en <em>console.anthropic.com</em>{" "}
             (Claude), pégala abajo, guarda y pulsa «Probar conexión». Cada respuesta
@@ -628,7 +628,7 @@ function testBox(ok: boolean): React.CSSProperties {
     padding: "9px 11px",
     borderRadius: 8,
     fontSize: 13,
-    background: ok ? "rgba(126, 226, 168, 0.14)" : "rgba(240, 138, 138, 0.14)",
+    background: ok ? "rgb(var(--ok-rgb) / 0.14)" : "rgb(var(--coral-rgb) / 0.14)",
     border: `1px solid ${ok ? "var(--positive-border)" : "var(--danger-border)"}`,
     color: ok ? "var(--positive)" : "var(--danger)",
   };

@@ -48,7 +48,7 @@ export function FlowEdge(props: EdgeProps) {
         id={id}
         path={path}
         markerEnd={markerEnd}
-        style={{ stroke: selected ? "var(--accent)" : "#3d5078", strokeWidth: selected ? 2.2 : 1.6 }}
+        style={{ stroke: selected ? "var(--accent-edge)" : "#3d5078", strokeWidth: selected ? 2.2 : 1.6 }}
       />
       <EdgeLabelRenderer>
         <div

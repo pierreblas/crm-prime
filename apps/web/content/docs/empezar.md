@@ -80,3 +80,7 @@ En el **?** de la cabecera tienes dos opciones para hablar con el equipo de Drio
 - **Dejar tu opinión**: de una a cinco estrellas y, si quieres, un comentario.
 
 Leemos todos los mensajes.
+
+## Modo claro u oscuro
+
+Con el botón del **sol** o la **luna**, arriba a la derecha, pasas de **Claro** a **Oscuro** o **Automático** (sigue a tu computadora o celular). Cada persona elige el suyo y se recuerda en ese navegador.

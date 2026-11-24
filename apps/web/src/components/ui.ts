@@ -26,7 +26,7 @@ export const primaryBtn: CSSProperties = {
   lineHeight: 1.2,
   cursor: "pointer",
   whiteSpace: "nowrap",
-  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
+  boxShadow: "0 1px 2px rgb(var(--shadow-rgb) / 0.3)",
 };
 
 export const ghostBtn: CSSProperties = {

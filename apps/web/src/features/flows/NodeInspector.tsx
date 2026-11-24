@@ -1171,7 +1171,7 @@ const issueBox: React.CSSProperties = {
   padding: "8px 10px",
   borderRadius: 8,
   border: "1px solid var(--warning-border)",
-  background: "rgba(240, 180, 90, 0.08)",
+  background: "rgb(var(--amber-rgb) / 0.08)",
   color: "var(--warning)",
   fontSize: 12.5,
   lineHeight: 1.4,

@@ -118,30 +118,30 @@ export function triggersShort(types: FlowTriggerType[]): string {
 // Catálogo de bloques que se pueden añadir (paleta, menú "+" y arrastre).
 export const NODE_PALETTE: NodeMeta[] = [
   { type: "sendMessage", label: "Enviar mensaje", icon: "message", hint: "Texto, con imagen o archivo opcional", color: "#2c4b7a", accent: "var(--accent-text)", group: "Mensajes" },
-  { type: "buttons", label: "Botones", icon: "buttons", hint: "Mensaje con hasta 3 botones; cada uno es una salida", color: "#2c5f7a", accent: "#8fc8e8", group: "Mensajes" },
-  { type: "list", label: "Lista de opciones", icon: "filter", hint: "Un botón que abre hasta 10 opciones; cada una es una salida", color: "#2c5f7a", accent: "#8fc8e8", group: "Mensajes" },
-  { type: "carousel", label: "Carrusel", icon: "image", hint: "De 2 a 10 tarjetas con imagen o video, texto y un botón", color: "#2c5f7a", accent: "#8fc8e8", group: "Mensajes" },
-  { type: "askQuestion", label: "Preguntar y guardar", icon: "question", hint: "Espera la respuesta, la valida y la guarda en una variable", color: "#7a5fb0", accent: "#cbb6ff", group: "Mensajes" },
-  { type: "sendTemplate", label: "Enviar plantilla", icon: "template", hint: "Una plantilla aprobada por Meta: sirve aunque el contacto no haya escrito", color: "#2c6b7a", accent: "#8fd9e8", group: "Mensajes" },
-  { type: "sendEmail", label: "Enviar correo", icon: "mail", hint: "Una plantilla de correo, por un buzón de tu empresa. No depende de la ventana de WhatsApp", color: "#2c5a7a", accent: "#9cc9ee", group: "Mensajes" },
-  { type: "condition", label: "Condición", icon: "branch", hint: "Ramifica según palabras clave", color: "#b08a3f", accent: "#ffd98a", group: "Lógica" },
-  { type: "schedule", label: "Horario", icon: "clock", hint: "En horario de atención o fuera de él", color: "#8a6f3f", accent: "#ffcf8a", group: "Lógica" },
-  { type: "split", label: "Dividir al azar", icon: "flask", hint: "Reparte entre variantes (A/B)", color: "#8a3f6f", accent: "#ffa8d6", group: "Lógica" },
-  { type: "delay", label: "Esperar", icon: "hourglass", hint: "Pausa antes de seguir", color: "#7a6f4a", accent: "#e8d79a", group: "Lógica" },
-  { type: "action", label: "Acción", icon: "bolt", hint: "IA, humano, etiquetas, oportunidad", color: "#3f8c6e", accent: "#8fe6c0", group: "CRM" },
-  { type: "setField", label: "Guardar en el contacto", icon: "pencil", hint: "Nombre o un campo personalizado", color: "#3f7a8c", accent: "#8fd6e6", group: "CRM" },
-  { type: "addNote", label: "Nota interna", icon: "note", hint: "Para el equipo; el cliente no la ve", color: "#6f6f3f", accent: "#e6e68f", group: "CRM" },
-  { type: "setStatus", label: "Estado del chat", icon: "inbox-check", hint: "Abierto, pendiente o cerrado", color: "#5a6b85", accent: "#c3d0e6", group: "CRM" },
-  { type: "assign", label: "Asignar a agente", icon: "user", hint: "Reparte la conversación", color: "#6a4a7a", accent: "#d6b6e8", group: "CRM" },
-  { type: "http", label: "Petición HTTP", icon: "globe", hint: "Llama a una API o a n8n", color: "#4a6f7a", accent: "#9ad8e8", group: "Integraciones" },
-  { type: "jumpToFlow", label: "Ir a otro flujo", icon: "jump", hint: "Continúa en otro flujo", color: "#3f8c6e", accent: "#8fe6c0", group: "Integraciones" },
+  { type: "buttons", label: "Botones", icon: "buttons", hint: "Mensaje con hasta 3 botones; cada uno es una salida", color: "#2c5f7a", accent: "light-dark(#1b3a4b, #8fc8e8)", group: "Mensajes" },
+  { type: "list", label: "Lista de opciones", icon: "filter", hint: "Un botón que abre hasta 10 opciones; cada una es una salida", color: "#2c5f7a", accent: "light-dark(#1b3a4b, #8fc8e8)", group: "Mensajes" },
+  { type: "carousel", label: "Carrusel", icon: "image", hint: "De 2 a 10 tarjetas con imagen o video, texto y un botón", color: "#2c5f7a", accent: "light-dark(#1b3a4b, #8fc8e8)", group: "Mensajes" },
+  { type: "askQuestion", label: "Preguntar y guardar", icon: "question", hint: "Espera la respuesta, la valida y la guarda en una variable", color: "#7a5fb0", accent: "light-dark(#4b3a6d, #cbb6ff)", group: "Mensajes" },
+  { type: "sendTemplate", label: "Enviar plantilla", icon: "template", hint: "Una plantilla aprobada por Meta: sirve aunque el contacto no haya escrito", color: "#2c6b7a", accent: "light-dark(#1b424b, #8fd9e8)", group: "Mensajes" },
+  { type: "sendEmail", label: "Enviar correo", icon: "mail", hint: "Una plantilla de correo, por un buzón de tu empresa. No depende de la ventana de WhatsApp", color: "#2c5a7a", accent: "light-dark(#1b374b, #9cc9ee)", group: "Mensajes" },
+  { type: "condition", label: "Condición", icon: "branch", hint: "Ramifica según palabras clave", color: "#b08a3f", accent: "light-dark(#6d5527, #ffd98a)", group: "Lógica" },
+  { type: "schedule", label: "Horario", icon: "clock", hint: "En horario de atención o fuera de él", color: "#8a6f3f", accent: "light-dark(#554427, #ffcf8a)", group: "Lógica" },
+  { type: "split", label: "Dividir al azar", icon: "flask", hint: "Reparte entre variantes (A/B)", color: "#8a3f6f", accent: "light-dark(#552744, #ffa8d6)", group: "Lógica" },
+  { type: "delay", label: "Esperar", icon: "hourglass", hint: "Pausa antes de seguir", color: "#7a6f4a", accent: "light-dark(#4b442d, #e8d79a)", group: "Lógica" },
+  { type: "action", label: "Acción", icon: "bolt", hint: "IA, humano, etiquetas, oportunidad", color: "#3f8c6e", accent: "light-dark(#275644, #8fe6c0)", group: "CRM" },
+  { type: "setField", label: "Guardar en el contacto", icon: "pencil", hint: "Nombre o un campo personalizado", color: "#3f7a8c", accent: "light-dark(#274b56, #8fd6e6)", group: "CRM" },
+  { type: "addNote", label: "Nota interna", icon: "note", hint: "Para el equipo; el cliente no la ve", color: "#6f6f3f", accent: "light-dark(#444427, #e6e68f)", group: "CRM" },
+  { type: "setStatus", label: "Estado del chat", icon: "inbox-check", hint: "Abierto, pendiente o cerrado", color: "#5a6b85", accent: "light-dark(#374252, #c3d0e6)", group: "CRM" },
+  { type: "assign", label: "Asignar a agente", icon: "user", hint: "Reparte la conversación", color: "#6a4a7a", accent: "light-dark(#412d4b, #d6b6e8)", group: "CRM" },
+  { type: "http", label: "Petición HTTP", icon: "globe", hint: "Llama a una API o a n8n", color: "#4a6f7a", accent: "light-dark(#2d444b, #9ad8e8)", group: "Integraciones" },
+  { type: "jumpToFlow", label: "Ir a otro flujo", icon: "jump", hint: "Continúa en otro flujo", color: "#3f8c6e", accent: "light-dark(#275644, #8fe6c0)", group: "Integraciones" },
 ];
 
 export const PALETTE_GROUPS: NodeMeta["group"][] = ["Mensajes", "Lógica", "CRM", "Integraciones"];
 
 // Metadatos por tipo, incluido el inicio (que no está en la paleta).
 export const NODE_META: Record<string, NodeMeta> = Object.fromEntries([
-  ["start", { type: "start", label: "Inicio", icon: "play", hint: "Donde arranca el flujo", color: "#1f6f46", accent: "#7ee2a8", group: "Lógica" }],
+  ["start", { type: "start", label: "Inicio", icon: "play", hint: "Donde arranca el flujo", color: "#1f6f46", accent: "light-dark(#13442b, #7ee2a8)", group: "Lógica" }],
   ...NODE_PALETTE.map((m) => [m.type, m]),
 ]) as Record<string, NodeMeta>;
 

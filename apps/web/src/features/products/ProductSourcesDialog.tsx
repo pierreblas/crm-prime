@@ -795,5 +795,5 @@ const removeBox: CSSProperties = {
   padding: "10px 12px",
   border: "1px solid var(--danger-border)",
   borderRadius: 8,
-  background: "rgba(240, 138, 138, 0.08)",
+  background: "rgb(var(--coral-rgb) / 0.08)",
 };

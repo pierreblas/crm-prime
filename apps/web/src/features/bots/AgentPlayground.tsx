@@ -369,7 +369,7 @@ const simActions: React.CSSProperties = {
   marginTop: 7,
   padding: "7px 9px",
   borderRadius: 7,
-  background: "rgba(240, 180, 90, 0.10)",
+  background: "rgb(var(--amber-rgb) / 0.10)",
   border: "1px solid var(--warning-border)",
   color: "var(--warning)",
 };

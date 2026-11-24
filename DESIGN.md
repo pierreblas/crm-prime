@@ -291,6 +291,24 @@ selección. En la landing, igual que en el panel.
 **La Regla del Estado Doble.** Ningún estado se comunica solo con color: siempre
 color **+** icono o palabra.
 
+### Tema claro
+
+Desde el 24-11-2026 hay **Claro / Oscuro / Automático** (cookie `driony_theme`,
+`lib/theme.ts`). Sin elegir, oscuro: es la cara de Driony. El claro es **papel
+técnico**: lienzo `#f3f5f8` (blanco en la landing), paneles blancos, el mismo
+filete, la misma rejilla, 0px y bisel.
+
+**La Regla del Rotulador.** Sobre blanco el lima no se lee (1,1:1): solo **rellena**
+(botón, selección, lo activo) con Tinta Noir encima. Como texto es «tinta lima»
+(`--accent-text` #4a5400, 8:1) y como línea, foco o icono, `--accent-edge` #7b8700.
+En el titular de la landing la palabra clave va subrayada con rotulador lima.
+
+- El cian se parte en dos: `--cyan-fill` (neón, relleno con tinta encima) y `--cyan`
+  (#00707f, texto y líneas). Verde #0a6b3d, ámbar #845000 y rojo #bd0f2c, todos a 4,5:1.
+- **Nunca** un color suelto en un componente: una ficha, o `rgb(var(--cyan-rgb) / 0.1)`
+  para los tintes. Lo que no tenga ficha, con `light-dark(claro, oscuro)`.
+- Los KPI de color pleno y las vistas de otros (correo, WhatsApp) siguen sus reglas.
+
 ## 3. Typography
 
 **Display Font:** Bricolage Grotesque, variable con ejes `opsz` y `wdth`. Titula

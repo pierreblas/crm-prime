@@ -524,7 +524,7 @@ function StagesEditor({
               </select>
               <button
                 onClick={() => toggle(s.id)}
-                style={{ ...ghostBtn, width: 200, justifyContent: "flex-start", gap: 6, ...(n ? { color: "var(--accent-text)", borderColor: "var(--accent)" } : {}) }}
+                style={{ ...ghostBtn, width: 200, justifyContent: "flex-start", gap: 6, ...(n ? { color: "var(--accent-text)", borderColor: "var(--accent-edge)" } : {}) }}
                 aria-expanded={isOpen}
                 aria-label={`Automatizaciones de ${s.name}`}
                 title={n ? s.automations.map((a) => `${TRIGGER_LABEL[a.trigger]} → ${a.flowName}`).join("\n") : "Qué pasa cuando una oportunidad está en esta etapa"}
@@ -539,7 +539,7 @@ function StagesEditor({
               </button>
               <button
                 onClick={() => setConfig(s.id)}
-                style={{ ...ghostBtn, ...smBtn, padding: "6px 8px", ...(nc ? { color: "var(--accent-text)", borderColor: "var(--accent)" } : {}) }}
+                style={{ ...ghostBtn, ...smBtn, padding: "6px 8px", ...(nc ? { color: "var(--accent-text)", borderColor: "var(--accent-edge)" } : {}) }}
                 aria-label={`Configurar etapa ${s.name}`}
                 title={`Configurar etapa: rol, conversiones de Meta${nc ? ` (${nc})` : ""} y automatizaciones`}
               >

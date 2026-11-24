@@ -343,7 +343,7 @@ function ReviewsCard({ active, onClick }: { active: boolean; onClick: () => void
         <NavIcon name="sparkles" size={14} />
         <strong style={{ fontSize: 14, flex: 1 }}>Revisión de chats</strong>
         {!!data?.open && (
-          <span style={badge("rgba(255, 51, 85, 0.28)")} data-chat-review-count>
+          <span style={badge("rgb(var(--red-rgb) / 0.28)")} data-chat-review-count>
             {data.open} para mirar
           </span>
         )}
@@ -461,7 +461,7 @@ function card(active: boolean): React.CSSProperties {
     textAlign: "left",
     padding: 12,
     borderRadius: 10,
-    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+    border: `1px solid ${active ? "var(--accent-edge)" : "var(--border)"}`,
     background: active ? "var(--accent-soft)" : "var(--panel)",
     cursor: "pointer",
     color: "var(--text)",

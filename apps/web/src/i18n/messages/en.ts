@@ -17,6 +17,13 @@ export const en = {
     no: "No",
     optional: "optional",
   },
+  theme: {
+    label: "Theme",
+    light: "Light",
+    dark: "Dark",
+    auto: "Automatic (system)",
+    next: "Switch to {theme}",
+  },
   nav: {
     groupSales: "Sales",
     groupAutomation: "Automation",

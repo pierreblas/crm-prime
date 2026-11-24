@@ -592,7 +592,7 @@ function testBox(ok: boolean): React.CSSProperties {
     padding: "9px 11px",
     borderRadius: 8,
     fontSize: 13,
-    background: ok ? "rgba(126, 226, 168, 0.14)" : "rgba(240, 138, 138, 0.14)",
+    background: ok ? "rgb(var(--ok-rgb) / 0.14)" : "rgb(var(--coral-rgb) / 0.14)",
     border: `1px solid ${ok ? "var(--positive-border)" : "var(--danger-border)"}`,
     color: ok ? "var(--positive)" : "var(--danger)",
   };

@@ -5,6 +5,7 @@ import type { PasswordResetCheck } from "@crm/shared";
 import { isPlatformHost } from "@/lib/org";
 import { getLocale, getTranslator } from "@/i18n/server";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeButton } from "@/components/ThemeSwitcher";
 import { authBtn, authCard, authFoot, authInput, authLabel, authLink, authMain, authText } from "../styles";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
@@ -64,7 +65,10 @@ export default async function ResetPasswordPage({
   const frame = (children: React.ReactNode) => (
     <main style={authMain}>
       <div style={{ position: "absolute", top: 20, right: 20 }}>
-        <LanguageSwitcher />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <ThemeButton />
+          <LanguageSwitcher />
+        </span>
       </div>
       <div style={authCard}>
         {children}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { docGroups } from "@/features/docs/registry";
 import { DocsNav } from "./DocsNav";
+import { ThemeButton } from "@/components/ThemeSwitcher";
 import "./docs.css";
 
 export const metadata = {
@@ -26,6 +27,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
             Documentación
           </Link>
           <span style={{ flex: 1 }} />
+          <ThemeButton className="docs-theme" />
           <a
             href="https://github.com/jusiho/crm-prime"
             target="_blank"

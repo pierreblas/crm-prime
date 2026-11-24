@@ -17,6 +17,13 @@ export const es: Messages = {
     no: "No",
     optional: "opcional",
   },
+  theme: {
+    label: "Tema",
+    light: "Claro",
+    dark: "Oscuro",
+    auto: "Automático (el del sistema)",
+    next: "Cambiar a {theme}",
+  },
   nav: {
     groupSales: "Ventas",
     groupAutomation: "Automatización",

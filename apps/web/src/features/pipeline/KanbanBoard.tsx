@@ -355,7 +355,7 @@ export function KanbanBoard() {
         {view === "open" && (
           <button
             onClick={() => (selecting ? exitSelecting() : setSelecting(true))}
-            style={{ ...ghostBtn, ...smBtn, ...(selecting ? { color: "var(--accent-text)", border: "1px solid var(--accent)" } : {}) }}
+            style={{ ...ghostBtn, ...smBtn, ...(selecting ? { color: "var(--accent-text)", border: "1px solid var(--accent-edge)" } : {}) }}
             aria-pressed={selecting}
             title="Elegir varias para moverlas, reasignarlas, etiquetarlas, lanzarles un flujo o descartarlas"
             data-select-mode
@@ -1480,7 +1480,7 @@ const discardedNote: React.CSSProperties = {
   padding: "8px 10px",
   borderRadius: 8,
   border: "1px solid var(--warning-border)",
-  background: "rgba(240, 180, 90, 0.08)",
+  background: "rgb(var(--amber-rgb) / 0.08)",
   color: "var(--warning)",
   fontSize: 13,
 };
@@ -1596,7 +1596,7 @@ const drawer: React.CSSProperties = {
   zIndex: 41,
   display: "flex",
   flexDirection: "column",
-  boxShadow: "-8px 0 24px rgba(0, 0, 0, 0.4)",
+  boxShadow: "-8px 0 24px rgb(var(--shadow-rgb) / 0.4)",
 };
 
 const drawerHeader: React.CSSProperties = {

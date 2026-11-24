@@ -886,7 +886,7 @@ function MessageBubble({
       <div
         style={{
           background: out ? "var(--bubble-out)" : "var(--bubble-in)",
-          ...(out ? ({ "--danger": "#ffc9c2" } as React.CSSProperties) : null),
+          ...(out ? ({ "--danger": "light-dark(#a50d27, #ffc9c2)" } as React.CSSProperties) : null),
           color: "var(--text)",
           padding: "8px 12px",
           borderRadius: 10,
@@ -1091,9 +1091,9 @@ function toggleBtn(active: boolean): React.CSSProperties {
     height: 32,
     width: 32,
     borderRadius: 8,
-    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+    border: `1px solid ${active ? "var(--accent-edge)" : "var(--border)"}`,
     background: active ? "var(--accent-soft)" : "var(--field)",
-    color: active ? "var(--accent)" : "var(--muted)",
+    color: active ? "var(--accent-text)" : "var(--muted)",
     fontSize: 13,
     fontWeight: 600,
     cursor: "pointer",
@@ -1138,7 +1138,7 @@ const messagesArea: React.CSSProperties = {
 };
 
 const messageButton: React.CSSProperties = {
-  background: "rgba(154, 185, 194, 0.08)",
+  background: "rgb(var(--mist-rgb) / 0.08)",
   color: "var(--accent-text)",
   textAlign: "center",
   borderRadius: 7,
@@ -1230,7 +1230,7 @@ const noteText: React.CSSProperties = {
 };
 
 const quotedBlock: React.CSSProperties = {
-  borderLeft: "3px solid var(--accent)",
+  borderLeft: "3px solid var(--accent-edge)",
   paddingLeft: 8,
   marginBottom: 6,
   opacity: 0.85,
@@ -1280,7 +1280,7 @@ const actionsBox: React.CSSProperties = {
   order: 3,
   padding: "8px 10px",
   borderRadius: 8,
-  background: "rgba(154, 185, 194, 0.05)",
+  background: "rgb(var(--mist-rgb) / 0.05)",
   border: "1px solid var(--border)",
   color: "var(--text)",
 };

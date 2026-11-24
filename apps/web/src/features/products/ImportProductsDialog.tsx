@@ -573,7 +573,7 @@ const td: React.CSSProperties = {
 };
 
 const errorBox: React.CSSProperties = {
-  background: "rgba(240, 138, 138, 0.1)",
+  background: "rgb(var(--coral-rgb) / 0.1)",
   border: "1px solid var(--danger-border)",
   borderRadius: 8,
   padding: 10,

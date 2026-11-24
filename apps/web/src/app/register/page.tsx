@@ -7,6 +7,7 @@ import { auth, signIn } from "@/auth";
 import { PasswordField } from "@/components/PasswordField";
 import { getTranslator } from "@/i18n/server";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeButton } from "@/components/ThemeSwitcher";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 
@@ -64,7 +65,10 @@ export default async function RegisterPage({
   return (
     <main style={{ display: "grid", placeItems: "center", minHeight: "100vh", padding: 24 }}>
       <div style={{ position: "absolute", top: 20, right: 20 }}>
-        <LanguageSwitcher />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <ThemeButton />
+          <LanguageSwitcher />
+        </span>
       </div>
       <div style={{ width: 360, maxWidth: "100%" }}>
         {/* La misma marca que en la landing: el visitante sabe que sigue en Driony. */}

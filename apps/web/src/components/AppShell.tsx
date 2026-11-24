@@ -5,6 +5,7 @@ import { readSessionCookie, revokeRefreshToken } from "@/lib/session-token";
 import { NavIcon } from "./NavIcons";
 import { SideNav, type NavKey } from "./SideNav";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { ThemeButton } from "./ThemeSwitcher";
 import { MobileMenuButton } from "./MobileMenuButton";
 import { HelpMenu } from "./HelpMenu";
 import { AlertsBell } from "./AlertsBell";
@@ -91,6 +92,9 @@ export async function AppShell({
             <HelpMenu />
             <span className="topbar-lang">
               <LanguageSwitcher />
+            </span>
+            <span className="topbar-lang">
+              <ThemeButton />
             </span>
             <Link
               href="/account"

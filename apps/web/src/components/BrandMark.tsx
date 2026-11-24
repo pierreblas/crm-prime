@@ -14,7 +14,7 @@ const MARK_D = "M162.654 337.408 L113.194 337.227 C102.353 337.188 92.667 345.27
 export function BrandMark({ size = 24, className, fill = ACCENT }: { size?: number | string; className?: string; fill?: string }) {
   return (
     <svg className={className} width={size} height={size} viewBox="90 335 124 122" aria-hidden="true">
-      <path d={MARK_D} fill={fill} />
+      <path d={MARK_D} style={{ fill: fill === ACCENT ? `var(--wordmark-mark, ${ACCENT})` : fill }} />
     </svg>
   );
 }

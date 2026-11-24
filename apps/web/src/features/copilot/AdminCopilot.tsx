@@ -355,7 +355,7 @@ export function AdminCopilot() {
             size={22}
             stroke={2}
             color={level === "low" ? "var(--warning)" : "var(--cyan)"}
-            track={level === "none" ? "var(--warning)" : "rgba(0, 229, 255, 0.22)"}
+            track={level === "none" ? "var(--warning)" : "rgb(var(--cyan-rgb) / 0.22)"}
             className="admin-copilot-trigger__ring"
           >
             <NavIcon name="sparkles" size={12} />

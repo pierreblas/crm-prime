@@ -341,7 +341,7 @@ const campaignChip: React.CSSProperties = {
   padding: "2px 7px",
   borderRadius: 999,
   background: "rgba(122,95,176,0.18)",
-  color: "#c9b6f0",
+  color: "light-dark(#563b8f, #c9b6f0)",
 };
 
 const okMark: React.CSSProperties = {

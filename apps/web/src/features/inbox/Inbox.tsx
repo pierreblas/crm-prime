@@ -483,7 +483,7 @@ const switchThumb: React.CSSProperties = {
   borderRadius: 999,
   background: "var(--surface)",
   border: "1px solid var(--border)",
-  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.35)",
+  boxShadow: "0 1px 3px rgb(var(--shadow-rgb) / 0.35)",
   transition: "transform 0.22s cubic-bezier(0.22,1,0.36,1)",
   pointerEvents: "none",
 };
@@ -602,7 +602,7 @@ function chip(active: boolean): React.CSSProperties {
     gap: 5,
     padding: "5px 10px",
     borderRadius: 999,
-    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+    border: `1px solid ${active ? "var(--accent-edge)" : "var(--border)"}`,
     background: active ? "var(--accent)" : "transparent",
     color: active ? "var(--accent-ink)" : "var(--muted)",
     fontSize: 12,

@@ -1,6 +1,7 @@
 "use client";
 
 import { Wordmark } from "@/components/BrandMark";
+import { ThemeButton, ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -83,6 +84,7 @@ export function MarketingHeader({ active, home = false }: { active?: string | nu
             <Link href="/docs">Docs</Link>
           </nav>
           <div className="lp-nav__cta">
+            <ThemeButton className="lp-theme" />
             <Link href="/login" className="lp-nav__login">
               Iniciar sesión
             </Link>
@@ -136,6 +138,7 @@ export function MarketingFooter({ home = false }: { home?: boolean }) {
             <MetaMark />
             Meta Business Partner
           </span>
+          <ThemeSwitcher />
           <span>© 2026 Driony</span>
         </span>
       </div>

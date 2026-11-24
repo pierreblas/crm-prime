@@ -611,7 +611,7 @@ function HealthPanel({ health, loading, error, onOpen }: { health?: PlatformHeal
 
 function Kpi({ label, value, sub, accent, warn }: { label: string; value?: number | string; sub?: string; accent?: boolean; warn?: boolean }) {
   return (
-    <div className={`pc-kpi${accent ? " is-accent" : ""}`} style={warn ? { borderColor: "rgba(240, 180, 90, 0.55)" } : undefined}>
+    <div className={`pc-kpi${accent ? " is-accent" : ""}`} style={warn ? { borderColor: "rgb(var(--amber-rgb) / 0.55)" } : undefined}>
       <span className="pc-kpi__label">{label}</span>
       {value === undefined ? (
         <span className="skeleton" style={{ height: 28, width: 60, display: "block" }} />

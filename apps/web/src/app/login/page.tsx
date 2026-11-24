@@ -9,6 +9,7 @@ import { FindCompany } from "./FindCompany";
 import { safeCallbackUrl } from "@/lib/session-token";
 import { getTranslator } from "@/i18n/server";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeButton } from "@/components/ThemeSwitcher";
 import { authBtn as btn, authCard as card, authFoot as pieTexto, authInput as input, authLabel as label } from "./styles";
 
 export default async function LoginPage({
@@ -94,7 +95,10 @@ export default async function LoginPage({
         }}
       >
         <div style={{ position: "absolute", top: 20, right: 20 }}>
-          <LanguageSwitcher />
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <ThemeButton />
+            <LanguageSwitcher />
+          </span>
         </div>
         <FindCompany baseDomain={baseDomain} error={error} slug={slug} />
       </main>
@@ -126,7 +130,10 @@ export default async function LoginPage({
       }}
     >
       <div style={{ position: "absolute", top: 20, right: 20 }}>
-        <LanguageSwitcher />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <ThemeButton />
+          <LanguageSwitcher />
+        </span>
       </div>
       <form action={login} style={card}>
         <h1 style={{ marginTop: 0 }}>{org?.name ?? t("auth.signInTitle")}</h1>

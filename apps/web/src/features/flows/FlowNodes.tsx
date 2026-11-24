@@ -317,11 +317,11 @@ export function AskQuestionNode({ id, data, selected }: NodeProps) {
           <span style={{ color: d.variable ? "var(--positive)" : "var(--muted)", fontFamily: "ui-monospace, monospace" }}>
             → {d.variable ? `{{${d.variable}}}` : "sin variable"}
           </span>
-          {validated && <span style={{ color: "#c9b6f0" }}>espera: {VALIDATION_LABEL[d.validate!]?.toLowerCase()}</span>}
+          {validated && <span style={{ color: "light-dark(#563b8f, #c9b6f0)" }}>espera: {VALIDATION_LABEL[d.validate!]?.toLowerCase()}</span>}
         </div>
       </div>
       {validated && (
-        <div style={{ padding: "0 10px 6px", borderTop: "1px solid rgba(154, 185, 194, 0.07)", paddingTop: 4 }}>
+        <div style={{ padding: "0 10px 6px", borderTop: "1px solid rgb(var(--mist-rgb) / 0.07)", paddingTop: 4 }}>
           <Row>
             <span style={{ ...branchText, color: "var(--warning)" }}>si no es válida</span>
             <OutputHandle nodeId={id} handleId="invalid" position={Position.Right} color="var(--warning)" top={ROW_H / 2} />
@@ -783,11 +783,11 @@ function shell(selected: boolean, color: string, minWidth = 220): React.CSSPrope
     minWidth,
     maxWidth: 280,
     borderRadius: 10,
-    border: `1.5px solid ${selected ? "var(--accent)" : color}`,
+    border: `1.5px solid ${selected ? "var(--accent-edge)" : color}`,
     background: "var(--panel-2)",
     color: "var(--text)",
     fontSize: 12,
-    boxShadow: selected ? "0 0 0 3px rgba(11, 108, 216, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35)" : "0 2px 10px rgba(0, 0, 0, 0.25)",
+    boxShadow: selected ? "0 0 0 3px rgba(11, 108, 216, 0.4), 0 8px 24px rgb(var(--shadow-rgb) / 0.35)" : "0 2px 10px rgb(var(--shadow-rgb) / 0.25)",
     transition: "box-shadow 0.12s ease, border-color 0.12s ease",
   };
 }
@@ -797,7 +797,7 @@ const head: React.CSSProperties = {
   alignItems: "center",
   gap: 7,
   padding: "7px 10px",
-  borderBottom: "1px solid rgba(154, 185, 194, 0.07)",
+  borderBottom: "1px solid rgb(var(--mist-rgb) / 0.07)",
   fontWeight: 700,
   fontSize: 12,
 };
@@ -836,7 +836,7 @@ const toolbar: React.CSSProperties = {
   borderRadius: 8,
   background: "var(--field)",
   border: "1px solid var(--border)",
-  boxShadow: "0 6px 20px rgba(0, 0, 0, 0.4)",
+  boxShadow: "0 6px 20px rgb(var(--shadow-rgb) / 0.4)",
 };
 
 const toolBtn: React.CSSProperties = {
@@ -866,7 +866,7 @@ const issueDot: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  boxShadow: "0 1px 4px rgba(0, 0, 0, 0.4)",
+  boxShadow: "0 1px 4px rgb(var(--shadow-rgb) / 0.4)",
   cursor: "help",
   zIndex: 6,
 };

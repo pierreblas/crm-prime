@@ -21,13 +21,15 @@
   --accent-hover: #eefc4a;
   --accent-bright: #e2f80d;
   --accent-text: #e2f80d;
+  --accent-edge: #e2f80d;
   --accent-ink: #0a0b10;
-  --accent-soft: rgba(226, 248, 13, 0.08);
-  --accent-line: rgba(226, 248, 13, 0.45);
+  --accent-soft: rgb(var(--lemon-rgb) / 0.08);
+  --accent-line: rgb(var(--lemon-rgb) / 0.45);
   /* Cian: solo para lo que mide o está en marcha (la IA, los datos), nunca para actuar. */
   --cyan: #00e5ff;
-  --cyan-soft: rgba(0, 229, 255, 0.1);
-  --cyan-line: rgba(0, 229, 255, 0.42);
+  --cyan-fill: #00e5ff;
+  --cyan-soft: rgb(var(--cyan-rgb) / 0.1);
+  --cyan-line: rgb(var(--cyan-rgb) / 0.42);
   /* «Hecho»: el verde pastel de los estados del panel. */
   --ok: #7ee2a8;
   --positive: var(--ok);
@@ -58,8 +60,34 @@
   overflow-x: clip;
   /* La rejilla del panel: una línea muy baja cada 24 px. */
   background:
-    repeating-linear-gradient(rgba(37, 41, 62, 0.16) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(rgb(var(--line-rgb) / 0.16) 0 1px, transparent 1px 24px),
     var(--bg);
+}
+
+/* Tema claro: el mismo papel técnico del panel (ver globals.css). */
+:root[data-theme="light"] .lp {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f3f5f8;
+  --surface-3: #e8ecf2;
+  --border: #d7dde6;
+  --border-soft: #e6eaf0;
+  --border-strong: #a9b4c4;
+  --ink: #0a0b10;
+  --ink-dim: #28323f;
+  --muted: #4c5a6b;
+  --accent-hover: #d3ea00;
+  --accent-text: #4a5400;
+  --accent-edge: #7b8700;
+  --accent-soft: rgba(226, 248, 13, 0.3);
+  --accent-line: #7b8700;
+  --cyan: #00626f;
+  --cyan-soft: rgba(0, 138, 158, 0.1);
+  --cyan-line: rgba(0, 138, 158, 0.45);
+  --ok: #0a6b3d;
+  --bubble-out: #d3f2f7;
+  --bubble-in: #eef1f6;
+  --lp-bar: rgba(255, 255, 255, 0.94);
 }
 
 .lp *,
@@ -217,7 +245,7 @@
     background: var(--accent-hover);
   }
   .lp-btn--ghost:hover {
-    background: rgba(142, 158, 175, 0.06);
+    background: rgb(var(--smoke-rgb) / 0.06);
     border-color: var(--border-strong);
   }
 }
@@ -227,7 +255,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(10, 11, 16, 0.94);
+  background: var(--lp-bar, rgba(10, 11, 16, 0.94));
   border-bottom: 1px solid transparent;
   transition: border-color 0.2s ease;
 }
@@ -268,7 +296,7 @@
 }
 .lp-nav__links a[aria-current="true"] {
   color: var(--ink);
-  background: rgba(142, 158, 175, 0.1);
+  background: rgb(var(--smoke-rgb) / 0.1);
 }
 .lp-nav__cta {
   margin-left: auto;
@@ -286,7 +314,7 @@
   font-weight: 600;
 }
 .lp-nav__login:hover {
-  background: rgba(142, 158, 175, 0.08);
+  background: rgb(var(--smoke-rgb) / 0.08);
 }
 .lp-nav__cta .lp-btn {
   min-height: 38px;
@@ -421,7 +449,7 @@
    termina de subir el rótulo (el efecto que el usuario pidió conservar). */
 .lp-arm b {
   padding: 5px 8px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-edge);
   background: var(--accent);
   color: var(--accent-ink);
   box-shadow: 3px 3px 0 0 var(--cyan);
@@ -606,7 +634,7 @@
   font-variant-numeric: tabular-nums;
 }
 .lp-msg--out .lp-msg__meta {
-  color: rgba(233, 237, 242, 0.62);
+  color: rgb(var(--ink-rgb) / 0.62);
 }
 .lp-msg__ai {
   padding: 0 6px;
@@ -642,7 +670,7 @@
   font-size: clamp(5rem, 2.6rem + 8vw, 10rem);
   line-height: 0.86;
   letter-spacing: -0.02em;
-  color: var(--accent);
+  color: var(--accent-edge);
   text-shadow: 0.045em 0.045em 0 var(--cyan);
 }
 /* Al entrar con el scroll, la sombra cian se despega de las letras. */
@@ -798,7 +826,7 @@
 .lp-trace--qa .lp-trace__q::before {
   content: "TÚ";
   color: var(--ink);
-  background: rgba(142, 158, 175, 0.14);
+  background: rgb(var(--smoke-rgb) / 0.14);
 }
 .lp-trace--qa .lp-trace__a::before {
   content: "IA";
@@ -861,7 +889,7 @@
   color: var(--ink-dim);
 }
 .lp-suggest__btns > b {
-  border-color: var(--accent);
+  border-color: var(--accent-edge);
   background: var(--accent);
   color: var(--accent-ink);
   clip-path: var(--chamfer);
@@ -914,7 +942,7 @@
 }
 .lp-doc__toc a[aria-current="true"] {
   color: var(--ink);
-  border-left-color: var(--accent);
+  border-left-color: var(--accent-edge);
   background: var(--accent-soft);
 }
 .lp-doc__n {
@@ -1297,7 +1325,7 @@
 }
 .lp-sec__tab[aria-checked="true"],
 .lp-sec__tab[aria-selected="true"] {
-  border-color: var(--accent);
+  border-color: var(--accent-edge);
   background: var(--accent-soft);
   color: var(--ink);
 }
@@ -1334,7 +1362,7 @@
   }
 }
 .lp-sim__goal[aria-checked="true"] {
-  border-color: var(--accent);
+  border-color: var(--accent-edge);
   background: var(--accent-soft);
 }
 .lp-sim__name {
@@ -1345,7 +1373,7 @@
   width: 100%;
   min-height: 42px;
   padding: 10px 12px;
-  border: 1px solid #30365a;
+  border: 1px solid var(--field-border);
   background: var(--bg);
   color: var(--ink);
   font: inherit;
@@ -1472,7 +1500,7 @@
   color: var(--ink);
 }
 .lp-step:first-child .lp-step__n {
-  border-color: var(--accent);
+  border-color: var(--accent-edge);
   color: var(--accent-text);
 }
 .lp-step__when {
@@ -1574,8 +1602,8 @@
 }
 /* El plan recomendado: filete lima y su rótulo, como el KPI que importa en el panel. */
 .lp-plan--cloud {
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  border-color: var(--accent-edge);
+  box-shadow: inset 0 0 0 1px var(--accent-edge);
 }
 .lp-plan--snap {
   padding: 24px 22px;
@@ -1724,10 +1752,10 @@
 .lp-period button[aria-pressed="true"] {
   background: var(--accent-soft);
   color: var(--ink);
-  box-shadow: inset 0 -2px 0 var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent-edge);
 }
 .lp-period button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-edge);
   outline-offset: -2px;
 }
 .lp-period__off {
@@ -1849,7 +1877,7 @@
 }
 .lp-picker__field input[type="range"] {
   width: 100%;
-  accent-color: var(--accent);
+  accent-color: var(--accent-edge);
 }
 .lp-picker__field output {
   min-width: 5.5ch;
@@ -1865,7 +1893,7 @@
   font-size: 14px;
   color: var(--ink);
   background: var(--bg);
-  border: 1px solid #30365a;
+  border: 1px solid var(--field-border);
   border-radius: 0;
 }
 .lp-picker__check {
@@ -1876,7 +1904,7 @@
   color: var(--ink-dim);
 }
 .lp-picker__check input {
-  accent-color: var(--accent);
+  accent-color: var(--accent-edge);
   width: 16px;
   height: 16px;
 }
@@ -1935,7 +1963,7 @@
   top: 0.62em;
   width: 6px;
   height: 6px;
-  background: var(--cyan);
+  background: var(--cyan-fill);
 }
 .lp-picker__result .lp-btn {
   align-self: flex-start;
@@ -2208,7 +2236,7 @@
 }
 .lp-foot__links a:hover {
   color: var(--ink);
-  background: rgba(142, 158, 175, 0.06);
+  background: rgb(var(--smoke-rgb) / 0.06);
 }
 .lp-foot__right {
   display: inline-flex;
@@ -2254,7 +2282,7 @@
   right: 0;
   bottom: -1px;
   height: 2px;
-  background: var(--cyan);
+  background: var(--cyan-fill);
   transform-origin: 0 50%;
   transform: scaleX(0);
   pointer-events: none;
@@ -2513,7 +2541,7 @@
   background: var(--surface-2);
   color: var(--ink);
   text-align: left;
-  box-shadow: 0 30px 80px -40px rgba(0, 229, 255, 0.18);
+  box-shadow: 0 30px 80px -40px rgb(var(--cyan-rgb) / 0.18);
 }
 .lp-demo button {
   font: inherit;
@@ -2522,7 +2550,7 @@
 .lp-demo button:focus-visible,
 .lp-demo textarea:focus-visible,
 .lp-demo a:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-edge);
   outline-offset: -2px;
 }
 /* Rótulo de telemetría: mono, pequeño, en mayúsculas. */
@@ -2580,7 +2608,7 @@
 .lp-demo__live {
   width: 8px;
   height: 8px;
-  background: var(--cyan);
+  background: var(--cyan-fill);
   box-shadow: 0 0 0 3px var(--cyan-soft);
   animation: lp-demo-dot 1.6s ease-in-out infinite;
 }
@@ -2706,8 +2734,8 @@
   white-space: nowrap;
 }
 .lp-demo__badge.is-warn {
-  border-color: rgba(240, 180, 90, 0.45);
-  background: rgba(240, 180, 90, 0.08);
+  border-color: rgb(var(--amber-rgb) / 0.45);
+  background: rgb(var(--amber-rgb) / 0.08);
   color: var(--warning, #f0b45a);
 }
 .lp-demo__convs {
@@ -2792,12 +2820,12 @@
     text-align: left;
   }
   .lp-demo .lp-demo__conv:hover {
-    background: rgba(255, 255, 255, 0.025);
+    background: rgb(var(--ink-rgb) / 0.025);
   }
   /* La abierta: lavado de cian y marcador lima, como en la bandeja. */
   .lp-demo .lp-demo__conv[aria-checked="true"] {
     background: var(--cyan-soft);
-    box-shadow: inset 3px 0 0 0 var(--accent);
+    box-shadow: inset 3px 0 0 0 var(--accent-edge);
   }
   .lp-demo__conv .lp-demo__avatar {
     display: grid;
@@ -3058,7 +3086,7 @@
 .lp-demo .lp-demo__seg button[aria-checked="true"] {
   background: var(--accent-soft);
   color: var(--ink);
-  box-shadow: inset 0 -2px 0 0 var(--accent);
+  box-shadow: inset 0 -2px 0 0 var(--accent-edge);
 }
 
 /* El hilo: se desliza; arriba se difumina para que se note que hay más. */
@@ -3236,7 +3264,7 @@
 .lp-demo__typing i {
   width: 6px;
   height: 6px;
-  background: var(--cyan);
+  background: var(--cyan-fill);
   animation: lp-demo-dot 1s ease-in-out infinite;
 }
 .lp-demo__typing i:nth-child(2) {
@@ -3286,7 +3314,7 @@
   margin-top: 4px;
   padding: 10px 12px;
   border: 1px solid var(--cyan-line);
-  background: linear-gradient(180deg, rgba(0, 229, 255, 0.06), rgba(0, 229, 255, 0.02));
+  background: linear-gradient(180deg, rgb(var(--cyan-rgb) / 0.06), rgb(var(--cyan-rgb) / 0.02));
   animation: lp-demo-in 0.35s var(--ease) both;
 }
 .lp-demo__trace-head {
@@ -3305,7 +3333,7 @@
 .lp-demo__trace-head i {
   width: 7px;
   height: 7px;
-  background: var(--cyan);
+  background: var(--cyan-fill);
   animation: lp-demo-dot 1.2s ease-in-out infinite;
 }
 .lp-demo__trace.is-done .lp-demo__trace-head i {
@@ -3405,10 +3433,10 @@
   font-weight: 600;
 }
 .lp-demo .lp-demo__btn:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgb(var(--ink-rgb) / 0.04);
 }
 .lp-demo .lp-demo__btn--primary {
-  border-color: var(--accent);
+  border-color: var(--accent-edge);
   background: var(--accent);
   color: var(--accent-ink);
   clip-path: var(--chamfer);
@@ -3536,13 +3564,13 @@
 }
 .lp-demo__pipe-bar {
   height: 6px;
-  background: rgba(142, 158, 175, 0.14);
+  background: rgb(var(--smoke-rgb) / 0.14);
   overflow: hidden;
 }
 .lp-demo__pipe-bar span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--cyan), var(--accent));
+  background: linear-gradient(90deg, var(--cyan-fill), var(--accent));
   transition: width 0.6s var(--ease);
 }
 .lp-demo__pipe ol {
@@ -3774,4 +3802,33 @@
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* El tema, junto a «Iniciar sesión». */
+.lp-theme {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.lp-theme:hover {
+  color: var(--ink);
+  border-color: var(--border);
+}
+.lp-theme:focus-visible {
+  outline: 2px solid var(--accent-edge);
+  outline-offset: 2px;
+}
+
+/* El gesto del tema claro: la palabra clave del titular, subrayada con rotulador lima. */
+:root[data-theme="light"] .lp-hero__accent {
+  color: var(--ink);
+  background: linear-gradient(transparent 54%, #e2f80d 54% 93%, transparent 93%);
+  padding: 0 0.06em;
+  margin: 0 -0.06em;
 }

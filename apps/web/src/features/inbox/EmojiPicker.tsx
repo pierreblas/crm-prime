@@ -307,7 +307,7 @@ const panel: React.CSSProperties = {
   borderRadius: 12,
   border: "1px solid var(--border)",
   background: "var(--surface, var(--panel))",
-  boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
+  boxShadow: "0 6px 20px rgb(var(--shadow-rgb) / 0.45)",
   overflow: "hidden",
   zIndex: 30,
 };

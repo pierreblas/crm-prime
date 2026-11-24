@@ -789,7 +789,7 @@ const avisoModo: React.CSSProperties = {
   padding: "8px 10px",
   borderRadius: 7,
   border: "1px solid var(--warning-border)",
-  background: "rgba(240, 180, 90, 0.08)",
+  background: "rgb(var(--amber-rgb) / 0.08)",
   color: "var(--warning)",
   fontSize: 12.5,
   lineHeight: 1.5,
@@ -1051,7 +1051,7 @@ const errorNote: React.CSSProperties = {
   padding: "7px 9px",
   borderRadius: 7,
   border: "1px solid var(--danger-border)",
-  background: "rgba(240, 138, 138, 0.12)",
+  background: "rgb(var(--coral-rgb) / 0.12)",
   color: "var(--danger)",
   fontSize: 12.5,
   lineHeight: 1.45,
@@ -1157,7 +1157,7 @@ const row: React.CSSProperties = {
   padding: "12px 14px",
   border: "1px solid var(--border)",
   borderRadius: 10,
-  background: "rgba(154, 185, 194, 0.02)",
+  background: "rgb(var(--mist-rgb) / 0.02)",
 };
 
 const waBtn: React.CSSProperties = {

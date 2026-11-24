@@ -61,7 +61,7 @@ export function MessageStatus({
             ...mark,
             // El azul de "leído" es el único momento en que el estado cambia
             // de color; entregado y enviado comparten el gris apagado.
-            color: status === "READ" ? "var(--accent)" : "var(--muted)",
+            color: status === "READ" ? "var(--accent-text)" : "var(--muted)",
           }}
         >
           <NavIcon
@@ -213,7 +213,7 @@ const dayPill: React.CSSProperties = {
   fontSize: 11.5,
   fontWeight: 600,
   color: "var(--muted)",
-  background: "rgba(154, 185, 194, 0.05)",
+  background: "rgb(var(--mist-rgb) / 0.05)",
   border: "1px solid var(--border)",
   borderRadius: 999,
   padding: "3px 12px",

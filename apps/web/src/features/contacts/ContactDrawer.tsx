@@ -452,9 +452,9 @@ const drawer: React.CSSProperties = {
   width: "min(440px, 100vw)",
   display: "flex",
   flexDirection: "column",
-  background: "var(--surface, var(--panel))",
+  background: "var(--panel)",
   borderLeft: "1px solid var(--border)",
-  boxShadow: "-8px 0 24px rgba(0, 0, 0, 0.4)",
+  boxShadow: "-8px 0 24px rgb(var(--shadow-rgb) / 0.4)",
   zIndex: 41,
 };
 
@@ -538,7 +538,7 @@ const adCard: React.CSSProperties = {
   padding: 12,
   borderRadius: 10,
   background: "rgba(122,95,176,0.12)",
-  border: "1px solid #4a3a6a",
+  border: "1px solid light-dark(#b9a8dd, #4a3a6a)",
   marginBottom: 12,
 };
 
@@ -548,7 +548,7 @@ const adTitle: React.CSSProperties = {
   gap: 6,
   fontSize: 11.5,
   fontWeight: 600,
-  color: "#c9b6f0",
+  color: "light-dark(#563b8f, #c9b6f0)",
   marginBottom: 7,
 };
 

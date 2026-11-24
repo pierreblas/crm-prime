@@ -20,7 +20,7 @@ const C = {
   lemon: "var(--chart-2)",
   green: "var(--positive)",
   amber: "var(--warning)",
-  muted: "rgba(154, 185, 194, .55)",
+  muted: "rgb(var(--mist-rgb) / .55)",
 };
 
 /** "45 s", "4 min", "1,5 h", "2 d". */

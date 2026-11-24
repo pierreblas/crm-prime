@@ -12,6 +12,7 @@ import { useRealtimeCtx } from "./RealtimeProvider";
 import { useQuery } from "@tanstack/react-query";
 import type { PermissionSection } from "@crm/shared";
 import { fetchMe } from "@/lib/bff";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 
 /** Qué sección de los permisos manda sobre cada entrada del menú (las demás, siempre). */
 const SECTION_OF: Record<string, PermissionSection | undefined> = {
@@ -225,6 +226,10 @@ export function SideNav({
           );
         })}
       </nav>
+      {/* En el celular la cabecera no tiene sitio para el tema: va aquí. */}
+      <div className="side-nav__theme">
+        <ThemeSwitcher />
+      </div>
     </aside>
   );
 }

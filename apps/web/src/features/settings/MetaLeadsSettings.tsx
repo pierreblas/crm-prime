@@ -625,7 +625,7 @@ function PageRow({
                 }
                 style={{
                   ...ghostBtn,
-                  borderColor: on ? "var(--accent)" : "var(--border)",
+                  borderColor: on ? "var(--accent-edge)" : "var(--border)",
                   color: on ? "var(--text)" : "var(--muted)",
                   background: on ? "var(--accent-soft)" : "transparent",
                 }}
