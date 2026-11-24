@@ -72,7 +72,7 @@ const DEAL_INCLUDE = {
       conversations: {
         orderBy: { lastMessageAt: { sort: "desc", nulls: "last" } },
         take: 1,
-        select: { id: true, awaitingReply: true, lastMessageAt: true, unreadCount: true },
+        select: { id: true, awaitingReply: true, lastMessageAt: true, lastInboundAt: true, unreadCount: true },
       },
     },
   },
@@ -1086,6 +1086,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         id: string;
         awaitingReply: boolean;
         lastMessageAt: Date | null;
+        lastInboundAt?: Date | null;
         unreadCount: number;
       }[];
     };
@@ -1115,6 +1116,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
             id: convo.id,
             awaitingReply: convo.awaitingReply,
             lastMessageAt: convo.lastMessageAt ? convo.lastMessageAt.toISOString() : null,
+            lastInboundAt: convo.lastInboundAt ? convo.lastInboundAt.toISOString() : null,
             unreadCount: convo.unreadCount,
           }
         : null,

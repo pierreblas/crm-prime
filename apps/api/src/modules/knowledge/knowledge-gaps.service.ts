@@ -66,8 +66,8 @@ export class KnowledgeGapsService {
 
     const since = new Date(Date.now() - 30 * 24 * 3600_000);
     const convs = await this.prisma.conversation.findMany({
-      where: { lastMessageAt: { gte: since } },
-      orderBy: { lastMessageAt: "desc" },
+      where: { lastInboundAt: { gte: since } },
+      orderBy: { lastInboundAt: "desc" },
       take: MAX_CONVERSATIONS,
       select: { id: true },
     });

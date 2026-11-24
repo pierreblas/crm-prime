@@ -267,7 +267,9 @@ export const conversationDtoSchema = z.object({
   handoffReason: z.string().nullable().default(null),
   windowExpiresAt: z.string().nullable(),
   windowOpen: z.boolean(),
+  // Lo último que se envió, sea de quien sea, y lo último que escribió el cliente.
   lastMessageAt: z.string().nullable(),
+  lastInboundAt: z.string().nullable().optional(),
   // Mensajes del contacto desde la última vez que alguien abrió el chat.
   unreadCount: z.number().default(0),
   // El último mensaje, para la vista previa de la fila (solo en el listado).

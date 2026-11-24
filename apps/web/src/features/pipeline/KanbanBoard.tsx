@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
 import { NavIcon } from "@/components/NavIcons";
-import { contactCurrency, CURRENCIES, formatMoney, isDialable, phoneLabel } from "@crm/shared";
+import { contactCurrency, CURRENCIES, formatMoney, isDialable, phoneLabel, waitingMs } from "@crm/shared";
 import type { DealDto, PipelineDto, PipelineSummaryDto, PipelineView, StageDto } from "@crm/shared";
 import {
   createDeal,
@@ -73,9 +73,7 @@ function hace(iso: string): string {
 
 /** Cuánto lleva el cliente esperando respuesta (null si no espera). */
 function esperaDesde(deal: DealDto): number | null {
-  const c = deal.conversation;
-  if (!c?.awaitingReply || !c.lastMessageAt) return null;
-  return Date.now() - new Date(c.lastMessageAt).getTime();
+  return deal.conversation ? waitingMs(deal.conversation) : null;
 }
 
 function esperaLabel(ms: number): string {

@@ -82,7 +82,7 @@ export class DashboardService {
                  count(*) FILTER (WHERE c.status = 'CLOSED') AS closed,
                  count(*) FILTER (WHERE c."awaitingReply" AND c.status <> 'CLOSED') AS awaiting
           FROM conversations c LEFT JOIN users u ON u.id = c."assignedAgentId"
-          WHERE c."orgId" = ${orgId} AND c."lastMessageAt" >= ${from}
+          WHERE c."orgId" = ${orgId} AND c."lastInboundAt" >= ${from}
           GROUP BY 1, 2, 3 ORDER BY 4 DESC LIMIT 12`,
         q`SELECT count(*) AS n FROM conversations c WHERE c."orgId" = ${orgId} AND c."awaitingReply" AND c.status <> 'CLOSED'`,
         q`SELECT

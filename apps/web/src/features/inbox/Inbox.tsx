@@ -9,6 +9,7 @@ import {
   type ConversationDto,
   type ConversationFilter,
   type ReplyFilter,
+  lastInboundMs,
 } from "@crm/shared";
 import { fetchAgents, fetchConversations, fetchSources, fetchTags, setConversationStatus } from "@/lib/bff";
 import {
@@ -147,7 +148,7 @@ export function Inbox() {
       const ts = (c: ConversationDto) => (c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0);
       list = [...list].sort((a, b) => {
         if (a.awaitingReply !== b.awaitingReply) return a.awaitingReply ? -1 : 1;
-        return a.awaitingReply ? ts(a) - ts(b) : ts(b) - ts(a);
+        return a.awaitingReply ? lastInboundMs(a) - lastInboundMs(b) : ts(b) - ts(a);
       });
     }
     return list;
@@ -159,10 +160,17 @@ export function Inbox() {
   );
 
   // En escritorio se abre la primera; en móvil se espera a que el usuario elija.
+  // La que se abrió sola se queda abierta aunque otra suba al primer puesto: si
+  // no, el chat cambiaría solo mientras alguien escribe en él.
+  const [autoId, setAutoId] = useState<string | null>(null);
   const selected = useMemo(() => {
-    const id = selectedId ?? (isMobile ? null : (shown[0]?.id ?? null));
+    const auto = shown.find((c) => c.id === autoId) ?? shown[0] ?? null;
+    const id = selectedId ?? (isMobile ? null : (auto?.id ?? null));
     return shown.find((c) => c.id === id) ?? null;
-  }, [shown, selectedId, isMobile]);
+  }, [shown, selectedId, autoId, isMobile]);
+  useEffect(() => {
+    if (!selectedId && selected && selected.id !== autoId) setAutoId(selected.id);
+  }, [selectedId, selected, autoId]);
 
   const nombreDe = useCallback((c: ConversationDto) => c.contact.name ?? phoneLabel(c.contact.phone, c.contact.waUsername), []);
   const previewDe = useCallback((c: ConversationDto) => previewOf(c, t).text, [t]);

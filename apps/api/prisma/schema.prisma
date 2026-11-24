@@ -846,7 +846,10 @@ model Conversation {
   awaitingReply   Boolean            @default(false) // el contacto escribió y aún no respondemos
   followUpStep    Int                @default(0) // toque de seguimiento que toca (-1 = cancelado hasta que el cliente escriba)
   followUpDueAt   DateTime? // cuándo se envía el siguiente seguimiento (null = ninguno programado)
-  lastMessageAt   DateTime?
+  // Lo último que se envió, sea de quien sea (por aquí se ordena la bandeja), y
+  // lo último que escribió el cliente. Las mantiene la base: un trigger en `messages`.
+  lastMessageAt   DateTime?          @default(now())
+  lastInboundAt   DateTime?
   // Mensajes del contacto desde la última vez que alguien abrió el chat.
   unreadCount     Int                @default(0)
   lastReadAt      DateTime?

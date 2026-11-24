@@ -53,6 +53,7 @@ Si un contacto escribe **BAJA**, **STOP** o **CANCELAR**, queda marcado como *si
 ## Avisos y atajos
 
 - **Avisos**: la campana de la cabecera de la lista activa un sonido corto y, si lo permites, una notificación del navegador cuando llega un mensaje a una conversación que no tienes abierta. La pestaña muestra siempre el total sin leer: «(3) Bandeja».
+- **Orden**: arriba está lo último que se envió, sea del cliente, de tu equipo, de la IA, de un flujo, de una difusión o una plantilla. «Espera respuesta» sigue contando desde que escribió el cliente.
 - **Sin leer y espera**: cada fila muestra el último mensaje, un contador azul con los mensajes nuevos y, si el cliente espera respuesta, cuánto lleva esperando (en rojo a partir de una hora). El botón **Esperando** ordena la lista por quien más tiempo lleva.
 - **Atajos**: ↑ / ↓ cambian de conversación; **Cerrar y siguiente** cierra la que tienes abierta y pasa a la siguiente; en el celular, Esc vuelve a la lista.
 - **Asignación automática**: si el embudo tiene activada la entrada automática, la conversación queda asignada al mismo vendedor que recibe la oportunidad y aparece en su filtro **Mías**.

@@ -160,6 +160,7 @@ export const dealDtoSchema = z.object({
       id: z.string(),
       awaitingReply: z.boolean(),
       lastMessageAt: z.string().nullable(),
+      lastInboundAt: z.string().nullable().optional(),
       unreadCount: z.number(),
     })
     .nullable()

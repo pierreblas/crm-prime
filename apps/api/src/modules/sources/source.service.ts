@@ -152,7 +152,7 @@ export class SourceService {
     const rows = await this.prisma.$queryRaw<Array<{ id: string; open_assigned: bigint; active7: bigint; last_seen: Date | null }>>`
       SELECT u.id,
         (SELECT count(*) FROM conversations c WHERE c."assignedAgentId" = u.id AND c.status = 'OPEN') AS open_assigned,
-        (SELECT count(*) FROM conversations c WHERE c."assignedAgentId" = u.id AND c."lastMessageAt" >= now() - interval '7 days') AS active7,
+        (SELECT count(*) FROM conversations c WHERE c."assignedAgentId" = u.id AND c."lastInboundAt" >= now() - interval '7 days') AS active7,
         (SELECT max(s."lastUsedAt") FROM sessions s WHERE s."userId" = u.id AND s."revokedAt" IS NULL) AS last_seen
       FROM users u WHERE u.id IN (${Prisma.join(userIds)})
     `;

@@ -3184,3 +3184,75 @@ test("archivo de producto con el rol restringido: la acción, el envío y la ret
   assert.equal(purged, 1);
   assert.deepEqual(removed, []);
 });
+
+test("bandeja con el rol restringido: ordena por lo último que se envió, sea de quien sea, y sin tocar la de otra empresa", async () => {
+  const { MessagingService } = await import("../src/modules/messaging/messaging.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgs = [`o_ord_${suf}`, `o_ord2_${suf}`] as const;
+  await ctx.runUnscoped("prueba: empresas de la bandeja", async () => {
+    for (const [i, id] of orgs.entries()) await prisma.organization.create({ data: { id, slug: `ord${i}-${suf}`, name: `Orden ${i}` } });
+  });
+  const at = (min: number) => new Date(Date.now() - min * 60_000);
+  const ids: Record<string, string> = {};
+  const open = (orgId: string, name: string, n: number) =>
+    ctx.runInOrg(orgId, async () => {
+      const contact = await prisma.contact.create({ data: { orgId, phone: `+5193${n}${suf}`, name } });
+      // Como la bienvenida de un formulario o un flujo: sin fecha.
+      ids[name] = (await prisma.conversation.create({ data: { orgId, contactId: contact.id, status: "OPEN" } })).id;
+      await ctx.runUnscoped("prueba: un chat de hace días", () => prisma.conversation.update({ where: { id: ids[name] }, data: { lastMessageAt: at(9000) } }));
+    });
+  for (const [i, name] of ["Ana", "Beto", "Caro"].entries()) await open(orgs[0], name, i);
+  await open(orgs[1], "Otra", 9);
+  const send = (orgId: string, name: string, min: number, data: Record<string, unknown>) =>
+    ctx.runInOrg(orgId, () => prisma.message.create({ data: { orgId, conversationId: ids[name]!, createdAt: at(min), content: "x", type: "TEXT", ...data } }));
+  const inbound = { direction: "INBOUND", author: "CONTACT" };
+  const svc = Object.create(MessagingService.prototype) as any;
+  svc.prisma = prisma;
+  const list = async (orgId: string = orgs[0]) => (await ctx.runInOrg(orgId, () => svc.listConversations("u", {}, "ADMIN"))) as any[];
+  const names = async () => (await list()).map((c) => c.contact.name);
+
+  await send(orgs[0], "Ana", 60, inbound);
+  await send(orgs[0], "Beto", 50, inbound);
+  await send(orgs[0], "Caro", 40, inbound);
+  assert.deepEqual(await names(), ["Caro", "Beto", "Ana"], "escriben los clientes");
+  await send(orgs[0], "Ana", 30, { direction: "OUTBOUND", author: "HUMAN" });
+  assert.deepEqual(await names(), ["Ana", "Caro", "Beto"], "responde una persona");
+  await send(orgs[0], "Beto", 20, { direction: "OUTBOUND", author: "AI", type: "TEMPLATE" });
+  assert.deepEqual(await names(), ["Beto", "Ana", "Caro"], "sale una plantilla");
+  await send(orgs[0], "Caro", 10, { direction: "OUTBOUND", author: "AI" });
+  assert.deepEqual(await names(), ["Caro", "Beto", "Ana"], "responde la IA");
+  await send(orgs[0], "Ana", 5, inbound);
+  assert.deepEqual(await names(), ["Ana", "Caro", "Beto"], "vuelve a escribir un cliente");
+  // El historial importado del celular trae mensajes viejos: no mueven nada.
+  await send(orgs[0], "Beto", 8000, inbound);
+  assert.deepEqual(await names(), ["Ana", "Caro", "Beto"]);
+
+  const by = Object.fromEntries((await list()).map((c) => [c.contact.name, c]));
+  const close = (iso: string, min: number) => assert.ok(Math.abs(new Date(iso).getTime() - at(min).getTime()) < 30_000, `${iso} no es de hace ${min} min`);
+  close(by.Ana.lastInboundAt, 5);
+  close(by.Beto.lastInboundAt, 50);
+  close(by.Caro.lastInboundAt, 40);
+  close(by.Caro.lastMessageAt, 10);
+
+  // Un chat recién abierto (un formulario) nace con fecha: sale por ella, no arriba para siempre.
+  const form = await ctx.runInOrg(orgs[0], async () => {
+    const c = await prisma.contact.create({ data: { orgId: orgs[0], phone: `+5193f${suf}`, name: "Formulario" } });
+    return prisma.conversation.create({ data: { orgId: orgs[0], contactId: c.id, status: "OPEN" } });
+  });
+  assert.ok(form.lastMessageAt, "nace con fecha");
+  assert.equal((await names())[0], "Formulario");
+  await send(orgs[0], "Beto", -1, { direction: "OUTBOUND", author: "HUMAN" });
+  assert.equal((await names())[0], "Beto", "y baja cuando hay algo más nuevo");
+
+  // La otra empresa no ve ni mueve nada de esta.
+  assert.deepEqual((await list(orgs[1])).map((c) => c.contact.name), ["Otra"]);
+  const before = (await list()).map((c) => [c.contact.name, c.lastMessageAt]);
+  await ctx
+    .runInOrg(orgs[1], () =>
+      prisma.$executeRawUnsafe(
+        `INSERT INTO messages (id,"orgId","conversationId",direction,type,author,content,status,"createdAt","updatedAt") VALUES ('mx_${suf}','${orgs[1]}','${ids.Ana}','OUTBOUND','TEXT','HUMAN','x','SENT',now() + interval '1 hour',now())`,
+      ),
+    )
+    .catch(() => undefined);
+  assert.deepEqual((await list()).map((c) => [c.contact.name, c.lastMessageAt]), before);
+});

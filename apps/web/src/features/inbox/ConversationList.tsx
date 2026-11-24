@@ -1,7 +1,7 @@
 "use client";
 
 import { readableInk } from "@/lib/readable-ink";
-import { CHANNEL_KIND_LABEL, MessageDirection, MessageType, phoneLabel, type ConversationDto } from "@crm/shared";
+import { CHANNEL_KIND_LABEL, MessageDirection, MessageType, phoneLabel, type ConversationDto, waitingMs } from "@crm/shared";
 import { ChannelMark } from "./ChannelMark";
 import { NavIcon, type IconName } from "@/components/NavIcons";
 import { useT } from "@/i18n/I18nProvider";
@@ -70,8 +70,7 @@ export function previewOf(c: ConversationDto, t: Translator): Preview {
 
 /** Cuánto lleva esperando el contacto (solo si la conversación está sin responder). */
 function waitingSince(c: ConversationDto): number | null {
-  if (!c.awaitingReply || !c.lastMessageAt) return null;
-  return Date.now() - new Date(c.lastMessageAt).getTime();
+  return waitingMs(c);
 }
 
 function waitingLabel(ms: number, t: Translator): string {

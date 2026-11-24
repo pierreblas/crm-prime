@@ -1767,7 +1767,8 @@ export class MessagingService {
 
     const rows = await this.prisma.conversation.findMany({
       where,
-      orderBy: { lastMessageAt: "desc" },
+      // Lo último que se envió, sea de quien sea (la fecha la mantiene la base).
+      orderBy: [{ lastMessageAt: { sort: "desc", nulls: "last" } }, { id: "desc" }],
       include: {
         contact: { include: { tags: { include: { tag: true } }, source: true } },
         assignedAgent: true,
@@ -1908,6 +1909,7 @@ export class MessagingService {
     handoffReason?: string | null;
     windowExpiresAt: Date | null;
     lastMessageAt: Date | null;
+    lastInboundAt?: Date | null;
     unreadCount?: number;
     contact: {
       id: string;
@@ -2005,6 +2007,7 @@ export class MessagingService {
       windowExpiresAt: c.windowExpiresAt?.toISOString() ?? null,
       windowOpen: !!c.windowExpiresAt && c.windowExpiresAt > now,
       lastMessageAt: c.lastMessageAt?.toISOString() ?? null,
+      lastInboundAt: c.lastInboundAt?.toISOString() ?? null,
     };
   }
 
