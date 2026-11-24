@@ -350,6 +350,8 @@ export const conversationReviewDtoSchema = z.object({
   status: z.enum(["open", "done"]),
   createdAt: z.string(),
   lastMessageAt: z.string(),
+  /** La corrección del agente que salió de este chat, si la hay. */
+  correction: z.object({ id: z.string(), status: z.enum(["running", "ready", "nothing", "applied"]) }).nullable().optional(),
 });
 export type ConversationReviewDto = z.infer<typeof conversationReviewDtoSchema>;
 

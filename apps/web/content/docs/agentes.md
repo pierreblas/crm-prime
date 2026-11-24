@@ -259,6 +259,19 @@ Las conversaciones corren una detrás de otra y se ven en vivo. En cada una ves 
 
 No se envía nada por WhatsApp ni se crea o cambia ningún contacto. Sí **gasta tokens**, por los dos lados (el cliente simulado y tu agente): salen de tu IA de Driony o los cobra tu proveedor si usas tu clave, y aparecen en **Consumo de IA** como «Simulador de conversaciones».
 
+## Revisión de chats y corregir al agente
+
+En **Agentes IA › Revisión de chats**, la IA revisa las conversaciones que atendió tu agente y marca las que hay que mirar: si inventó un dato, si no respondió o si no propuso el siguiente paso. De cada una puedes **Corregir al agente**:
+
+1. Pulsa **Corregir al agente** en un chat, o marca varios del mismo agente (hasta 8) y pulsa **Corregir juntos**: sale un solo cambio que los cubre.
+2. Si quieres, escribe **qué debió hacer** con tus palabras. Manda sobre lo que marcó la revisión, y los datos que pongas ahí se pueden usar. En un chat que salió bien hace falta escribirlo.
+3. La IA propone un cambio puntual en sus instrucciones y lo prueba **en el momento exacto** en que falló: ves lo que respondió, lo que respondería hoy y lo que respondería con el cambio. Tarda uno o dos minutos; puedes cerrar la ventana y volver con **Ver corrección**.
+4. **Aplicar al agente**, **Descartar** o **Probar de otra forma**. Al aplicar, el chat queda visto y su situación (sin datos personales) pasa a los casos de prueba.
+
+A veces no hay nada que cambiar, y lo dice: **Hoy ya responde bien** (por ejemplo, porque ya habías cambiado las instrucciones) o **Falta un dato**, con lo que hay que poner en Productos o en Conocimiento.
+
+Un cambio nunca hace que el agente ofrezca algo que no esté en sus instrucciones o en lo que escribiste: cuotas, descuentos, garantías, grabaciones, becas. Antes de aplicar puedes **Medir con mis casos**, para ver que no estropea otras conversaciones (opcional, gasta más). El agente **solo cambia si pulsas «Aplicar»**, y las instrucciones de antes quedan en **Mejorar › Versiones anteriores**.
+
 ## Mejorar agente
 
 Junto a **Probar conversación**, el botón **Mejorar** mide cómo atiende tu agente con una batería de casos, deja que la IA proponga cambios en sus instrucciones y compara el antes y el después con los mismos casos. Una sola prueba engaña: el mismo agente contesta distinto cada vez. Por eso aquí cada caso se repite varias veces y se cuenta.

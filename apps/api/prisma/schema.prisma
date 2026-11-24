@@ -181,6 +181,8 @@ model Organization {
   conversionEvents     ConversionEvent[]
   agentTestCases          AgentTestCase[]
   agentImprovementRuns    AgentImprovementRun[]
+  agentCorrections        AgentCorrection[]
+  agentCorrectionChats    AgentCorrectionChat[]
   agentImprovementResults AgentImprovementResult[]
   agentPromptVersions     AgentPromptVersion[]
   stageAutomations     StageAutomation[]
@@ -866,6 +868,7 @@ model Conversation {
   calls         Call[]
   aiRuns        AiRun[]
   reviews       ConversationReview[]
+  corrections   AgentCorrectionChat[]
   aiMessages    AiMessage[]
   flowSession   FlowSession?
   bookings      Booking[]
@@ -1431,6 +1434,7 @@ model AgentConfig {
   runs      AiRun[]
   testCases       AgentTestCase[]
   improvementRuns AgentImprovementRun[]
+  corrections     AgentCorrection[]
   promptVersions  AgentPromptVersion[]
 
   @@index([orgId])
@@ -1522,6 +1526,66 @@ model AgentImprovementResult {
 
   @@index([runId, variant])
   @@map("agent_improvement_results")
+}
+
+// «Corregir al agente»: un cambio en sus instrucciones a partir de chats reales
+// revisados, probado en el momento exacto en que falló cada uno.
+model AgentCorrection {
+  id            String    @id @default(cuid())
+  orgId         String
+  agentConfigId String
+  status        String    @default("running") // running | ready | nothing | failed | applied | discarded
+  note          String    @default("") // lo que pidió el dueño
+  basePrompt    String // las instrucciones de las que parte
+  prompt        String    @default("") // las corregidas
+  changes       Json      @default("[]") // [{ what, why, caseTitle }]
+  runId         String? // la medición con los casos del agente, si se pidió
+  done          Int       @default(0)
+  total         Int       @default(0)
+  tokens        Int       @default(0)
+  error         String?
+  createdAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  appliedAt     DateTime?
+
+  org   Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  agent AgentConfig           @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
+  chats AgentCorrectionChat[]
+
+  @@index([orgId, status])
+  @@index([agentConfigId, createdAt])
+  @@map("agent_corrections")
+}
+
+// Cada chat de una corrección: lo que respondió, lo que respondería hoy y lo que
+// respondería con el cambio. Se borra con su conversación.
+model AgentCorrectionChat {
+  id             String   @id @default(cuid())
+  orgId          String
+  correctionId   String
+  reviewId       String
+  conversationId String
+  position       Int      @default(0)
+  customer       String   @default("")
+  before         String   @default("")
+  today          String?
+  after          String?
+  outcome        String   @default("pending") // pending | fixed | not_fixed | today_ok | data | system | error
+  note           String   @default("")
+  // La situación del cliente, sin datos personales: al aplicar pasa a los casos de prueba.
+  caseTitle      String?
+  caseBrief      String?
+  missing        String? // un dato del negocio que le faltó
+  createdAt      DateTime @default(now())
+
+  org          Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  correction   AgentCorrection    @relation(fields: [correctionId], references: [id], onDelete: Cascade)
+  review       ConversationReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  conversation Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([correctionId, position])
+  @@index([reviewId])
+  @@map("agent_correction_chats")
 }
 
 // Las instrucciones que tenía el agente antes de cada cambio (a mano, por una
@@ -1845,8 +1909,9 @@ model ConversationReview {
   doneAt         DateTime?
   createdAt      DateTime  @default(now())
 
-  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  org          Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  conversation Conversation          @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  corrections  AgentCorrectionChat[]
 
   @@index([orgId, createdAt])
   @@index([conversationId, createdAt])

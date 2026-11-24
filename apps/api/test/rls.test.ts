@@ -3321,3 +3321,75 @@ test("un lead que entra por varios lados a la vez queda con una sola oportunidad
   const after = await ctx.runInOrg(orgId, () => prisma.deal.findMany({ where: { contactId: late.id } }));
   assert.deepEqual(after.map((d: any) => [d.id, d.discardedAt]), [[made.id, null]]);
 });
+
+test("«Corregir al agente» con el rol restringido: la corrección, sus chats y los casos quedan en su empresa", async () => {
+  const { AgentCorrectionService } = await import("../src/modules/ai/agent-correction.service");
+  const { JUDGE_SYSTEM } = await import("../src/modules/ai/agent-correction.logic");
+  const { ChatReviewService } = await import("../src/modules/ai/chat-review.service");
+  const suf = String(Date.now()).slice(-7);
+  const orgs = [`o_cor_${suf}`, `o_cor2_${suf}`] as const;
+  await ctx.runUnscoped("prueba: empresas que corrigen a su agente", async () => {
+    for (const [i, id] of orgs.entries()) await prisma.organization.create({ data: { id, slug: `cor${i}-${suf}`, name: `Corregir ${i}` } });
+  });
+  const seed = (orgId: string, n: number) =>
+    ctx.runInOrg(orgId, async () => {
+      const bot = await prisma.agentConfig.create({ data: { orgId, name: `Agente ${n}`, systemPrompt: "Eres Lia.\nREGLAS\n- Da el precio.", model: "gpt-4.1-mini" } });
+      const contact = await prisma.contact.create({ data: { orgId, phone: `+5191${n}${suf}`, name: `Cliente ${n}` } });
+      const conv = await prisma.conversation.create({ data: { orgId, contactId: contact.id, status: "OPEN" } });
+      const run = await prisma.aiRun.create({ data: { conversationId: conv.id, status: "COMPLETED", model: "gpt-4.1-mini", agentConfigId: bot.id } });
+      await prisma.message.create({ data: { orgId, conversationId: conv.id, direction: "INBOUND", type: "TEXT", author: "CONTACT", content: "Sí, me interesa" } });
+      await prisma.message.create({ data: { orgId, conversationId: conv.id, direction: "OUTBOUND", type: "TEXT", author: "AI", content: "Hola, soy Lia. Cuesta S/ 249.", aiRunId: run.id, createdAt: new Date(Date.now() + 1000) } });
+      const review = await prisma.conversationReview.create({ data: { orgId, conversationId: conv.id, agentConfigId: bot.id, verdict: "review", summary: "Repitió", findings: [{ kind: "tone", note: "Repitió", quote: "Hola, soy Lia" }], lastMessageAt: new Date() } });
+      return { bot, review, conv };
+    });
+  const a = await seed(orgs[0], 1);
+  const b = await seed(orgs[1], 2);
+
+  const edit = { what: "No repetir", why: "Repetía", case: null, action: "add", anchor: "- Da el precio.", text: "- Si ya lo recibió, no lo repitas." };
+  const llm = {
+    generate: async (r: any) => ({
+      content: [{ type: "text", text: r.system === JUDGE_SYSTEM ? JSON.stringify({ fixed: !String(r.messages[0].content).split("## Respuesta nueva")[1]!.includes("soy Lia"), invented: false, note: "x" }) : `<chats>[{"chat":1,"cause":"instructions","note":"","title":"Ya lo recibió","brief":"El cliente ya recibió la presentación."}]</chats><cambios>${JSON.stringify([edit])}</cambios>` }],
+      usage: { inputTokens: 1, outputTokens: 1 },
+    }),
+  };
+  const agent = { playground: async (_i: unknown, _f: string, o: any) => ({ reply: o.systemPrompt.includes("no lo repitas") ? "¿Transferencia o Yape?" : "Hola, soy Lia.", simulatedActions: [], escalate: false, escalationReason: null, toolCalls: [], options: [], inputTokens: 1, outputTokens: 1 }) };
+  const svc = (org: string) => new AgentCorrectionService(prisma, { orgId: () => org } as any, agent as any, {} as any, { status: async () => ({ ready: true }) } as any, llm as any);
+
+  const mine = svc(orgs[0]);
+  const started = await ctx.runInOrg(orgs[0], () => mine.start(a.bot.id, { reviewIds: [a.review.id], note: "" }));
+  await mine.settled(started.id);
+  const ready = await ctx.runInOrg(orgs[0], () => mine.get(a.bot.id, started.id));
+  assert.equal(ready.status, "ready", ready.error ?? "");
+  assert.deepEqual(ready.chats.map((c: any) => [c.contactName, c.outcome, c.customer]), [["Cliente 1", "fixed", "Sí, me interesa"]]);
+
+  // La otra empresa no la ve, no la aplica, y no puede corregir con un chat ajeno.
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => svc(orgs[1]).get(a.bot.id, started.id)), /no encontrad/i);
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => svc(orgs[1]).apply(b.bot.id, started.id, { force: true })), /no encontrad/i);
+  await assert.rejects(() => ctx.runInOrg(orgs[1], () => svc(orgs[1]).start(b.bot.id, { reviewIds: [a.review.id], note: "x" })), /ya no existe/);
+  assert.equal(await ctx.runInOrg(orgs[1], () => prisma.agentCorrectionChat.count()), 0);
+
+  // El panel de revisión sabe que ese chat ya tiene su corrección.
+  const review = (org: string) => new ChatReviewService(prisma, { orgId: () => org } as any, {} as any, {} as any);
+  assert.deepEqual((await ctx.runInOrg(orgs[0], () => review(orgs[0]).overview("all"))).reviews[0].correction, { id: started.id, status: "ready" });
+  assert.equal((await ctx.runInOrg(orgs[1], () => review(orgs[1]).overview("all"))).reviews[0].correction, null);
+
+  await ctx.runInOrg(orgs[0], () => mine.apply(a.bot.id, started.id, { force: false }));
+  const [bot, other, cases, versions, done] = await ctx.runUnscoped("prueba: lo aplicado", () =>
+    Promise.all([
+      prisma.agentConfig.findUnique({ where: { id: a.bot.id } }),
+      prisma.agentConfig.findUnique({ where: { id: b.bot.id } }),
+      prisma.agentTestCase.findMany({ where: { agentConfigId: a.bot.id } }),
+      prisma.agentPromptVersion.findMany({ where: { agentConfigId: a.bot.id } }),
+      prisma.conversationReview.findUnique({ where: { id: a.review.id } }),
+    ]),
+  );
+  assert.match(bot.systemPrompt, /no lo repitas/);
+  assert.doesNotMatch(other.systemPrompt, /no lo repitas/);
+  assert.deepEqual(cases.map((c: any) => [c.orgId, c.source, c.conversationId]), [[orgs[0], "chat", a.conv.id]]);
+  assert.equal(versions.length, 1);
+  assert.equal(done.status, "done");
+
+  // Al borrarse la conversación (un cliente que pide que borren sus datos), se va lo que se guardó de ella.
+  await ctx.runInOrg(orgs[0], () => prisma.conversation.delete({ where: { id: a.conv.id } }));
+  assert.equal(await ctx.runUnscoped("prueba: lo que queda", () => prisma.agentCorrectionChat.count({ where: { correctionId: started.id } })), 0);
+});

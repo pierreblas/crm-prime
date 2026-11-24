@@ -8,6 +8,7 @@ import {
   CHAT_REVIEW_DAYS_OPTIONS,
   CHAT_REVIEW_MANUAL_DAYS,
   CHAT_REVIEW_MANUAL_MAX,
+  CORRECTION_MAX_CHATS,
   type ChatReviewOverview,
   type ConversationReviewDto,
   type SimulationFindingKind,
@@ -17,6 +18,7 @@ import { NavIcon, type IconName } from "@/components/NavIcons";
 import { fetchChatReviews, runChatReviews, setChatReviewDaily, updateChatReview } from "@/lib/bff";
 import { toast } from "@/lib/toast";
 import { CaseFromChatDialog } from "./CaseFromChat";
+import { CorrectAgentDialog } from "./CorrectAgent";
 
 const VERDICT_LABEL: Record<SimulationVerdict, string> = { ok: "Bien", review: "Revisar", bad: "Mal" };
 const FINDING: Record<SimulationFindingKind, { icon: IconName; label: string }> = {
@@ -41,8 +43,9 @@ function ago(iso: string): string {
  * agente de verdad, con lo que hay que mirar primero («Mal»: inventó un dato;
  * «Revisar»: algo mejorable), la frase exacta y el enlace al chat. La pasada
  * diaria se activa aquí (viene apagada: gasta tokens) y se puede lanzar a mano.
+ * De cada chat (o de varios del mismo agente) se puede corregir al agente.
  */
-export function ChatReviewPanel() {
+export function ChatReviewPanel({ bots, onPromptChanged }: { bots: { id: string; name: string; systemPrompt: string }[]; onPromptChanged: () => void }) {
   const qc = useQueryClient();
   const [show, setShow] = useState<"open" | "all">("open");
   const [days, setDays] = useState<number>(CHAT_REVIEW_MANUAL_DAYS);
@@ -53,6 +56,18 @@ export function ChatReviewPanel() {
     refetchInterval: (q) => (q.state.data?.running ? 4000 : false),
   });
   const refresh = () => qc.invalidateQueries({ queryKey: ["chat-reviews"] });
+  // Los chats marcados para corregir juntos (del mismo agente) y la ventana abierta.
+  const [picked, setPicked] = useState<ConversationReviewDto[]>([]);
+  const [correcting, setCorrecting] = useState<{ botId: string; botName: string; reviews: ConversationReviewDto[]; correctionId: string | null } | null>(null);
+  const pickedBot = picked[0]?.agentConfigId ?? null;
+  const open = (reviews: ConversationReviewDto[], correctionId: string | null = null) => {
+    const botId = reviews[0]?.agentConfigId;
+    if (botId) setCorrecting({ botId, botName: reviews[0]!.agentName ?? "el agente", reviews, correctionId });
+  };
+  const toggle = (r: ConversationReviewDto) => setPicked((p) => (p.some((x) => x.id === r.id) ? p.filter((x) => x.id !== r.id) : [...p, r]));
+  // Por qué no se puede marcar: otro agente o el tope.
+  const pickBlocked = (r: ConversationReviewDto) =>
+    picked.some((x) => x.id === r.id) ? null : pickedBot && pickedBot !== r.agentConfigId ? "Lo atendió otro agente: se corrige uno a la vez" : picked.length >= CORRECTION_MAX_CHATS ? `Como mucho ${CORRECTION_MAX_CHATS} chats a la vez` : null;
   /**
    * El cambio se ve al momento (interruptor, «Marcar como vista») y luego se
    * confirma con el servidor: sin esto, el interruptor seguía en su estado
@@ -178,19 +193,90 @@ export function ChatReviewPanel() {
 
       <ul className="chat-review__list">
         {data?.reviews.map((r) => (
-          <ReviewItem key={r.id} review={r} onMark={(status) => mark.mutate({ id: r.id, status })} busy={mark.isPending} />
+          <ReviewItem
+            key={r.id}
+            review={r}
+            onMark={(status) => mark.mutate({ id: r.id, status })}
+            busy={mark.isPending}
+            picked={picked.some((x) => x.id === r.id)}
+            blocked={pickBlocked(r)}
+            onPick={() => toggle(r)}
+            onCorrect={(correctionId) => open([r], correctionId)}
+          />
         ))}
       </ul>
+
+      {picked.length > 0 && (
+        <div className="chat-review__picked" role="region" aria-label="Chats marcados" data-chat-review-picked={picked.length}>
+          <span>
+            <strong>{picked.length === 1 ? "1 chat" : `${picked.length} chats`}</strong> de {picked[0]!.agentName ?? "el agente"}
+          </span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPicked([])}>
+            Quitar
+          </button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => open(picked)} data-chat-review-correct-picked>
+            <NavIcon name="sparkles" size={13} /> {picked.length === 1 ? "Corregir al agente" : "Corregir juntos"}
+          </button>
+        </div>
+      )}
+
+      {correcting && (
+        <CorrectAgentDialog
+          key={correcting.correctionId ?? correcting.reviews.map((r) => r.id).join()}
+          botId={correcting.botId}
+          botName={correcting.botName}
+          promptChars={bots.find((b) => b.id === correcting.botId)?.systemPrompt.length}
+          reviews={correcting.reviews}
+          correctionId={correcting.correctionId}
+          onClose={() => {
+            setCorrecting(null);
+            setPicked([]);
+          }}
+          onChanged={() => void refresh()}
+          onPromptChanged={onPromptChanged}
+        />
+      )}
     </div>
   );
 }
 
-function ReviewItem({ review: r, onMark, busy }: { review: ConversationReviewDto; onMark: (status: "open" | "done") => void; busy: boolean }) {
+const CORRECTION_LABEL = { running: "Corrigiendo…", ready: "Ver corrección", nothing: "Ver resultado", applied: "Corregido" } as const;
+
+function ReviewItem({
+  review: r,
+  onMark,
+  busy,
+  picked,
+  blocked,
+  onPick,
+  onCorrect,
+}: {
+  review: ConversationReviewDto;
+  onMark: (status: "open" | "done") => void;
+  busy: boolean;
+  picked: boolean;
+  /** Por qué no se puede marcar, o null. */
+  blocked: string | null;
+  onPick: () => void;
+  onCorrect: (correctionId: string | null) => void;
+}) {
   // De un chat que salió mal sale el mejor caso de prueba para «Mejorar» a su agente.
   const [asCase, setAsCase] = useState(false);
   return (
     <li className={`chat-review__item sim-review sim-review--${r.verdict}${r.status === "done" ? " is-done" : ""}`} data-chat-review-item={r.verdict}>
       <div className="chat-review__item-head">
+        {r.agentConfigId && (
+          <input
+            type="checkbox"
+            className="chat-review__pick"
+            checked={picked}
+            disabled={!!blocked}
+            title={blocked ?? "Marcar para corregir varios chats juntos"}
+            aria-label={`Marcar el chat de ${r.contactName} para corregir`}
+            onChange={onPick}
+            data-chat-review-pick
+          />
+        )}
         <span className={`sim-verdict sim-verdict--${r.verdict}`}>{VERDICT_LABEL[r.verdict]}</span>
         <strong>{r.contactName}</strong>
         <span className="chat-review__meta">
@@ -216,6 +302,27 @@ function ReviewItem({ review: r, onMark, busy }: { review: ConversationReviewDto
         <Link href={`/?c=${r.conversationId}`} className="btn btn-sm" data-chat-review-open>
           <NavIcon name="inbox" size={13} /> Abrir chat
         </Link>
+        {r.agentConfigId && r.correction && (
+          <button
+            type="button"
+            className={`btn btn-sm${r.correction.status === "ready" ? " btn-primary" : ""}`}
+            onClick={() => onCorrect(r.correction!.id)}
+            data-chat-review-correction={r.correction.status}
+          >
+            <NavIcon name={r.correction.status === "applied" ? "check" : "sparkles"} size={13} /> {CORRECTION_LABEL[r.correction.status]}
+          </button>
+        )}
+        {r.agentConfigId && (!r.correction || r.correction.status === "nothing" || r.correction.status === "applied") && (
+          <button
+            type="button"
+            className={`btn btn-sm${r.verdict !== "ok" && !r.correction ? " btn-primary" : " btn-ghost"}`}
+            onClick={() => onCorrect(null)}
+            title="Buscar qué cambiar en sus instrucciones y probarlo en este mismo chat"
+            data-chat-review-correct
+          >
+            <NavIcon name="sparkles" size={13} /> {r.correction ? "Corregir otra vez" : "Corregir al agente"}
+          </button>
+        )}
         {r.agentConfigId && r.verdict !== "ok" && (
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAsCase(true)} title="Guardar esta situación como caso de prueba del agente, para «Mejorar»" data-chat-review-case>
             <NavIcon name="plus" size={13} /> Añadir a los casos de prueba

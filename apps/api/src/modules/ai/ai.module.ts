@@ -25,6 +25,8 @@ import { AiController } from "./ai.controller";
 import { BotsController } from "./bots.controller";
 import { AgentImproveController } from "./agent-improve.controller";
 import { AgentImproveService } from "./agent-improve.service";
+import { AgentCorrectionService } from "./agent-correction.service";
+import { AgentCorrectionController } from "./agent-correction.controller";
 import { FlowsController } from "./flows.controller";
 import { AiSettingsController } from "./ai-settings.controller";
 import { CopilotController } from "./copilot.controller";
@@ -54,12 +56,14 @@ import { EmailModule } from "../email/email.module";
     BulkFlowController,
     BusinessSetupController,
     ChatReviewController,
+    AgentCorrectionController,
   ],
   providers: [
     AgentService,
     AiTraceService,
     ChatReviewService,
     AgentImproveService,
+    AgentCorrectionService,
     AgentActionsService,
     AutopilotService,
     AutomationService,

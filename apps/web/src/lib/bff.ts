@@ -221,6 +221,7 @@ import type {
   PricingSettings,
   PricingSettingsDto,
   ImplementationActualInput,
+  AgentCorrection,
   AgentTestCase,
   CaseDraft,
   ImproveOverview,
@@ -2901,6 +2902,23 @@ async function improveCall<T>(botId: string, path: string, fallback: string, ini
   if (!res.ok) throw new HttpError(await errorMessage(res, fallback), res.status);
   return res.json();
 }
+
+// ── Corregir al agente con los chats revisados ─────────────
+async function correctionCall<T>(botId: string, path: string, fallback: string, init?: { method: string; body?: unknown }): Promise<T> {
+  const res = await bffFetch(`/api/bff/bots/${botId}/corrections${path}`, {
+    ...(init ? { method: init.method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(init.body ?? {}) } : {}),
+  });
+  if (!res.ok) throw new HttpError(await errorMessage(res, fallback), res.status);
+  return res.json();
+}
+export const startCorrection = (botId: string, input: { reviewIds: string[]; note: string }) =>
+  correctionCall<AgentCorrection>(botId, "", "No se pudo empezar la corrección", { method: "POST", body: input });
+export const fetchCorrection = (botId: string, id: string) => correctionCall<AgentCorrection>(botId, `/${id}`, "No se pudo cargar la corrección");
+export const applyCorrection = (botId: string, id: string, force = false) =>
+  correctionCall<AgentCorrection>(botId, `/${id}/apply`, "No se pudo aplicar la corrección", { method: "POST", body: { force } });
+export const discardCorrection = (botId: string, id: string) => correctionCall<AgentCorrection>(botId, `/${id}/discard`, "No se pudo descartar", { method: "POST" });
+export const measureCorrection = (botId: string, id: string, repetitions: number) =>
+  correctionCall<ImproveRun>(botId, `/${id}/measure`, "No se pudo empezar la medición", { method: "POST", body: { repetitions } });
 
 export const fetchImprove = (botId: string) => improveCall<ImproveOverview>(botId, "", "No se pudo cargar «Mejorar agente»");
 

@@ -37,12 +37,12 @@ export function improveLine(agent: PlaygroundReply): SimulationReviewLine {
  * Buenas prácticas de venta por mensajes. Son de conducta, no del negocio: la
  * propuesta puede añadirlas como reglas, pero nunca un precio ni una promesa.
  */
-const PLAYBOOK = [
+export const PLAYBOOK = [
   "- Responde primero lo que el cliente preguntó, con el dato concreto; después lo demás.",
   "- Mensajes cortos, como en WhatsApp. Una pregunta por mensaje, nunca dos seguidas.",
   "- Cada mensaje termina proponiendo el siguiente paso (reservar, pagar, agendar, elegir), sin repetir el mismo cierre dos veces seguidas.",
   "- No repitas una presentación que ya enviaste: responde solo lo nuevo.",
-  "- Ante una objeción (caro, sin tiempo, lo pienso): reconoce, da UN motivo o UNA salida que exista en las instrucciones (cuotas, grabaciones, garantía) y vuelve a proponer el paso. Sin presionar ni insistir más de una vez.",
+  "- Ante una objeción (caro, sin tiempo, lo pienso): reconoce, da UN motivo o UNA salida que YA esté escrita en las instrucciones y vuelve a proponer el paso. Si no hay ninguna escrita, pregunta qué le frena y ofrece consultarlo. Sin presionar ni insistir más de una vez.",
   "- Urgencia y escasez solo si son reales y constan (una oferta con fecha, cupos que trae el catálogo). Nunca inventadas.",
   "- Si el cliente cuenta algo de sí mismo, conecta el producto con eso en una línea.",
   "- Lo que no sabe: lo dice sin rodeos y hace lo que mande el negocio (consultarlo, pasar a una persona). Nunca lo inventa ni lo esquiva con un cierre.",
@@ -52,6 +52,33 @@ const PLAYBOOK = [
 /** Cambios por propuesta, como mucho, y lo que puede medir el texto de cada uno. */
 const EDITS_MAX = 6;
 const EDIT_TEXT_MAX = 500;
+
+/** Cómo se decide un cambio, sus límites y cómo se devuelve: lo comparten «Mejorar» y «Corregir al agente». */
+export const EDIT_RULES = [
+  "- Una regla nueva es una orden concreta para el agente, en una o dos líneas, escrita como las demás líneas de esas instrucciones: mismo tono, mismo formato, mismas viñetas.",
+  "- Si dos fallos se arreglan con la misma regla, es un solo cambio. Menos cambios y mejor puestos valen más que muchos.",
+  "- Si una línea de las instrucciones empuja al fallo (por ejemplo, pide respuestas largas y el fallo es que escribe demasiado), corrige esa línea en vez de añadir otra que la contradiga.",
+  "- Pon cada regla nueva en la sección de las instrucciones donde corresponde (junto a las reglas de cómo atender, no entre los datos del negocio).",
+];
+export const EDIT_LIMITS = [
+  "- Nunca añadas datos del negocio que no estén ya en las instrucciones: precios, fechas, horarios, plazos, descuentos, garantías, formas de pago, políticas, nombres. Si falta un dato, la regla dice qué hacer cuando no se sabe; no lo inventes.",
+  "- No toques los datos entre « » (como «Precio»), los huecos entre corchetes (como [Oferta]) ni los nombres de las herramientas (como search_products).",
+  "- No cambies lo que funciona ni el tono del dueño.",
+];
+export const EDITS_FORMAT = [
+  "<cambios>",
+  "[",
+  "  {",
+  '    "what": "qué cambia, en una frase sencilla para el dueño del negocio, que no es técnico",',
+  '    "why": "qué fallaba en las conversaciones, en una frase",',
+  '    "case": "el título del caso que lo motivó, o null",',
+  '    "action": "add, replace o remove",',
+  '    "anchor": "una línea copiada EXACTA de las instrucciones actuales. Con add: la última línea de la sección donde va la regla nueva (vacío solo si las instrucciones no tienen secciones). Con replace y remove: la línea que se cambia o se quita",',
+  '    "text": "con add y replace: la línea o líneas nuevas, tal como deben quedar escritas en las instrucciones; como mucho dos líneas cortas (unos 300 caracteres)"',
+  "  }",
+  "]",
+  "</cambios>",
+];
 
 /**
  * El encargo. La IA no reescribe las instrucciones: propone cambios puntuales
@@ -66,32 +93,16 @@ export const PROPOSAL_SYSTEM = [
   "",
   "Cómo decides los cambios:",
   "- Parte de lo que marcó el revisor. Para cada fallo, busca la línea de las instrucciones que lo provoca (corrígela o quítala) o la regla que falta (añádela).",
-  "- Una regla nueva es una orden concreta para el agente, en una o dos líneas, escrita como las demás líneas de esas instrucciones: mismo tono, mismo formato, mismas viñetas.",
-  "- Si dos fallos se arreglan con la misma regla, es un solo cambio. Menos cambios y mejor puestos valen más que muchos.",
-  "- Si una línea de las instrucciones empuja al fallo (por ejemplo, pide respuestas largas y el fallo es que escribe demasiado), corrige esa línea en vez de añadir otra que la contradiga.",
-  "- Pon cada regla nueva en la sección de las instrucciones donde corresponde (junto a las reglas de cómo atender, no entre los datos del negocio).",
+  ...EDIT_RULES,
   "",
   "Guía de venta por mensajes. Es criterio para ti, no texto para copiar: úsala solo para los fallos que se ven en las conversaciones, y con las palabras de este negocio.",
   PLAYBOOK,
   "",
   "Límites:",
-  "- Nunca añadas datos del negocio que no estén ya en las instrucciones: precios, fechas, horarios, plazos, descuentos, garantías, formas de pago, políticas, nombres. Si falta un dato, la regla dice qué hacer cuando no se sabe; no lo inventes.",
-  "- No toques los datos entre « » (como «Precio»), los huecos entre corchetes (como [Oferta]) ni los nombres de las herramientas (como search_products).",
-  "- No cambies lo que funciona ni el tono del dueño.",
+  ...EDIT_LIMITS,
   "",
   "Responde solo con este bloque, un JSON válido:",
-  "<cambios>",
-  "[",
-  "  {",
-  '    "what": "qué cambia, en una frase sencilla para el dueño del negocio, que no es técnico",',
-  '    "why": "qué fallaba en las conversaciones, en una frase",',
-  '    "case": "el título del caso que lo motivó, o null",',
-  '    "action": "add, replace o remove",',
-  '    "anchor": "una línea copiada EXACTA de las instrucciones actuales. Con add: la última línea de la sección donde va la regla nueva (vacío solo si las instrucciones no tienen secciones). Con replace y remove: la línea que se cambia o se quita",',
-  '    "text": "con add y replace: la línea o líneas nuevas, tal como deben quedar escritas en las instrucciones; como mucho dos líneas cortas (unos 300 caracteres)"',
-  "  }",
-  "]",
-  "</cambios>",
+  ...EDITS_FORMAT,
 ].join("\n");
 
 const VERDICT_TEXT: Record<string, string> = { ok: "bien", review: "revisar", bad: "mal" };
@@ -231,6 +242,33 @@ function newBusinessData(base: string, text: string): string | null {
 }
 
 /**
+ * Lo que un negocio ofrece o promete: facilidades de pago, rebajas, garantías,
+ * extras. Una regla que lo mencione hace que el agente lo prometa.
+ */
+const OFFERS: [RegExp, string][] = [
+  [/cuotas?|(?:en|\d+)\s+(?:\d+\s+)?(?:partes|pagos|plazos)|fraccion\w*|financia\w*|a plazos/i, "pago en cuotas"],
+  [/descuentos?|rebajas?|promoci[oó]n(?:es)?|cup[oó]n(?:es)?/i, "un descuento"],
+  [/garant[ií]as?|reembolsos?|devoluci[oó]n(?:es)?/i, "una garantía o devolución"],
+  [/gratis|gratuit[oa]s?|sin costo|prueba libre/i, "algo gratis"],
+  [/becas?/i, "una beca"],
+  [/grabaci[oó]n(?:es)?|grabad[oa]s?/i, "grabaciones"],
+  [/regalos?|obsequios?|bonos?/i, "un regalo o bono"],
+];
+/** «No ofrezcas descuentos», «nunca prometas…», «sin garantía»: prohibirlo no es ofrecerlo. */
+const FORBIDS = /(?:\bno\b|\bnunca\b|\bjam[aá]s\b|\bni\b|\bevita\w*|\bsin\b)[^.;:\n]{0,60}$/i;
+
+/** Algo que la regla nueva ofrece y que el dueño no dice en ningún sitio que tenga. */
+function newOffer(base: string, text: string): string | null {
+  for (const [re, name] of OFFERS) {
+    if (new RegExp(re.source, "i").test(base)) continue;
+    for (const m of text.matchAll(new RegExp(re.source, "gi"))) {
+      if (!FORBIDS.test(text.slice(0, m.index))) return `${name} («${m[0]}»)`;
+    }
+  }
+  return null;
+}
+
+/**
  * Coloca los cambios sobre las instrucciones del dueño. Las líneas de
  * referencia se buscan siempre en el texto original, así el orden de los
  * cambios no importa: se puede corregir una línea y añadir una regla tras ella
@@ -239,8 +277,9 @@ function newBusinessData(base: string, text: string): string | null {
  * cambio que corrige o quita una línea que no existe o que ya cambiaba otro,
  * el que añade un dato del negocio que no estaba y el que quita algo que el
  * dueño puso para que el agente rellene o use. Los demás siguen valiendo.
+ * `allowed`: texto del dueño cuyos datos también valen (lo que pidió corregir).
  */
-export function applyProposal(base: string, edits: ProposedEdit[]): { instructions: string; changes: ImproveChange[]; skipped: string[] } {
+export function applyProposal(base: string, edits: ProposedEdit[], allowed = ""): { instructions: string; changes: ImproveChange[]; skipped: string[] } {
   const original = base.replace(/\r\n/g, "\n").split("\n");
   // Por cada línea original: lo que queda en su lugar (ella misma, otra o nada) y lo que se añade tras ella.
   const slots = original.map((line) => ({ line, now: [line], after: [] as string[], touched: false }));
@@ -270,9 +309,14 @@ export function applyProposal(base: string, edits: ProposedEdit[]): { instructio
       skip("era demasiado largo para ser una regla.");
       continue;
     }
-    const data = e.action === "remove" ? null : newBusinessData(base, e.text);
+    const data = e.action === "remove" ? null : newBusinessData(`${base}\n${allowed}`, e.text);
     if (data) {
       skip(`añadía un dato (${data}) que no está en tus instrucciones.`);
+      continue;
+    }
+    const offer = e.action === "remove" ? null : newOffer(`${base}\n${allowed}`, e.text);
+    if (offer) {
+      skip(`hacía que ofreciera ${offer}, y tus instrucciones no dicen que lo tengas.`);
       continue;
     }
     const lines = e.text.split("\n").map((l) => l.trimEnd());

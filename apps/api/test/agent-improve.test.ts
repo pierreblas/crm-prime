@@ -481,6 +481,24 @@ test("medir y proponer: la propuesta se mide con los mismos casos, y el agente s
   await assert.rejects(t.svc.restore("b1", "no-existe"), /ya no existe/);
 });
 
+test("una propuesta que ya viene hecha («Corregir al agente») se mide con los mismos casos que la de hoy", async () => {
+  const t = improve();
+  const cases = (await t.svc.overview("b1")).cases.slice(0, 2);
+  const given = { prompt: `${BASE}\n${NEW_RULE}`, changes: [{ what: "Que diga lo que no sabe", why: "Inventaba", caseTitle: null }] };
+  const run = await t.svc.start("b1", { caseIds: cases.map((c) => c.id), repetitions: 1, turns: 4, rounds: 0 }, given);
+  assert.equal(run.total, 4, "la de hoy y la propuesta");
+  await t.svc.settled(run.id);
+  const done = await t.svc.run("b1", run.id);
+  assert.equal(done.status, "done");
+  assert.deepEqual(done.variants.map((v) => [v.kind, v.status, !!v.score]), [["baseline", "done", true], ["proposal", "done", true]]);
+  assert.equal(done.variants[1]!.prompt, given.prompt);
+  assert.deepEqual(done.variants[1]!.changes, given.changes);
+  assert.equal(done.variants[1]!.comparison, "better", "se comparan");
+  assert.equal(t.asked.length, 0, "no se propone nada nuevo");
+  assert.equal(t.db.bots.get("b1")!.systemPrompt, BASE, "y el agente no cambia");
+  assert.equal(done.done, done.total);
+});
+
 test("si el dueño editó el agente mientras se medía, aplicar no pisa su cambio sin avisar", async () => {
   const t = improve();
   const cases = (await t.svc.overview("b1")).cases.slice(0, 1);

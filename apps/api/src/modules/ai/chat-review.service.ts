@@ -22,6 +22,9 @@ const SWEEP_EVERY_MS = 30 * 60_000;
 const DAILY_MS = 23.5 * 3600_000;
 const CHANNEL_NAME: Record<string, string> = { whatsapp: "WhatsApp", instagram: "Instagram", messenger: "Messenger", tiktok: "TikTok" };
 
+/** Las correcciones que se enseñan en su chat: las descartadas y las que fallaron, no. */
+const SHOWN_CORRECTIONS = ["running", "ready", "nothing", "applied"] as const;
+
 /**
  * Revisión de las conversaciones reales que atendió la IA: el mismo revisor del
  * simulador (AgentService.reviewTranscript), con lo que consultó el agente en
@@ -68,7 +71,16 @@ export class ChatReviewService implements OnModuleInit, OnModuleDestroy {
         where: status === "open" ? attention : {},
         orderBy: { createdAt: "desc" },
         take: 60,
-        include: { conversation: { select: { channelKind: true, contact: { select: { name: true, phone: true } } } } },
+        include: {
+          conversation: { select: { channelKind: true, contact: { select: { name: true, phone: true } } } },
+          // La última corrección que salió de este chat, para volver a verla.
+          corrections: {
+            where: { correction: { status: { in: [...SHOWN_CORRECTIONS] } } },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { correction: { select: { id: true, status: true } } },
+          },
+        },
       }),
       this.prisma.agentConfig.findMany({ select: { id: true } }),
     ]);
@@ -94,6 +106,7 @@ export class ChatReviewService implements OnModuleInit, OnModuleDestroy {
         status: r.status === "done" ? "done" : "open",
         createdAt: r.createdAt.toISOString(),
         lastMessageAt: r.lastMessageAt.toISOString(),
+        correction: r.corrections?.[0] ? { id: r.corrections[0].correction.id, status: r.corrections[0].correction.status as "running" | "ready" | "nothing" | "applied" } : null,
       })),
     };
   }

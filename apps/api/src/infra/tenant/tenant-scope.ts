@@ -62,6 +62,8 @@ const TENANT_MODELS = new Set<string>([
   "AgentImprovementRun",
   "AgentImprovementResult",
   "AgentPromptVersion",
+  "AgentCorrection",
+  "AgentCorrectionChat",
 ]);
 
 /**

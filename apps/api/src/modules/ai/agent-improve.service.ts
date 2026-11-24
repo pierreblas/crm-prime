@@ -222,7 +222,8 @@ export class AgentImproveService implements OnModuleInit {
 
   // ── Mediciones ──────────────────────────────────────────────
   /** Lanza una medición y vuelve enseguida: corre en segundo plano y la ventana pregunta por el avance. */
-  async start(botId: string, input: StartImproveRunInput): Promise<ImproveRun> {
+  // `proposal`: unas instrucciones ya propuestas («Corregir al agente») que medir frente a las de hoy.
+  async start(botId: string, input: StartImproveRunInput, proposal?: { prompt: string; changes: ImproveVariant["changes"] }): Promise<ImproveRun> {
     const bot = await this.bot(botId);
     if (!bot.systemPrompt.trim()) throw new BadRequestException("Este agente todavía no tiene instrucciones que medir.");
     if (await this.prisma.agentImprovementRun.count({ where: { status: "running" } })) {
@@ -237,6 +238,7 @@ export class AgentImproveService implements OnModuleInit {
 
     const variants: ImproveVariant[] = [
       { index: 0, kind: "baseline", status: "pending", prompt: bot.systemPrompt, changes: [], score: null, comparison: null, error: null },
+      ...(proposal ? [{ index: 1, kind: "proposal" as const, status: "pending" as const, prompt: proposal.prompt, changes: proposal.changes, score: null, comparison: null, error: null }] : []),
     ];
     const snap: CaseSnap[] = cases.map((c) => ({ id: c.id, title: c.title, brief: c.brief }));
     const run = await this.prisma.agentImprovementRun.create({
@@ -250,7 +252,7 @@ export class AgentImproveService implements OnModuleInit {
         ...(input.contact ? { contact: input.contact as Prisma.InputJsonValue } : {}),
         cases: snap as unknown as Prisma.InputJsonValue,
         variants: variants as unknown as Prisma.InputJsonValue,
-        total: cases.length * input.repetitions * (1 + input.rounds),
+        total: cases.length * input.repetitions * (1 + input.rounds + (proposal ? 1 : 0)),
       },
     });
     const work = runInOrg(bot.orgId, () => this.execute(run.id))
@@ -365,6 +367,14 @@ export class AgentImproveService implements OnModuleInit {
       await this.measure(run, bot, base, cases, save);
       // Detenida antes de acabar ninguna conversación no es un fallo: es una medición detenida.
       if (base.status === "failed" && !this.stopping.has(runId)) throw new Error(base.error ?? "No se pudo medir.");
+
+      // Una propuesta que ya venía hecha: se mide con los mismos casos.
+      for (const given of variants.filter((v) => v.kind === "proposal" && v.status === "pending")) {
+        if (this.stopping.has(runId)) break;
+        await this.measure(run, bot, given, cases, save);
+        if (given.score && base.score) given.comparison = compareImprovement(base.score, given.score);
+        await save();
+      }
 
       for (let round = 1; round <= run.rounds && !this.stopping.has(runId); round++) {
         const from = bestSoFar(variants);

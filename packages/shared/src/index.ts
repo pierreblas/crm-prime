@@ -58,6 +58,7 @@ export * from "./product-file.js";
 export * from "./waiting.js";
 export * from "./schemas/conversions.schema.js";
 export * from "./schemas/agent-improve.schema.js";
+export * from "./schemas/agent-correction.schema.js";
 export * from "./permissions.js";
 export * from "./implementation-pricing.js";
 export * from "./schemas/implementation.schema.js";

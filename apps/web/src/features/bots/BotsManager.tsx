@@ -204,7 +204,15 @@ export function BotsManager() {
           </div>
         )}
 
-        {sel.kind === "reviews" && <ChatReviewPanel />}
+        {sel.kind === "reviews" && (
+          <ChatReviewPanel
+            bots={bots}
+            onPromptChanged={() => {
+              dirtyRef.current = false;
+              void queryClient.invalidateQueries({ queryKey: ["bots"] }).then(() => setPromptRev((n) => n + 1));
+            }}
+          />
+        )}
 
         {sel.kind === "new" && data && (
           <>

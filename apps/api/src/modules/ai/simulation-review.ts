@@ -109,7 +109,7 @@ export function parseSimulationReview(raw: string): { verdict: SimulationVerdict
 }
 
 /** Para comparar citas: minúsculas, sin tildes, sin signos ni espacios repetidos. */
-function plain(text: string): string {
+export function plain(text: string): string {
   return text
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
