@@ -157,6 +157,10 @@ Son datos internos: se le pide que no los mencione ni los copie al cliente. Si q
 - **Para probarlo**, en *Probar conversación* escribe un `utm_campaign` o un `utm_term` en «Probar como».
 - **Para que cada campaña tenga su propio agente**, llévala a un embudo con su agente: en **Configurar** de cada formulario de Meta, o con un flujo que cree la oportunidad según el UTM.
 
+### Lo que ya le enviaron tus automatizaciones
+
+El agente lee la bienvenida de un formulario, las difusiones y los mensajes de tus flujos como si los hubiera escrito él. Cuando el cliente contesta, no lo saluda ni le presenta otra vez lo mismo, aunque sus instrucciones pidan empezar con la presentación: responde y da el siguiente paso. Si el cliente pregunta un dato que ya estaba («¿cuánto cuesta?»), lo contesta. Un mensaje que no se pudo enviar no cuenta. Lo que va **dentro de una imagen** no lo lee: si el precio solo está en la imagen de la plantilla, ponlo también en su texto.
+
 ### Datos del cliente en los mensajes fijos
 
 Las mismas variables funcionan en los textos que se envían tal cual, sin pasar por la IA: el **saludo automático**, el **mensaje fuera de horario**, las **respuestas por palabra clave** (y sus versiones), lo que dice **al pasarte el chat** y los **seguimientos de texto fijo**. «¡Hola {{nombre}}!» le llega a Ana como «¡Hola Ana!».

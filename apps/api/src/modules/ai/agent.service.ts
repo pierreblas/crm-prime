@@ -36,6 +36,7 @@ import { searchProducts } from "./product-search";
 import { buttonsSummary, knowledgeCall, traceToolCall } from "./playground-trace";
 import { agentPrice, DEFAULT_DISCOUNT_TIME_ZONE } from "./product-agent-price";
 import { consultedProductNames, followUpDraftAsk, productFactLine } from "./follow-up.rules";
+import { AUTO_SENT_RULE, HISTORY_MAX, openHistory, repliedToAutomatic } from "./agent-history";
 import { missingFilesNote, productDetails } from "./product-details";
 import { buttonRules, endsWithQuestion, parseReplyOptions, REPLY_OPTIONS_SYSTEM, replyOptionsInput } from "./reply-options";
 import { groundReview, parseSimulationReview, SIMULATION_REVIEW_MODEL, SIMULATION_REVIEW_SYSTEM, simulationReviewInput } from "./simulation-review";
@@ -104,6 +105,7 @@ export class AgentService {
     // para que el modelo elija de una lista cerrada en vez de inventarlos.
     const toolContext = await this.actions.loadContext();
     const tools = resolveTools(config?.enabledTools ?? [], toolContext);
+    const { messages, autoSent } = await this.loadHistory(conversationId);
     const system = this.buildSystemParts(config?.systemPrompt, conversation.contact, config?.enabledTools ?? [], !!config?.splitReplies, {
       catalogFields: catalogFields.map((f) => f.label),
       contactFields: contactFieldDefs,
@@ -112,8 +114,8 @@ export class AgentService {
       bookings: await this.bookingContext(config?.enabledTools ?? [], conversation.contact.id),
       channel: conversation.channelKind,
       paymentTool: tools.some((t) => t.name === PAYMENT_METHODS_TOOL),
+      autoSent,
     });
-    const messages = await this.buildHistory(conversationId);
     // En autopilot la IA aplica sus acciones sola; en copilot quedan
     // pendientes hasta que el humano envía la respuesta.
     const autoApply = conversation.aiMode === "AUTOPILOT";
@@ -491,6 +493,8 @@ export class AgentService {
       contactFields: contactFieldDefs,
       bookings: await this.bookingContext(config?.enabledTools ?? [], null),
       paymentTool: tools.some((t) => t.name === PAYMENT_METHODS_TOOL),
+      // Solo lo de la empresa antes de este mensaje: el cliente contesta a una bienvenida.
+      autoSent: input.history.length > 0 && input.history.every((h) => h.role === "assistant"),
     });
     // En el playground las acciones no se aplican: solo se listan.
     const simulatedActions: string[] = [];
@@ -501,8 +505,9 @@ export class AgentService {
       ...input.history.map((h) => ({ role: h.role, content: h.role === "assistant" ? stripOptionsNote(h.content) : h.content })),
       { role: "user" as const, content: input.message },
     ];
-    // La API exige que el primer mensaje sea del usuario.
-    while (messages.length && messages[0]!.role === "assistant") messages.shift();
+    // Igual que en una conversación real: lo que se le mandó antes de que escribiera se conserva.
+    const opened = openHistory(messages, false);
+    messages.splice(0, messages.length, ...opened.messages);
 
     const ragEnabled = (config?.enabledTools ?? []).includes("search_knowledge");
     const knowledge = ragEnabled ? await this.retrieveSafe(input.message) : [];
@@ -1177,6 +1182,8 @@ export class AgentService {
       referral?: unknown;
       bookings?: string;
       channel?: string;
+      /** Contesta a un mensaje automático (bienvenida, difusión, flujo): que no lo repita. */
+      autoSent?: boolean;
       /** Nombre de la fuente del contacto. */
       source?: string | null;
       /** send_payment_methods está activada y hay métodos cargados. */
@@ -1257,6 +1264,7 @@ export class AgentService {
         : "",
       memory ? `\n\nLo que sabemos de este cliente (de conversaciones anteriores):\n${memory}` : "",
       originText(extra.referral, meta),
+      extra.autoSent ? AUTO_SENT_RULE : "",
       extra.bookings ?? "",
     ].join("");
     return { system, systemDynamic };
@@ -1336,7 +1344,7 @@ export class AgentService {
       source: conversation.contact.source?.name,
       channel: conversation.channelKind,
     });
-    const history = await this.buildHistory(conversationId);
+    const { messages: history } = await this.loadHistory(conversationId);
     const ask = followUpDraftAsk(goal, await this.followUpFacts(conversationId, conversation.contact));
     const res = await this.llm.generate({
       feature: "follow_up",
@@ -1359,18 +1367,21 @@ export class AgentService {
     return text || null;
   }
 
-  private async buildHistory(conversationId: string): Promise<LlmMessage[]> {
+  /** El historial que lee el agente y si el cliente contesta a un mensaje automático. */
+  private async loadHistory(conversationId: string): Promise<{ messages: LlmMessage[]; autoSent: boolean }> {
     const convo = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       select: { contactId: true },
     });
     const since = new Date(Date.now() - HISTORY_DAYS * 86_400_000);
     const recent = await this.prisma.message.findMany({
-      where: convo
-        ? { OR: [{ conversationId }, { conversation: { contactId: convo.contactId }, createdAt: { gte: since } }] }
-        : { conversationId },
+      where: {
+        ...(convo ? { OR: [{ conversationId }, { conversation: { contactId: convo.contactId }, createdAt: { gte: since } }] } : { conversationId }),
+        // Lo que no salió no está dicho: el cliente no lo recibió.
+        NOT: { direction: "OUTBOUND", status: "FAILED" },
+      },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: 40,
+      take: HISTORY_MAX,
     });
     const rows = recent.reverse();
     // Un audio o una imagen entran con lo que la IA entendió de ellos
@@ -1381,12 +1392,10 @@ export class AgentService {
       role: m.direction === "INBOUND" ? "user" : "assistant",
       content: MediaUnderstandingService.historyTextOf(m),
     }));
-    // La API exige que el primer mensaje sea del usuario.
-    while (msgs.length && msgs[0]!.role === "assistant") msgs.shift();
-    if (msgs.length === 0) {
-      msgs.push({ role: "user", content: "(el contacto inició la conversación)" });
-    }
-    return msgs;
+    const { messages, sentFirst } = openHistory(msgs, rows.length === HISTORY_MAX);
+    // Si lo primero fue de la empresa y el cliente aún no ha cruzado palabra con el agente, también cuenta.
+    const talked = rows.some((m) => m.direction === "OUTBOUND" && !!m.aiRunId);
+    return { messages, autoSent: repliedToAutomatic(rows) || (sentFirst && !talked) };
   }
 
   private cost(model: string, input: number, output: number): number {
