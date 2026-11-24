@@ -50,6 +50,34 @@ test("el catálogo es coherente: cada plan superior incluye lo del anterior", ()
   assert.equal(formatPlanPrice(PLANS.pro), "USD 49/mes");
 });
 
+test("pagar 6 meses o un año tiene descuento; el total es lo que se cobra y cuadra con lo que se ahorra", () => {
+  const { PLANS, BILLING_PERIODS, periodPrice, formatPeriodPrice, formatPeriodOffer } = shared;
+  assert.deepEqual(BILLING_PERIODS.map((p) => [p.key, p.months, p.discountPct]), [["month", 1, 0], ["half", 6, 10], ["year", 12, 20]]);
+  const total = (k: "starter" | "pro" | "business", p: "month" | "half" | "year") => periodPrice(PLANS[k], p)!.total;
+  assert.deepEqual((["month", "half", "year"] as const).map((p) => total("starter", p)), [19, 103, 182]);
+  assert.deepEqual((["month", "half", "year"] as const).map((p) => total("pro", p)), [49, 265, 470]);
+  assert.deepEqual((["month", "half", "year"] as const).map((p) => total("business", p)), [149, 805, 1430]);
+  assert.deepEqual(periodPrice(PLANS.pro, "year"), { total: 470, full: 588, saved: 118, perMonth: 39 });
+  assert.deepEqual(periodPrice(PLANS.pro, "month"), { total: 49, full: 49, saved: 0, perMonth: 49 });
+  for (const k of ["starter", "pro", "business"] as const) {
+    for (const p of BILLING_PERIODS) {
+      const r = periodPrice(PLANS[k], p.key)!;
+      assert.equal(r.total + r.saved, r.full);
+      // Nunca se anuncia más descuento del que se hace (con el redondeo a dólares enteros, medio dólar).
+      assert.ok(Math.abs(r.total - r.full * (1 - p.discountPct / 100)) <= 0.5, `${k} ${p.key}`);
+    }
+  }
+  // Gratis e instalación propia no tienen oferta.
+  assert.equal(periodPrice(PLANS.free, "year"), null);
+  assert.equal(periodPrice(shared.SELF_HOSTED_PLAN, "half"), null);
+  assert.equal(formatPeriodPrice(PLANS.pro, "half"), "USD 265 cada 6 meses");
+  assert.equal(formatPeriodPrice(PLANS.business, "year"), "USD 1.430 al año");
+  assert.equal(formatPeriodPrice(PLANS.pro, "month"), "USD 49/mes");
+  assert.equal(formatPeriodPrice(PLANS.free, "year"), "Sin costo");
+  assert.equal(formatPeriodOffer(PLANS.pro), "USD 265 por 6 meses (−10 %) o USD 470 por un año (−20 %)");
+  assert.equal(formatPeriodOffer(PLANS.free), "");
+});
+
 test("Gratis: un número, dos usuarios, sin coexistencia", async () => {
   const svc = service({ plan: "free", numbers: 1, users: 2 });
   await assert.rejects(() => svc.assertCanAdd("numbers"), /admite 1 número de WhatsApp/);

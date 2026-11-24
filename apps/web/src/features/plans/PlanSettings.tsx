@@ -1,17 +1,22 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AI_PACKS,
   AI_PACK_MONTHS,
+  BILLING_PERIODS,
   FEATURE_LABELS,
   PLAN_FEATURES,
   TRIAL_AI_TOKENS,
   formatAiIncluded,
+  formatPeriodPrice,
   formatPlanPrice,
   formatRetention,
+  formatUsd,
+  periodPrice,
   planWithFeature,
+  type BillingPeriodKey,
   type MyPlanDto,
   type PlanDef,
   formatTokens,
@@ -37,6 +42,9 @@ export function PlanSettings() {
   // la fila de la IA de Driony solo si también gastó algo de ella (audios, imágenes, conocimiento).
   const { data: ai } = useAiStatus();
   const ownKey = ai?.source === "own" || ai?.source === "platform";
+  // Cada cuánto se paga: cambia los precios de abajo y va en el correo para que se sepa qué pide.
+  const [period, setPeriod] = useState<BillingPeriodKey>("month");
+  const pays = BILLING_PERIODS.find((p) => p.key === period)!;
 
   // El medidor de la cabecera enlaza a #extra, que no existe hasta que carga el plan.
   useEffect(() => {
@@ -89,7 +97,7 @@ export function PlanSettings() {
   const { plan, usage, plans, trial } = data;
   const trialing = !!trial?.active;
   const subject = encodeURIComponent(
-    trialing ? `Quiero quedarme con ${plan.name} (estoy en la prueba)` : `Cambio de plan (ahora: ${plan.name})`,
+    `${trialing ? `Quiero quedarme con ${plan.name} (estoy en la prueba)` : `Cambio de plan (ahora: ${plan.name})`}${period === "month" ? "" : `, pagando ${pays.label.toLowerCase()} (−${pays.discountPct} %)`}`,
   );
 
   return (
@@ -167,10 +175,25 @@ export function PlanSettings() {
       {plan.aiTokens !== null && !ownKey && <AiExtra packs={data.aiPacks} contactEmail={data.contactEmail} />}
 
       <section>
-        <h4 className="plan-all__title">Todos los planes</h4>
+        <div className="plan-all__head">
+          <h4 className="plan-all__title">Todos los planes</h4>
+          <div className="seg seg-sm" role="group" aria-label="Cada cuánto pagar" data-plan-period={period}>
+            {BILLING_PERIODS.map((p) => (
+              <button key={p.key} type="button" aria-pressed={period === p.key} className={period === p.key ? "is-active" : ""} onClick={() => setPeriod(p.key)} data-period={p.key}>
+                {p.label}
+                {p.discountPct > 0 ? ` · −${p.discountPct} %` : ""}
+              </button>
+            ))}
+          </div>
+        </div>
+        {period !== "month" && (
+          <p className="plan-fairuse" style={{ marginBottom: 12 }}>
+            Se paga por adelantado y no se renueva solo. Si cancelas antes, tu plan sigue hasta el final de lo pagado y esa parte no se devuelve. Para pedirlo, usa «{trialing ? `Quedarme con ${plan.name}` : "Cambiar de plan"}»: el correo ya dice que pagas {pays.label.toLowerCase()}.
+          </p>
+        )}
         <div className="plan-grid">
           {plans.map((p) => (
-            <PlanCard key={p.key} plan={p} current={p.key === plan.key} trialing={trialing} />
+            <PlanCard key={p.key} plan={p} period={period} current={p.key === plan.key} trialing={trialing} />
           ))}
         </div>
       </section>
@@ -310,7 +333,8 @@ function Usage({ label, used, limit, format = String }: { label: string; used: n
   );
 }
 
-function PlanCard({ plan, current, trialing }: { plan: PlanDef; current: boolean; trialing: boolean }) {
+function PlanCard({ plan, period, current, trialing }: { plan: PlanDef; period: BillingPeriodKey; current: boolean; trialing: boolean }) {
+  const price = periodPrice(plan, period);
   const lim = (n: number | null, one: string, many: string) =>
     n === null ? `${many} sin límite` : `${n} ${n === 1 ? one : many}`;
   return (
@@ -319,7 +343,8 @@ function PlanCard({ plan, current, trialing }: { plan: PlanDef; current: boolean
         <span className="plan-card__name">{plan.name}</span>
         {current && <span className="plan-card__badge">{trialing ? "En prueba" : "Tu plan"}</span>}
       </div>
-      <span className="plan-card__price">{formatPlanPrice(plan)}</span>
+      <span className="plan-card__price">{formatPeriodPrice(plan, period)}</span>
+      {price && price.saved > 0 && <span className="plan-card__offer">Ahorras {formatUsd(price.saved)}: unos {formatUsd(price.perMonth)} al mes</span>}
       <p className="plan-card__tagline">{plan.tagline}</p>
       <ul className="plan-card__rows">
         <li>

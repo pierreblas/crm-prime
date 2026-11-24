@@ -1690,6 +1690,79 @@
   color: var(--muted);
   letter-spacing: 0;
 }
+/* Cada cuánto se paga: los tres precios de cada plan, sin salir de la página. */
+.lp-period {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 22px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.lp-period button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.lp-period button + button {
+  border-left: 1px solid var(--border);
+}
+.lp-period button:hover {
+  color: var(--ink);
+}
+.lp-period button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.lp-period button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.lp-period__off {
+  padding: 1px 7px;
+  border: 1px solid var(--accent-line);
+  color: var(--accent-text);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.lp-plan > p.lp-price__offer {
+  margin: -4px 0 0;
+  color: var(--accent-text);
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+.lp-price__offer s {
+  color: var(--muted);
+}
+.lp-price__offer span {
+  display: block;
+  color: var(--muted);
+}
+@media (max-width: 520px) {
+  .lp-period {
+    width: 100%;
+  }
+  .lp-period button {
+    flex: 1 1 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 6px;
+    font-size: 14px;
+  }
+}
 .lp-plans__note {
   margin: 22px auto 0;
   color: var(--muted);

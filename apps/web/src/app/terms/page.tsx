@@ -89,7 +89,7 @@ export default function TermsPage() {
           </li>
           <li>
             El plan gratuito no requiere tarjeta. Los planes de pago se cobran por adelantado en cada
-            periodo. Puedes subir, bajar o cancelar cuando quieras; el cambio aplica desde el siguiente
+            periodo (un mes, seis meses o un año, según el que elijas). Puedes subir, bajar o cancelar cuando quieras; el cambio aplica desde el siguiente
             periodo y no se devuelve la parte ya pagada del periodo en curso.
           </li>
           <li>

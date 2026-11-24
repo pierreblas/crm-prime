@@ -206,6 +206,49 @@ export function formatPlanPrice(plan: PlanDef): string {
   return `USD ${plan.priceUsd}/mes`;
 }
 
+/**
+ * Cada cuánto se paga un plan. Pagar por adelantado más tiempo sale más barato;
+ * el total va en dólares enteros y es lo que se cobra. Se cambia solo aquí.
+ */
+export const BILLING_PERIODS = [
+  { key: "month", months: 1, discountPct: 0, label: "Cada mes" },
+  { key: "half", months: 6, discountPct: 10, label: "Cada 6 meses" },
+  { key: "year", months: 12, discountPct: 20, label: "Cada año" },
+] as const;
+export type BillingPeriodKey = (typeof BILLING_PERIODS)[number]["key"];
+
+/** Lo que cuesta pagar ese periodo de una vez; null si el plan no se paga. */
+export function periodPrice(plan: PlanDef, period: BillingPeriodKey): { total: number; full: number; saved: number; perMonth: number } | null {
+  if (!plan.priceUsd) return null;
+  const p = BILLING_PERIODS.find((x) => x.key === period)!;
+  const full = plan.priceUsd * p.months;
+  const total = Math.round((full * (100 - p.discountPct)) / 100);
+  return { total, full, saved: full - total, perMonth: Math.round(total / p.months) };
+}
+
+/** "USD 1.430": con punto de miles también en las de cuatro cifras, que `es` deja juntas. */
+export function formatUsd(n: number): string {
+  return `USD ${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+}
+
+/** "USD 49/mes", "USD 265 cada 6 meses", "USD 470 al año" o "Sin costo". */
+export function formatPeriodPrice(plan: PlanDef, period: BillingPeriodKey): string {
+  const price = periodPrice(plan, period);
+  if (!price || period === "month") return formatPlanPrice(plan);
+  return `${formatUsd(price.total)} ${period === "half" ? "cada 6 meses" : "al año"}`;
+}
+
+/** "USD 265 por 6 meses (−10 %) o USD 470 por un año (−20 %)"; "" si el plan no se paga. */
+export function formatPeriodOffer(plan: PlanDef): string {
+  return BILLING_PERIODS.filter((p) => p.discountPct > 0)
+    .map((p) => {
+      const price = periodPrice(plan, p.key);
+      return price ? `${formatUsd(price.total)} por ${p.months === 12 ? "un año" : `${p.months} meses`} (−${p.discountPct} %)` : "";
+    })
+    .filter(Boolean)
+    .join(" o ");
+}
+
 /** "90 días", "6 meses", "1 año", "3 años" o "sin plazo". */
 export function retentionLabel(days: number | null): string {
   if (days === null) return "sin plazo";

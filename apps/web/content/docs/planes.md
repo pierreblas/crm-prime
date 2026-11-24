@@ -7,6 +7,8 @@ En la nube de Driony (`tu-empresa.driony.com`) cada empresa tiene un plan. El pl
 | | Gratis | Inicial | Pro | Empresa |
 |---|---|---|---|---|
 | Precio | 0 | USD 19/mes | USD 49/mes | USD 149/mes |
+| Pagando 6 meses (−10 %) | | USD 103 | USD 265 | USD 805 |
+| Pagando el año (−20 %) | | USD 182 | USD 470 | USD 1.430 |
 | Números de WhatsApp | 1 | 1 | 3 | Sin límite |
 | Usuarios del equipo | 2 | 3 | 10 | Sin límite |
 | Contactos | 500 | 2.000 | 5.000 | Sin límite |
@@ -93,4 +95,6 @@ Un número ya conectado en coexistencia sigue así aunque cambies de plan.
 
 En **Ajustes › Plan** ves tu plan, cuánto llevas usado, tus tokens extra y qué incluye cada plan. Si usas tu propia clave de IA, en vez del cupo ves los tokens que gastaste con ella este mes (sin límite); el detalle por función y modelo está en **Ajustes › Consumo de IA**.
 
-Todavía no hay cobro automático: para cambiar de plan o pedir tokens extra, escríbenos desde **Ajustes › Plan**. Lo activamos el mismo día y te lo confirmamos antes de cobrarte nada.
+Se paga por adelantado: **cada mes**, **cada 6 meses** (10 % menos) o **cada año** (20 % menos). En **Ajustes › Plan** eliges el periodo y ves el precio de cada plan. No es obligatorio pagar más de un mes. Si cancelas antes, tu plan sigue hasta el final de lo pagado y esa parte no se devuelve.
+
+Todavía no hay cobro ni renovación automáticos: para cambiar de plan o pedir tokens extra, escríbenos desde **Ajustes › Plan**. Lo activamos el mismo día y te lo confirmamos antes de cobrarte nada.

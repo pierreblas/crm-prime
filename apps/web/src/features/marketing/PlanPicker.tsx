@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import Link from "next/link";
-import { AI_TOKENS_PER_CONVERSATION, formatTokens, PLAN_KEYS, PLANS, TRIAL_DAYS, type PlanDef } from "@crm/shared";
+import { AI_TOKENS_PER_CONVERSATION, formatPeriodOffer, formatTokens, PLAN_KEYS, PLANS, TRIAL_DAYS, type PlanDef } from "@crm/shared";
 import { Arrow } from "./chrome";
 
 /**
@@ -96,6 +96,7 @@ export function PlanPicker() {
               ? "Con tu clave la IA no tiene cupo: pagas a tu proveedor, sin recargo."
               : `${formatTokens(plan.aiTokens ?? 0)} de tokens de IA al mes: unas ${Math.round((plan.aiTokens ?? 0) / AI_TOKENS_PER_CONVERSATION).toLocaleString("es")} conversaciones atendidas.`}
           </li>
+          {formatPeriodOffer(plan) && <li>Pagando por adelantado: {formatPeriodOffer(plan)}.</li>}
           <li>Sin cobro por conversación, por mensaje ni por contacto.</li>
         </ul>
         <Link href="/register" className="lp-btn lp-btn--primary">

@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   ADMIN_COPILOT_FREE_QUESTIONS,
   AI_PACKS,
   AI_PACK_MONTHS,
+  BILLING_PERIODS,
   FEATURE_LABELS,
   formatAiIncluded,
+  formatPeriodOffer,
   formatPlanLimit,
   formatRetention,
   PLAN_FEATURES,
@@ -17,12 +20,14 @@ import {
   TRIAL_AI_TOKENS,
   TRIAL_DAYS,
   TRIAL_PLAN,
+  type BillingPeriodKey,
   type PlanDef,
   type PlanLimit,
   AI_TOKENS_PER_CONVERSATION,
   formatTokens,
 } from "@crm/shared";
 import "./landing.css";
+import { PeriodPrice, PeriodToggle } from "./BillingPeriod";
 import { Arrow, Check, CONTACT, GITHUB, IconGit, MarketingFooter, MarketingHeader, Minus } from "./chrome";
 
 /** Lo que llevan todos los planes de la nube, también el gratis. */
@@ -51,6 +56,11 @@ const RETENTION_BY_PLAN = (() => {
   return `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}`;
 })();
 
+/** "un 10 % menos si pagas 6 meses y un 20 % menos si pagas el año", del catálogo. */
+const OFF_TEXT = BILLING_PERIODS.filter((p) => p.discountPct > 0)
+  .map((p) => `un ${p.discountPct} % menos si pagas ${p.months === 12 ? "el año" : `${p.months} meses`}`)
+  .join(" y ");
+
 const FAQ = [
   {
     q: "¿Necesito tarjeta para empezar?",
@@ -66,7 +76,11 @@ const FAQ = [
   },
   {
     q: "¿Cómo se paga un plan?",
-    a: "Nos escribes desde Ajustes › Plan (o al correo de contacto), te enviamos la factura y activamos el plan en el día. Se paga por adelantado cada mes o cada año, y puedes bajar o cancelar cuando quieras: aplica al siguiente periodo.",
+    a: "Nos escribes desde Ajustes › Plan (o al correo de contacto), te enviamos la factura y activamos el plan en el día. Se paga por adelantado cada mes, cada 6 meses o cada año, sin renovación automática, y puedes bajar o cancelar cuando quieras: aplica al siguiente periodo.",
+  },
+  {
+    q: "¿Hay descuento si pago más tiempo por adelantado?",
+    a: `Sí: ${OFF_TEXT}. Inicial queda en ${formatPeriodOffer(PLANS.starter)}; Pro, en ${formatPeriodOffer(PLANS.pro)}; Empresa, en ${formatPeriodOffer(PLANS.business)}. No es obligatorio: puedes pagar mes a mes. Si cancelas antes, tu plan sigue hasta el final de lo que pagaste y esa parte no se devuelve.`,
   },
   {
     q: "¿Qué pasa cuando llego a un límite?",
@@ -92,6 +106,7 @@ const FAQ = [
 
 /** Página de precios: los planes salen del catálogo compartido, así que cambian aquí cuando cambian en el código. */
 export function Pricing() {
+  const [period, setPeriod] = useState<BillingPeriodKey>("month");
   return (
     <div className="lp" id="lp-root" lang="es" suppressHydrationWarning>
       <a href="#contenido" className="lp-skip">
@@ -111,9 +126,10 @@ export function Pricing() {
               </p>
             </div>
 
+            <PeriodToggle value={period} onChange={setPeriod} />
             <div className="lp-plans lp-plans--4">
               {PLAN_KEYS.map((k) => (
-                <PlanCard key={k} plan={PLANS[k]} highlight={k === "pro"} />
+                <PlanCard key={k} plan={PLANS[k]} period={period} highlight={k === "pro"} />
               ))}
             </div>
 
@@ -263,7 +279,7 @@ function AiWays() {
 /** Etiqueta corta de cada plan, encima del nombre. */
 const TAG: Record<string, string> = { free: "Para probar", starter: "Para empezar", pro: "Más elegido", business: "Sin límites" };
 
-function PlanCard({ plan, highlight }: { plan: PlanDef; highlight: boolean }) {
+function PlanCard({ plan, period, highlight }: { plan: PlanDef; period: BillingPeriodKey; highlight: boolean }) {
   const free = plan.priceUsd === 0;
   // El plan de la prueba se empieza igual que el gratis: creando la cuenta.
   const trial = plan.key === TRIAL_PLAN;
@@ -274,10 +290,7 @@ function PlanCard({ plan, highlight }: { plan: PlanDef; highlight: boolean }) {
     <article className={`lp-plan${highlight ? " lp-plan--cloud" : ""}`} data-plan={plan.key}>
       <div className="lp-plan__tag">{TAG[plan.key] ?? plan.name}</div>
       <h3>{plan.name}</h3>
-      <p className="lp-price">
-        USD {plan.priceUsd}
-        <small>/mes</small>
-      </p>
+      <PeriodPrice plan={plan} period={period} />
       <p>{plan.tagline}</p>
       <div className="lp-plan__rows">
         {LIMITS.map((k) => (
@@ -315,7 +328,7 @@ function PlanCard({ plan, highlight }: { plan: PlanDef; highlight: boolean }) {
             {trial ? `Probar ${TRIAL_DAYS} días gratis` : "Empezar gratis"} <Arrow />
           </Link>
         ) : (
-          <a href={`mailto:${CONTACT}?subject=Plan%20${encodeURIComponent(plan.name)}%20de%20Driony`} className={`lp-btn ${highlight ? "lp-btn--primary" : "lp-btn--ghost"}`}>
+          <a href={`mailto:${CONTACT}?subject=${encodeURIComponent(`Plan ${plan.name} de Driony${period === "month" ? "" : `, pagando ${BILLING_PERIODS.find((p) => p.key === period)!.label.toLowerCase()}`}`)}`} className={`lp-btn ${highlight ? "lp-btn--primary" : "lp-btn--ghost"}`}>
             Hablar con nosotros
           </a>
         )}

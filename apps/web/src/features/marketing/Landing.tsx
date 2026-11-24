@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { formatAiIncluded, formatPlanLimit, formatTokens, PLAN_KEYS, PLANS, TRIAL_AI_TOKENS, TRIAL_DAYS } from "@crm/shared";
+import { formatAiIncluded, formatPlanLimit, formatTokens, PLAN_KEYS, PLANS, TRIAL_AI_TOKENS, TRIAL_DAYS, type BillingPeriodKey } from "@crm/shared";
 import "./landing.css";
 import { Arrow, Check, GITHUB, IconGit, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV } from "./chrome";
 import { HeroDemo } from "./HeroDemo";
 import { PlanPicker } from "./PlanPicker";
+import { PeriodPrice, PeriodToggle } from "./BillingPeriod";
 import { AgentSimulator } from "./AgentSimulator";
 import { FeatureDoc } from "./FeatureDoc";
 
@@ -124,6 +125,7 @@ const FAQ = [
 export function Landing() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState<string | null>(null);
+  const [period, setPeriod] = useState<BillingPeriodKey>("month");
 
   // Reveals y sección activa. El contenido es visible por defecto (sin JS);
   // la clase lp-js solo añade la animación al hidratar. Donde el navegador
@@ -410,6 +412,9 @@ export function Landing() {
                 </p>
               </div>
             </div>
+            <div className="lp-reveal">
+              <PeriodToggle value={period} onChange={setPeriod} />
+            </div>
             <div className="lp-plans lp-plans--snap lp-reveal">
               {PLAN_KEYS.map((k) => {
                 const plan = PLANS[k];
@@ -418,10 +423,7 @@ export function Landing() {
                   <article className={`lp-plan lp-plan--snap${pro ? " lp-plan--cloud" : ""}`} key={k} data-plan={k}>
                     <div className="lp-plan__tag">{PLAN_TAG[k] ?? plan.name}</div>
                     <h3>{plan.name}</h3>
-                    <p className="lp-price">
-                      USD {plan.priceUsd}
-                      <small>/mes</small>
-                    </p>
+                    <PeriodPrice plan={plan} period={period} />
                     <p>{plan.tagline}</p>
                     <div className="lp-plan__rows">
                       {(["numbers", "users"] as const).map((lim) => (
