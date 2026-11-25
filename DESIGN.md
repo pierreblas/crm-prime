@@ -94,8 +94,10 @@ bisel, rejilla y letra mono), que se leía cyberpunk y no funcionaba en papeler�
 stands ni publicaciones. La aplicación fuera de pantalla está en
 `Documentos/Driony marca`.
 
-La **landing** alterna secciones en petróleo, niebla y blanco, con el globo lima en el
-titular y el globo gigante, cortado por el borde, en el cierre. El **panel** es denso
+La **landing** alterna secciones en petróleo, niebla y blanco y sigue **el estilo grande**
+de las piezas impresas: una forma enorme cortada por el borde, dos colores y pocas palabras.
+El globo lima del titular sale por la cabecera y por la derecha; el del cierre, por la
+izquierda. El **panel** es denso
 pero legible: los mismos colores, superficies planas con filete y esquinas suaves.
 
 **Key Characteristics:**
@@ -170,8 +172,9 @@ fichas bajo `.lp`; las zonas en petróleo y en lima son iguales en los dos.
 **Mono:** JetBrains Mono, **solo** código, claves y lo que se copia tal cual.
 
 ### Hierarchy
-- **Display** (600, hasta 4,1rem, 1.02): el titular de la landing, una frase por línea.
-- **Headline** (600, hasta 3,1rem): títulos de sección. El del cierre llega a 4,4rem.
+- **Display** (600, hasta 5,4rem, 0.98): el titular de la landing, una frase por línea. El
+  de precios llega a 6rem.
+- **Headline** (600, hasta 3,75rem, 19ch): títulos de sección. El del cierre llega a 5,2rem.
 - **Title** (700, 16px): título de página y de tarjeta en la app. Escala fija.
 - **Body** (400, 14px, 1.5): la app. En la landing, 17px/1.6 y 54–64ch.
 - **Label** (600, 12,5px): etiquetas, cabeceras de tabla y leyendas, en caja normal y con
@@ -183,6 +186,11 @@ menú, ni cabeceras. Solo las siglas (CRM, ARM, IA).
 
 **La Regla del Titular Sólido.** Se enfatiza con tamaño y con el globo, nunca con degradado ni
 con una palabra de otro color.
+
+**La Regla de la Forma Grande.** Una sola forma enorme por sección, cortada por el borde de la
+ventana o de su bloque: el globo, una letra o un número. Para salir de la columna hasta el
+borde se usa `--edge`; para alinear con la columna desde un bloque a todo el ancho,
+`--edge-in` (en %, no cuenta la barra de scroll).
 
 ## 4. Elevation
 
@@ -256,14 +264,20 @@ una loseta petróleo redondeada para verse en pestañas claras. Se lee como «Dr
 
 ### Portada
 Dos columnas: los globos de los clientes con su hora y el globo lima con el titular, el texto y
-los botones; su cola cae sobre la demo (`HeroDemo.tsx`), que el visitante maneja y va con la
-etiqueta «Datos de ejemplo». En el celular los globos van en fila y el titular debajo. El rótulo
+los botones. El globo es gigante: pega con la cabecera, sale por el borde derecho y su cola cae
+sobre la demo (`HeroDemo.tsx`), que el visitante maneja y va con la etiqueta «Datos de ejemplo».
+En el celular los globos van en fila y el titular debajo, con la esquina del globo a la vista. El rótulo
 «CRM tachado → ARM» cae con el sello. La captura de la bandeja sigue al tema
 (`bandeja.webp` / `bandeja-claro.webp`).
 
 ### Qué es ARM
 Las letras ARM en tinta con la sombra dura en lima, que se despega con el scroll, y las tres
-claves en globos de niebla.
+claves en globos altos, cada uno con su letra enorme cortada por la esquina: petróleo con la
+letra en lima, niebla con la letra en petróleo, petróleo con la letra en lima. Ninguno va en
+lima.
+
+### Cómo funciona
+Tres pasos con el número enorme sobre un filete de tinta; lo que tardan, en una etiqueta lima.
 
 ### Antes y después
 Una conversación en petróleo: «WhatsApp a mano» a la izquierda, «ARM con Driony» a la derecha en
@@ -273,7 +287,12 @@ blanco con el visto en lima. Sigue siendo una tabla para lectores de pantalla.
 Tarjetas blancas (o panel); el recomendado en petróleo con su rótulo en lima.
 
 ### Cierre
-`.lp-end`: petróleo con el globo gigante lima cortado por el borde derecho y el logo abajo.
+`.lp-end`: petróleo con el globo gigante lima cortado por el borde izquierdo, la cola a la
+derecha y el logo abajo.
+
+### Precios
+`.lp-phero`: el título de la página en un globo niebla gigante sobre petróleo, cortado por la
+cabecera y el borde izquierdo. Sin lima: en esa página el lima es del plan y del cierre.
 
 ## 6. Do's and Don'ts
 

@@ -190,7 +190,7 @@ export function Landing() {
         <section className="lp-hero">
           <div className="lp-hero__top lp-petrol">
             <div className="lp-wrap lp-hero__grid">
-              <div>
+              <div className="lp-hero__side">
                 {/* El rótulo tacha CRM y sella ARM: la categoría en un vistazo. */}
                 <p className="lp-hero__kicker lp-anim" style={{ animationDelay: "0.02s" }}>
                   <span className="lp-arm" role="img" aria-label="De CRM a ARM">
@@ -209,7 +209,7 @@ export function Landing() {
                 </ul>
               </div>
               {/* El dolor en una escena (el lead que escribe de noche) y quién contesta: una idea por línea. */}
-              <div className="lp-bub lp-bub--out lp-say lp-lime lp-anim" style={{ animationDelay: "0.3s" }}>
+              <div className="lp-bub lp-say lp-lime lp-anim" style={{ animationDelay: "0.3s" }}>
                 <h1>
                   <span className="lp-hero__line">Tus clientes escriben a medianoche.</span>{" "}
                   <span className="lp-hero__line">Tu agente responde.</span>
@@ -279,10 +279,13 @@ export function Landing() {
               </div>
             </div>
             <dl className="lp-arm-keys lp-reveal">
-              {ARM_KEYS.map((k) => (
-                <div className="lp-bub lp-arm-key" key={k.letter}>
+              {ARM_KEYS.map((k, i) => (
+                <div className={`lp-bub lp-arm-key lp-arm-key--${i}`} key={k.letter}>
                   <dt>
-                    <b aria-hidden="true">{k.letter}</b>
+                    {/* La letra, enorme y cortada por la esquina del bloque. */}
+                    <span className="lp-arm-key__big" aria-hidden="true">
+                      <span>{k.letter}</span>
+                    </span>
                     {k.title}
                   </dt>
                   <dd>{k.text}</dd>
@@ -514,7 +517,7 @@ export function Landing() {
 
         {/* ── Cierre: el globo gigante, cortado por el borde ── */}
         <section className="lp-end lp-petrol">
-          <div className="lp-bub lp-end__giant lp-lime">
+          <div className="lp-bub lp-bub--out lp-end__giant lp-lime">
             <h2>Tu próximo lead escribe esta noche. ¿Quién le responde?</h2>
             <p>Pon un agente en tu número, dale tu catálogo y tus reglas, y deja de perder ventas en WhatsApp. Hoy, en dos minutos.</p>
             <div className="lp-cta__row">

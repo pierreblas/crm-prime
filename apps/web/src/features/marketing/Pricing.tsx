@@ -116,17 +116,20 @@ export function Pricing() {
       <MarketingHeader active="precios" />
 
       <main id="contenido">
+        {/* El título, en grande: un globo niebla cortado por la cabecera y el borde izquierdo. */}
+        <section className="lp-phero lp-petrol">
+          <div className="lp-bub lp-bub--out lp-phero__giant">
+            <h1>Precios claros, sin sorpresas.</h1>
+            <p className="lp-lede">
+              Pruébalo {TRIAL_DAYS} días con todo Pro, sin tarjeta. Después sigues gratis o eliges tu plan:
+              se paga por empresa, no por usuario. La IA ya viene incluida, y los mensajes de WhatsApp los cobra Meta a tu
+              cuenta, sin recargo nuestro.
+            </p>
+          </div>
+        </section>
+
         <section className="lp-section lp-section--first">
           <div className="lp-wrap">
-            <div className="lp-head">
-              <h1>Precios claros, sin sorpresas.</h1>
-              <p className="lp-lede">
-                Pruébalo {TRIAL_DAYS} días con todo Pro, sin tarjeta. Después sigues gratis o eliges tu plan:
-                se paga por empresa, no por usuario. La IA ya viene incluida, y los mensajes de WhatsApp los cobra Meta a tu
-                cuenta, sin recargo nuestro.
-              </p>
-            </div>
-
             <PeriodToggle value={period} onChange={setPeriod} />
             <div className="lp-plans lp-plans--4">
               {PLAN_KEYS.map((k) => (
@@ -209,7 +212,7 @@ export function Pricing() {
         </section>
 
         <section className="lp-end lp-petrol">
-          <div className="lp-bub lp-end__giant lp-lime">
+          <div className="lp-bub lp-bub--out lp-end__giant lp-lime">
             <h2>Empieza hoy, paga cuando crezcas.</h2>
             <p>Tu espacio en tu-empresa.driony.com en dos minutos. {TRIAL_DAYS} días de Pro gratis, sin tarjeta.</p>
             <div className="lp-cta__row">
