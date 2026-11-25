@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 /**
  * Reglas puras de la entrada automática al embudo. Van aparte del servicio
  * para poder probarlas sin base de datos.
@@ -30,8 +32,25 @@ export interface LastDeal {
   stage: { isWon: boolean; isLost: boolean; pipelineId: string };
 }
 
+const INTAKE_INCLUDE = { stage: { select: { isWon: true, isLost: true, pipelineId: true } } } as const;
+
 /**
- * Qué hacer con un contacto que escribe, según su última oportunidad:
+ * La oportunidad que decide: una abierta, si hay alguna; si no, la última. Mirar
+ * solo la última abría otra cuando la más nueva se había descartado, perdido o
+ * ganado y quedaba una anterior en curso (por ejemplo, al limpiar repetidas).
+ */
+export async function intakeDeal(db: Pick<Prisma.TransactionClient, "deal">, contactId: string) {
+  return (
+    (await db.deal.findFirst({
+      where: { contactId, discardedAt: null, stage: { isWon: false, isLost: false } },
+      orderBy: { createdAt: "desc" },
+      include: INTAKE_INCLUDE,
+    })) ?? (await db.deal.findFirst({ where: { contactId }, orderBy: { createdAt: "desc" }, include: INTAKE_INCLUDE }))
+  );
+}
+
+/**
+ * Qué hacer con un contacto que escribe, según su oportunidad (ver intakeDeal):
  *
  *   - abierta y en curso  → nada, ya se está trabajando;
  *   - descartada por inactividad en este mismo embudo → vuelve (respondió);

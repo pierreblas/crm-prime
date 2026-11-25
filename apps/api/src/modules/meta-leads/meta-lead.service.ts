@@ -19,7 +19,7 @@ import { runAsActor } from "../../infra/tenant/actor";
 import { TenantService } from "../../infra/tenant/tenant.service";
 import { LeadService } from "../leads/lead.service";
 import { MessagingService } from "../messaging/messaging.service";
-import { decideIntake } from "../pipeline/intake";
+import { decideIntake, intakeDeal } from "../pipeline/intake";
 import { fuenteAutomatica, fuenteAutomaticaExistente } from "../sources/fuente-automatica";
 import { MetaGraphClient } from "./meta-graph.client";
 
@@ -324,11 +324,7 @@ export class MetaLeadService {
 
     try {
       const dealId = await withContactLock(this.prisma, contactId, async (tx) => {
-        const last = await tx.deal.findFirst({
-          where: { contactId },
-          orderBy: { createdAt: "desc" },
-          include: { stage: { select: { isWon: true, isLost: true, pipelineId: true } } },
-        });
+        const last = await intakeDeal(tx, contactId);
         const decision = decideIntake(last, stage.pipelineId);
         if (decision === "skip") return null;
         if (decision === "restore" && last) {

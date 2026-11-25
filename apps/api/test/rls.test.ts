@@ -3320,6 +3320,26 @@ test("un lead que entra por varios lados a la vez queda con una sola oportunidad
   await ctx.runInOrg(orgId, () => Promise.all([pipeline.intakeFromWhatsapp(late.id, null, null), meta.createDeal(orgId, late.id, "Lead", "F", stage)]));
   const after = await ctx.runInOrg(orgId, () => prisma.deal.findMany({ where: { contactId: late.id } }));
   assert.deepEqual(after.map((d: any) => [d.id, d.discardedAt]), [[made.id, null]]);
+
+  // Las repetidas de antes se limpian a mano: al descartar (o perder, o ganar) la nueva, la primera
+  // sigue abierta y el cliente que vuelve a escribir o a llenar el formulario no abre otra.
+  const lost = await ctx.runInOrg(orgId, () => prisma.pipelineStage.findFirst({ where: { pipeline: { isDefault: true } }, orderBy: { order: "asc" } }));
+  const closing = await ctx.runInOrg(orgId, async () => [
+    { discardedAt: new Date(), discardReason: "manual" },
+    { stageId: (await prisma.pipelineStage.create({ data: { orgId, pipelineId: lost.pipelineId, name: "Perdido", order: 8, isLost: true } })).id },
+    { stageId: (await prisma.pipelineStage.create({ data: { orgId, pipelineId: lost.pipelineId, name: "Ganado", order: 9, isWon: true } })).id },
+  ]);
+  for (const [i, data] of closing.entries()) {
+    const c = await ctx.runInOrg(orgId, () => prisma.contact.create({ data: { orgId, phone: `+51917${i}${suf}`, name: `Repetido ${i}` } }));
+    const first = await ctx.runInOrg(orgId, () => prisma.deal.create({ data: { orgId, contactId: c.id, stageId: stage, title: "La primera", createdAt: new Date(Date.now() - 60_000) } }));
+    const second = await ctx.runInOrg(orgId, () => prisma.deal.create({ data: { orgId, contactId: c.id, stageId: stage, title: "La repetida" } }));
+    await ctx.runInOrg(orgId, () => prisma.deal.update({ where: { id: second.id }, data }));
+    await ctx.runInOrg(orgId, () => pipeline.intakeFromWhatsapp(c.id, null, null));
+    await ctx.runInOrg(orgId, () => meta.createDeal(orgId, c.id, "Lead", "Formulario", stage));
+    const all = await ctx.runInOrg(orgId, () => prisma.deal.findMany({ where: { contactId: c.id }, orderBy: { createdAt: "asc" } }));
+    assert.deepEqual(all.map((d: any) => d.id), [first.id, second.id], `no se abre otra (${JSON.stringify(Object.keys(data))})`);
+    assert.equal(all[0].stageId, stage, "y la primera sigue donde estaba");
+  }
 });
 
 test("«Corregir al agente» con el rol restringido: la corrección, sus chats y los casos quedan en su empresa", async () => {

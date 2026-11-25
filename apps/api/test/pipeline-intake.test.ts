@@ -5,7 +5,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { decideIntake, pickLeastLoaded } from "../src/modules/pipeline/intake";
+import { decideIntake, intakeDeal, pickLeastLoaded } from "../src/modules/pipeline/intake";
 
 const etapa = (o: Partial<{ isWon: boolean; isLost: boolean; pipelineId: string }> = {}) => ({
   isWon: false,
@@ -55,6 +55,17 @@ test("descartada a mano, o de otro embudo: una nueva", () => {
     ),
     "create",
   );
+});
+
+test("se mira primero si hay alguna abierta; solo si no, la última", async () => {
+  const asked: Record<string, unknown>[] = [];
+  const db = (open: unknown, last: unknown) => ({ deal: { findFirst: async (q: { where: Record<string, unknown> }) => (asked.push(q.where), "stage" in q.where ? open : last) } }) as never;
+  const open = { id: "abierta", discardedAt: null, discardReason: null, stage: etapa() };
+  const discarded = { id: "descartada", discardedAt: new Date(), discardReason: "manual", stage: etapa() };
+  assert.equal((await intakeDeal(db(open, discarded), "c1"))!.id, "abierta");
+  assert.deepEqual(asked, [{ contactId: "c1", discardedAt: null, stage: { isWon: false, isLost: false } }], "con una abierta no hace falta mirar más");
+  assert.equal((await intakeDeal(db(null, discarded), "c1"))!.id, "descartada");
+  assert.equal(await intakeDeal(db(null, null), "c1"), null);
 });
 
 test("el reparto va al vendedor con menos oportunidades abiertas; en empate, el primero", () => {

@@ -48,7 +48,7 @@ import { PermissionsService } from "../permissions/permissions.service";
 import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
 import { env } from "../../common/utils/env";
 import { publicApiBase } from "../../common/utils/public-api-base";
-import { decideIntake, pickLeastLoaded } from "./intake";
+import { decideIntake, intakeDeal, pickLeastLoaded } from "./intake";
 
 /**
  * Etapas con las que arranca un embudo nuevo (y cualquier empresa nueva). Las
@@ -520,14 +520,8 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     const entry = pipeline.stages.find((s) => s.id === pipeline.inboundStageId) ?? pipeline.stages[0];
     if (!entry) return;
 
-    const latest = (db: Pick<Prisma.TransactionClient, "deal">) =>
-      db.deal.findFirst({
-        where: { contactId },
-        orderBy: { createdAt: "desc" },
-        include: { stage: { select: { isWon: true, isLost: true, pipelineId: true } } },
-      });
     // Lo normal (ya tiene una en curso) no espera turno: corre con cada mensaje.
-    if (decideIntake(await latest(this.prisma), pipeline.id) === "skip") return;
+    if (decideIntake(await intakeDeal(this.prisma, contactId), pipeline.id) === "skip") return;
 
     const contact = await this.prisma.contact.findUnique({
       where: { id: contactId },
@@ -536,7 +530,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     if (!contact) return;
     const ownerId = await this.pickOwner(contact.sourceId, pipeline.id);
     const deal = await withContactLock(this.prisma, contactId, async (tx) => {
-      const last = await latest(tx);
+      const last = await intakeDeal(tx, contactId);
       const decision = decideIntake(last, pipeline.id);
       if (decision === "skip") return null;
       if (decision === "restore" && last) {
