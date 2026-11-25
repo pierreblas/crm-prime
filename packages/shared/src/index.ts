@@ -56,6 +56,7 @@ export * from "./schemas/tiktok.schema.js";
 export * from "./reply-parts.js";
 export * from "./product-file.js";
 export * from "./waiting.js";
+export * from "./chat-origin.js";
 export * from "./schemas/conversions.schema.js";
 export * from "./schemas/agent-improve.schema.js";
 export * from "./schemas/agent-correction.schema.js";

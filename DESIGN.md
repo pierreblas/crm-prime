@@ -236,6 +236,12 @@ Dos series: aguamarina (`--chart-1`) y lima (`--chart-2`). El verde, solo para v
 Fondo Campo, filete `--field-border`, `--r-md`, sin sombra. Foco: borde y anillo de 3px en
 `--accent-soft`. El select lleva su flecha y su lista es opaca.
 
+### Bandeja: por dónde llegó
+Cada chat lleva en la esquina de su avatar un círculo con la marca de por dónde llegó el cliente
+(`OriginBadge`), como en la demo de la portada: WhatsApp, Instagram, Messenger o TikTok en su
+color (`--ch-*`), megáfono si el chat viene de un anuncio y plantilla si llenó un formulario de
+Meta. El robot del piloto automático va en la esquina de arriba. La regla está en `chatOrigin()`.
+
 ### Navegación
 Barra lateral con grupos en 12px sin mayúsculas. Activo = lima llena con tinta petróleo; su
 insignia se invierte. Alrededor del avatar va el consumo de IA del mes en un anillo de 2px

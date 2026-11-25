@@ -6,6 +6,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AiMode,
+  chatOrigin,
   cleanReplyOptions,
   ConversationStatus,
   interactiveFromOptions,
@@ -64,6 +65,7 @@ import { NavIcon } from "@/components/NavIcons";
 import Link from "next/link";
 import { useLocale, useT } from "@/i18n/I18nProvider";
 import { FollowUpChip } from "./FollowUpChip";
+import { OriginBadge, originLabel } from "./OriginMark";
 import { useAiTyping } from "./aiTyping";
 import { AiWhy, sentimentLabel } from "./AiWhy";
 import { CallEntry } from "@/features/calls/CallEntry";
@@ -110,6 +112,8 @@ export function ChatWindow({
   const t = useT();
   const locale = useLocale();
   const queryClient = useQueryClient();
+  // Por dónde llegó: el mismo símbolo que lleva su fila en la lista.
+  const origin = chatOrigin(conversation);
   const [text, setText] = useState("");
   // Panel lateral (contacto / copiloto); null = cerrado.
   const [panel, setPanel] = useState<ContactPanelTab | null>(null);
@@ -403,8 +407,11 @@ export function ChatWindow({
               <NavIcon name="arrow-left" size={16} />
             </button>
           )}
-          <span style={avatar} aria-hidden>
-            {initials(conversation.contact.name ?? contactPhone)}
+          <span style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
+            <span style={avatar} aria-hidden>
+              {initials(conversation.contact.name ?? contactPhone)}
+            </span>
+            <OriginBadge origin={origin} label={originLabel(origin, conversation.contact.form, t)} />
           </span>
           <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
             <strong style={{ fontSize: 16, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

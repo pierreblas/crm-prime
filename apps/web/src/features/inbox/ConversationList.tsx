@@ -1,8 +1,9 @@
 "use client";
 
 import { readableInk } from "@/lib/readable-ink";
-import { CHANNEL_KIND_LABEL, MessageDirection, MessageType, phoneLabel, type ConversationDto, waitingMs } from "@crm/shared";
+import { CHANNEL_KIND_LABEL, MessageDirection, MessageType, chatOrigin, phoneLabel, type ConversationDto, waitingMs } from "@crm/shared";
 import { ChannelMark } from "./ChannelMark";
+import { OriginBadge, originLabel } from "./OriginMark";
 import { NavIcon, type IconName } from "@/components/NavIcons";
 import { useT } from "@/i18n/I18nProvider";
 import type { Translator } from "@/i18n/translate";
@@ -111,6 +112,7 @@ export function ConversationList({
         // Más de una hora sin respuesta: el contador pasa a color de aviso.
         const urgent = waiting !== null && waiting > 60 * 60_000;
         const preview = previewOf(c, t);
+        const origin = chatOrigin(c);
         return (
           <li
             key={c.id}
@@ -121,6 +123,7 @@ export function ConversationList({
           >
             <div style={{ position: "relative", flexShrink: 0 }}>
               <div style={avatar}>{initials(c.contact.name, phoneLabel(c.contact.phone, c.contact.waUsername))}</div>
+              <OriginBadge origin={origin} label={originLabel(origin, c.contact.form, t)} />
               {c.aiMode === "AUTOPILOT" && (
                 <span style={autoDot} title={t("inbox.modeAuto")}>
                   <NavIcon name="bot" size={9} />
@@ -360,10 +363,11 @@ const avatar: React.CSSProperties = {
   flexShrink: 0,
 };
 
+// Arriba: la esquina de abajo es del símbolo de por dónde llegó.
 const autoDot: React.CSSProperties = {
   position: "absolute",
   right: -3,
-  bottom: -3,
+  top: -3,
   width: 17,
   height: 17,
   borderRadius: "50%",

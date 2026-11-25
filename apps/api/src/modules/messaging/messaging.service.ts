@@ -90,6 +90,12 @@ function toAdReferral(r: MetaReferral): AdReferral {
   };
 }
 
+/** El formulario de Meta que llenó el contacto: el lead lo deja en sus campos («formulario»). */
+function formName(metadata: unknown): string | null {
+  const v = metadata && typeof metadata === "object" ? (metadata as Record<string, unknown>).formulario : null;
+  return typeof v === "string" && v.trim() ? v.trim().slice(0, 120) : null;
+}
+
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 /**
  * Baja de los mensajes que enviamos por iniciativa propia (difusiones,
@@ -1920,7 +1926,9 @@ export class MessagingService {
       name: string | null;
       waUsername?: string | null;
       tags?: { tag: { name: string; color: string | null } }[];
-      source?: { id: string; name: string; color: string | null } | null;
+      source?: { id: string; name: string; color: string | null; kind?: string | null } | null;
+      // Los campos del contacto; de aquí sale el formulario de Meta que llenó.
+      metadata?: unknown;
     };
     assignedAgent: { id: string; name: string | null } | null;
     channel?: {
@@ -1976,8 +1984,10 @@ export class MessagingService {
               id: c.contact.source.id,
               name: c.contact.source.name,
               color: c.contact.source.color,
+              kind: c.contact.source.kind ?? null,
             }
           : null,
+        form: formName(c.contact.metadata),
       },
       assignedAgent: c.assignedAgent
         ? { id: c.assignedAgent.id, name: c.assignedAgent.name }

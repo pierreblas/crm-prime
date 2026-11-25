@@ -72,6 +72,11 @@
   --await: #ffb84d;
   --await-ink: #241500;
   --await-rgb: 255 184 77;
+  /* La marca de cada canal en su color, para ver de un vistazo por dónde llegó un chat. */
+  --ch-whatsapp: #25d366;
+  --ch-instagram: #f0569a;
+  --ch-messenger: #3b9bff;
+  --ch-form: #b79bff;
   /* Series de los gráficos: aguamarina y lima. */
   --chart-1: var(--cyan);
   --chart-2: var(--lemon);
@@ -174,6 +179,10 @@
   --warning: #845000;
   --await: #d07f00;
   --await-rgb: 208 127 0;
+  --ch-whatsapp: #128a45;
+  --ch-instagram: #c2185b;
+  --ch-messenger: #0a6fe0;
+  --ch-form: #5b3fd6;
   --danger: #b3122f;
   --danger-ink: #ffffff;
   --positive-ink: #ffffff;
@@ -749,6 +758,27 @@ code {
 .conv-item:hover {
   background: rgb(var(--smoke-rgb) / 0.04);
 }
+/* Por dónde llegó el chat: la marca del canal, del anuncio o del formulario, en un
+   círculo sobre la esquina del avatar (como en la demo de la portada). */
+.origin-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: 0 0 0 1px var(--border);
+  color: var(--text);
+}
+.origin-badge.is-whatsapp { color: var(--ch-whatsapp); }
+.origin-badge.is-instagram { color: var(--ch-instagram); }
+.origin-badge.is-messenger { color: var(--ch-messenger); }
+.origin-badge.is-form { color: var(--ch-form); }
+.origin-badge.is-ad { color: var(--accent-text); }
+
 /* El cliente escribió y nadie le ha contestado: una franja ámbar llena a la
    izquierda y la fila sombreada. El brillo fuerte se queda bajo el avatar (68px):
    bajo el texto baja, para que el gris siga leyéndose a 4,5:1 también con el cursor. */

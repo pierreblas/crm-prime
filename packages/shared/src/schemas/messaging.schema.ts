@@ -237,9 +237,17 @@ export const conversationDtoSchema = z.object({
       .array(z.object({ name: z.string(), color: z.string().nullable() }))
       .default([]),
     source: z
-      .object({ id: z.string(), name: z.string(), color: z.string().nullable() })
+      .object({
+        id: z.string(),
+        name: z.string(),
+        color: z.string().nullable(),
+        /** Automática de una vía de entrada (whatsapp, ad, form…); null = la creó la empresa. */
+        kind: z.string().nullable().default(null),
+      })
       .nullable()
       .default(null),
+    /** El formulario de Meta que llenó (su nombre); null = no llegó por un formulario. */
+    form: z.string().nullable().default(null),
   }),
   assignedAgent: assignedAgentSchema.nullable(),
   // Canal por el que entró la conversación: el número de WhatsApp (multi-número),
