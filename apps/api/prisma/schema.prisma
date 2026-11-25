@@ -1187,7 +1187,8 @@ model EmailTemplate {
   orgId       String
   name        String
   subject     String
-  body        String // texto con {{variables}}; se pasa a HTML al enviar
+  body        String // con {{variables}}: texto (se pasa a HTML al enviar) o el HTML tal cual, según `format`
+  format      String   @default("text") // text | html
   attachments Json? // [{ ref: "storage://…", name, mimeType, size }]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1213,7 +1214,9 @@ model Email {
   fromName       String?
   toAddress      String
   subject        String
-  bodyText       String
+  bodyText       String // lo que se lee: el cuerpo, o el texto de un correo HTML (su parte alternativa)
+  format         String    @default("text") // text | html
+  bodyHtml       String? // el HTML que sale, ya con las variables; solo si `format` es html
   attachments    Json?
   automated      Boolean   @default(false) // lleva enlace de baja y respeta la lista de bajas
   status         String    @default("queued") // queued | sent | failed

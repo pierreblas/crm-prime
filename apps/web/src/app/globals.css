@@ -7195,8 +7195,21 @@ button[style*="background:var(--accent)"]:focus-visible {
 
 .mail-bodyhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
 .mail-bodyhead .label { margin: 0; }
+.mail-bodyhead__title { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .mail-varmenu { width: auto; max-width: 190px; color: var(--muted); }
 .mail-body { resize: vertical; min-height: 150px; line-height: 1.5; }
+/* Cuerpo en HTML: el código, sus botones y el marco donde se ve el resultado. */
+.mail-body.is-code { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; tab-size: 2; }
+.mail-htmlbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.mail-htmlcount { display: block; margin-top: 4px; text-align: right; }
+.mail-htmlcount + .mail-warn,
+.mail-warn + .mail-warn { margin-top: 6px; }
+.mail-tag { display: inline-block; margin-left: 8px; padding: 1px 6px; border: 1px solid var(--border-strong); font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); vertical-align: 1px; }
+/* El marco va en claro, como el programa de correo de quien lo recibe. */
+.mail-frame { height: 440px; min-height: 160px; overflow: hidden; resize: vertical; background: #ffffff; }
+.mail-frame > iframe { display: block; width: 100%; height: 100%; border: 0; background: #ffffff; }
+.mail-frame--field { height: 320px; border: 1px solid var(--border-strong); border-radius: var(--r-md); }
+.mail-frame--empty { display: grid; place-items: center; margin: 0; padding: 16px; resize: none; color: #5d6577; font-size: 13.5px; text-align: center; }
 
 .mail-attach { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .mail-attach__file { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 5px 6px 5px 9px; border: 1px solid var(--border); background: var(--surface); font-size: 12.5px; }

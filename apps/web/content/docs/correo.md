@@ -52,6 +52,20 @@ En el asunto y el mensaje puedes usar **variables**:
 
 Si un contacto no tiene ese dato, el hueco queda en blanco. La vista previa lo enseña con datos de ejemplo y, al escribir, la ventana avisa de qué quedó vacío.
 
+## Correos con diseño (HTML)
+
+Lo normal es escribir **texto**: Driony le da un formato sencillo, con párrafos y enlaces. Si ya tienes un correo diseñado en otra herramienta, puedes enviarlo tal cual. Junto a **Mensaje** hay un botón **Texto | HTML**, tanto al escribir a un contacto como en las plantillas.
+
+- En **HTML** pegas el código de tu diseño o lo abres con **Abrir archivo .html**. Sale como lo escribiste: Driony no lo reescribe.
+- La **vista previa** enseña cómo queda. Va aislada del resto de Driony: si el HTML trae código, ahí no se ejecuta.
+- Las **variables** funcionan igual (`{{primer_nombre}}`), también dentro de la dirección de un enlace.
+- Las **imágenes** tienen que estar publicadas en internet, con dirección `https://`. Una imagen pegada o guardada en tu computadora no llega; la pantalla te avisa.
+- El tope es de **100.000 caracteres**: Gmail recorta los correos más largos.
+- La **firma del buzón** no se añade a un correo HTML: si la quieres, va en tu diseño. El enlace de **baja** de los correos automáticos sí se añade, al final.
+- Con cada correo HTML sale también su **versión en texto**, para quien no ve HTML. Es lo que queda en el historial del contacto.
+
+Al pasar de **Texto** a **HTML**, lo que llevabas escrito se convierte para que lo retoques. Al volver a **Texto** queda solo lo que se lee; si regresas a **HTML** sin haber tocado nada, tu diseño vuelve como estaba.
+
 ## Correos automáticos en los flujos
 
 El bloque **Enviar correo** del constructor de flujos envía una plantilla al correo del contacto. Sirve en cualquier flujo, también en los de una **etapa del embudo**, y **no depende de la ventana de 24 h de WhatsApp**.
@@ -69,4 +83,5 @@ Los correos **automáticos** llevan un enlace de baja. Quien lo usa deja de reci
 
 - **Recibir**: las respuestas llegan a tu buzón, no a la bandeja de Driony.
 - **Envíos masivos** y medición de aperturas.
+- **Diseñar el correo** dentro de Driony o **subir sus imágenes**: el HTML se trae hecho y las imágenes, ya publicadas.
 - Conexión con Google o Microsoft **sin contraseña** (con su botón de acceso).

@@ -407,6 +407,7 @@ export const es: Messages = {
     emailSent: "Enviado",
     emailFailed: "No se envió",
     emailQueued: "En cola",
+    emailHtmlNote: "Correo con diseño (HTML). Aquí se lee su texto.",
     showAllEmails: "Ver los {n} correos",
     openAgenda: "Ver en la agenda",
     addToPipeline: "Añadir al embudo",

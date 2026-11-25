@@ -9,13 +9,21 @@ import "./email-env";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  appendEmailHtml,
   buildEmailVars,
   contactEmailOf,
   emailAccountInputSchema,
+  emailHtmlHasContent,
+  emailHtmlToText,
+  emailHtmlWarnings,
+  emailPreviewDoc,
+  emailTemplateInputSchema,
   emailTextToHtml,
   emptyEmailVars,
+  renderEmailHtml,
   renderEmailText,
   sendEmailSchema,
+  updateEmailTemplateSchema,
 } from "@crm/shared";
 
 import { isPrivateAddress, smtpTargetProblem } from "../src/modules/email/smtp-guard";
@@ -23,6 +31,7 @@ import { readUnsubscribeToken, unsubscribeToken, unsubscribeUrl } from "../src/m
 import { SmtpError } from "../src/modules/email/email.transport";
 import { EmailAccountsService } from "../src/modules/email/email-accounts.service";
 import { EmailService } from "../src/modules/email/email.service";
+import { EmailTemplatesService } from "../src/modules/email/email-templates.service";
 import { encryptSecret } from "../src/common/utils/secret-box";
 import { changedEmail, resetEmail } from "../src/modules/auth/password-reset-emails";
 
@@ -75,6 +84,111 @@ test("un nombre de contacto con marcado no mete HTML en el correo", () => {
   const html = emailTextToHtml(renderEmailText("Hola {{nombre}}", vars));
   assert.ok(!html.includes("<img"));
   assert.ok(html.includes("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;"));
+});
+
+test("HTML: las variables entran escapadas y el marcado propio queda intacto", () => {
+  const vars = buildEmailVars({
+    contact: { name: '<img src=x onerror="alert(1)">', phone: "+51999888777", fields: { ciudad: "Lima & Callao" } },
+    orgName: "Clínica <Sol>",
+    senderName: "Luis",
+  });
+  assert.equal(
+    renderEmailHtml('<h1 style="color:#0b3a45">Hola {{nombre}}</h1><p>De {{ ciudad }}, {{empresa}}. {{no_existe}}</p>', vars),
+    '<h1 style="color:#0b3a45">Hola &lt;img src=x onerror=&quot;alert(1)&quot;&gt;</h1><p>De Lima &amp; Callao, Clínica &lt;Sol&gt;. </p>',
+  );
+});
+
+test("HTML: su versión en texto conserva lo que se lee, los enlaces y los saltos", () => {
+  const html = `<!DOCTYPE html><html><head><title>Promo</title><style>p{color:red}</style></head><body>
+    <!-- nota interna --><!--[if mso]><table><tr><td>solo Outlook</td></tr></table><![endif]-->
+    <h1>Hola&nbsp;Ana</h1>
+    <p>Tu curso de <b>MLOps</b> empieza el lunes.<br>Te esperamos &amp; trae tus dudas.</p>
+    <p><a href="https://driony.com/curso?a=1&amp;b=2" style="color:#fff">Ver el curso</a> · <a href="https://driony.com/">driony.com</a> · <a href="mailto:hola@driony.com?subject=x">Escríbenos</a></p>
+    <ul><li>Uno</li><li>Dos &#8212; y medio</li></ul>
+    <table><tr><td>Precio</td><td>S/ 120</td></tr></table>
+    <img src="https://x.com/logo.png" alt="Logo Driony">
+    <script>alert(1)</script>
+  </body></html>`;
+  assert.equal(
+    emailHtmlToText(html),
+    [
+      "Hola Ana",
+      "Tu curso de MLOps empieza el lunes.\nTe esperamos & trae tus dudas.",
+      "Ver el curso (https://driony.com/curso?a=1&b=2) · driony.com · Escríbenos (hola@driony.com)",
+      "- Uno\n- Dos — y medio",
+      "Precio\nS/ 120",
+      "Logo Driony",
+    ].join("\n\n"),
+  );
+  assert.equal(emailHtmlToText("3 < 5 y 7 > 2"), "3 < 5 y 7 > 2", "un «<» que no abre etiqueta es texto");
+  assert.equal(emailHtmlHasContent("<div><style>p{}</style> </div>"), false);
+  assert.equal(emailHtmlHasContent('<a href="https://x.com"><img src="https://x.com/a.png"></a>'), true, "una imagen sola ya es un correo");
+});
+
+test("HTML: un marcado roto o hecho para atascar se recorre igual, y rápido", () => {
+  for (const broken of ["<", "<a href=", "hola <b", "<!-- sin cerrar", "<style>p{}", "<<<>>>", "</p></div>", "<img alt='x"]) {
+    emailHtmlToText(broken);
+    emailHtmlWarnings(broken);
+    emailPreviewDoc(broken);
+  }
+  const started = Date.now();
+  for (const piece of ["<a href=x>", "<a href=\"", "<!--", "<img ", "< ", "<style>", "<p", "<head ", "&#", "{{", "<script "]) {
+    const big = piece.repeat(Math.floor(100_000 / piece.length));
+    emailHtmlToText(big);
+    emailHtmlWarnings(big);
+    emailPreviewDoc(big);
+    emailHtmlHasContent(big);
+    renderEmailHtml(big, {});
+    appendEmailHtml(big, "<p>pie</p>");
+  }
+  assert.ok(Date.now() - started < 2000, `tardó ${Date.now() - started} ms`);
+});
+
+test("HTML: lo que se añade al final entra antes de </body>, o detrás si es un fragmento", () => {
+  assert.equal(appendEmailHtml("<html><body><p>Hola</p></BODY></html>", "<p>pie</p>"), "<html><body><p>Hola</p><p>pie</p></BODY></html>");
+  assert.equal(appendEmailHtml("<p>Hola</p>", "<p>pie</p>"), "<p>Hola</p><p>pie</p>");
+  assert.equal(appendEmailHtml("<p>Hola</p>", ""), "<p>Hola</p>");
+});
+
+test("HTML: el tope del cuerpo depende del formato y un HTML sin nada que ver no vale", () => {
+  const send = (format: string, body: string) => sendEmailSchema.safeParse({ contactId: "c1", accountId: "a1", subject: "Hola", body, format });
+  assert.equal(send("text", "x".repeat(20_001)).success, false, "el texto sigue con su tope");
+  assert.equal(send("html", `<p>${"x".repeat(20_001)}</p>`).success, true);
+  const over = send("html", `<p>${"x".repeat(100_000)}</p>`);
+  assert.equal(over.success, false, "más de 100.000 caracteres");
+  assert.equal(over.success ? 0 : over.error.issues.length, 1, "y lo dice una sola vez");
+  assert.equal(send("html", "<div><style>p{}</style></div>").success, false, "nada que mostrar");
+  assert.equal(send("html", '<img src="https://x.com/a.png">').success, true);
+  assert.equal(send("pdf", "Hola").success, false);
+  assert.equal(sendEmailSchema.parse({ contactId: "c1", accountId: "a1", subject: "Hola", body: "Texto" }).format, "text", "sin decir nada, texto");
+
+  assert.equal(emailTemplateInputSchema.parse({ name: "A", subject: "B", body: "<p>Hola</p>", format: "html" }).format, "html");
+  assert.equal(emailTemplateInputSchema.parse({ name: "A", subject: "B", body: "Hola" }).format, "text");
+  assert.deepEqual(updateEmailTemplateSchema.parse({ name: "Otra" }), { name: "Otra" }, "al editar, lo que no llega no se inventa");
+  assert.equal(updateEmailTemplateSchema.safeParse({ format: "text", body: "x".repeat(20_001) }).success, false);
+});
+
+test("HTML: se avisa de lo que no va a funcionar en un programa de correo", () => {
+  assert.deepEqual(emailHtmlWarnings('<header>Hola</header><img src="https://x.com/a.png"><img src="{{foto}}">'), []);
+  const warnings = emailHtmlWarnings('<script>x</script><form></form><img src="logo.png"><img alt="x" src=\'data:image/png;base64,AAA\'><imagen>');
+  assert.equal(warnings.length, 3);
+  assert.match(warnings[0]!, /<script>/);
+  assert.match(warnings[1]!, /Formularios/);
+  assert.match(warnings[2]!, /^2 imágenes no se verán/);
+  assert.match(emailHtmlWarnings("<img>")[0]!, /^Una imagen no se verá/);
+});
+
+test("HTML: la vista previa lleva su política de contenido, sea documento o fragmento", () => {
+  const policy = `<meta http-equiv="Content-Security-Policy" content="default-src 'none';`;
+  const full = emailPreviewDoc('<!DOCTYPE html><html lang="es"><head><title>x</title></head><body><header>h</header></body></html>');
+  assert.ok(full.startsWith(`<!DOCTYPE html><html lang="es"><head>${policy}`), "al principio del <head>, antes que nada suyo");
+  assert.ok(full.endsWith("<title>x</title></head><body><header>h</header></body></html>"), "el resto queda como estaba");
+  assert.ok(emailPreviewDoc("<html><body>hola</body></html>").startsWith(`<html><head>${policy}`));
+  const fragment = emailPreviewDoc("<header>h</header><p>Hola</p>");
+  assert.ok(fragment.startsWith(`<!doctype html><html><head><meta charset="utf-8">${policy}`), "«<header» no es «<head»");
+  assert.ok(fragment.endsWith("<header>h</header><p>Hola</p></body></html>"));
+  assert.ok(!/script-src|unsafe-eval|frame-src/.test(full), "nada que abra la puerta a scripts o marcos");
+  assert.ok(full.includes('<base target="_blank">'));
 });
 
 test("al conectar un buzón se limpia la dirección y se rechaza un servidor mal escrito", () => {
@@ -203,6 +317,13 @@ function setup(opts: { contactFields?: Row; accounts?: Row[]; sentToday?: number
         return row ? { ...row, account: accounts.find((a) => a.id === row.accountId) ?? null } : null;
       },
       update: async ({ where, data }: Row) => ({ ...Object.assign(emails.find((e) => e.id === where.id)!, data) }),
+      // El historial no carga el HTML: como en la base, `omit` lo deja fuera.
+      findMany: async ({ omit }: Row) =>
+        emails.map((e) => {
+          const row = { ...e };
+          if (omit?.bodyHtml) delete row.bodyHtml;
+          return row;
+        }),
       count: async () => opts.sentToday ?? 0,
     },
     note: { create: async ({ data }: Row) => notes.push(data) },
@@ -223,10 +344,18 @@ function setup(opts: { contactFields?: Row; accounts?: Row[]; sentToday?: number
   const service = new EmailService(prisma as any, tenant as any, accountsSvc, perms as any, storage as any, transport as any, queue as any);
   const luis = { sub: "u_luis", sid: "s", role: "AGENT", org: "org1" } as any;
   const marta = { sub: "u_marta", sid: "s", role: "AGENT", org: "org1" } as any;
-  return { service, contact, accounts, emails, notes, sent, jobs, unsubscribed, files, luis, marta, fail: (e: Error | null) => (failWith = e) };
+  return { service, contact, accounts, emails, notes, sent, jobs, unsubscribed, files, templates, luis, marta, fail: (e: Error | null) => (failWith = e) };
 }
 
-const manual = { contactId: "ct1", accountId: "acc_shared", subject: "Tu cotización, {{primer_nombre}}", body: "Hola {{nombre}}:\n\nTe adjunto la cotización.", saveToContact: false, attachments: [] };
+const manual = {
+  contactId: "ct1",
+  accountId: "acc_shared",
+  subject: "Tu cotización, {{primer_nombre}}",
+  body: "Hola {{nombre}}:\n\nTe adjunto la cotización.",
+  format: "text" as "text" | "html",
+  saveToContact: false,
+  attachments: [],
+};
 
 test("escribir a mano: sale por el buzón elegido, con las variables puestas, y queda en el historial y en el chat", async () => {
   const s = setup();
@@ -390,6 +519,102 @@ test("automático: quien se da de baja mientras el correo espera en la cola ya n
   assert.equal(s.sent.length, 0);
   assert.equal(s.emails[0]!.status, "failed");
   assert.match(s.emails[0]!.errorReason, /pidió no recibir/);
+});
+
+test("escribir en HTML: sale el diseño tal cual, con las variables escapadas y su versión en texto", async () => {
+  const s = setup();
+  s.contact.name = "Ana <script>alert(1)</script>";
+  const body = '<div style="font-family:Georgia"><h1>Hola {{nombre}}</h1><p>Mira <a href="https://clinica.pe/c/1">tu cotización</a>.</p></div>';
+  const dto = await s.service.send({ ...manual, subject: "Tu cotización", format: "html", body }, s.luis);
+
+  const { mail } = s.sent[0]!;
+  assert.equal(
+    mail.html,
+    '<div style="font-family:Georgia"><h1>Hola Ana &lt;script&gt;alert(1)&lt;/script&gt;</h1><p>Mira <a href="https://clinica.pe/c/1">tu cotización</a>.</p></div>',
+    "ni se envuelve ni se reescribe: solo entran las variables, como texto",
+  );
+  assert.equal(mail.text, "Hola Ana <script>alert(1)</script>\n\nMira tu cotización (https://clinica.pe/c/1).", "quien no ve HTML lee esto");
+  assert.ok(!mail.html.includes("Av. Larco"), "la firma del buzón no se pega a un diseño");
+  assert.equal(mail.headers, undefined);
+
+  assert.equal(dto.format, "html");
+  assert.equal(dto.body, mail.text, "el historial enseña el texto, no el marcado");
+  assert.equal(s.emails[0]!.format, "html");
+  assert.equal(s.emails[0]!.bodyHtml, mail.html);
+  assert.deepEqual(s.notes.map((n) => n.body), ["✉️ Correo enviado a ana@cliente.com · «Tu cotización»"]);
+});
+
+test("automático en HTML: la plantilla sale con su diseño y la baja entra dentro del <body>", async () => {
+  const s = setup();
+  s.templates.set("tplHtml", {
+    id: "tplHtml",
+    name: "Pedido",
+    subject: "Hola {{primer_nombre}}",
+    format: "html",
+    body: '<html><body><h1 style="color:#0b3a45">Hola {{primer_nombre}}</h1><p>Tu pedido {{pedido}} ya salió. <a href="https://clinica.pe/pedidos">Verlo</a></p></body></html>',
+    attachments: [],
+  });
+  const res = await s.service.sendAutomated({ contactId: "ct1", conversationId: "cv1", templateId: "tplHtml", vars: { pedido: "A-1 <b>" }, origin: "Flujo «Pedido»" });
+  assert.deepEqual(res, { ok: true });
+  const row = s.emails[0]!;
+  assert.equal(row.format, "html");
+  assert.ok(row.bodyHtml.includes('<h1 style="color:#0b3a45">Hola Ana</h1>'));
+  assert.ok(row.bodyHtml.includes("Tu pedido A-1 &lt;b&gt; ya salió"), "una variable del flujo tampoco mete marcado");
+  assert.equal(row.bodyText, "Hola Ana\n\nTu pedido A-1 <b> ya salió. Verlo (https://clinica.pe/pedidos)");
+  assert.ok(!row.bodyHtml.includes("Av. Larco") && !row.bodyText.includes("Av. Larco"), "sin la firma de texto del buzón");
+
+  await s.service.deliver("em1", false);
+  const { mail } = s.sent[0]!;
+  const link = /https:\/\/api\.driony\.test\/api\/v1\/email\/unsubscribe\?t=[\w.-]+/.exec(mail.text)?.[0];
+  assert.ok(link, "el texto lleva el enlace de baja");
+  assert.ok(mail.html.includes(`<a href="${link}"`));
+  assert.match(mail.html, /date de baja aquí<\/a>\.<\/p><\/body><\/html>$/, "el pie queda dentro del documento");
+  assert.equal(mail.headers["List-Unsubscribe"], `<${link}>`);
+});
+
+test("historial: un correo HTML se lista con su texto y sin su marcado", async () => {
+  const s = setup();
+  await s.service.send(manual, s.luis);
+  await s.service.send({ ...manual, format: "html", body: "<p>Hola <b>{{primer_nombre}}</b></p>" }, s.luis);
+  const list = await s.service.history("ct1", s.luis);
+  assert.deepEqual(
+    list.map((e) => [e.format, e.body]),
+    [
+      ["text", "Hola Ana Torres:\n\nTe adjunto la cotización."],
+      ["html", "Hola Ana"],
+    ],
+  );
+  assert.ok(list.every((e) => !JSON.stringify(e).includes("<p>")));
+});
+
+test("plantillas: guardan su formato y, al editar, el cuerpo tiene que caber en él", async () => {
+  const rows: Row[] = [];
+  const prisma = {
+    emailTemplate: {
+      findFirst: async () => null,
+      findUnique: async ({ where }: Row) => rows.find((r) => r.id === where.id) ?? null,
+      create: async ({ data }: Row) => {
+        const row = { id: `t${rows.length + 1}`, updatedAt: new Date(), ...data };
+        rows.push(row);
+        return row;
+      },
+      update: async ({ where, data }: Row) => Object.assign(rows.find((r) => r.id === where.id)!, data),
+    },
+  };
+  const service = new EmailTemplatesService(prisma as any, { orgId: () => "org1" } as any);
+
+  const created = await service.create(emailTemplateInputSchema.parse({ name: "Promo", subject: "Hola", body: "<p>Hola {{nombre}}</p>", format: "html" }));
+  assert.equal(created.format, "html");
+  const long = `<p>${"x".repeat(30_000)}</p>`;
+  assert.equal((await service.update(created.id, { body: long })).body, long, "en HTML cabe");
+  await assert.rejects(() => service.update(created.id, { format: "text" }), /pasa de 20\.000 caracteres/, "ese cuerpo no cabe como texto");
+  assert.equal(rows[0]!.format, "html", "y no se guardó a medias");
+  assert.equal((await service.update(created.id, { format: "text", body: "Hola {{nombre}}" })).format, "text");
+  await assert.rejects(() => service.update(created.id, { format: "html", body: "<style>p{}</style>" }), /nada que mostrar/);
+
+  // Una plantilla de antes de que existiera el formato es de texto.
+  rows.push({ id: "vieja", name: "Vieja", subject: "Hola", body: "Texto", attachments: [], updatedAt: new Date() });
+  assert.equal((await service.update("vieja", { subject: "Otra" })).format, "text");
 });
 
 test("redactar: la pantalla recibe el correo del contacto, sus variables y los buzones que puede usar", async () => {

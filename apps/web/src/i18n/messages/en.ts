@@ -408,6 +408,7 @@ export const en = {
     emailSent: "Sent",
     emailFailed: "Not sent",
     emailQueued: "Queued",
+    emailHtmlNote: "Designed email (HTML). This is its text.",
     showAllEmails: "See all {n} emails",
     openAgenda: "Open the schedule",
     addToPipeline: "Add to pipeline",

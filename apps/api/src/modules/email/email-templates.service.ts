@@ -1,6 +1,14 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import type { EmailTemplate, Prisma } from "@prisma/client";
-import { emailAttachmentSchema, type EmailAttachment, type EmailTemplateDto, type EmailTemplateInput, type UpdateEmailTemplateInput } from "@crm/shared";
+import {
+  emailAttachmentSchema,
+  emailBodyProblem,
+  type EmailAttachment,
+  type EmailFormat,
+  type EmailTemplateDto,
+  type EmailTemplateInput,
+  type UpdateEmailTemplateInput,
+} from "@crm/shared";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { TenantService } from "../../infra/tenant/tenant.service";
 
@@ -13,7 +21,9 @@ export function readAttachments(raw: unknown): EmailAttachment[] {
   });
 }
 
-/** Plantillas de correo: asunto y cuerpo con {{variables}}, y adjuntos opcionales. */
+const formatOf = (raw: string): EmailFormat => (raw === "html" ? "html" : "text");
+
+/** Plantillas de correo: asunto y cuerpo con {{variables}} (texto o HTML propio), y adjuntos opcionales. */
 @Injectable()
 export class EmailTemplatesService {
   constructor(
@@ -34,6 +44,7 @@ export class EmailTemplatesService {
         name: input.name,
         subject: input.subject,
         body: input.body,
+        format: input.format,
         attachments: input.attachments as unknown as Prisma.InputJsonValue,
       },
     });
@@ -44,12 +55,18 @@ export class EmailTemplatesService {
     const existing = await this.prisma.emailTemplate.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException("Plantilla de correo no encontrada");
     if (input.name && input.name.toLowerCase() !== existing.name.toLowerCase()) await this.assertNameFree(input.name);
+    // Si llega solo el cuerpo o solo el formato, tienen que casar con lo que ya había guardado.
+    if (input.body !== undefined || input.format !== undefined) {
+      const problem = emailBodyProblem(input.format ?? formatOf(existing.format), input.body ?? existing.body);
+      if (problem) throw new BadRequestException(problem);
+    }
     const row = await this.prisma.emailTemplate.update({
       where: { id },
       data: {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.subject !== undefined ? { subject: input.subject } : {}),
         ...(input.body !== undefined ? { body: input.body } : {}),
+        ...(input.format !== undefined ? { format: input.format } : {}),
         ...(input.attachments !== undefined ? { attachments: input.attachments as unknown as Prisma.InputJsonValue } : {}),
       },
     });
@@ -75,6 +92,7 @@ function toDto(r: EmailTemplate): EmailTemplateDto {
     name: r.name,
     subject: r.subject,
     body: r.body,
+    format: formatOf(r.format),
     attachments: readAttachments(r.attachments),
     updatedAt: r.updatedAt.toISOString(),
   };

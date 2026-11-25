@@ -2,12 +2,23 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { buildEmailVars, emptyEmailVars, renderEmailText, type EmailAttachment, type EmailTemplateDto } from "@crm/shared";
+import {
+  buildEmailVars,
+  emailBodyProblem,
+  emailHtmlToText,
+  emptyEmailVars,
+  renderEmailHtml,
+  renderEmailText,
+  type EmailAttachment,
+  type EmailFormat,
+  type EmailTemplateDto,
+} from "@crm/shared";
 import { createEmailTemplate, deleteEmailTemplate, fetchEmailTemplates, fetchMe, updateEmailTemplate } from "@/lib/bff";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
 import { NavIcon } from "@/components/NavIcons";
 import { EmailAttachments, EmailPreview, EmailTextFields } from "./EmailFields";
+import { useEmailFormatSwitch } from "./format";
 
 /** Un contacto de ejemplo para la vista previa de una plantilla. */
 const SAMPLE = buildEmailVars({
@@ -28,6 +39,11 @@ export function EmailTemplatesPanel() {
   const canEdit = me?.role === "ADMIN";
   const { data: templates, isPending } = useQuery({ queryKey: ["email-templates"], queryFn: fetchEmailTemplates });
   const [editing, setEditing] = useState<EmailTemplateDto | "new" | null>(null);
+  // De una plantilla HTML, en la lista se enseña lo que se lee en ella (seguido, sin sus saltos), no su código.
+  const excerpts = useMemo(
+    () => new Map((templates ?? []).map((t) => [t.id, t.format === "html" ? emailHtmlToText(t.body).replace(/\s*\n+\s*/g, " · ").slice(0, 400) : t.body])),
+    [templates],
+  );
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["email-templates"] });
   const remove = useMutation({
     mutationFn: deleteEmailTemplate,
@@ -64,9 +80,12 @@ export function EmailTemplatesPanel() {
       {(templates ?? []).map((t) => (
         <article key={t.id} className="mail-tpl" data-mail-template={t.name}>
           <div className="mail-tpl__main">
-            <strong className="mail-tpl__name">{t.name}</strong>
+            <strong className="mail-tpl__name">
+              {t.name}
+              {t.format === "html" && <span className="mail-tag">HTML</span>}
+            </strong>
             <span className="mail-tpl__subject">{t.subject}</span>
-            <p className="mail-tpl__body">{t.body}</p>
+            <p className="mail-tpl__body">{excerpts.get(t.id) ?? ""}</p>
             {t.attachments.length > 0 && (
               <span className="mail-muted mail-tpl__files">
                 <NavIcon name="paperclip" size={13} />
@@ -103,16 +122,22 @@ function TemplateEditor({ template, onClose, onSaved }: { template?: EmailTempla
   const [name, setName] = useState(template?.name ?? "");
   const [subject, setSubject] = useState(template?.subject ?? "");
   const [body, setBody] = useState(template?.body ?? "");
+  const [format, setFormat] = useState<EmailFormat>(template?.format ?? "text");
   const [attachments, setAttachments] = useState<EmailAttachment[]>(template?.attachments ?? []);
+  const switchFormat = useEmailFormatSwitch(format, body, (nextFormat, nextBody) => {
+    setFormat(nextFormat);
+    setBody(nextBody);
+  });
+  const html = format === "html";
 
   // Variables que no son ni las fijas ni un dato del ejemplo: campos propios o
   // del flujo. No es un error, pero conviene saber que dependen del contacto.
   const loose = useMemo(() => emptyEmailVars(`${subject}\n${body}`, SAMPLE), [subject, body]);
-  const ready = name.trim() && subject.trim() && body.trim();
+  const ready = name.trim() && subject.trim() && (html ? !emailBodyProblem("html", body) : body.trim());
 
   const save = useMutation({
     mutationFn: () => {
-      const payload = { name: name.trim(), subject: subject.trim(), body, attachments };
+      const payload = { name: name.trim(), subject: subject.trim(), body, format, attachments };
       return template ? updateEmailTemplate(template.id, payload) : createEmailTemplate(payload);
     },
     onSuccess: () => {
@@ -139,8 +164,10 @@ function TemplateEditor({ template, onClose, onSaved }: { template?: EmailTempla
         <EmailTextFields
           subject={subject}
           body={body}
+          format={format}
           onSubject={setSubject}
           onBody={setBody}
+          onFormat={switchFormat}
           bodyRows={12}
           bodyPlaceholder={"Hola {{primer_nombre}}:\n\nGracias por escribir a {{empresa}}…"}
         />
@@ -149,8 +176,9 @@ function TemplateEditor({ template, onClose, onSaved }: { template?: EmailTempla
           <EmailAttachments value={attachments} onChange={setAttachments} />
         </div>
         <p className="mail-form__help">
-          La firma no se escribe aquí: se añade sola, la del buzón por el que salga. Los correos de los flujos llevan
-          además un enlace de baja.
+          {html
+            ? "El correo sale con este HTML tal cual, con las variables puestas. La firma del buzón no se añade: si la quieres, va en tu diseño. Los correos de los flujos llevan debajo un enlace de baja."
+            : "La firma no se escribe aquí: se añade sola, la del buzón por el que salga. Los correos de los flujos llevan además un enlace de baja."}
         </p>
         <div className="mail-form__foot">
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
@@ -164,7 +192,12 @@ function TemplateEditor({ template, onClose, onSaved }: { template?: EmailTempla
 
       <aside className="mail-editor__preview" aria-label="Vista previa">
         <span className="mail-editor__kicker">Vista previa · datos de ejemplo</span>
-        <EmailPreview subject={renderEmailText(subject, SAMPLE)} body={renderEmailText(body, SAMPLE) || "Tu mensaje aparecerá aquí."} from="Tu empresa" />
+        <EmailPreview
+          subject={renderEmailText(subject, SAMPLE)}
+          format={format}
+          body={html ? renderEmailHtml(body, SAMPLE) : renderEmailText(body, SAMPLE) || "Tu mensaje aparecerá aquí."}
+          from="Tu empresa"
+        />
         {loose.length > 0 && (
           <p className="mail-warn" role="status">
             {loose.map((k) => `{{${k}}}`).join(", ")} {loose.length === 1 ? "sale" : "salen"} del campo del contacto o del flujo con esa

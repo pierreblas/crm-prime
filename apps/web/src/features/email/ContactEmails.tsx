@@ -154,6 +154,7 @@ function EmailItem({ email, open, onToggle, when }: { email: EmailDto; open: boo
               {email.error}
             </p>
           )}
+          {email.format === "html" && <span className="mail-cp-item__meta">{t("inbox.emailHtmlNote")}</span>}
           <p className="mail-cp-item__text">{email.body}</p>
           {email.attachments.length > 0 && (
             <span className="mail-cp-item__meta">

@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { Logger } from "@nestjs/common";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { I18nExceptionFilter } from "./common/filters/i18n-exception.filter";
@@ -10,7 +11,10 @@ import { GLOBAL_PREFIX, GLOBAL_PREFIX_OPTIONS } from "./common/global-prefix";
 
 async function bootstrap() {
   // rawBody: true expone req.rawBody para validar la firma del webhook de Meta.
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
+  // Un correo HTML llega a 100.000 caracteres: no cabe en los 100 KB que trae
+  // el servidor por defecto. Se sigue leyendo el cuerpo en bruto (rawBody).
+  app.useBodyParser("json", { limit: "512kb" });
 
   // Versionado de API: todo cuelga de /api/v1, salvo la API pública
   // (/api/public/v1), que lleva su propia versión. Ver common/global-prefix.ts.

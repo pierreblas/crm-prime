@@ -4,9 +4,12 @@ import type { Queue } from "bullmq";
 import type { Contact, Email, Prisma } from "@prisma/client";
 import {
   CONTACT_EMAIL_KEY,
+  appendEmailHtml,
   buildEmailVars,
   contactEmailOf,
+  emailHtmlToText,
   emailTextToHtml,
+  renderEmailHtml,
   renderEmailText,
   withEmailSignature,
   type AccessTokenClaims,
@@ -108,6 +111,8 @@ export class EmailService {
     // Lo que la persona ve en pantalla ya viene con las variables puestas; se
     // pasan otra vez por si escribió alguna a mano.
     const vars = await this.varsFor(contact, user.sub);
+    // En HTML el cuerpo sale como se escribió; las variables entran escapadas.
+    const bodyHtml = input.format === "html" ? renderEmailHtml(input.body, vars) : null;
     const convo = await this.prisma.conversation.findFirst({
       where: { contactId: contact.id },
       orderBy: { lastMessageAt: { sort: "desc", nulls: "last" } },
@@ -125,7 +130,9 @@ export class EmailService {
         fromName: account.fromName ?? (await this.orgName()),
         toAddress: to,
         subject: oneLine(renderEmailText(input.subject, vars)),
-        bodyText: renderEmailText(input.body, vars),
+        bodyText: bodyHtml !== null ? emailHtmlToText(bodyHtml) : renderEmailText(input.body, vars),
+        format: bodyHtml !== null ? "html" : "text",
+        bodyHtml,
         attachments: input.attachments as unknown as Prisma.InputJsonValue,
       },
     });
@@ -167,6 +174,9 @@ export class EmailService {
       senderName: convo?.assignedAgent?.name ?? fromName,
       extra: req.vars,
     });
+    // Una plantilla HTML lleva su propio pie en el diseño: la firma del buzón
+    // (que es texto) solo se añade a las de texto.
+    const bodyHtml = template.format === "html" ? renderEmailHtml(template.body, vars) : null;
     const email = await this.prisma.email.create({
       data: {
         orgId: contact.orgId,
@@ -179,7 +189,9 @@ export class EmailService {
         fromName,
         toAddress: to,
         subject: oneLine(renderEmailText(template.subject, vars)),
-        bodyText: withEmailSignature(renderEmailText(template.body, vars), account.signature),
+        bodyText: bodyHtml !== null ? emailHtmlToText(bodyHtml) : withEmailSignature(renderEmailText(template.body, vars), account.signature),
+        format: bodyHtml !== null ? "html" : "text",
+        bodyHtml,
         attachments: (template.attachments ?? []) as Prisma.InputJsonValue,
         automated: true,
       },
@@ -229,7 +241,8 @@ export class EmailService {
   // ── Historial ───────────────────────────────────────────────
   async history(contactId: string, user: AccessTokenClaims): Promise<EmailDto[]> {
     await this.contactFor(contactId, user.sub);
-    const rows = await this.prisma.email.findMany({ where: { contactId }, orderBy: { createdAt: "desc" }, take: 50 });
+    // El HTML de cada correo puede pesar 100 KB y el historial enseña su texto: no se carga.
+    const rows = await this.prisma.email.findMany({ where: { contactId }, orderBy: { createdAt: "desc" }, take: 50, omit: { bodyHtml: true } });
     return this.toDtos(rows);
   }
 
@@ -299,7 +312,11 @@ export class EmailService {
     }
   }
 
-  /** El correo listo para el servidor: cuerpo en texto y HTML, adjuntos y, si es automático, la baja. */
+  /**
+   * El correo listo para el servidor: cuerpo en texto y HTML, adjuntos y, si es
+   * automático, la baja. El HTML es el de Driony a partir del texto, o el que
+   * escribió la empresa si el correo es HTML.
+   */
   private async build(email: Email, fromAddress: string): Promise<OutgoingEmail> {
     const attachments: OutgoingEmail["attachments"] = [];
     for (const a of readAttachments(email.attachments) as EmailAttachment[]) {
@@ -313,16 +330,21 @@ export class EmailService {
       this.logger.warn("Correo automático sin enlace de baja: falta API_PUBLIC_URL (o SAAS_BASE_DOMAIN) en el servidor");
     }
     const who = email.fromName ?? fromAddress;
+    // El pie de baja: debajo del texto, o centrado al final de un diseño HTML
+    // (dentro de su <body>, para que siga siendo un documento válido).
+    const footer = (style: string) =>
+      leave
+        ? `<p style="${style};font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;color:#6b7280">Si no quieres recibir más correos automáticos de ${escapeHtml(who)}, <a href="${leave}" style="color:#6b7280">date de baja aquí</a>.</p>`
+        : "";
     return {
       from: { name: who, address: fromAddress },
       to: email.toAddress,
       subject: email.subject,
       text: leave ? `${email.bodyText}\n\n--\nSi no quieres recibir más correos automáticos de ${who}, date de baja aquí: ${leave}` : email.bodyText,
       html:
-        emailTextToHtml(email.bodyText) +
-        (leave
-          ? `<p style="margin:24px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;color:#6b7280">Si no quieres recibir más correos automáticos de ${escapeHtml(who)}, <a href="${leave}" style="color:#6b7280">date de baja aquí</a>.</p>`
-          : ""),
+        email.bodyHtml != null
+          ? appendEmailHtml(email.bodyHtml, footer("margin:0;padding:20px 16px;text-align:center"))
+          : emailTextToHtml(email.bodyText) + footer("margin:24px 0 0"),
       attachments,
       headers: leave ? { "List-Unsubscribe": `<${leave}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : undefined,
     };
@@ -359,7 +381,7 @@ export class EmailService {
     }
   }
 
-  private async toDtos(rows: Email[]): Promise<EmailDto[]> {
+  private async toDtos(rows: Omit<Email, "bodyHtml">[]): Promise<EmailDto[]> {
     const userIds = [...new Set(rows.map((r) => r.userId).filter((id): id is string => !!id))];
     const users = userIds.length
       ? await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, email: true } })
@@ -369,6 +391,7 @@ export class EmailService {
       id: r.id,
       subject: r.subject,
       body: r.bodyText,
+      format: r.format === "html" ? "html" : "text",
       from: r.fromAddress,
       to: r.toAddress,
       status: r.status as EmailStatus,

@@ -5,17 +5,21 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  emailBodyProblem,
   emptyEmailVars,
   isEmailAddress,
+  renderEmailHtml,
   renderEmailText,
   withEmailSignature,
   type EmailAccountDto,
   type EmailAttachment,
+  type EmailFormat,
 } from "@crm/shared";
 import { fetchEmailCompose, fetchEmailTemplates, fetchMe, sendEmail } from "@/lib/bff";
 import { toast } from "@/lib/toast";
 import { NavIcon } from "@/components/NavIcons";
 import { EmailAttachments, EmailTextFields } from "./EmailFields";
+import { useEmailFormatSwitch } from "./format";
 
 /** El buzón propio va primero: quien tiene uno personal escribe desde él. */
 function defaultAccount(accounts: EmailAccountDto[]): EmailAccountDto | undefined {
@@ -38,7 +42,11 @@ export function EmailComposeDialog({ contactId, contactName, onClose }: { contac
   const { data: ctx, isPending, error } = useQuery({
     queryKey: ["email-compose", contactId],
     queryFn: () => fetchEmailCompose(contactId),
+    // Cada vez que se abre, datos recién pedidos: la ventana se rellena una sola
+    // vez con lo que llega, y con una copia guardada saldría el «Para» de antes
+    // (vacío, si el correo se guardó al enviar el anterior).
     staleTime: 0,
+    gcTime: 0,
   });
   const { data: templates } = useQuery({ queryKey: ["email-templates"], queryFn: fetchEmailTemplates });
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: fetchMe });
@@ -49,7 +57,13 @@ export function EmailComposeDialog({ contactId, contactName, onClose }: { contac
   const [templateId, setTemplateId] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [format, setFormat] = useState<EmailFormat>("text");
   const [attachments, setAttachments] = useState<EmailAttachment[]>([]);
+  // Al pasar a HTML, lo escrito (firma incluida) se convierte y queda a la vista en el código.
+  const switchFormat = useEmailFormatSwitch(format, body, (nextFormat, nextBody) => {
+    setFormat(nextFormat);
+    setBody(nextBody);
+  });
 
   // Al llegar los datos: buzón por defecto, el correo guardado y la firma ya puesta.
   const ready = useRef(false);
@@ -81,7 +95,8 @@ export function EmailComposeDialog({ contactId, contactName, onClose }: { contac
 
   const pickAccount = (id: string) => {
     const next = ctx?.accounts.find((a) => a.id === id);
-    setBody((b) => swapSignature(b, account?.signature ?? "", next?.signature ?? ""));
+    // En un diseño HTML la firma es parte del código: no se toca sola.
+    if (format === "text") setBody((b) => swapSignature(b, account?.signature ?? "", next?.signature ?? ""));
     setAccountId(id);
   };
 
@@ -90,13 +105,16 @@ export function EmailComposeDialog({ contactId, contactName, onClose }: { contac
     const t = templates?.find((x) => x.id === id);
     if (!t) return;
     setSubject(renderEmailText(t.subject, vars));
-    setBody(withEmailSignature(renderEmailText(t.body, vars), account?.signature));
+    setFormat(t.format);
+    // Una plantilla HTML trae su pie en el diseño: la firma (texto) solo va en las de texto.
+    setBody(t.format === "html" ? renderEmailHtml(t.body, vars) : withEmailSignature(renderEmailText(t.body, vars), account?.signature));
     setAttachments(t.attachments);
   };
 
   const toOk = isEmailAddress(to);
   const isNewAddress = toOk && to.trim().toLowerCase() !== (ctx?.to ?? "");
-  const canSend = !!account && toOk && !!subject.trim() && !!body.trim();
+  const bodyOk = format === "html" ? !emailBodyProblem("html", body) : !!body.trim();
+  const canSend = !!account && toOk && !!subject.trim() && bodyOk;
 
   const send = useMutation({
     mutationFn: () =>
@@ -107,6 +125,7 @@ export function EmailComposeDialog({ contactId, contactName, onClose }: { contac
         saveToContact: isNewAddress && (saveTo || !ctx?.to),
         subject,
         body,
+        format,
         templateId: templateId || undefined,
         attachments,
       }),
@@ -238,7 +257,21 @@ export function EmailComposeDialog({ contactId, contactName, onClose }: { contac
                 </p>
               )}
 
-              <EmailTextFields subject={subject} body={body} onSubject={setSubject} onBody={setBody} bodyRows={11} />
+              <EmailTextFields
+                subject={subject}
+                body={body}
+                format={format}
+                onSubject={setSubject}
+                onBody={setBody}
+                onFormat={switchFormat}
+                previewHtml={format === "html" ? renderEmailHtml(body, vars) : undefined}
+                bodyRows={11}
+              />
+              {format === "html" && (
+                <p className="mail-form__help">
+                  El correo sale con este HTML tal cual. La firma del buzón no se añade sola: si la quieres, va en tu diseño.
+                </p>
+              )}
               <EmailAttachments value={attachments} onChange={setAttachments} />
             </div>
             <footer className="agenda-dialog__foot">

@@ -1,14 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   CONTACT_EMAIL_KEY,
   EMAIL_MAX_ATTACHMENTS,
   EMAIL_MAX_ATTACH_BYTES,
+  EMAIL_MAX_HTML_CHARS,
+  EMAIL_MAX_TEXT_CHARS,
   EMAIL_VARIABLES,
+  emailHtmlWarnings,
+  emailPreviewDoc,
   emailTextToHtml,
   type EmailAttachment,
+  type EmailFormat,
 } from "@crm/shared";
 import { fetchCustomFields, uploadMedia } from "@/lib/bff";
 import { toast } from "@/lib/toast";
@@ -21,29 +26,90 @@ export function fileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toLocaleString("es", { maximumFractionDigits: 1 })} MB`;
 }
 
+const count = (n: number) => n.toLocaleString("es");
+
+/** El valor, pero solo cuando lleva un rato quieto: la vista previa no se recarga en cada tecla. */
+function useSettled<T>(value: T, ms: number): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return settled;
+}
+
+/**
+ * Un correo HTML tal como lo verá quien lo reciba. El HTML lo escribe la
+ * empresa y no se filtra, así que va en un marco aislado: `sandbox` sin
+ * permiso de scripts ni de origen. Nada de lo que traiga se ejecuta ni alcanza
+ * la sesión de Driony. Los enlaces se abren en otra pestaña.
+ */
+export function EmailHtmlFrame({ html, className = "" }: { html: string; className?: string }) {
+  const settled = useSettled(html, 250);
+  const doc = useMemo(() => emailPreviewDoc(settled), [settled]);
+  return (
+    <div className={`mail-frame ${className}`.trim()}>
+      <iframe title="Vista previa del correo" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" srcDoc={doc} data-mail-frame />
+    </div>
+  );
+}
+
 /**
  * Asunto y cuerpo de un correo, con el menú «Insertar variable». La variable
  * entra donde estaba el cursor del último de los dos campos que se tocó.
+ *
+ * Con `onFormat`, el cuerpo se puede escribir como texto o como HTML propio.
+ * Quien usa el componente hace el cambio (y decide qué pasa con lo ya escrito).
+ * Con `previewHtml`, en HTML se puede alternar entre el código y cómo queda.
  */
 export function EmailTextFields({
   subject,
   body,
+  format = "text",
   onSubject,
   onBody,
+  onFormat,
+  previewHtml,
   bodyRows = 10,
   bodyPlaceholder,
 }: {
   subject: string;
   body: string;
+  format?: EmailFormat;
   onSubject: (v: string) => void;
   onBody: (v: string) => void;
+  onFormat?: (next: EmailFormat) => void;
+  /** El HTML ya con las variables puestas, para verlo aquí mismo. */
+  previewHtml?: string;
   bodyRows?: number;
   bodyPlaceholder?: string;
 }) {
   const subjectRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const last = useRef<"subject" | "body">("body");
+  const [view, setView] = useState<"code" | "preview">("code");
   const { data: custom } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields, select: contactFieldsOnly });
+  const html = format === "html";
+  const previewing = html && previewHtml !== undefined && view === "preview";
+  const warnings = useMemo(() => (html ? emailHtmlWarnings(body) : []), [html, body]);
+
+  const openFile = async (file: File | undefined) => {
+    if (fileRef.current) fileRef.current.value = "";
+    if (!file) return;
+    // Un correo no pesa megas: algo así no es el HTML de un correo.
+    if (file.size > 2 * 1024 * 1024) return void toast.error("Ese archivo pesa demasiado para ser un correo.");
+    try {
+      const text = (await file.text()).trim();
+      if (text.length > EMAIL_MAX_HTML_CHARS) {
+        return void toast.error(`Ese HTML tiene ${count(text.length)} caracteres y el tope es ${count(EMAIL_MAX_HTML_CHARS)}: Gmail recorta los correos tan largos.`);
+      }
+      onBody(text);
+      setView("code");
+    } catch {
+      toast.error("No se pudo leer ese archivo.");
+    }
+  };
 
   const insert = (key: string) => {
     const token = `{{${key}}}`;
@@ -76,13 +142,26 @@ export function EmailTextFields({
       </label>
       <div className="agenda-field">
         <div className="mail-bodyhead">
-          <label className="label" htmlFor="mail-body">
-            Mensaje
-          </label>
+          <div className="mail-bodyhead__title">
+            <label className="label" htmlFor="mail-body">
+              Mensaje
+            </label>
+            {onFormat && (
+              <div className="seg seg-sm" role="radiogroup" aria-label="Cómo se escribe el mensaje" data-mail-format={format}>
+                <button type="button" role="radio" aria-checked={!html} className={html ? "" : "is-active"} onClick={() => onFormat("text")}>
+                  Texto
+                </button>
+                <button type="button" role="radio" aria-checked={html} className={html ? "is-active" : ""} onClick={() => onFormat("html")} title="Pegar un diseño hecho en HTML">
+                  HTML
+                </button>
+              </div>
+            )}
+          </div>
           <select
             className="field field-sm mail-varmenu"
             value=""
             aria-label="Insertar variable"
+            disabled={previewing}
             onChange={(e) => e.target.value && insert(e.target.value)}
           >
             <option value="">Insertar variable…</option>
@@ -106,18 +185,56 @@ export function EmailTextFields({
             )}
           </select>
         </div>
-        <textarea
-          id="mail-body"
-          ref={bodyRef}
-          className="field mail-body"
-          rows={bodyRows}
-          value={body}
-          maxLength={20000}
-          placeholder={bodyPlaceholder}
-          onChange={(e) => onBody(e.target.value)}
-          onFocus={() => (last.current = "body")}
-          data-mail-body
-        />
+        {html && (
+          <div className="mail-htmlbar">
+            {previewHtml !== undefined && (
+              <div className="seg seg-sm" role="tablist" aria-label="Qué ver del correo">
+                <button type="button" role="tab" aria-selected={!previewing} onClick={() => setView("code")}>
+                  Código
+                </button>
+                <button type="button" role="tab" aria-selected={previewing} onClick={() => setView("preview")} data-mail-view-preview>
+                  Vista previa
+                </button>
+              </div>
+            )}
+            <input ref={fileRef} type="file" accept=".html,.htm,text/html" hidden onChange={(e) => void openFile(e.target.files?.[0])} data-mail-html-file />
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => fileRef.current?.click()}>
+              <NavIcon name="file" size={14} />
+              Abrir archivo .html
+            </button>
+          </div>
+        )}
+        {previewing ? (
+          body.trim() ? (
+            <EmailHtmlFrame html={previewHtml ?? ""} className="mail-frame--field" />
+          ) : (
+            <p className="mail-frame mail-frame--field mail-frame--empty">Todavía no hay nada que ver: pega tu HTML en «Código».</p>
+          )
+        ) : (
+          <textarea
+            id="mail-body"
+            ref={bodyRef}
+            className={`field mail-body${html ? " is-code" : ""}`}
+            rows={bodyRows}
+            value={body}
+            maxLength={html ? EMAIL_MAX_HTML_CHARS : EMAIL_MAX_TEXT_CHARS}
+            placeholder={html ? "Pega aquí el HTML de tu correo, o ábrelo desde un archivo.\nLas imágenes tienen que estar publicadas en internet (dirección https)." : bodyPlaceholder}
+            spellCheck={!html}
+            onChange={(e) => onBody(e.target.value)}
+            onFocus={() => (last.current = "body")}
+            data-mail-body
+          />
+        )}
+        {html && (
+          <span className="mail-muted mail-count mail-htmlcount">
+            {count(body.length)} de {count(EMAIL_MAX_HTML_CHARS)} caracteres
+          </span>
+        )}
+        {warnings.map((w) => (
+          <p key={w} className="mail-warn" role="status">
+            {w}
+          </p>
+        ))}
       </div>
     </>
   );
@@ -184,16 +301,38 @@ export function EmailAttachments({ value, onChange }: { value: EmailAttachment[]
 /**
  * Cómo lo verá quien lo recibe: el mismo HTML que sale por el servidor. Va en
  * claro a propósito: casi todos los programas de correo son de fondo blanco.
+ * `body` es texto o, con `format="html"`, el HTML propio ya con sus variables.
  */
-export function EmailPreview({ subject, body, from, note }: { subject: string; body: string; from?: string; note?: string }) {
+export function EmailPreview({
+  subject,
+  body,
+  format = "text",
+  from,
+  note,
+}: {
+  subject: string;
+  body: string;
+  format?: EmailFormat;
+  from?: string;
+  note?: string;
+}) {
   return (
     <div className="mail-preview">
       <div className="mail-preview__meta">
         {from && <span className="mail-preview__from">{from}</span>}
         <strong className="mail-preview__subject">{subject.trim() || "(sin asunto)"}</strong>
       </div>
-      {/* emailTextToHtml escapa todo lo que no sea su propio marcado. */}
-      <div className="mail-preview__body" dangerouslySetInnerHTML={{ __html: emailTextToHtml(body) }} />
+      {format === "html" ? (
+        // HTML propio: nunca dentro de la página, siempre en su marco aislado.
+        body.trim() ? (
+          <EmailHtmlFrame html={body} />
+        ) : (
+          <div className="mail-preview__body">Tu diseño aparecerá aquí.</div>
+        )
+      ) : (
+        // emailTextToHtml escapa todo lo que no sea su propio marcado.
+        <div className="mail-preview__body" dangerouslySetInnerHTML={{ __html: emailTextToHtml(body) }} />
+      )}
       {note && <p className="mail-preview__note">{note}</p>}
     </div>
   );
