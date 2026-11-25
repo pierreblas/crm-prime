@@ -328,22 +328,23 @@ const unreadBadge: React.CSSProperties = {
   flexShrink: 0,
 };
 
+// Etiquetas llenas: translúcidas se apagaban sobre el petróleo.
 const waitChip: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: 3,
-  fontSize: 11,
-  fontWeight: 600,
-  padding: "1px 7px",
+  fontSize: 11.5,
+  fontWeight: 700,
+  padding: "2px 8px",
   borderRadius: 999,
-  background: "var(--warning-soft)",
-  color: "var(--warning)",
+  background: "var(--await)",
+  color: "var(--await-ink)",
   whiteSpace: "nowrap",
 };
 
 const waitChipUrgent: React.CSSProperties = {
-  background: "var(--danger-soft)",
-  color: "var(--danger)",
+  background: "var(--danger)",
+  color: "var(--danger-ink)",
 };
 
 const avatar: React.CSSProperties = {

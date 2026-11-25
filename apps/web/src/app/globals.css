@@ -66,6 +66,12 @@
   --danger: #ffa5ae;
   --danger-soft: rgb(var(--red-rgb) / 0.12);
   --danger-border: rgb(var(--red-rgb) / 0.5);
+  /* Un chat sin responder va en ámbar lleno. El ámbar translúcido se apaga sobre
+     el petróleo (son casi complementarios y dan gris), así que la franja, la
+     etiqueta y el aviso del panel se pintan llenos, con su tinta. */
+  --await: #ffb84d;
+  --await-ink: #241500;
+  --await-rgb: 255 184 77;
   /* Series de los gráficos: aguamarina y lima. */
   --chart-1: var(--cyan);
   --chart-2: var(--lemon);
@@ -166,6 +172,8 @@
   --cyan-fill: #86dfe2;
   --positive: #0a6b3d;
   --warning: #845000;
+  --await: #d07f00;
+  --await-rgb: 208 127 0;
   --danger: #b3122f;
   --danger-ink: #ffffff;
   --positive-ink: #ffffff;
@@ -741,12 +749,15 @@ code {
 .conv-item:hover {
   background: rgb(var(--smoke-rgb) / 0.04);
 }
-/* El cliente escribió y nadie le ha contestado: la fila va sombreada en ámbar. */
+/* El cliente escribió y nadie le ha contestado: una franja ámbar llena a la
+   izquierda y la fila sombreada. El brillo fuerte se queda bajo el avatar (68px):
+   bajo el texto baja, para que el gris siga leyéndose a 4,5:1 también con el cursor. */
 .conv-item.is-awaiting {
-  background: rgb(var(--amber-rgb) / 0.08);
+  background: linear-gradient(90deg, rgb(var(--await-rgb) / 0.28), rgb(var(--await-rgb) / 0.11) 68px, rgb(var(--await-rgb) / 0.07));
+  box-shadow: inset 4px 0 0 var(--await);
 }
-.conv-item.is-awaiting:hover {
-  background: rgb(var(--amber-rgb) / 0.2);
+.conv-item.is-awaiting:not(.is-active):hover {
+  background: linear-gradient(90deg, rgb(var(--await-rgb) / 0.34), rgb(var(--await-rgb) / 0.15) 68px, rgb(var(--await-rgb) / 0.12));
 }
 .conv-item.is-active {
   background: linear-gradient(90deg, rgb(var(--cyan-rgb) / 0.2), rgb(var(--cyan-rgb) / 0.06));
@@ -760,6 +771,10 @@ code {
   width: 3px;
   border-radius: 0 6px 6px 0;
   background: linear-gradient(180deg, var(--accent), var(--accent-2));
+}
+/* Abierta y sin responder: manda la franja ámbar. */
+.conv-item.is-awaiting.is-active::before {
+  display: none;
 }
 
 /* Acciones de un mensaje (responder / reaccionar). Aparecen al pasar el
@@ -3499,10 +3514,10 @@ code {
 .dash__head h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
 .dash__head p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
 .dash__controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.dash__alert { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: var(--r-pill); background: var(--warning-soft); border: 1px solid rgb(var(--amber-rgb) / 0.4); color: var(--text); font-size: 13px; font-weight: 600; text-decoration: none; }
-.dash__alert:hover { text-decoration: none; border-color: var(--warning); }
-.dash__pulse { width: 8px; height: 8px; background: var(--warning); box-shadow: 0 0 0 0 rgb(var(--amber-rgb) / 0.6); animation: dashPulse 1.8s ease-out infinite; }
-@keyframes dashPulse { 0% { box-shadow: 0 0 0 0 rgb(var(--amber-rgb) / 0.6); } 100% { box-shadow: 0 0 0 10px rgb(var(--amber-rgb) / 0); } }
+.dash__alert { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 12px; border-radius: var(--r-pill); background: var(--await); border: 1px solid transparent; color: var(--await-ink); font-size: 13px; font-weight: 700; text-decoration: none; }
+.dash__alert:hover { text-decoration: none; filter: brightness(1.07); }
+.dash__pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 0 rgb(36 21 0 / 0.45); animation: dashPulse 1.8s ease-out infinite; }
+@keyframes dashPulse { 0% { box-shadow: 0 0 0 0 rgb(36 21 0 / 0.45); } 100% { box-shadow: 0 0 0 9px rgb(36 21 0 / 0); } }
 .dash__body { display: flex; flex-direction: column; gap: 16px; transition: opacity 0.2s ease; }
 .dash__body.is-loading { opacity: 0.6; }
 .dash__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
@@ -3651,7 +3666,7 @@ code {
 .dash__table td { padding: 8px 6px; border-bottom: 1px solid var(--border); }
 .dash__table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .dash__muted { color: var(--muted); }
-.dash__waiting { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: var(--r-pill); background: var(--warning-soft); color: var(--warning); font-weight: 700; text-align: center; }
+.dash__waiting { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: var(--r-pill); background: var(--await); color: var(--await-ink); font-weight: 700; text-align: center; }
 
 /* Gráficos */
 .chart { display: flex; flex-direction: column; gap: 6px; }
@@ -7019,16 +7034,6 @@ button[style*="background:var(--accent)"]:focus-visible {
 .mail-preview { border-radius: var(--r-lg); }
 .fup__bubble,
 .pay__bubble { border-radius: var(--bubble-out-r); }
-
-/* Lo que está en marcha late en aguamarina. */
-.dash__pulse {
-  background: var(--cyan-fill);
-  box-shadow: 0 0 0 0 rgb(var(--cyan-rgb) / 0.6);
-}
-@keyframes dashPulse {
-  0% { box-shadow: 0 0 0 0 rgb(var(--cyan-rgb) / 0.6); }
-  100% { box-shadow: 0 0 0 10px rgb(var(--cyan-rgb) / 0); }
-}
 
 /* ── Agenda › Avisos al cliente ─────────────────────────────── */
 .agenda-check { display: flex; align-items: flex-start; gap: 10px; margin: 0; font-size: 14px; cursor: pointer; }

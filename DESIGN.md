@@ -301,6 +301,9 @@ cabecera y el borde izquierdo. Sin lima: en esa página el lima es del plan y de
 - **Do** redefinir las fichas dentro de un bloque de color y medir el contraste.
 - **Do** pasar los colores que elige el usuario por `readableInk()`.
 - **Do** comunicar todo estado con color **+** icono o palabra.
+- **Do** pintar **lleno** lo que avisa de un chat sin responder (`--await` con `--await-ink`): la
+  franja de la fila, la etiqueta del tiempo de espera y el aviso del panel. El ámbar translúcido
+  sobre petróleo se vuelve gris.
 - **Do** texto de cuerpo a ≥4,5:1 en los dos temas; los campos vacíos también.
 - **Do** iconos SVG de línea (18px, trazo 1.75); los emojis solo dentro de los mensajes.
 - **Do** respetar `prefers-reduced-motion` y mover con el scroll desde CSS
