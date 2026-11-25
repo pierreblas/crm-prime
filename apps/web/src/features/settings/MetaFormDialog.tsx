@@ -156,11 +156,13 @@ export function MetaFormDialog({
         label: c.label.trim(),
         type: c.type,
         options: c.type === "select" ? c.options.split(",").map((o) => o.trim()).filter(Boolean) : [],
+        // Lo que se pregunta en un formulario es de ese interés: nace como campo del lead.
+        entity: "deal",
         ...(c.editKey && c.key ? { key: c.key } : {}),
       }),
     onSuccess: (created, c) => {
       void queryClient.invalidateQueries({ queryKey: ["custom-fields"] });
-      setTarget(c.qKey, `field:${created.key}`);
+      setTarget(c.qKey, `deal:${created.key}`);
       setCreator(null);
     },
     onError: (e) => toast.error((e as Error).message),
@@ -224,7 +226,8 @@ export function MetaFormDialog({
     const resolved = Object.keys(resolveFieldKeys({ [key]: "" }, fields))[0]!;
     if (utmName(resolved)) return "campaña (UTM)";
     const def = fields.find((f) => f.key === resolved);
-    return def ? `campo «${def.label}»` : "no sale en la ficha";
+    if (def) return def.entity === "deal" ? `campo del lead «${def.label}»` : `campo del contacto «${def.label}»`;
+    return "dato del lead";
   };
   const goesTo = (key: string) => rule.fieldMap[key] ?? metaFieldAutoTarget(key);
   const noPhone = questions.length > 0 && !questions.some((q) => goesTo(q.key) === "std:phone");
@@ -377,7 +380,7 @@ export function MetaFormDialog({
             )}
             {questions.map((q) => {
               const target = rule.fieldMap[q.key] ?? "";
-              const lost = target.startsWith("field:") && !fields.some((f) => `field:${f.key}` === target);
+              const lost = /^(field|deal):/.test(target) && !fields.some((f) => `${f.entity === "deal" ? "deal" : "field"}:${f.key}` === target);
               const typeLabel = metaQuestionTypeLabel(q);
               return (
                 <div key={q.key} className="mfd__q" data-question={q.key}>
@@ -410,17 +413,30 @@ export function MetaFormDialog({
                         {t.label}
                       </option>
                     ))}
-                    <option value={NEW_FIELD}>Crear campo…</option>
-                    {fields.length > 0 && (
-                      <optgroup label="Campos del contacto">
-                        {fields.map((f) => (
-                          <option key={f.key} value={`field:${f.key}`}>
-                            {f.label}
-                          </option>
-                        ))}
+                    <option value={NEW_FIELD}>Crear campo del lead…</option>
+                    {fields.some((f) => f.entity === "deal") && (
+                      <optgroup label="Campos del lead">
+                        {fields
+                          .filter((f) => f.entity === "deal")
+                          .map((f) => (
+                            <option key={f.key} value={`deal:${f.key}`}>
+                              {f.label}
+                            </option>
+                          ))}
                       </optgroup>
                     )}
-                    {lost && <option value={target}>Campo borrado ({target.slice("field:".length)})</option>}
+                    {fields.some((f) => f.entity !== "deal") && (
+                      <optgroup label="Campos del contacto">
+                        {fields
+                          .filter((f) => f.entity !== "deal")
+                          .map((f) => (
+                            <option key={f.key} value={`field:${f.key}`}>
+                              {f.label}
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
+                    {lost && <option value={target}>Campo borrado ({target.replace(/^(field|deal):/, "")})</option>}
                     <option value="skip">No guardar</option>
                   </select>
                   {creator?.qKey === q.key && (
@@ -471,7 +487,7 @@ export function MetaFormDialog({
                       </div>
                       <div className="mfd__creator-row">
                         <button type="submit" className="btn btn-primary btn-sm" disabled={!canCreate || addField.isPending}>
-                          {addField.isPending ? "Creando…" : "Crear campo y usarlo"}
+                          {addField.isPending ? "Creando…" : "Crear campo del lead y usarlo"}
                         </button>
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCreator(null)}>
                           Cancelar

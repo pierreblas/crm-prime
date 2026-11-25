@@ -1,12 +1,13 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Prisma } from "@prisma/client";
-import { addUtmTouch, allUtmKeys, CONTACT_EMAIL_KEY, fieldKeyFromLabel, phoneVariants, resolveFieldKeys, utmKeys } from "@crm/shared";
+import { addUtmTouch, allUtmKeys, CONTACT_EMAIL_KEY, fieldKeyFromLabel, humanizeFieldKey, ORIGIN_FIELD_KEYS, phoneVariants, resolveFieldKeys, utmKeys } from "@crm/shared";
 import type {
   UnmappedField,
   CreateCustomFieldInput,
   CustomFieldDto,
   CustomFieldType,
+  FieldEntity,
   LeadWebhookInput,
   UpdateCustomFieldInput,
 } from "@crm/shared";
@@ -44,9 +45,51 @@ export class LeadService {
         type: input.type,
         options: input.type === "select" ? input.options : [],
         order: count,
+        entity: input.entity ?? "contact",
       },
     });
     return this.toFieldDto(f);
+  }
+
+  /**
+   * Un dato que llegó a los contactos pero es del lead (una respuesta de un
+   * formulario): se crea como campo del lead y lo que ya había se pasa a la
+   * oportunidad de cada contacto, la abierta o, si no tiene, la última. Quien
+   * no tiene ninguna oportunidad conserva el dato en su ficha.
+   */
+  async moveFieldToLead(key: string): Promise<{ field: CustomFieldDto; moved: number; kept: number }> {
+    const orgId = this.tenant.orgId();
+    const existing = await this.prisma.customField.findFirst({ where: { key } });
+    const field = existing
+      ? await this.prisma.customField.update({ where: { id: existing.id }, data: { entity: "deal" } })
+      : await this.prisma.customField.create({
+          data: { orgId, key, label: humanizeFieldKey(key).slice(0, 80), type: "text", options: [], order: await this.prisma.customField.count(), entity: "deal" },
+        });
+    // Un solo paso: copia a la oportunidad y, solo de quien se copió, lo quita del contacto.
+    const rows = await this.prisma.$queryRaw<{ moved: number }[]>`
+      WITH target AS (
+        SELECT DISTINCT ON (c.id) c.id AS contact_id, d.id AS deal_id, c.metadata->>${key} AS v
+        FROM contacts c
+        JOIN deals d ON d."contactId" = c.id
+        JOIN pipeline_stages s ON s.id = d."stageId"
+        WHERE c."orgId" = ${orgId} AND jsonb_typeof(c.metadata) = 'object' AND c.metadata ? ${key}
+        ORDER BY c.id, (d."discardedAt" IS NULL AND NOT s."isWon" AND NOT s."isLost") DESC, d."createdAt" DESC
+      ), copied AS (
+        UPDATE deals d
+        SET fields = jsonb_build_object(${key}::text, t.v) || coalesce(d.fields, '{}'::jsonb)
+        FROM target t
+        WHERE d.id = t.deal_id
+        RETURNING t.contact_id
+      ), cleaned AS (
+        UPDATE contacts c SET metadata = c.metadata - ${key}::text
+        WHERE c.id IN (SELECT contact_id FROM copied)
+        RETURNING c.id
+      )
+      SELECT count(*)::int AS moved FROM cleaned`;
+    const left = await this.prisma.$queryRaw<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM contacts c
+      WHERE c."orgId" = ${orgId} AND jsonb_typeof(c.metadata) = 'object' AND c.metadata ? ${key}`;
+    return { field: this.toFieldDto(field), moved: rows[0]?.moved ?? 0, kept: left[0]?.n ?? 0 };
   }
 
   async updateField(
@@ -96,9 +139,22 @@ export class LeadService {
       GROUP BY k
       ORDER BY count(*) DESC
       LIMIT 200`;
-    // El correo tiene su sitio fijo en la ficha: no hace falta crearle un campo.
-    const skip = new Set<string>([...allUtmKeys, CONTACT_EMAIL_KEY]);
-    return rows.filter((r) => !defined.has(r.key) && !skip.has(r.key)).slice(0, 50);
+    // El correo tiene su sitio fijo en la ficha, y el formulario, la campaña y el
+    // anuncio los pone Driony y se ven en «Origen»: no hace falta crearles un campo.
+    const skip = new Set<string>([...allUtmKeys, CONTACT_EMAIL_KEY, ...ORIGIN_FIELD_KEYS]);
+    // Lo mismo en los leads: respuestas guardadas en la oportunidad sin campo definido.
+    const inDeals = await this.prisma.$queryRaw<{ key: string; contacts: number; sample: string | null }[]>`
+      SELECT k AS key, count(*)::int AS contacts, left(min(d.fields->>k), 80) AS sample
+      FROM deals d
+      CROSS JOIN LATERAL jsonb_object_keys(CASE WHEN jsonb_typeof(d.fields) = 'object' THEN d.fields ELSE '{}'::jsonb END) AS k
+      WHERE d."orgId" = ${orgId}
+      GROUP BY k
+      ORDER BY count(*) DESC
+      LIMIT 200`;
+    return [
+      ...rows.filter((r) => !defined.has(r.key) && !skip.has(r.key)).map((r) => ({ ...r, entity: "contact" as const })),
+      ...inDeals.filter((r) => !defined.has(r.key) && !skip.has(r.key)).map((r) => ({ ...r, entity: "deal" as const })),
+    ].slice(0, 50);
   }
 
   // ── Webhook de lead entrante ─────────────────────────────────
@@ -213,6 +269,7 @@ export class LeadService {
     type: string;
     options: string[];
     order: number;
+    entity?: string | null;
   }): CustomFieldDto {
     return {
       id: f.id,
@@ -221,6 +278,7 @@ export class LeadService {
       type: f.type as CustomFieldType,
       options: f.options,
       order: f.order,
+      entity: (f.entity === "deal" ? "deal" : "contact") as FieldEntity,
     };
   }
 }

@@ -10,10 +10,12 @@ import {
 } from "@nestjs/common";
 import {
   createCustomFieldSchema,
+  fieldKeySchema,
   updateCustomFieldSchema,
   type CreateCustomFieldInput,
   type UpdateCustomFieldInput,
 } from "@crm/shared";
+import { z } from "zod";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { LeadService } from "./lead.service";
@@ -40,6 +42,12 @@ export class CustomFieldsController {
     body: CreateCustomFieldInput,
   ) {
     return this.leads.createField(body);
+  }
+
+  // Un dato que estaba en los contactos pasa a ser campo del lead, con lo que ya había.
+  @Post("move-to-lead")
+  moveToLead(@Body(new ZodValidationPipe(z.object({ key: fieldKeySchema }))) body: { key: string }) {
+    return this.leads.moveFieldToLead(body.key);
   }
 
   @Patch(":id")

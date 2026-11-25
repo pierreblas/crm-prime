@@ -57,6 +57,7 @@
     "test:copilot": "tsx --test test/copilot.test.ts",
     "test:dashboard": "tsx --test test/dashboard.test.ts",
     "test:inboxorigin": "tsx --test test/inbox-origin.test.ts",
+    "test:leadfields": "tsx --test test/lead-fields.test.ts",
     "test:setup": "tsx --test test/business-setup.test.ts",
     "test:conversions": "tsx --test test/conversions.test.ts",
     "test:attribution": "tsx --test test/attribution.test.ts",

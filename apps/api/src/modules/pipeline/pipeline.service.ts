@@ -9,7 +9,7 @@ import {
 import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { contactCurrency, parseStageConversionEvents,
+import { contactCurrency, leadFieldsOf, parseLeadOrigin, parseStageConversionEvents,
   NO_CONDITIONS,
   stageAutomationConditionsSchema,
   type StageAutomationConditions,
@@ -427,6 +427,16 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     // Para avisar si cambia el responsable (los flujos pueden arrancar con eso).
     const before =
       input.ownerId !== undefined ? await this.prisma.deal.findUnique({ where: { id }, select: { ownerId: true } }) : null;
+    // Campos del lead: lo que viene se guarda sobre lo que hay; una clave vacía borra ese dato.
+    let fields: Record<string, string> | undefined;
+    if (input.fields !== undefined) {
+      const current = await this.prisma.deal.findUnique({ where: { id }, select: { fields: true } });
+      fields = leadFieldsOf(current?.fields);
+      for (const [k, v] of Object.entries(input.fields)) {
+        if (v.trim()) fields[k] = v.trim();
+        else delete fields[k];
+      }
+    }
     const deal = await this.prisma.deal
       .update({
         where: { id },
@@ -435,6 +445,7 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
           ...(input.value !== undefined ? { value: input.value } : {}),
           ...(input.currency !== undefined ? { currency: input.currency } : {}),
           ...(input.ownerId !== undefined ? { ownerId: input.ownerId } : {}),
+          ...(fields !== undefined ? { fields } : {}),
         },
         include: DEAL_INCLUDE,
       })
@@ -620,6 +631,11 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
         detail = String(m.reason ?? "");
       } else if (r.kind === "value") {
         detail = `${money(m.from, m.currency)} → ${money(m.to, m.currency)}`;
+      } else if (r.kind === "form") {
+        // «Curso Power BI» · campaña «Bootcamp» · anuncio «AD1»
+        detail = [m.form ? `«${String(m.form)}»` : null, m.campaign ? `campaña «${String(m.campaign)}»` : null, m.ad ? `anuncio «${String(m.ad)}»` : null]
+          .filter(Boolean)
+          .join(" · ");
       } else if (r.kind === "booking") {
         // «Cita reservada: Corte · martes, 3 de noviembre, 10:30»
         detail = `${String(m.label ?? "Cita")}: ${String(m.service ?? "")} · ${String(m.when ?? "")}${m.reason ? ` (${String(m.reason)})` : ""}`;
@@ -1071,6 +1087,8 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
     discardReason: string | null;
     stageEnteredAt?: Date;
     lostReason?: string | null;
+    fields?: unknown;
+    origin?: unknown;
     createdAt: Date;
     stage: { pipelineId: string };
     contact: {
@@ -1122,6 +1140,8 @@ export class PipelineService implements OnModuleInit, OnModuleDestroy {
       discardReason: d.discardReason,
       stageEnteredAt: (d.stageEnteredAt ?? d.createdAt).toISOString(),
       lostReason: d.lostReason ?? null,
+      fields: leadFieldsOf(d.fields),
+      origin: parseLeadOrigin(d.origin),
       createdAt: d.createdAt.toISOString(),
     };
   }

@@ -33,6 +33,7 @@ import { confirmDialog } from "@/lib/confirm";
 import { RuleRow, newRule, type RuleLookups } from "@/features/flows/RuleRow";
 import { LossReasonsEditor } from "./LossReasons";
 import { toast } from "@/lib/toast";
+import { contactFieldsOnly } from "@/lib/custom-fields";
 
 /**
  * Configuración de una etapa, compartida por el tablero y por Ajustes:
@@ -317,7 +318,7 @@ export function AutomationsEditor({
   // Catálogos para los filtros (etiquetas, fuentes, etapas…), los mismos que usan los flujos.
   const { data: tags = [] } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
   const { data: sources = [] } = useQuery({ queryKey: ["sources"], queryFn: fetchSources });
-  const { data: fields = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
+  const { data: fields = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields, select: contactFieldsOnly });
   const { data: stages = [] } = useQuery({ queryKey: ["stages-ref"], queryFn: fetchStages });
   const { data: channels = [] } = useQuery({ queryKey: ["wa-channels"], queryFn: fetchWhatsappChannels });
   const { data: agents = [] } = useQuery({ queryKey: ["agents"], queryFn: fetchAgents });

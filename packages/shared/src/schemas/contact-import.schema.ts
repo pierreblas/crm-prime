@@ -58,8 +58,11 @@ export function resolveFieldKeys(
 /** Una clave que llega en los contactos pero no tiene campo definido. */
 export const unmappedFieldSchema = z.object({
   key: z.string(),
+  /** Cuántos contactos (o leads) lo traen. */
   contacts: z.number(),
   sample: z.string().nullable(),
+  /** Dónde está guardado hoy: en contactos o en leads. */
+  entity: z.enum(["contact", "deal"]).default("contact"),
 });
 export type UnmappedField = z.infer<typeof unmappedFieldSchema>;
 

@@ -40,12 +40,13 @@ export const META_FORM_SOURCE_NAME = "Formulario de Facebook";
  * A dónde va la respuesta de una pregunta del formulario:
  *  - "std:name" | "std:phone" | "std:email": nombre, teléfono o correo del contacto
  *    (varias preguntas al nombre se juntan: «Nombres» + «Apellidos»);
- *  - "field:<clave>": ese campo personalizado;
+ *  - "field:<clave>": ese campo personalizado del contacto;
+ *  - "deal:<clave>": ese campo del lead (la oportunidad);
  *  - "skip": no se guarda.
  */
 export const metaFieldTargetSchema = z
   .string()
-  .regex(/^(std:(name|phone|email)|skip|field:[a-z][a-z0-9_]{0,39})$/, "Destino de campo no válido");
+  .regex(/^(std:(name|phone|email)|skip|(field|deal):[a-z][a-z0-9_]{0,39})$/, "Destino de campo no válido");
 
 /**
  * Regla de un formulario de la página:
@@ -397,7 +398,12 @@ export function mapMetaLeadFields(
   name: string | null;
   phone: string | null;
   email: string | null;
+  /** Lo asignado a un campo del contacto y, además, las preguntas sin asignar. */
   extra: Record<string, string>;
+  /** Lo asignado a un campo del lead. */
+  lead: Record<string, string>;
+  /** Nombres de las preguntas sin asignar (están en `extra`): por defecto son del lead. */
+  unmapped: string[];
 } {
   let phone: string | null = null;
   let email: string | null = null;
@@ -406,6 +412,8 @@ export function mapMetaLeadFields(
   let lastName: string | null = null;
   const nameParts: string[] = [];
   const extra: Record<string, string> = {};
+  const lead: Record<string, string> = {};
+  const unmapped: string[] = [];
 
   for (const field of fields) {
     const to = fieldMap[field.name];
@@ -415,6 +423,7 @@ export function mapMetaLeadFields(
     else if (to === "std:email") email ??= value;
     else if (to === "std:name") nameParts.push(value);
     else if (to.startsWith("field:")) extra[to.slice("field:".length)] = value;
+    else if (to.startsWith("deal:")) lead[to.slice("deal:".length)] = value;
   }
 
   for (const field of fields) {
@@ -428,12 +437,15 @@ export function mapMetaLeadFields(
     else if (!fullName && FULL_NAME_KEYS.includes(key)) fullName = value;
     else if (!firstName && FIRST_NAME_KEYS.includes(key)) firstName = value;
     else if (!lastName && LAST_NAME_KEYS.includes(key)) lastName = value;
-    else extra[field.name] = value;
+    else {
+      extra[field.name] = value;
+      unmapped.push(field.name);
+    }
   }
 
   const name =
     nameParts.join(" ") ||
     (fullName ?? [firstName, lastName].filter(Boolean).join(" ").trim());
 
-  return { name: name || null, phone, email, extra };
+  return { name: name || null, phone, email, extra, lead, unmapped };
 }

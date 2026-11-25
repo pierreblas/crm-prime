@@ -607,8 +607,10 @@ model Contact {
 model CustomField {
   id        String   @id @default(cuid())
   orgId     String
-  key       String // clave usada en Contact.metadata
+  key       String // clave usada en Contact.metadata o en Deal.fields
   label     String
+  // "contact": dato de la persona. "deal": dato del lead (la oportunidad).
+  entity    String   @default("contact")
   type      String   @default("text") // text | number | date | select
   options   String[] // opciones cuando type = select
   order     Int      @default(0)
@@ -1109,13 +1111,17 @@ model MetaLead {
   status    MetaLeadStatus @default(PROCESSED)
   error     String?
   contactId String?
+  // La oportunidad a la que fue a parar (la que creó o la que ya tenía abierta).
+  dealId    String?
   createdAt DateTime       @default(now())
 
   page    MetaPage @relation(fields: [pageId], references: [pageId], onDelete: Cascade)
   contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([pageId])
+  @@index([dealId])
   @@map("meta_leads")
 }
 
@@ -1365,6 +1371,13 @@ model Deal {
   createdAt     DateTime  @default(now())
   stageEnteredAt DateTime @default(now()) // lo reinicia un disparador al cambiar de etapa
   lostReason     String? // por qué se perdió (se borra al salir de la etapa de perdido)
+  // Campos del lead: lo que respondió en el formulario y los campos de tipo
+  // «lead» de Ajustes, por clave. Son de este interés, no de la persona: otro
+  // formulario de otro curso no debe pisarlos en el contacto.
+  fields         Json?
+  // Cómo llegó ESTE lead, tal como era ese día: { form, formId, campaign, ad,
+  // platform, utm, at } (leadOriginSchema en @crm/shared).
+  origin         Json?
   updatedAt     DateTime  @updatedAt
 
   contact          Contact              @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -1373,6 +1386,7 @@ model Deal {
   conversionEvents ConversionEvent[]
   automationRuns   StageAutomationRun[]
   events           DealEvent[]
+  metaLeads        MetaLead[] // los formularios de Meta que llegaron a este lead
   bookings         Booking[]
   // Solo en la empresa propia de Driony: diagnósticos del cotizador enlazados.
   implementationAssessments ImplementationAssessment[]

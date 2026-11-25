@@ -6,7 +6,10 @@ import {
   dialCodeOf,
   isValidPhone,
   mapMetaLeadFields,
+  mergeLeadFields,
   parseMetaFormRules,
+  splitLeadData,
+  type LeadOrigin,
   phoneWithDefaultCountry,
   MessageAuthor,
   type MetaLeadDto,
@@ -173,7 +176,7 @@ export class MetaLeadService {
       return;
     }
 
-    const contactId = await this.createContact(page, { ...mapped, phone }, formName, ad, detail.formId ?? note.formId ?? null, {
+    const { contactId, dealId } = await this.createContact(page, { ...mapped, phone }, formName, ad, detail.formId ?? note.formId ?? null, {
       silent: !!note.backfill,
       leadgenId: note.leadgenId,
     });
@@ -182,7 +185,7 @@ export class MetaLeadService {
       { ...note, formId: detail.formId ?? undefined },
       page.pageId,
       detail.fields,
-      { status: "PROCESSED", formName, ...ad, ...mapped, phone, contactId },
+      { status: "PROCESSED", formName, ...ad, ...mapped, phone, contactId, dealId },
     );
     this.logger.log(
       `Lead ${note.leadgenId} → contacto ${contactId} (${page.name})${note.backfill ? " [importado]" : ""}`,
@@ -194,10 +197,10 @@ export class MetaLeadService {
     page: LeadPage,
     mapped: ReturnType<typeof mapMetaLeadFields>,
     formName: string | null,
-    ad: { adName: string | null; campaignName: string | null } = { adName: null, campaignName: null },
+    ad: { adName: string | null; campaignName: string | null; platform?: string | null } = { adName: null, campaignName: null },
     formId: string | null = null,
     opts: ContactOpts = {},
-  ): Promise<string> {
+  ): Promise<{ contactId: string; dealId: string | null }> {
     // Fuente: la del formulario si la tiene («auto» = la automática); si no, o
     // si ya no existe, la de la página. Etiquetas: las de los dos.
     const rule = this.ruleFor(page, formId);
@@ -212,7 +215,22 @@ export class MetaLeadService {
       ? await this.prisma.tag.findMany({ where: { id: { in: tagIds } } })
       : [];
 
-    const fields = { ...mapped.extra };
+    // La persona y su interés se guardan aparte. Del formulario, al contacto va
+    // lo que lo identifica y lo que la regla manda a un campo suyo; las
+    // respuestas a las preguntas son del lead, que es la oportunidad. Sin
+    // oportunidad (el formulario no las crea), se quedan en el contacto.
+    const target = this.dealTarget(page, formId);
+    const defs = await this.prisma.customField.findMany({ select: { key: true, label: true, entity: true } });
+    const unmapped = new Set(mapped.unmapped ?? []);
+    const split = splitLeadData({
+      contact: Object.fromEntries(Object.entries(mapped.extra).filter(([k]) => !unmapped.has(k))),
+      lead: mapped.lead ?? {},
+      answers: Object.fromEntries(Object.entries(mapped.extra).filter(([k]) => unmapped.has(k))),
+      defs,
+      hasLead: !!target,
+    });
+    // Los utm_* van con el contacto: él guarda la primera campaña y la última.
+    const fields: Record<string, string> = { ...split.contact, ...split.utms };
     if (mapped.email) fields.email = mapped.email;
     if (formName) fields.formulario = formName;
     if (ad.adName) fields.anuncio = ad.adName;
@@ -240,9 +258,23 @@ export class MetaLeadService {
     const lead = opts.leadgenId ? { leadgenId: opts.leadgenId, pageId: page.pageId } : undefined;
     if (lead && !opts.silent) this.events.emit("meta_lead.received", { orgId: page.orgId, contactId, ...lead });
 
-    const target = this.dealTarget(page, formId);
+    // Cómo llegó este lead, tal como es hoy: se queda con la oportunidad.
+    const origin: LeadOrigin = {
+      form: formName,
+      formId,
+      campaign: ad.campaignName,
+      ad: ad.adName,
+      platform: ad.platform ?? null,
+      utm: split.utms,
+      at: new Date().toISOString(),
+    };
+    let dealId: string | null = null;
     if (target) {
-      await runAsActor("system:meta", () => this.createDeal(page.orgId, contactId, mapped.name, formName, target.stageId, !!opts.silent, lead));
+      dealId = await runAsActor("system:meta", () =>
+        this.createDeal(page.orgId, contactId, mapped.name, formName, target.stageId, !!opts.silent, lead, { fields: split.lead, origin }),
+      );
+      // No hubo dónde guardarlas (el embudo no tiene etapas): que no se pierdan.
+      if (!dealId && Object.keys(split.lead).length) await this.keepOnContact(contactId, split.lead);
     }
     // Los flujos de «lead nuevo» arrancan con la oportunidad ya en la etapa de
     // su formulario: si la crean ellos, no es otra.
@@ -252,7 +284,14 @@ export class MetaLeadService {
       await this.sendWelcome(page.orgId, contactId, page.welcomeTemplateId);
     }
 
-    return contactId;
+    return { contactId, dealId };
+  }
+
+  /** Respuestas que no pudieron ir a una oportunidad: se guardan en la ficha del contacto. */
+  private async keepOnContact(contactId: string, fields: Record<string, string>): Promise<void> {
+    const contact = await this.prisma.contact.findUnique({ where: { id: contactId }, select: { metadata: true } });
+    const current = contact?.metadata && typeof contact.metadata === "object" ? (contact.metadata as Record<string, unknown>) : {};
+    await this.prisma.contact.update({ where: { id: contactId }, data: { metadata: { ...current, ...fields } as Prisma.InputJsonValue } });
   }
 
   /**
@@ -312,38 +351,72 @@ export class MetaLeadService {
     // El lead del que nace: va en el aviso de etapa porque aún no está guardado
     // y las conversiones de Meta lo necesitan para atribuirla.
     metaLead?: { leadgenId: string; pageId: string },
-  ): Promise<void> {
+    // Lo que es del lead: sus respuestas y cómo llegó.
+    data?: { fields: Record<string, string>; origin: LeadOrigin },
+  ): Promise<string | null> {
     const select = { id: true, pipelineId: true } as const;
     const stage =
       (stageId ? await this.prisma.pipelineStage.findUnique({ where: { id: stageId }, select }) : null) ??
       (await this.prisma.pipelineStage.findFirst({ where: { pipeline: { isDefault: true } }, orderBy: { order: "asc" }, select }));
     if (!stage) {
       this.logger.warn("No hay etapas en el pipeline: no se creó la oportunidad");
-      return;
+      return null;
     }
 
     try {
-      const dealId = await withContactLock(this.prisma, contactId, async (tx) => {
+      const { dealId, entered } = await withContactLock(this.prisma, contactId, async (tx) => {
         const last = await intakeDeal(tx, contactId);
         const decision = decideIntake(last, stage.pipelineId);
-        if (decision === "skip") return null;
+        // Otro formulario en un lead que sigue vivo: lo nuevo manda, lo demás se conserva.
+        const kept = data && last && decision !== "create" ? { fields: mergeLeadFields(last.fields, data.fields) as Prisma.InputJsonValue, origin: data.origin as Prisma.InputJsonValue } : {};
+        // Cada formulario que llega queda en el historial del lead, con lo que respondió ese día.
+        const note = (id: string) =>
+          data
+            ? tx.dealEvent.create({
+                data: {
+                  orgId,
+                  dealId: id,
+                  kind: "form",
+                  actor: "system:meta",
+                  meta: { form: data.origin.form, campaign: data.origin.campaign, ad: data.origin.ad, fields: data.fields } as Prisma.InputJsonValue,
+                },
+              })
+            : null;
+        if (decision === "skip") {
+          // Ya tiene una en curso: no se abre otra, pero sus respuestas van a esa.
+          if (last && data) {
+            await tx.deal.update({ where: { id: last.id }, data: kept });
+            await note(last.id);
+          }
+          return { dealId: last?.id ?? null, entered: false };
+        }
         if (decision === "restore" && last) {
-          await tx.deal.update({ where: { id: last.id }, data: { discardedAt: null, discardReason: null, stageId: stage.id } });
-          return last.id;
+          await tx.deal.update({ where: { id: last.id }, data: { discardedAt: null, discardReason: null, stageId: stage.id, ...kept } });
+          await note(last.id);
+          return { dealId: last.id, entered: true };
         }
         const created = await tx.deal.create({
-          data: { orgId, contactId, stageId: stage.id, title: formName ? `${name ?? "Lead"} · ${formName}` : (name ?? "Lead de Meta") },
+          data: {
+            orgId,
+            contactId,
+            stageId: stage.id,
+            title: formName ? `${name ?? "Lead"} · ${formName}` : (name ?? "Lead de Meta"),
+            ...(data ? { fields: data.fields as Prisma.InputJsonValue, origin: data.origin as Prisma.InputJsonValue } : {}),
+          },
         });
-        return created.id;
+        await note(created.id);
+        return { dealId: created.id, entered: true };
       });
-      if (!dealId) {
+      if (!entered || !dealId) {
         this.logger.log(`El contacto ${contactId} ya tiene una oportunidad en curso: no se crea otra`);
-        return;
+        return dealId;
       }
       if (!silent) this.events.emit("deal.stage_changed", { orgId, dealId, contactId, stageId: stage.id, ...(metaLead ? { metaLead } : {}) });
       this.events.emit("pipeline.changed", { orgId, dealId });
+      return dealId;
     } catch (e) {
       this.logger.warn(`No se pudo crear la oportunidad: ${(e as Error).message}`);
+      return null;
     }
   }
 
@@ -399,6 +472,7 @@ export class MetaLeadService {
       phone?: string | null;
       email?: string | null;
       contactId?: string;
+      dealId?: string | null;
     },
   ): Promise<void> {
     const data = {
@@ -416,6 +490,7 @@ export class MetaLeadService {
       status: extra.status,
       error: extra.error ?? null,
       contactId: extra.contactId ?? null,
+      ...(extra.dealId ? { dealId: extra.dealId } : {}),
     };
     // Si ya hay fila es la de un intento que falló: se actualiza con el resultado de este.
     await this.prisma.metaLead.upsert({
@@ -528,10 +603,10 @@ export class MetaLeadService {
       const row = await this.prisma.metaLead.update({ where: { id }, data: { ...base, status: "NO_PHONE" }, include: { page: { select: { name: true } } } });
       return this.toDto(row);
     }
-    const contactId = await this.createContact(lead.page, { ...mapped, phone }, formName, ad, formId, { silent: true });
+    const { contactId, dealId } = await this.createContact(lead.page, { ...mapped, phone }, formName, ad, formId, { silent: true });
     const row = await this.prisma.metaLead.update({
       where: { id },
-      data: { ...base, phone, status: "PROCESSED", contactId },
+      data: { ...base, phone, status: "PROCESSED", contactId, ...(dealId ? { dealId } : {}) },
       include: { page: { select: { name: true } } },
     });
     this.logger.log(`Lead ${lead.leadgenId} reprocesado → contacto ${contactId}`);
@@ -549,18 +624,18 @@ export class MetaLeadService {
     const fields = (lead.fieldData as MetaLeadField[] | null) ?? [];
     const mapped = { ...mapMetaLeadFields(fields, this.ruleFor(lead.page, lead.formId)?.fieldMap), phone };
 
-    const contactId = await this.createContact(
+    const { contactId, dealId } = await this.createContact(
       lead.page,
       mapped,
       lead.formName,
-      { adName: lead.adName, campaignName: lead.campaignName },
+      { adName: lead.adName, campaignName: lead.campaignName, platform: lead.platform },
       lead.formId,
       { leadgenId: lead.leadgenId },
     );
 
     await this.prisma.metaLead.update({
       where: { id },
-      data: { status: "PROCESSED", phone, contactId, error: null },
+      data: { status: "PROCESSED", phone, contactId, error: null, ...(dealId ? { dealId } : {}) },
     });
     return { contactId };
   }

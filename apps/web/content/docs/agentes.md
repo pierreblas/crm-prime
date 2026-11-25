@@ -141,11 +141,22 @@ El agente sabe por dónde llegó y lo usa para entender de qué le hablan: si es
 
 - **Anuncio que abre WhatsApp**: el titular, el texto y el saludo del anuncio.
 - **Formulario de Meta**: el formulario, la campaña y el anuncio.
+- **Lo que respondió en el formulario**: cada respuesta se guarda en su lead (la oportunidad del embudo), no en el contacto, y el agente la recibe mientras ese lead siga abierto.
 - **UTM**: los de la URL del anuncio, los de un enlace `wa.me`, los que mande tu web por la [API](/docs/api) o los **parámetros de seguimiento** de un formulario de Meta (en el formulario, *Configuración › Agregar parámetro*).
 
 Son datos internos: se le pide que no los mencione ni los copie al cliente. Si quieres decidir tú la respuesta, tienes las variables `{{campana}}`, `{{anuncio}}`, `{{formulario}}`, `{{fuente}}`, `{{utm_source}}`, `{{utm_medium}}`, `{{utm_campaign}}`, `{{utm_content}}` y `{{utm_term}}`:
 
 > El cliente viene de la campaña {{utm_campaign}}.
+
+#### Contacto y lead
+
+El **contacto** es la persona: nombre, teléfono, correo y lo que no cambia aunque pregunte por otra cosa. El **lead** es un interés concreto suyo, la oportunidad del embudo: por qué formulario, campaña y anuncio llegó, y lo que respondió. Así, si mañana llena el formulario de otro curso, no se pisa lo de hoy.
+
+- En **Ajustes › Campos personalizados** cada campo es **del contacto** o **del lead**.
+- Las preguntas de un formulario de Meta van al lead. En **Configurar** del formulario puedes mandar una a un campo del contacto.
+- Si ya tenías respuestas guardadas en los contactos, en esa misma pantalla aparecen en **Datos que llegan sin campo** con el botón **Pasar al lead**: crea el campo y las mueve a la oportunidad de cada uno.
+- Un campo del lead vale como variable en las instrucciones del agente, igual que uno del contacto: `{{experiencia}}`.
+- Si alguien con un lead abierto llena otro formulario, no se abre otro lead: las respuestas nuevas se guardan en el mismo y cada formulario queda en su historial.
 >
 > Si la campaña contiene «powerbi», preséntale Power BI. Si contiene «excel», preséntale Excel avanzado.
 >

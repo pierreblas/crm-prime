@@ -22,6 +22,7 @@ import {
 } from "@crm/shared";
 import { NavIcon } from "@/components/NavIcons";
 import { fetchCustomFields, importContacts } from "@/lib/bff";
+import { contactFieldsOnly } from "@/lib/custom-fields";
 
 const NEW = "__new";
 const SKIP = "";
@@ -57,7 +58,7 @@ function matchField(header: string, fields: CustomFieldDto[]): string | null {
 export function ImportContactsDialog({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const { data: fields = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
+  const { data: fields = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields, select: contactFieldsOnly });
   const [parsed, setParsed] = useState<Parsed | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [columns, setColumns] = useState<Record<ContactImportColumn, string | null> | null>(null);

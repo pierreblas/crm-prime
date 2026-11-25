@@ -38,6 +38,7 @@ import { CopilotPanel } from "./CopilotPanel";
 import { OriginSection } from "./OriginSection";
 import { ContactBookings } from "@/features/agenda/ContactBookings";
 import { ContactEmails } from "@/features/email/ContactEmails";
+import { contactFieldsOnly } from "@/lib/custom-fields";
 
 export type ContactPanelTab = "contact" | "copilot";
 
@@ -86,6 +87,7 @@ export function ContactPanel({
   const { data: fields = [] } = useQuery({
     queryKey: ["custom-fields"],
     queryFn: fetchCustomFields,
+    select: contactFieldsOnly,
   });
 
   return (

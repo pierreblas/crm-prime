@@ -205,6 +205,7 @@ const EVENT_ICON: Record<DealEventDto["kind"], IconName> = {
   value: "chart",
   booking: "calendar",
   quote: "file",
+  form: "template",
 };
 
 function describe(e: DealEventDto): string {
@@ -228,6 +229,8 @@ function describe(e: DealEventDto): string {
     case "quote":
       // Solo en la empresa propia de Driony: lo que pasa con la cotización enlazada.
       return e.detail ?? "Cotización";
+    case "form":
+      return e.detail ? `Llenó el formulario ${e.detail}` : "Llenó un formulario";
   }
 }
 

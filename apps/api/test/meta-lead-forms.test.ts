@@ -11,7 +11,17 @@ import { MetaLeadService, type LeadgenNotification } from "../src/modules/meta-l
 import { MetaPageService } from "../src/modules/meta-leads/meta-page.service";
 import { mapMetaLeadFields, type MetaFormRule } from "@crm/shared";
 
-type Deal = { id: string; contactId: string; stageId: string; discardedAt: Date | null; discardReason: string | null; createdAt: Date };
+type Deal = {
+  id: string;
+  contactId: string;
+  stageId: string;
+  discardedAt: Date | null;
+  discardReason: string | null;
+  createdAt: Date;
+  /** Los campos del lead y cómo llegó. */
+  fields?: Record<string, string>;
+  origin?: { form?: string | null; campaign?: string | null; ad?: string | null; utm?: Record<string, string> };
+};
 const NAME_OF: Record<string, string> = { form: "Formulario de Facebook", whatsapp: "WhatsApp" };
 const KIND_OF: Record<string, string> = { "Formulario de Facebook": "form", WhatsApp: "whatsapp" };
 const STAGES = [
@@ -35,6 +45,8 @@ function setup(
     ad?: { adName: string | null; campaignName: string | null; platform: string | null } | null;
     /** Cuántas veces falla Meta al leer el lead antes de responder. */
     failLead?: number;
+    /** Campos definidos en Ajustes, con dónde vive cada uno. */
+    customFields?: Array<{ key: string; label: string; entity: string }>;
   } = {},
 ) {
   const deals: Deal[] = [...(opts.deals ?? [])];
@@ -60,7 +72,9 @@ function setup(
   const welcomes: string[] = [];
   // Fuentes de la empresa por nombre → id, y la del contacto que deja el lead.
   const sources = new Map(Object.entries(opts.sources ?? {}));
-  const contact = { sourceId: opts.contactSource ?? null };
+  const contact: { sourceId: string | null; metadata: Record<string, unknown> } = { sourceId: opts.contactSource ?? null, metadata: {} };
+  // Lo que queda en el historial de cada oportunidad.
+  const history: Array<{ dealId: string; kind: string; meta: Record<string, unknown> }> = [];
   let seq = 0;
   const stageSel = (s: (typeof STAGES)[number] | undefined) => (s ? { id: s.id, pipelineId: s.pipelineId } : null);
   const prisma = {
@@ -94,7 +108,14 @@ function setup(
         contact.sourceId = data.sourceId;
         return { count: 1 };
       },
+      findUnique: async () => ({ metadata: contact.metadata }),
+      update: async ({ data }: { data: { metadata: Record<string, unknown> } }) => {
+        contact.metadata = data.metadata;
+        return {};
+      },
     },
+    customField: { findMany: async () => opts.customFields ?? [] },
+    dealEvent: { create: async ({ data }: { data: (typeof history)[number] }) => void history.push(data) },
     tag: {
       findMany: async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.map((id) => ({ id, name: `tag-${id}` })),
     },
@@ -158,6 +179,7 @@ function setup(
         if (!sources.has(input.source)) sources.set(input.source, `src-${input.source}`);
         contact.sourceId = sources.get(input.source)!;
       }
+      contact.metadata = { ...contact.metadata, ...input.fields };
       return { id: "ct1", created: true, ...(o?.hold ? { announce: () => void emitted.push({ name: "lead.created", payload: {} as (typeof emitted)[number]["payload"] }) } : {}) };
     },
   };
@@ -166,7 +188,7 @@ function setup(
   const svc = new MetaLeadService(prisma as never, {} as never, graph as never, leads as never, messaging as never, events as never);
   const lead = (extra: Partial<LeadgenNotification> = {}) =>
     svc.processNotification({ leadgenId: `lg${++seq}`, pageId: "p1", formId: opts.formId ?? "f-cursos", ...extra });
-  return { svc, lead, deals, emitted, recorded, contact, sources, ingested, ingestedOpts, welcomes };
+  return { svc, lead, deals, emitted, recorded, contact, sources, ingested, ingestedOpts, welcomes, history };
 }
 
 const PAGE = { orgId: "org1", pageId: "p1", name: "Mi página", sourceId: null, tagIds: [], welcomeTemplateId: null };
@@ -339,7 +361,14 @@ test("las respuestas van a donde se eligió; el resto, solas por el nombre de la
     { name: "full_name", value: "Ana" },
     { name: "¿qué_curso_te_interesa?", value: "Excel" },
   ]);
-  assert.deepEqual(plain, { name: "Ana", phone: "+51999888777", email: null, extra: { "¿qué_curso_te_interesa?": "Excel" } });
+  assert.deepEqual(plain, {
+    name: "Ana",
+    phone: "+51999888777",
+    email: null,
+    extra: { "¿qué_curso_te_interesa?": "Excel" },
+    lead: {},
+    unmapped: ["¿qué_curso_te_interesa?"],
+  });
 });
 
 test("un formulario sin regla entra o espera según la política de la página para los nuevos", async () => {
@@ -723,4 +752,70 @@ test("las preguntas del formulario: las de Meta con su ejemplo, más las que lle
   ]);
   assert.deepEqual(r.sampleLead, [{ name: "full_name", value: "Ana" }, { name: "ciudad", value: "Cusco" }], "el último lead, para la vista previa");
   await assert.rejects(svc.questions("mp1", "../me"), /no válido/, "el id va dentro de la URL de Meta");
+});
+
+// ── Campos del lead: lo que responde es de ese interés, no de la persona ──
+
+const ANSWERS = [
+  { name: "full_name", value: "Ana Ríos" },
+  { name: "phone_number", value: "+51999888777" },
+  { name: "ciudad", value: "Lima" },
+  { name: "¿cuál_es_tu_objetivo?", value: "cambiar_de_trabajo" },
+  { name: "nivel", value: "junior" },
+  { name: "utm_term", value: "mlops" },
+];
+const FIELD_DEFS = [
+  { key: "ciudad", label: "Ciudad", entity: "contact" },
+  { key: "experiencia", label: "Experiencia", entity: "deal" },
+];
+
+test("las respuestas del formulario se guardan en el lead; al contacto va lo suyo y la campaña", async () => {
+  const t = setup(
+    { ...PAGE, createDeal: true, dealStageId: null, formRules: [{ formId: "f-cursos", formName: "Cursos", fieldMap: { nivel: "deal:experiencia" } }] },
+    { fields: ANSWERS, customFields: FIELD_DEFS, ad: { adName: "AD1", campaignName: "Bootcamp MLOps", platform: "ig" } },
+  );
+  await t.lead();
+  const contact = t.ingested[0]!.fields;
+  assert.equal(contact.ciudad, "Lima", "un campo del contacto, por su nombre");
+  assert.equal(contact.utm_term, "mlops", "la campaña va con el contacto, que guarda la primera y la última");
+  assert.equal("cual_es_tu_objetivo" in contact || "¿cuál_es_tu_objetivo?" in contact, false, "lo que respondió no es de la persona");
+  assert.equal("experiencia" in contact || "nivel" in contact, false);
+
+  const deal = t.deals[0]!;
+  assert.deepEqual(deal.fields, { experiencia: "junior", cual_es_tu_objetivo: "cambiar_de_trabajo" }, "lo asignado al lead y lo que nadie asignó");
+  assert.equal(deal.origin?.form, "Formulario de prueba");
+  assert.equal(deal.origin?.campaign, "Bootcamp MLOps");
+  assert.equal(deal.origin?.ad, "AD1");
+  assert.deepEqual(deal.origin?.utm, { utm_term: "mlops" });
+  assert.equal(t.history.length, 1, "queda en el historial del lead");
+  assert.equal(t.history[0]!.kind, "form");
+  assert.equal((t.recorded[0] as { dealId?: string }).dealId, deal.id, "el lead de Meta sabe a qué oportunidad fue");
+});
+
+test("otro formulario con un lead abierto: no abre otro, guarda en el mismo y deja cada uno en el historial", async () => {
+  const open: Deal = { id: "d0", contactId: "ct1", stageId: "calificado", discardedAt: null, discardReason: null, createdAt: new Date(), fields: { cual_es_tu_objetivo: "aprender", presupuesto: "200" } };
+  const t = setup({ ...PAGE, createDeal: true, dealStageId: null, formRules: [] }, { fields: ANSWERS, customFields: FIELD_DEFS, deals: [open] });
+  await t.lead();
+  assert.equal(t.deals.length, 1, "sigue habiendo un solo lead");
+  assert.equal(t.deals[0]!.stageId, "calificado", "no se mueve de etapa");
+  assert.deepEqual(
+    t.deals[0]!.fields,
+    { cual_es_tu_objetivo: "cambiar_de_trabajo", presupuesto: "200", nivel: "junior" },
+    "lo nuevo manda y lo que no vino se conserva",
+  );
+  assert.equal(t.history.length, 1);
+  assert.deepEqual(t.history[0]!.meta.fields, { cual_es_tu_objetivo: "cambiar_de_trabajo", nivel: "junior" }, "el historial guarda lo que respondió esta vez");
+  assert.equal(t.emitted.some((e) => e.name === "deal.stage_changed"), false, "no despierta las automatizaciones de la etapa");
+  assert.equal((t.recorded[0] as { dealId?: string }).dealId, "d0");
+});
+
+test("si el formulario no crea oportunidad, las respuestas se quedan en el contacto", async () => {
+  const t = setup({ ...PAGE, createDeal: false, dealStageId: null, formRules: [] }, { fields: ANSWERS, customFields: FIELD_DEFS });
+  await t.lead();
+  assert.equal(t.deals.length, 0);
+  const contact = t.ingested[0]!.fields;
+  assert.equal(contact.cual_es_tu_objetivo, "cambiar_de_trabajo");
+  assert.equal(contact.nivel, "junior");
+  assert.equal(contact.ciudad, "Lima");
+  assert.equal(t.history.length, 0);
 });

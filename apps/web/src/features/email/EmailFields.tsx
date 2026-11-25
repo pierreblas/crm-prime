@@ -13,6 +13,7 @@ import {
 import { fetchCustomFields, uploadMedia } from "@/lib/bff";
 import { toast } from "@/lib/toast";
 import { NavIcon } from "@/components/NavIcons";
+import { contactFieldsOnly } from "@/lib/custom-fields";
 
 /** «120 KB», «2,4 MB»: el peso de un adjunto, en corto. */
 export function fileSize(bytes: number): string {
@@ -42,7 +43,7 @@ export function EmailTextFields({
   const subjectRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const last = useRef<"subject" | "body">("body");
-  const { data: custom } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
+  const { data: custom } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields, select: contactFieldsOnly });
 
   const insert = (key: string) => {
     const token = `{{${key}}}`;

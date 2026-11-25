@@ -1671,6 +1671,17 @@ export async function createCustomField(
 }
 
 /** Datos que llegan en los contactos con una clave sin campo definido. */
+/** Pasa un dato de los contactos al lead: crea el campo del lead y mueve lo que ya había. */
+export async function moveFieldToLead(key: string): Promise<{ field: CustomFieldDto; moved: number; kept: number }> {
+  const res = await bffFetch("/api/bff/custom-fields/move-to-lead", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "No se pudo pasar el dato al lead"));
+  return res.json();
+}
+
 export async function fetchUnmappedFields(): Promise<import("@crm/shared").UnmappedField[]> {
   const res = await bffFetch("/api/bff/custom-fields/unmapped");
   if (!res.ok) throw new Error(await errorMessage(res, "No se pudieron cargar los datos sin campo"));

@@ -111,6 +111,10 @@ export type ContactTagsDto = z.infer<typeof contactTagsDtoSchema>;
 export const customFieldTypes = ["text", "number", "date", "select"] as const;
 export type CustomFieldType = (typeof customFieldTypes)[number];
 
+/** Dónde vive un campo: en la persona («contact») o en su lead, la oportunidad («deal»). */
+export const fieldEntities = ["contact", "deal"] as const;
+export type FieldEntity = (typeof fieldEntities)[number];
+
 export const customFieldDtoSchema = z.object({
   id: z.string(),
   key: z.string(),
@@ -118,6 +122,7 @@ export const customFieldDtoSchema = z.object({
   type: z.enum(customFieldTypes),
   options: z.array(z.string()),
   order: z.number(),
+  entity: z.enum(fieldEntities).default("contact"),
 });
 export type CustomFieldDto = z.infer<typeof customFieldDtoSchema>;
 
@@ -127,6 +132,8 @@ export const createCustomFieldSchema = z.object({
   key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/, "La clave solo puede llevar minúsculas, números y _ (y empezar por letra)").optional(),
   type: z.enum(customFieldTypes).default("text"),
   options: z.array(z.string()).default([]),
+  /** Del contacto (la persona) o del lead (ese interés). No cambia después. */
+  entity: z.enum(fieldEntities).default("contact"),
 });
 export type CreateCustomFieldInput = z.infer<typeof createCustomFieldSchema>;
 

@@ -78,6 +78,8 @@ function agent(opts: { replies: Row[]; tools?: string[]; history?: Row[]; escala
     },
     productField: { findMany: async () => [] },
     customField: { findMany: async () => [] },
+    // El agente lee los datos del lead abierto del contacto (aquí, ninguno).
+    deal: { findFirst: async () => null },
     message: {
       findMany: async () => opts.history ?? [{ direction: "INBOUND", type: "TEXT", content: "Me interesa, ¿cómo pago?", interactive: null }],
       findFirst: async () => ({ type: "TEXT" }),
@@ -188,6 +190,8 @@ test("en la prueba también: la respuesta trae sus opciones y la traza dice qué
     agentConfig: { findUnique: async () => ({ id: "bot1", systemPrompt: "Eres Lia.", enabledTools: [REPLY_BUTTONS_TOOL], model: "gpt-4.1-mini", maxIterations: 4 }) },
     productField: { findMany: async () => [] },
     customField: { findMany: async () => [] },
+    // El agente lee los datos del lead abierto del contacto (aquí, ninguno).
+    deal: { findFirst: async () => null },
   };
   service.actions = { loadContext: async () => ({}) };
   service.bookings = { agentContextText: async () => "" };
@@ -320,6 +324,8 @@ test("en la prueba y el simulador, el historial llega con la nota (la usa el cli
     agentConfig: { findUnique: async () => ({ id: "bot1", systemPrompt: "Eres Lia.", enabledTools: [], model: "gpt-4.1-mini", maxIterations: 4 }) },
     productField: { findMany: async () => [] },
     customField: { findMany: async () => [] },
+    // El agente lee los datos del lead abierto del contacto (aquí, ninguno).
+    deal: { findFirst: async () => null },
   };
   service.actions = { loadContext: async () => ({}) };
   service.bookings = { agentContextText: async () => "" };

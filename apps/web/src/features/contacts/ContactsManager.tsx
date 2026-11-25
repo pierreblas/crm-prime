@@ -15,6 +15,7 @@ import {
 import { NavIcon } from "@/components/NavIcons";
 import { CustomFieldsEditor } from "./CustomFieldsEditor";
 import { ImportContactsDialog } from "./ImportContactsDialog";
+import { contactFieldsOnly } from "@/lib/custom-fields";
 import {
   ContactDrawer,
   ORIGIN_COLORS,
@@ -51,6 +52,7 @@ export function ContactsManager() {
   const { data: fields = [] } = useQuery({
     queryKey: ["custom-fields"],
     queryFn: fetchCustomFields,
+    select: contactFieldsOnly,
   });
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ["contact-directory"] });

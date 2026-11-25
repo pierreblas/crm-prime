@@ -3,6 +3,8 @@ import type { Prisma } from "@prisma/client";
 import {
   contactCurrency,
   contactVarValues,
+  leadFieldsOf,
+  leadFieldsText,
   countryFromPhone,
   estimateAiCost,
   fillInstructions,
@@ -123,6 +125,7 @@ export class AgentService {
     const system = this.buildSystemParts(config?.systemPrompt, conversation.contact, config?.enabledTools ?? [], !!config?.splitReplies, {
       catalogFields: catalogFields.map((f) => f.label),
       contactFields: contactFieldDefs,
+      leadFields: await this.openLeadFields(conversation.contact.id),
       referral: conversation.referral,
       source: conversation.contact.source?.name,
       bookings: await this.bookingContext(config?.enabledTools ?? [], conversation.contact.id),
@@ -1224,6 +1227,8 @@ export class AgentService {
     extra: {
       catalogFields?: string[];
       contactFields?: { key: string; label: string }[];
+      /** Los campos de su lead abierto (la oportunidad en curso): lo que respondió en el formulario. */
+      leadFields?: unknown;
       referral?: unknown;
       bookings?: string;
       channel?: string;
@@ -1247,7 +1252,12 @@ export class AgentService {
       .filter((f) => f.value);
     // {{nombre}}, {{telefono}}, {{pais}}, {{moneda}} y {{clave o nombre de un campo}} en las
     // instrucciones. Si falta el dato, la IA lee «(sin dato)», nunca las llaves.
-    const vars = contactVarValues({ ...contact, source: extra.source, referral: extra.referral }, extra.contactFields ?? []);
+    // Los campos del lead también valen como {{clave}}: van sobre los del contacto.
+    const leadText = leadFieldsText(extra.leadFields, extra.contactFields ?? []);
+    const vars = contactVarValues(
+      { ...contact, metadata: { ...meta, ...leadFieldsOf(extra.leadFields) }, source: extra.source, referral: extra.referral },
+      extra.contactFields ?? [],
+    );
     const fill = (text: string) => fillInstructions(text, vars);
     const where = [
       country ? ` País: ${country.name}.` : "",
@@ -1311,6 +1321,9 @@ export class AgentService {
       contactFields.length
         ? `\n\nDatos guardados de este contacto: ${contactFields.map((f) => `${f.label}: ${f.value}`).join("; ")}.`
         : "",
+      leadText
+        ? `\n\nDatos de este lead (lo que respondió en el formulario o anotó el equipo sobre este interés): ${leadText}. Úsalos para atenderlo mejor; no se los repitas tal cual.`
+        : "",
       memory ? `\n\nLo que sabemos de este cliente (de conversaciones anteriores):\n${memory}` : "",
       originText(extra.referral, meta),
       extra.autoSent ? AUTO_SENT_RULE : "",
@@ -1320,6 +1333,16 @@ export class AgentService {
   }
 
   /** La fecha de hoy y las citas del contacto, solo si el agente maneja la agenda. */
+  /** Los campos del lead abierto del contacto (su oportunidad en curso), si tiene. */
+  private async openLeadFields(contactId: string): Promise<unknown> {
+    const lead = await this.prisma.deal.findFirst({
+      where: { contactId, discardedAt: null, stage: { isWon: false, isLost: false } },
+      orderBy: { createdAt: "desc" },
+      select: { fields: true },
+    });
+    return lead?.fields ?? null;
+  }
+
   private async bookingContext(enabledTools: string[], contactId: string | null): Promise<string> {
     if (!enabledTools.some((t) => BOOKING_TOOLS.has(t))) return "";
     return this.bookings.agentContextText(contactId).catch(() => "");

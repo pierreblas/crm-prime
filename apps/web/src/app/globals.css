@@ -3718,6 +3718,16 @@ code {
 .bars__col > span { display: block; width: 100%; min-height: 2px; }
 .bars__col > span:last-child { border-radius: 6px 6px 0 0; }
 .bars__col.is-hover { background: rgb(var(--smoke-rgb) / 0.08); }
+/* Campos personalizados: un grupo para la persona y otro para el lead. */
+.cfe__group { display: flex; flex-direction: column; gap: 8px; }
+.cfe__group + .cfe__group { margin-top: 14px; }
+.cfe__group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 13px; }
+.cfe__group-head span { color: var(--muted); }
+/* Datos del lead en su ventana: cómo llegó y lo que respondió, en dos columnas. */
+.kb-lead-origin { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr); gap: 6px 12px; margin: 0; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); font-size: 13px; }
+.kb-lead-origin > div { display: contents; }
+.kb-lead-origin dt { color: var(--muted); overflow-wrap: anywhere; }
+.kb-lead-origin dd { margin: 0; overflow-wrap: anywhere; }
 .hbars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .hbars__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
 .hbars__label { display: flex; align-items: center; gap: 8px; min-width: 0; }

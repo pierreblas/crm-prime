@@ -9,7 +9,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { confirmDialog } from "@/lib/confirm";
 import { toast } from "@/lib/toast";
 import { NavIcon } from "@/components/NavIcons";
-import { contactCurrency, CURRENCIES, formatMoney, isDialable, phoneLabel, waitingMs } from "@crm/shared";
+import { contactCurrency, CURRENCIES, formatMoney, humanizeFieldKey, isDialable, phoneLabel, waitingMs } from "@crm/shared";
+import { contactFieldsOnly, leadFieldsOnly } from "@/lib/custom-fields";
 import type { DealDto, PipelineDto, PipelineSummaryDto, PipelineView, StageDto } from "@crm/shared";
 import {
   createDeal,
@@ -937,9 +938,22 @@ function DealDetail({
   const [value, setValue] = useState(deal.value != null ? String(deal.value) : "");
   const [currency, setCurrency] = useState(deal.currency);
   const [fields, setFields] = useState<Record<string, string>>(deal.contact.fields ?? {});
+  // Lo de la persona y lo de este interés van aparte.
+  const contactDefs = contactFieldsOnly(customFields);
+  const leadDefs = leadFieldsOnly(customFields);
+  const [leadFields, setLeadFields] = useState<Record<string, string>>(deal.fields ?? {});
+  // Respuestas guardadas en el lead que aún no tienen campo definido: se ven, no se editan.
+  const looseAnswers = Object.entries(deal.fields ?? {}).filter(([k]) => !leadDefs.some((f) => f.key === k));
+  const origin = deal.origin;
+  const originUtm = Object.entries(origin?.utm ?? {});
 
   const saveFields = useMutation({
     mutationFn: () => updateContact(deal.contact.id, { fields }),
+    onSuccess: onChanged,
+  });
+  const saveLeadFields = useMutation({
+    // Solo los campos definidos: una clave vacía borra ese dato del lead.
+    mutationFn: () => updateDeal(deal.id, { fields: Object.fromEntries(leadDefs.map((f) => [f.key, leadFields[f.key] ?? ""])) }),
     onSuccess: onChanged,
   });
   const save = useMutation({
@@ -1125,10 +1139,81 @@ function DealDetail({
               Descartar: no es una venta
             </button>
           )}
-          {customFields.length > 0 && (
+          {(origin || leadDefs.length > 0 || looseAnswers.length > 0) && (
+            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 10 }} data-lead-data>
+              <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Datos de este lead</span>
+              {origin && (
+                <dl className="kb-lead-origin" data-lead-origin>
+                  {origin.form && (
+                    <div>
+                      <dt>Formulario</dt>
+                      <dd>{origin.form}</dd>
+                    </div>
+                  )}
+                  {origin.campaign && (
+                    <div>
+                      <dt>Campaña</dt>
+                      <dd>{origin.campaign}</dd>
+                    </div>
+                  )}
+                  {origin.ad && (
+                    <div>
+                      <dt>Anuncio</dt>
+                      <dd>{origin.ad}</dd>
+                    </div>
+                  )}
+                  {originUtm.map(([k, v]) => (
+                    <div key={k}>
+                      <dt>{k}</dt>
+                      <dd>{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              {leadDefs.map((f) => (
+                <Field key={f.id} label={f.label}>
+                  {f.type === "select" ? (
+                    <select style={field} value={leadFields[f.key] ?? ""} onChange={(e) => setLeadFields((v) => ({ ...v, [f.key]: e.target.value }))}>
+                      <option value="">—</option>
+                      {/* Lo que respondió puede no estar entre las opciones: se conserva. */}
+                      {leadFields[f.key] && !f.options.includes(leadFields[f.key]!) && <option value={leadFields[f.key]}>{leadFields[f.key]}</option>}
+                      {f.options.map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
+                      style={field}
+                      value={leadFields[f.key] ?? ""}
+                      onChange={(e) => setLeadFields((v) => ({ ...v, [f.key]: e.target.value }))}
+                    />
+                  )}
+                </Field>
+              ))}
+              {looseAnswers.length > 0 && (
+                <dl className="kb-lead-origin" data-lead-answers>
+                  {looseAnswers.map(([k, v]) => (
+                    <div key={k}>
+                      <dt>{humanizeFieldKey(k)}</dt>
+                      <dd>{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              {leadDefs.length > 0 && (
+                <button onClick={() => saveLeadFields.mutate()} disabled={saveLeadFields.isPending} style={primaryBtn}>
+                  {saveLeadFields.isPending ? "Guardando…" : "Guardar datos del lead"}
+                </button>
+              )}
+            </div>
+          )}
+          {contactDefs.length > 0 && (
             <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-              <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Campos del lead</span>
-              {customFields.map((f) => (
+              <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>Datos del contacto</span>
+              {contactDefs.map((f) => (
                 <Field key={f.id} label={f.label}>
                   {f.type === "select" ? (
                     <select style={field} value={fields[f.key] ?? ""} onChange={(e) => setFields((v) => ({ ...v, [f.key]: e.target.value }))}>
@@ -1150,7 +1235,7 @@ function DealDetail({
                 </Field>
               ))}
               <button onClick={() => saveFields.mutate()} disabled={saveFields.isPending} style={primaryBtn}>
-                {saveFields.isPending ? "Guardando…" : "Guardar campos"}
+                {saveFields.isPending ? "Guardando…" : "Guardar datos del contacto"}
               </button>
             </div>
           )}

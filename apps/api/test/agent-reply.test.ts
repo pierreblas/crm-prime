@@ -86,7 +86,7 @@ test("«sin mensaje» vale solo si en este turno ya le llegó algo, y nunca se v
 });
 
 // ── La respuesta en un chat real ──────────────────────────────
-function agent(opts: { replies: Row[]; mode?: string; tools?: string[]; maxIterations?: number; fails?: boolean; escalationRules?: Row | null }) {
+function agent(opts: { replies: Row[]; mode?: string; tools?: string[]; maxIterations?: number; fails?: boolean; escalationRules?: Row | null; lead?: Row; fieldDefs?: Row[] }) {
   const calls: Row[] = [];
   const sent: Row[] = [];
   const saved: Row[] = [];
@@ -105,7 +105,9 @@ function agent(opts: { replies: Row[]; mode?: string; tools?: string[]; maxItera
       }),
     },
     productField: { findMany: async () => [] },
-    customField: { findMany: async () => [] },
+    customField: { findMany: async () => opts.fieldDefs ?? [] },
+    // El agente lee los datos del lead abierto del contacto (su oportunidad en curso), si tiene.
+    deal: { findFirst: async () => (opts.lead ? { fields: opts.lead } : null) },
     agentConfig: { findUnique: async () => ({ id: "bot1", systemPrompt: "Eres Gaby.", enabledTools: opts.tools ?? ["send_product_file"], model: "gpt-5-mini", maxIterations: 6 }) },
     message: {
       findMany: async () => [{ direction: "INBOUND", type: "TEXT", content: "Ver temario", interactive: null }],
@@ -341,4 +343,23 @@ test("un seguimiento que es una nota no se manda", async () => {
   };
   assert.equal(await draft("(No hay nada más que decir.)"), null);
   assert.equal(await draft("Hola, ¿pudiste ver el temario?"), "Hola, ¿pudiste ver el temario?");
+});
+
+test("el agente recibe lo que el cliente respondió en el formulario de su lead abierto", async () => {
+  const a = agent({
+    replies: [text("Hola")],
+    lead: { experiencia: "no_tengo_experiencia_previa", cual_es_tu_objetivo: "conseguir_trabajo" },
+    fieldDefs: [{ key: "experiencia", label: "Experiencia" }],
+  });
+  await a.service.suggest("cv1");
+  // Lo propio de cada contacto viaja aparte de las reglas fijas (que el proveedor guarda en caché).
+  const system = String(a.calls[0]!.systemDynamic);
+  assert.match(system, /Datos de este lead/);
+  assert.ok(system.includes("Experiencia: no_tengo_experiencia_previa"), "con el nombre del campo");
+  assert.ok(system.includes("Cual es tu objetivo: conseguir_trabajo"), "y lo que aún no tiene campo, con la clave en limpio");
+
+  // Sin lead abierto, ni se menciona.
+  const b = agent({ replies: [text("Hola")] });
+  await b.service.suggest("cv1");
+  assert.ok(!String(b.calls[0]!.systemDynamic).includes("Datos de este lead"));
 });

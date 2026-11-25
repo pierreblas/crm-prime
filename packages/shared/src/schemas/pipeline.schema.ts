@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { stageConversionEventSchema, stageConversionEventsSchema } from "./conversions.schema.js";
 import { flowRuleSchema, ruleMatchModes } from "./condition.schema.js";
+import { leadOriginSchema } from "../lead-fields.js";
 
 // ── Automatizaciones de etapa ───────────────────────────────
 /**
@@ -172,13 +173,17 @@ export const dealDtoSchema = z.object({
   stageEnteredAt: z.string(),
   /** Por qué se perdió (solo en una etapa de perdido). */
   lostReason: z.string().nullable().default(null),
+  /** Datos de este lead, por clave: respuestas del formulario y campos del lead. */
+  fields: z.record(z.string()).default({}),
+  /** Cómo llegó este lead (formulario, campaña, anuncio, UTM). Null = no se sabe. */
+  origin: leadOriginSchema.nullable().default(null),
   createdAt: z.string(),
 });
 export type DealDto = z.infer<typeof dealDtoSchema>;
 
 // ── Historial de una oportunidad ────────────────────────────
 // «quote»: lo que pasa con una cotización del cotizador de implementaciones enlazada a la oportunidad (solo en la empresa propia de Driony).
-export const dealEventKinds = ["created", "stage", "owner", "discarded", "restored", "lost_reason", "value", "booking", "quote"] as const;
+export const dealEventKinds = ["created", "stage", "owner", "discarded", "restored", "lost_reason", "value", "booking", "quote", "form"] as const;
 export type DealEventKind = (typeof dealEventKinds)[number];
 export const dealActorKinds = ["user", "ai", "flow", "system", "api", "unknown"] as const;
 export type DealActorKind = (typeof dealActorKinds)[number];
@@ -269,6 +274,8 @@ export const updateDealSchema = z.object({
   value: z.number().nonnegative().nullable().optional(),
   currency: z.string().length(3).transform((v) => v.toUpperCase()).optional(),
   ownerId: z.string().nullable().optional(),
+  /** Campos del lead: cada clave que venga se guarda; vacía, se borra ese dato. */
+  fields: z.record(z.string().max(60), z.string().max(2000)).optional(),
 });
 export type UpdateDealInput = z.infer<typeof updateDealSchema>;
 

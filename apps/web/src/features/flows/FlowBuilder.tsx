@@ -58,6 +58,7 @@ import {
 import { autoLayout, collectVariables, computeIssues, findFreeSpot, placeAfter } from "./flowGraph";
 import { useFlowHistory, type Snapshot } from "./useFlowHistory";
 import { useResolvedTheme } from "@/components/ThemeSwitcher";
+import { contactFieldsOnly } from "@/lib/custom-fields";
 
 interface Props {
   flowId: string | null; // null = nuevo
@@ -110,7 +111,7 @@ function Builder({ flowId, channels, bots, stages, agents, flows, onBack }: Prop
   // Para los selectores del disparador y del bloque «Enviar plantilla».
   const { data: tagList = [] } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
   const { data: templateList = [] } = useQuery({ queryKey: ["templates"], queryFn: fetchTemplates });
-  const { data: customFields = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields });
+  const { data: customFields = [] } = useQuery({ queryKey: ["custom-fields"], queryFn: fetchCustomFields, select: contactFieldsOnly });
   const { data: sourceList = [] } = useQuery({ queryKey: ["sources"], queryFn: fetchSources });
   const approvedTemplates = templateList.filter((t) => t.status === "APPROVED");
   const setTriggers = (next: FlowTrigger[]) => {
