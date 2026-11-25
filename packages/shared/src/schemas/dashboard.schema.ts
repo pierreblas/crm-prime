@@ -44,7 +44,20 @@ export const dashboardSchema = z.object({
       wonValue: z.number(),
     }),
   ),
-  sources: z.array(z.object({ name: z.string(), count: z.number() })),
+  /**
+   * De dónde vienen los contactos nuevos. `kind` dice si la fuente es la automática
+   * de un canal (whatsapp, ad, form, messenger, instagram, tiktok) y `color` es el
+   * que le puso la empresa: con eso la web le pinta su símbolo. `id` null = sin fuente.
+   */
+  sources: z.array(
+    z.object({
+      id: z.string().nullable().default(null),
+      name: z.string(),
+      kind: z.string().nullable().default(null),
+      color: z.string().nullable().default(null),
+      count: z.number(),
+    }),
+  ),
   /** Perdidas del periodo por motivo («Sin motivo» si no se indicó). */
   lossReasons: z.array(z.object({ reason: z.string(), count: z.number() })).default([]),
   funnel: z.object({

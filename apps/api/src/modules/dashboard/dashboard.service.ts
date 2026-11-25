@@ -30,6 +30,12 @@ export function median(xs: number[]): number | null {
 
 type Row = Record<string, unknown>;
 const n = (v: unknown) => Number(v ?? 0);
+const text = (v: unknown) => (v === null || v === undefined || v === "" ? null : String(v));
+
+/** Una fila de «De dónde vienen los leads»: la fuente con su tipo y su color. */
+export function sourceRow(r: Row): DashboardDto["sources"][number] {
+  return { id: text(r.id), name: String(r.name), kind: text(r.kind), color: text(r.color), count: n(r.n) };
+}
 const d = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10));
 
 /**
@@ -70,10 +76,10 @@ export class DashboardService {
           FROM deals d JOIN pipeline_stages st ON st.id = d."stageId"
           WHERE d."orgId" = ${orgId} AND d."closedAt" >= ${from} AND d."closedAt" < ${to} AND d."discardedAt" IS NULL
           GROUP BY 1, 2, 3`,
-        q`SELECT coalesce(s.name, 'Sin fuente') AS name, count(*) AS n
+        q`SELECT s.id, coalesce(s.name, 'Sin fuente') AS name, s.kind, s.color, count(*) AS n
           FROM contacts c LEFT JOIN sources s ON s.id = c."sourceId"
           WHERE c."orgId" = ${orgId} AND c."createdAt" >= ${from} AND c."createdAt" < ${to}
-          GROUP BY 1 ORDER BY 2 DESC LIMIT 8`,
+          GROUP BY s.id, s.name, s.kind, s.color ORDER BY n DESC, name LIMIT 8`,
         q`SELECT extract(dow FROM ((m."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${tz}))::int AS dow,
                  extract(hour FROM ((m."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${tz}))::int AS h, count(*) AS n
           FROM messages m WHERE m."orgId" = ${orgId} AND m.direction = 'INBOUND' AND m."createdAt" >= ${from} AND m."createdAt" < ${to}
@@ -158,7 +164,7 @@ export class DashboardService {
         awaitingNow: n(awaiting[0]?.n),
       },
       daily: [...daily.values()],
-      sources: sources.map((r) => ({ name: String(r.name), count: n(r.n) })),
+      sources: sources.map(sourceRow),
       lossReasons: (
         await q`SELECT coalesce(nullif(d."lostReason", ''), 'Sin motivo') AS reason, count(*) AS n
           FROM deals d JOIN pipeline_stages st ON st.id = d."stageId"

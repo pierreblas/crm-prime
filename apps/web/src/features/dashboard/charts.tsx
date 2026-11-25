@@ -195,7 +195,14 @@ export function StackedBars({
 }
 
 /** Barras horizontales con etiqueta y valor (ranking). */
-export function HBars({ items, color = "var(--chart-1)" }: { items: { label: string; value: number; hint?: string }[]; color?: string }) {
+export function HBars({
+  items,
+  color = "var(--chart-1)",
+}: {
+  /** `mark`: un símbolo delante del nombre (el de la fuente, por ejemplo). */
+  items: { label: string; value: number; hint?: string; mark?: React.ReactNode }[];
+  color?: string;
+}) {
   const max = Math.max(1, ...items.map((i) => i.value));
   const total = items.reduce((a, i) => a + i.value, 0);
   return (
@@ -203,7 +210,10 @@ export function HBars({ items, color = "var(--chart-1)" }: { items: { label: str
       {items.map((it) => (
         <li key={it.label}>
           <div className="hbars__row">
-            <span className="hbars__label">{it.label}</span>
+            <span className="hbars__label">
+              {it.mark}
+              <span>{it.label}</span>
+            </span>
             <span className="hbars__value">
               {it.value.toLocaleString("es")}
               {total > 0 && <small> · {Math.round((it.value / total) * 100)} %</small>}

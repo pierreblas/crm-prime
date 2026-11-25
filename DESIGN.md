@@ -231,6 +231,9 @@ redefine las fichas de dentro. Es la única rejilla de tarjetas con color de fon
 
 ### Gráficos
 Dos series: aguamarina (`--chart-1`) y lima (`--chart-2`). El verde, solo para ventas ganadas.
+En «De dónde vienen los leads», cada fuente lleva su símbolo en un círculo chico (`SourceMark`):
+la marca del canal si es automática, una etiqueta con el color que eligió la empresa si la creó
+ella, y una raya si el contacto no tiene fuente. El nombre siempre va escrito al lado.
 
 ### Campos
 Fondo Campo, filete `--field-border`, `--r-md`, sin sombra. Foco: borde y anillo de 3px en

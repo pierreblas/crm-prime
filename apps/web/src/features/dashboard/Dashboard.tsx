@@ -8,6 +8,7 @@ import { NavIcon, type IconName } from "@/components/NavIcons";
 import { fetchDashboard } from "@/lib/bff";
 import { Funnel, Heatmap, HBars, StackedBars, TimeChart } from "./charts";
 import { AdSales } from "./AdSales";
+import { SourceMark } from "./SourceMark";
 
 const PERIODS: { key: DashboardPeriod; label: string }[] = [
   { key: "7d", label: "7 días" },
@@ -140,7 +141,7 @@ export function Dashboard() {
             <section className="dash__card">
               <CardHead icon="target" title="De dónde vienen los leads" hint={`${data.kpis.leads.value ?? 0} contactos nuevos`} />
               {data.sources.length ? (
-                <HBars items={data.sources.map((s) => ({ label: s.name, value: s.count }))} />
+                <HBars items={data.sources.map((s) => ({ label: s.name, value: s.count, mark: <SourceMark source={s} /> }))} />
               ) : (
                 <Empty text="Sin contactos nuevos en este periodo." />
               )}
