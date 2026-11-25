@@ -167,7 +167,7 @@ const row: React.CSSProperties = {
   gap: 12,
   padding: "14px 16px",
   border: "1px solid var(--border)",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   background: "var(--panel)",
   boxShadow: "var(--shadow-card)",
 };
@@ -180,14 +180,14 @@ const empty: React.CSSProperties = {
   textAlign: "center",
   padding: "70px 24px",
   border: "1px dashed var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
 };
 
 const muted: React.CSSProperties = { color: "var(--muted)", fontSize: 14 };
 
 const primary: React.CSSProperties = {
   padding: "10px 18px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
@@ -197,7 +197,7 @@ const primary: React.CSSProperties = {
 
 const ghost: React.CSSProperties = {
   padding: "8px 14px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",

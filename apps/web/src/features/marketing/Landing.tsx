@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Wordmark } from "../../components/BrandMark";
 import { formatAiIncluded, formatPlanLimit, formatTokens, PLAN_KEYS, PLANS, TRIAL_AI_TOKENS, TRIAL_DAYS, type BillingPeriodKey } from "@crm/shared";
 import "./landing.css";
 import { Arrow, Check, GITHUB, IconGit, MarketingFooter, MarketingHeader, MetaMark, Minus, NAV } from "./chrome";
@@ -17,6 +18,13 @@ import { FeatureDoc } from "./FeatureDoc";
 // El estilo es el del panel.
 
 // Antes y después, emparejados: cada problema al lado de lo que lo resuelve.
+// Los globos de la portada: lo que llega de noche.
+const ASKS = [
+  ["11:52 p. m.", "Hola, ¿precio?"],
+  ["11:56 p. m.", "¿Hay cupo?"],
+  ["11:58 p. m.", "¿Hacen envíos?"],
+] as const;
+
 const COMPARE = [
   ["El lead escribe a las 9 de la noche y lo lees a las 9 de la mañana", "Respuesta en segundos, también de madrugada y en feriado"],
   ["Cinco vendedores con cinco celulares y nadie sabe quién atiende a quién", "Una sola bandeja, cada chat con dueño y el tiempo que lleva esperando"],
@@ -178,66 +186,79 @@ export function Landing() {
       <MarketingHeader active={active} home />
 
       <main id="contenido">
-        {/* ── Hero: el argumento centrado y, debajo, una demo que el visitante maneja ── */}
+        {/* ── Portada: los clientes preguntan, Driony contesta con el titular y debajo, la demo ── */}
         <section className="lp-hero">
-          <div className="lp-wrap">
-            <div className="lp-hero__copy">
-              {/* El rótulo tacha CRM y sella ARM: la categoría en un vistazo. */}
-              <p className="lp-hero__kicker lp-anim" style={{ animationDelay: "0.02s" }}>
-                <span className="lp-arm" role="img" aria-label="De CRM a ARM">
-                  <s>CRM</s>
-                  <b>ARM</b>
-                </span>
-                <span>Agentic Relationship Management</span>
-              </p>
-              {/* El dolor en una escena (el lead que escribe de noche y se enfría) y,
-                  debajo, qué hace el agente y quién manda: una idea por línea. */}
-              <h1 className="lp-anim" style={{ animationDelay: "0.08s" }}>
-                <span className="lp-hero__line">Tus clientes escriben a medianoche.</span>{" "}
-                <span className="lp-hero__line">
-                  Tu agente <span className="lp-hero__accent">responde</span>.
-                </span>
-              </h1>
-              <p className="lp-hero__sub lp-anim" style={{ animationDelay: "0.16s" }}>
-                Agentes de IA en tu propio número de WhatsApp que cotizan con tu catálogo, agendan y retoman al que se enfrió. Tu
-                equipo lo ve todo y decide cuándo entrar.
-              </p>
-              <div className="lp-hero__cta lp-anim" style={{ animationDelay: "0.24s" }}>
-                <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
-                  Probar {TRIAL_DAYS} días gratis <Arrow />
-                </Link>
-                <a href="#como" className="lp-btn lp-btn--ghost lp-btn--lg">
-                  Cómo funciona
-                </a>
+          <div className="lp-hero__top lp-petrol">
+            <div className="lp-wrap lp-hero__grid">
+              <div>
+                {/* El rótulo tacha CRM y sella ARM: la categoría en un vistazo. */}
+                <p className="lp-hero__kicker lp-anim" style={{ animationDelay: "0.02s" }}>
+                  <span className="lp-arm" role="img" aria-label="De CRM a ARM">
+                    <s>CRM</s>
+                    <b>ARM</b>
+                  </span>
+                  <span>Agentic Relationship Management</span>
+                </p>
+                <ul className="lp-asks" aria-label="Lo que escriben tus clientes de noche">
+                  {ASKS.map(([when, text], i) => (
+                    <li className="lp-bub lp-ask lp-anim" style={{ animationDelay: `${0.1 + i * 0.12}s` }} key={text}>
+                      <time>{when}</time>
+                      {text}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="lp-hero__proofs lp-anim" style={{ animationDelay: "0.32s" }} aria-label="Lo que incluye la prueba">
-                <li>
-                  <Check /> Sin tarjeta
-                </li>
-                <li>
-                  <Check /> Sin cobro por conversación
-                </li>
-                <li>
-                  <Check /> Listo en 2 minutos
-                </li>
-                <li>
-                  <Check /> IA incluida o tu propia clave
-                </li>
-              </ul>
+              {/* El dolor en una escena (el lead que escribe de noche) y quién contesta: una idea por línea. */}
+              <div className="lp-bub lp-bub--out lp-say lp-lime lp-anim" style={{ animationDelay: "0.3s" }}>
+                <h1>
+                  <span className="lp-hero__line">Tus clientes escriben a medianoche.</span>{" "}
+                  <span className="lp-hero__line">Tu agente responde.</span>
+                </h1>
+                <p className="lp-hero__sub">
+                  Agentes de IA en tu propio número de WhatsApp que cotizan con tu catálogo, agendan y retoman al que se enfrió. Tu
+                  equipo lo ve todo y decide cuándo entrar.
+                </p>
+                <div className="lp-hero__cta">
+                  <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
+                    Probar {TRIAL_DAYS} días gratis <Arrow />
+                  </Link>
+                  <a href="#como" className="lp-btn lp-btn--ghost lp-btn--lg">
+                    Cómo funciona
+                  </a>
+                </div>
+                <ul className="lp-hero__proofs" aria-label="Lo que incluye la prueba">
+                  <li>
+                    <Check /> Sin tarjeta
+                  </li>
+                  <li>
+                    <Check /> Sin cobro por conversación
+                  </li>
+                  <li>
+                    <Check /> Listo en 2 minutos
+                  </li>
+                  <li>
+                    <Check /> IA incluida o tu propia clave
+                  </li>
+                </ul>
+              </div>
             </div>
+          </div>
 
-            <div className="lp-hero__console lp-anim" style={{ animationDelay: "0.3s" }}>
-              <HeroDemo />
-            </div>
-            <div className="lp-hero__under">
-              <div className="lp-partner" title="Driony forma parte del programa de partners de Meta">
-                <MetaMark />
-                <span>
-                  <b>Meta Business Partner</b>
-                  <span className="lp-partner__sub">API oficial de WhatsApp Business</span>
-                </span>
+          <div className="lp-hero__stage lp-band">
+            <div className="lp-wrap">
+              <div className="lp-hero__console lp-anim" style={{ animationDelay: "0.4s" }}>
+                <HeroDemo />
               </div>
-              <p>Demo con datos de ejemplo. En tu cuenta responde la IA con tu catálogo, tu agenda y tus reglas.</p>
+              <div className="lp-hero__under">
+                <div className="lp-partner" title="Driony forma parte del programa de partners de Meta">
+                  <MetaMark />
+                  <span>
+                    <b>Meta Business Partner</b>
+                    <span className="lp-partner__sub">API oficial de WhatsApp Business</span>
+                  </span>
+                </div>
+                <p>Demo con datos de ejemplo. En tu cuenta responde la IA con tu catálogo, tu agenda y tus reglas.</p>
+              </div>
             </div>
           </div>
         </section>
@@ -248,7 +269,7 @@ export function Landing() {
             <div className="lp-arm-def lp-reveal">
               <div className="lp-arm-def__word" aria-hidden="true">
                 <span>ARM</span>
-                <span className="lp-arm-def__sub">Agentic // Relationship // Management</span>
+                <span className="lp-arm-def__sub">Agentic Relationship Management</span>
               </div>
               <div className="lp-head">
                 <h2>Un CRM guarda lo que pasó con el cliente. Un ARM pone agentes a atenderlo.</h2>
@@ -259,7 +280,7 @@ export function Landing() {
             </div>
             <dl className="lp-arm-keys lp-reveal">
               {ARM_KEYS.map((k) => (
-                <div className="lp-arm-key" key={k.letter}>
+                <div className="lp-bub lp-arm-key" key={k.letter}>
                   <dt>
                     <b aria-hidden="true">{k.letter}</b>
                     {k.title}
@@ -272,7 +293,7 @@ export function Landing() {
         </section>
 
         {/* ── Capacidades ── */}
-        <section className="lp-section" id="capacidades">
+        <section className="lp-section lp-band" id="capacidades">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
               <h2>Todo lo que hace Driony mientras tú cierras.</h2>
@@ -283,14 +304,19 @@ export function Landing() {
 
             <figure className="lp-stage lp-reveal">
               <div className="lp-shot">
-                <img
-                  src="/landing/bandeja.webp"
-                  alt="La bandeja de Driony: conversaciones de WhatsApp de varios números, con filtros de pendientes y el agente de IA en modo Copilot"
-                  width={2160}
-                  height={1350}
-                  loading="lazy"
-                  decoding="async"
-                />
+                {/* Una por tema: la que no toca no se pinta y, al ser «lazy», no se descarga. */}
+                {(["dark", "light"] as const).map((theme) => (
+                  <img
+                    key={theme}
+                    className={`lp-shot__img lp-shot__img--${theme}`}
+                    src={theme === "dark" ? "/landing/bandeja.webp" : "/landing/bandeja-claro.webp"}
+                    alt="La bandeja de Driony: conversaciones de WhatsApp de varios números, con filtros de pendientes y el agente de IA en modo Copilot"
+                    width={2160}
+                    height={1350}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ))}
               </div>
               <figcaption className="lp-stage__notes">
                 <p>
@@ -326,7 +352,7 @@ export function Landing() {
         </section>
 
         {/* ── Cómo funciona: tres pasos, con lo que tardan ── */}
-        <section className="lp-section" id="como">
+        <section className="lp-section lp-band" id="como">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
               <h2>Empiezas hoy, no en tres semanas.</h2>
@@ -354,7 +380,7 @@ export function Landing() {
         </section>
 
         {/* ── Por qué Driony ── */}
-        <section className="lp-section" id="porque">
+        <section className="lp-section lp-petrol" id="porque">
           <div className="lp-wrap">
             <div className="lp-head lp-reveal">
               <h2>Lo que cambia desde la primera semana.</h2>
@@ -366,11 +392,11 @@ export function Landing() {
               </div>
               {COMPARE.map(([bad, good]) => (
                 <div className="lp-vs__row" role="row" key={bad}>
-                  <span className="lp-vs__bad" role="cell">
+                  <span className="lp-bub lp-vs__bad" role="cell">
                     <Minus />
                     {bad}
                   </span>
-                  <span className="lp-vs__good" role="cell">
+                  <span className="lp-bub lp-bub--out lp-vs__good" role="cell">
                     <Check />
                     {good}
                   </span>
@@ -420,7 +446,7 @@ export function Landing() {
                 const plan = PLANS[k];
                 const pro = k === "pro";
                 return (
-                  <article className={`lp-plan lp-plan--snap${pro ? " lp-plan--cloud" : ""}`} key={k} data-plan={k}>
+                  <article className={`lp-plan lp-plan--snap${pro ? " lp-plan--cloud lp-petrol" : ""}`} key={k} data-plan={k}>
                     <div className="lp-plan__tag">{PLAN_TAG[k] ?? plan.name}</div>
                     <h3>{plan.name}</h3>
                     <PeriodPrice plan={plan} period={period} />
@@ -486,35 +512,36 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ── Cierre: un panel centrado con la acción ── */}
-        <section className="lp-cta-band">
-          <div className="lp-wrap">
-            <div className="lp-cta-band__inner lp-reveal">
-              <h2>Tu próximo lead escribe esta noche. ¿Quién le responde?</h2>
-              <p>Pon un agente en tu número, dale tu catálogo y tus reglas, y deja de perder ventas en WhatsApp. Hoy, en dos minutos.</p>
-              <div className="lp-cta__row">
-                <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
-                  Probar {TRIAL_DAYS} días gratis <Arrow />
-                </Link>
-                <Link href="/login" className="lp-btn lp-btn--ghost lp-btn--lg">
-                  Iniciar sesión
-                </Link>
-              </div>
-              <ul className="lp-cta-band__proof" aria-label="Sin riesgo">
-                <li>
-                  <Check /> Sin tarjeta
-                </li>
-                <li>
-                  <Check /> Sin permanencia
-                </li>
-                <li>
-                  <Check /> Sigues en Gratis al terminar
-                </li>
-                <li>
-                  <Check /> Tus datos son tuyos
-                </li>
-              </ul>
+        {/* ── Cierre: el globo gigante, cortado por el borde ── */}
+        <section className="lp-end lp-petrol">
+          <div className="lp-bub lp-end__giant lp-lime">
+            <h2>Tu próximo lead escribe esta noche. ¿Quién le responde?</h2>
+            <p>Pon un agente en tu número, dale tu catálogo y tus reglas, y deja de perder ventas en WhatsApp. Hoy, en dos minutos.</p>
+            <div className="lp-cta__row">
+              <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
+                Probar {TRIAL_DAYS} días gratis <Arrow />
+              </Link>
+              <Link href="/login" className="lp-btn lp-btn--ghost lp-btn--lg">
+                Iniciar sesión
+              </Link>
             </div>
+            <ul className="lp-end__proof" aria-label="Sin riesgo">
+              <li>
+                <Check /> Sin tarjeta
+              </li>
+              <li>
+                <Check /> Sin permanencia
+              </li>
+              <li>
+                <Check /> Sigues en Gratis al terminar
+              </li>
+              <li>
+                <Check /> Tus datos son tuyos
+              </li>
+            </ul>
+          </div>
+          <div className="lp-end__sign" aria-hidden="true">
+            <Wordmark size={46} />
           </div>
         </section>
       </main>

@@ -76,8 +76,6 @@
 .docs-nav__label {
   font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 6px;
   padding-left: 10px;
@@ -85,12 +83,11 @@
 .docs-nav__item {
   display: block;
   padding: 6px 10px;
-  border-radius: 0;
+  border-radius: var(--r-md);
   color: var(--muted);
   font-size: 14px;
   text-decoration: none;
-  border-left: 2px solid transparent;
-  border-radius: 0;
+  border-radius: var(--r-md);
 }
 .docs-nav__item:hover {
   color: var(--text);
@@ -100,7 +97,6 @@
 .docs-nav__item.is-active {
   color: var(--text);
   font-weight: 600;
-  border-left-color: var(--accent-edge);
   background: var(--accent-soft);
 }
 
@@ -176,7 +172,7 @@
   padding: 10px 14px;
   border: 1px solid rgb(var(--cyan-rgb) / 0.42);
   background: var(--accent-soft);
-  border-radius: 0;
+  border-radius: var(--r-md);
   color: var(--text);
 }
 .docs-article blockquote p {
@@ -188,8 +184,8 @@
 .docs-article pre {
   margin: 0 0 16px;
   padding: 14px 16px;
-  border-radius: 0;
-  background: var(--docs-code, #12141f);
+  border-radius: var(--r-lg);
+  background: var(--docs-code, #06272f);
   border: 1px solid var(--border);
   overflow-x: auto;
   font-size: 13px;
@@ -206,7 +202,7 @@
   overflow-x: auto;
   margin: 0 0 16px;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--r-lg);
 }
 .docs-article table {
   width: 100%;
@@ -251,7 +247,7 @@
   flex-direction: column;
   gap: 4px;
   padding: 14px 16px;
-  border-radius: 0;
+  border-radius: var(--r-lg);
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
@@ -285,7 +281,7 @@
   text-decoration: none;
   color: var(--text);
   padding: 10px 14px;
-  border-radius: 0;
+  border-radius: var(--r-md);
   border: 1px solid var(--border);
   max-width: 48%;
 }
@@ -316,7 +312,7 @@
     justify-content: space-between;
     width: 100%;
     padding: 10px 12px;
-    border-radius: 0;
+    border-radius: var(--r-md);
     border: 1px solid var(--border);
     background: var(--panel);
     color: var(--text);
@@ -327,7 +323,7 @@
     display: none;
     margin-top: 8px;
     padding: 8px;
-    border-radius: 0;
+    border-radius: var(--r-md);
     border: 1px solid var(--border);
     background: var(--panel);
   }

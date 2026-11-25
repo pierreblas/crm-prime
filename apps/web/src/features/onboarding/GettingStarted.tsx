@@ -38,7 +38,7 @@ export function GettingStarted({ role }: { role?: string }) {
   if (isPending) {
     return (
       <div className="gs">
-        <div className="skeleton" style={{ height: 96, borderRadius: 14 }} />
+        <div className="skeleton" style={{ height: 96, borderRadius: "var(--r-lg)" }} />
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="skeleton" style={{ height: 64, marginTop: 10 }} />
         ))}

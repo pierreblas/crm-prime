@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Wordmark } from "../../components/BrandMark";
 import {
   ADMIN_COPILOT_FREE_QUESTIONS,
   AI_PACKS,
@@ -148,7 +149,7 @@ export function Pricing() {
           </div>
         </section>
 
-        <section className="lp-section" id="servidor">
+        <section className="lp-section lp-band" id="servidor">
           <div className="lp-wrap">
             <article className="lp-plan lp-plan--self">
               <div className="lp-plan__self-grid">
@@ -207,20 +208,21 @@ export function Pricing() {
           </div>
         </section>
 
-        <section className="lp-cta-band">
-          <div className="lp-wrap">
-            <div className="lp-cta-band__inner">
-              <h2>Empieza hoy, paga cuando crezcas.</h2>
-              <p>Tu espacio en tu-empresa.driony.com en dos minutos. {TRIAL_DAYS} días de Pro gratis, sin tarjeta.</p>
-              <div className="lp-cta__row">
-                <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
-                  Probar {TRIAL_DAYS} días gratis <Arrow />
-                </Link>
-                <a href={`mailto:${CONTACT}?subject=Planes%20de%20Driony`} className="lp-btn lp-btn--ghost lp-btn--lg">
-                  Hablar con nosotros
-                </a>
-              </div>
+        <section className="lp-end lp-petrol">
+          <div className="lp-bub lp-end__giant lp-lime">
+            <h2>Empieza hoy, paga cuando crezcas.</h2>
+            <p>Tu espacio en tu-empresa.driony.com en dos minutos. {TRIAL_DAYS} días de Pro gratis, sin tarjeta.</p>
+            <div className="lp-cta__row">
+              <Link href="/register" className="lp-btn lp-btn--primary lp-btn--lg">
+                Probar {TRIAL_DAYS} días gratis <Arrow />
+              </Link>
+              <a href={`mailto:${CONTACT}?subject=Planes%20de%20Driony`} className="lp-btn lp-btn--ghost lp-btn--lg">
+                Hablar con nosotros
+              </a>
             </div>
+          </div>
+          <div className="lp-end__sign" aria-hidden="true">
+            <Wordmark size={46} />
           </div>
         </section>
       </main>
@@ -287,7 +289,7 @@ function PlanCard({ plan, period, highlight }: { plan: PlanDef; period: BillingP
   // razonable (lo ve la consola), no algo que el cliente compra ni que se corta.
   const LIMITS: PlanLimit[] = ["numbers", "users", "contacts", "deals"];
   return (
-    <article className={`lp-plan${highlight ? " lp-plan--cloud" : ""}`} data-plan={plan.key}>
+    <article className={`lp-plan${highlight ? " lp-plan--cloud lp-petrol" : ""}`} data-plan={plan.key}>
       <div className="lp-plan__tag">{TAG[plan.key] ?? plan.name}</div>
       <h3>{plan.name}</h3>
       <PeriodPrice plan={plan} period={period} />

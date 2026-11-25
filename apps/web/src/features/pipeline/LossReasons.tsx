@@ -42,7 +42,7 @@ export function LostReasonDialog({
           </div>
         </header>
         <div className="lr-options" role="list">
-          {isPending && <div className="skeleton" style={{ height: 120, borderRadius: 10 }} />}
+          {isPending && <div className="skeleton" style={{ height: 120, borderRadius: "var(--r-md)" }} />}
           {reasons.map((r) => (
             <button key={r.id} type="button" role="listitem" className="lr-option" onClick={() => onPick(r.name)}>
               {r.name}

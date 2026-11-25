@@ -894,7 +894,7 @@ const inspector: React.CSSProperties = {
 
 const input: React.CSSProperties = {
   padding: "7px 10px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -905,7 +905,7 @@ const input: React.CSSProperties = {
 
 const ghost: React.CSSProperties = {
   padding: "7px 12px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",
@@ -916,7 +916,7 @@ const ghost: React.CSSProperties = {
 const group: React.CSSProperties = {
   display: "inline-flex",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   overflow: "hidden",
 };
 
@@ -948,7 +948,7 @@ const primary: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "8px 16px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
@@ -962,7 +962,7 @@ function assistantBtn(active: boolean): React.CSSProperties {
     alignItems: "center",
     gap: 7,
     padding: "7px 12px",
-    borderRadius: 7,
+    borderRadius: "var(--r-sm)",
     border: `1px solid ${active ? "var(--accent-edge)" : "var(--border)"}`,
     background: active ? "rgba(11, 108, 216, 0.16)" : "transparent",
     color: active ? "var(--accent-text)" : "var(--text)",
@@ -979,7 +979,7 @@ const issuesBtnBase: React.CSSProperties = {
   alignItems: "center",
   gap: 6,
   padding: "7px 11px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   cursor: "pointer",
   fontSize: 12.5,
   fontWeight: 600,
@@ -1007,7 +1007,7 @@ const issuesMenu: React.CSSProperties = {
   overflowY: "auto",
   background: "var(--field)",
   border: "1px solid var(--border-strong)",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   padding: 4,
   boxShadow: "0 8px 24px rgb(var(--shadow-rgb) / 0.5)",
 };
@@ -1019,7 +1019,7 @@ const issuesItem: React.CSSProperties = {
   gap: 2,
   width: "100%",
   padding: "7px 9px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "transparent",
   color: "var(--text)",
@@ -1040,7 +1040,7 @@ const paletteBtn: React.CSSProperties = {
   alignItems: "center",
   gap: 9,
   padding: "9px 11px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--panel)",
   color: "var(--text)",
@@ -1060,7 +1060,7 @@ const menu: React.CSSProperties = {
   zIndex: 61,
   background: "var(--field)",
   border: "1px solid var(--border-strong)",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   padding: 6,
   display: "flex",
   flexDirection: "column",
@@ -1073,7 +1073,7 @@ const menuItem: React.CSSProperties = {
   alignItems: "center",
   gap: 9,
   padding: "7px 8px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "transparent",
   color: "var(--text)",

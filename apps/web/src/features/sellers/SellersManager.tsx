@@ -458,7 +458,7 @@ function relative(iso: string): string {
 const box: React.CSSProperties = {
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   padding: 16,
   boxShadow: "var(--shadow-card)",
 };
@@ -466,7 +466,7 @@ const muted: React.CSSProperties = { color: "var(--muted)", fontSize: 14 };
 const input: React.CSSProperties = {
   flex: 1,
   padding: "9px 11px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -474,7 +474,7 @@ const input: React.CSSProperties = {
 };
 const primaryBtn: React.CSSProperties = {
   padding: "9px 16px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
@@ -483,7 +483,7 @@ const primaryBtn: React.CSSProperties = {
 };
 const ghostBtn: React.CSSProperties = {
   padding: "9px 14px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",
@@ -494,7 +494,7 @@ const ghostBtn: React.CSSProperties = {
 };
 const dangerBtn: React.CSSProperties = {
   padding: "9px 16px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--danger-border)",
   background: "transparent",
   color: "var(--danger)",
@@ -505,7 +505,7 @@ const dangerBtn: React.CSSProperties = {
 const fieldLabel: React.CSSProperties = { fontSize: 12.5, color: "var(--muted)", marginBottom: 5 };
 const roleSelect: React.CSSProperties = {
   padding: "7px 10px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",

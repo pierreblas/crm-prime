@@ -866,7 +866,7 @@ const muted: React.CSSProperties = { color: "var(--muted)", fontSize: 14 };
 const card: React.CSSProperties = {
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   padding: 16,
 };
 
@@ -878,7 +878,7 @@ const empty: React.CSSProperties = {
   textAlign: "center",
   padding: "28px 24px",
   border: "1px dashed var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
 };
 
 const formRow: React.CSSProperties = {
@@ -888,7 +888,7 @@ const formRow: React.CSSProperties = {
   flexWrap: "wrap",
   padding: "8px 10px",
   border: "1px solid var(--border)",
-  borderRadius: 9,
+  borderRadius: "var(--r-md)",
 };
 
 const settingsPanel: React.CSSProperties = {
@@ -922,7 +922,7 @@ const label: React.CSSProperties = {
 
 const input: React.CSSProperties = {
   padding: "8px 10px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -942,7 +942,7 @@ const code: React.CSSProperties = {
 
 const primaryBtn: React.CSSProperties = {
   padding: "9px 16px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
@@ -952,7 +952,7 @@ const primaryBtn: React.CSSProperties = {
 
 const ghostBtn: React.CSSProperties = {
   padding: "8px 13px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",

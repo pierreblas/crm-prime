@@ -530,7 +530,7 @@ const muted: React.CSSProperties = {
 const card: React.CSSProperties = {
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   padding: 14,
 };
 
@@ -552,7 +552,7 @@ const label: React.CSSProperties = {
 const input: React.CSSProperties = {
   width: "100%",
   padding: "9px 11px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -590,7 +590,7 @@ function testBox(ok: boolean): React.CSSProperties {
   return {
     marginTop: 11,
     padding: "9px 11px",
-    borderRadius: 8,
+    borderRadius: "var(--r-sm)",
     fontSize: 13,
     background: ok ? "rgb(var(--ok-rgb) / 0.14)" : "rgb(var(--coral-rgb) / 0.14)",
     border: `1px solid ${ok ? "var(--positive-border)" : "var(--danger-border)"}`,

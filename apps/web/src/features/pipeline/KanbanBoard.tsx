@@ -1298,7 +1298,7 @@ function PipelineError({ message, onRetry }: { message: string; onRetry: () => v
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-start" }}>
       <h2 style={{ margin: 0 }}>Embudo</h2>
-      <div style={{ padding: "12px 16px", borderRadius: 10, background: "var(--warning-soft)", border: "1px solid var(--warning-border)", color: "var(--warning)", fontSize: 14 }}>
+      <div style={{ padding: "12px 16px", borderRadius: "var(--r-md)", background: "var(--warning-soft)", border: "1px solid var(--warning-border)", color: "var(--warning)", fontSize: 14 }}>
         No se pudo cargar el tablero: {message}
       </div>
       <button onClick={onRetry} style={primaryBtn}>
@@ -1411,7 +1411,7 @@ const column: React.CSSProperties = {
   flexShrink: 0,
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   padding: 12,
   minHeight: 200,
 };
@@ -1435,7 +1435,7 @@ const columnHeader: React.CSSProperties = {
 const card: React.CSSProperties = {
   background: "var(--surface-2)",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   padding: "10px 12px",
   cursor: "grab",
   boxShadow: "var(--shadow-card)",
@@ -1443,7 +1443,7 @@ const card: React.CSSProperties = {
 
 const emptyEntry: React.CSSProperties = {
   padding: "12px 10px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px dashed var(--border)",
   color: "var(--muted)",
   fontSize: 12.5,
@@ -1478,7 +1478,7 @@ const discardedNote: React.CSSProperties = {
   alignItems: "center",
   flexWrap: "wrap",
   padding: "8px 10px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--warning-border)",
   background: "rgb(var(--amber-rgb) / 0.08)",
   color: "var(--warning)",
@@ -1487,7 +1487,7 @@ const discardedNote: React.CSSProperties = {
 
 const field: React.CSSProperties = {
   padding: "8px 10px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -1510,7 +1510,7 @@ const contactBlock: React.CSSProperties = {
   alignItems: "center",
   gap: 10,
   padding: "10px 12px",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   border: "1px solid var(--border)",
   background: "var(--surface-2)",
 };
@@ -1618,7 +1618,7 @@ const closeBtn: React.CSSProperties = {
 
 const miniBtn: React.CSSProperties = {
   padding: "6px 9px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--text)",

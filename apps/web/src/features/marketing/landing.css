@@ -1,50 +1,51 @@
-/* Landing pública — el mismo «Noir telemetría» del panel: fondo noir con la
-   rejilla baja del panel, superficies planas con filete, titulares normales en
-   Bricolage y texto en Hanken. El lima se reserva para actuar (el botón
-   principal, el foco, lo seleccionado) y para una sola palabra del titular; el
-   cian, para lo que mide o hace la IA. Nada de bloques de color a sangre.
-   Todo va scopeado bajo .lp para no filtrarse a la app. Las fuentes vienen de
-   globals.css (--font-display / --font-sans / --font-mono). */
+/* Landing pública — la marca Conversación: el cliente pregunta en un globo y
+   Driony contesta en lima. Petróleo, niebla y blanco por secciones; la lima
+   grande va solo en el titular y en el cierre (más saturaba), y la pequeña donde
+   se actúa. Titulares en Gabarito y texto en Hanken. Todo va scopeado bajo .lp
+   para no filtrarse a la app. Las fuentes vienen de globals.css. */
 
 .lp {
-  --bg: #0a0b10;
-  --surface: #12141f;
-  --surface-2: #0e1018;
-  --surface-3: #181b29;
-  --border: #25293e;
-  --border-soft: #1c1f30;
-  --border-strong: #3b4160;
-  --ink: #e9edf2;
-  --ink-dim: #c3cad4;
-  --muted: #8e9eaf;
+  --bg: #07303a;
+  /* La banda que alterna con el fondo. */
+  --band: #06272f;
+  --surface: #0b3a45;
+  --surface-2: #093640;
+  --surface-3: #134a55;
+  --border: #1c5462;
+  --border-soft: #164956;
+  --border-strong: #34727f;
+  --ink: #eef6f5;
+  --ink-dim: #d3e4e4;
+  --muted: #a9c7ca;
   --accent: #e2f80d;
-  --accent-hover: #eefc4a;
+  --accent-hover: #edff45;
   --accent-bright: #e2f80d;
   --accent-text: #e2f80d;
   --accent-edge: #e2f80d;
-  --accent-ink: #0a0b10;
-  --accent-soft: rgb(var(--lemon-rgb) / 0.08);
+  --accent-ink: #0b3a45;
+  --accent-soft: rgb(var(--lemon-rgb) / 0.1);
   --accent-line: rgb(var(--lemon-rgb) / 0.45);
-  /* Cian: solo para lo que mide o está en marcha (la IA, los datos), nunca para actuar. */
-  --cyan: #00e5ff;
-  --cyan-fill: #00e5ff;
+  /* Aguamarina: solo para lo que mide o está en marcha (la IA, los datos), nunca para actuar. */
+  --cyan: #86dfe2;
+  --cyan-fill: #86dfe2;
   --cyan-soft: rgb(var(--cyan-rgb) / 0.1);
   --cyan-line: rgb(var(--cyan-rgb) / 0.42);
   /* «Hecho»: el verde pastel de los estados del panel. */
   --ok: #7ee2a8;
   --positive: var(--ok);
-  /* Burbujas del chat, como en la bandeja: el negocio habla en cian hondo. */
-  --bubble-out: #0b3a45;
-  --bubble-in: #1a1d2e;
+  /* Burbujas del chat, como en la bandeja. */
+  --bubble-out: #15545f;
+  --bubble-in: #0e424d;
   /* Tinta sobre lima (solo dentro de botones y marcas lima). */
-  --on-lemon: #0a0b10;
-  --on-lemon-muted: #3d4300;
-  /* El bisel del panel: la esquina de arriba a la derecha, solo en el botón principal. */
-  --chamfer: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  --on-lemon: #0b3a45;
+  --on-lemon-muted: #33500f;
 
-  --r-sm: 0;
-  --r-md: 0;
-  --r-pill: 0;
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 26px;
+  --r-pill: 999px;
+  /* La cola del globo del logo: se pinta con el color del globo y se recorta con esto. */
+  --tail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 110 84' preserveAspectRatio='none'%3E%3Cpath d='M0 0C18 0 76 60 110 84V0Z'/%3E%3C/svg%3E");
   --maxw: 1180px;
   --nav-h: 64px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -58,36 +59,115 @@
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
-  /* La rejilla del panel: una línea muy baja cada 24 px. */
-  background:
-    repeating-linear-gradient(rgb(var(--line-rgb) / 0.16) 0 1px, transparent 1px 24px),
-    var(--bg);
+  background: var(--bg);
 }
 
-/* Tema claro: el mismo papel técnico del panel (ver globals.css). */
+/* Tema claro: blanco y niebla, con la tinta en petróleo (ver globals.css). */
 :root[data-theme="light"] .lp {
   --bg: #ffffff;
+  --band: #e9f1f0;
   --surface: #ffffff;
-  --surface-2: #f3f5f8;
-  --surface-3: #e8ecf2;
-  --border: #d7dde6;
-  --border-soft: #e6eaf0;
-  --border-strong: #a9b4c4;
-  --ink: #0a0b10;
-  --ink-dim: #28323f;
-  --muted: #4c5a6b;
+  --surface-2: #f3f8f7;
+  --surface-3: #e3edec;
+  --border: #cfdddb;
+  --border-soft: #e0eae8;
+  --border-strong: #93afad;
+  --ink: #0b3a45;
+  --ink-dim: #23505a;
+  --muted: #3f626a;
   --accent-hover: #d3ea00;
-  --accent-text: #4a5400;
-  --accent-edge: #7b8700;
-  --accent-soft: rgba(226, 248, 13, 0.3);
-  --accent-line: #7b8700;
-  --cyan: #00626f;
-  --cyan-soft: rgba(0, 138, 158, 0.1);
-  --cyan-line: rgba(0, 138, 158, 0.45);
+  --accent-bright: #0b3a45;
+  --accent-text: #0a5c69;
+  --accent-edge: #0b3a45;
+  --accent-soft: rgba(226, 248, 13, 0.34);
+  --accent-line: rgba(11, 58, 69, 0.35);
+  --cyan: #0a6672;
+  --cyan-soft: rgba(20, 128, 141, 0.1);
+  --cyan-line: rgba(20, 128, 141, 0.45);
   --ok: #0a6b3d;
-  --bubble-out: #d3f2f7;
-  --bubble-in: #eef1f6;
-  --lp-bar: rgba(255, 255, 255, 0.94);
+  --bubble-out: #eefaa6;
+  --bubble-in: #eef4f3;
+}
+
+/* ── Zonas con sus propias fichas, iguales en los dos temas ── */
+.lp .lp-petrol,
+.lp-nav,
+.lp-foot,
+.lp.lp-menu {
+  --bg: #0b3a45;
+  --band: #0b3a45;
+  --surface: #104652;
+  --surface-2: #0d404b;
+  --surface-3: #174f5b;
+  --border: #23606e;
+  --border-soft: #1c5462;
+  --border-strong: #3f7c89;
+  --ink: #ffffff;
+  --ink-dim: #dcebea;
+  --muted: #b6d0d2;
+  --accent: #e2f80d;
+  --accent-hover: #edff45;
+  --accent-bright: #e2f80d;
+  --accent-text: #e2f80d;
+  --accent-edge: #e2f80d;
+  --accent-ink: #0b3a45;
+  --accent-soft: rgba(226, 248, 13, 0.12);
+  --accent-line: rgba(226, 248, 13, 0.45);
+  --cyan: #86dfe2;
+  --ok: #7ee2a8;
+  --bubble-out: #15545f;
+  --bubble-in: #0e424d;
+  --wordmark-mark: #e2f80d;
+  --smoke-rgb: 165 196 199;
+  background: var(--bg);
+  color: var(--ink);
+}
+/* Dentro de la lima todo se escribe en petróleo, también los botones. */
+.lp .lp-lime {
+  --ink: #0b3a45;
+  --muted: #1c4a3c;
+  --accent: #0b3a45;
+  --accent-hover: #072f39;
+  --accent-ink: #ffffff;
+  --accent-bright: #0b3a45;
+  --accent-text: #0b3a45;
+  --accent-edge: #0b3a45;
+  --border: #0b3a45;
+  --border-strong: #0b3a45;
+  --ok: #0b3a45;
+  --smoke-rgb: 11 58 69;
+  color: var(--ink);
+}
+.lp .lp-band {
+  background: var(--band);
+}
+
+/* ── El globo del logo: una esquina chica, las otras grandes y la cola ── */
+.lp-bub {
+  position: relative;
+  border-radius: var(--b1, 18px) var(--b2, 36px) var(--b2, 36px) 0;
+  background: var(--fill);
+}
+.lp-bub::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: calc(100% - 1px);
+  width: calc(var(--t, 28px) * 1.1);
+  height: calc(var(--t, 28px) * 0.84);
+  background: var(--fill);
+  -webkit-mask: var(--tail) 0 0 / 100% 100% no-repeat;
+  mask: var(--tail) 0 0 / 100% 100% no-repeat;
+  transform: scaleX(-1);
+  pointer-events: none;
+}
+.lp-bub--out {
+  border-radius: var(--b2, 36px) var(--b1, 18px) 0 var(--b2, 36px);
+}
+.lp-bub--out::after {
+  left: auto;
+  right: 0;
+  transform: none;
 }
 
 .lp *,
@@ -106,22 +186,21 @@
 .lp h2,
 .lp h3 {
   font-family: var(--font-display);
-  font-weight: 700;
-  line-height: 1.12;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.022em;
   margin: 0;
   text-wrap: balance;
   color: var(--ink);
 }
 .lp h1 {
-  font-size: clamp(2.4rem, 1.4rem + 3.1vw, 4rem);
-  line-height: 1.06;
+  font-size: clamp(2.4rem, 1.4rem + 3vw, 4.1rem);
+  line-height: 1.02;
   letter-spacing: -0.02em;
 }
 .lp h2 {
-  font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem);
-  line-height: 1.14;
-  letter-spacing: -0.015em;
+  font-size: clamp(1.95rem, 1.3rem + 2.4vw, 3.1rem);
+  line-height: 1.06;
 }
 .lp h3 {
   font-size: clamp(1.1rem, 1.02rem + 0.35vw, 1.3rem);
@@ -152,12 +231,9 @@
 }
 .lp-section {
   position: relative;
-  padding-block: clamp(72px, 9vw, 128px);
+  padding-block: clamp(64px, 7.5vw, 110px);
   /* Las anclas del nav aterrizan por debajo de la cabecera pegajosa. */
   scroll-margin-top: calc(var(--nav-h) + 12px);
-}
-.lp-section + .lp-section {
-  padding-top: 0;
 }
 .lp-head {
   max-width: 64ch;
@@ -194,7 +270,7 @@
   transform: none;
 }
 
-/* ── Botones: los del panel ─────────────────────────────────── */
+/* ── Botones: píldoras ──────────────────────────────────────── */
 .lp-btn {
   position: relative;
   display: inline-flex;
@@ -202,9 +278,9 @@
   justify-content: center;
   gap: 8px;
   min-height: 44px;
-  padding: 11px 18px;
-  border-radius: 0;
-  border: 1px solid transparent;
+  padding: 11px 20px;
+  border-radius: var(--r-pill);
+  border: 2px solid transparent;
   font-family: var(--font-sans);
   font-weight: 600;
   font-size: 14.5px;
@@ -220,12 +296,6 @@
 .lp-btn--primary {
   background: var(--accent);
   color: var(--accent-ink);
-  clip-path: var(--chamfer);
-}
-/* El bisel recorta el contorno: el foco del primario va por dentro, como en el panel. */
-.lp .lp-btn--primary:focus-visible {
-  outline: 2px solid var(--accent-ink);
-  outline-offset: -4px;
 }
 .lp-btn--ghost {
   background: transparent;
@@ -234,8 +304,9 @@
 }
 .lp-btn--lg {
   min-height: 48px;
-  padding: 13px 22px;
-  font-size: 15.5px;
+  min-height: 52px;
+  padding: 13px 26px;
+  font-size: 16px;
 }
 .lp-btn:active {
   transform: translateY(1px);
@@ -255,7 +326,6 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: var(--lp-bar, rgba(10, 11, 16, 0.94));
   border-bottom: 1px solid transparent;
   transition: border-color 0.2s ease;
 }
@@ -401,58 +471,47 @@
   }
 }
 
-/* ── Hero: el argumento centrado y, debajo, la demo que el visitante maneja ── */
-.lp-hero {
-  position: relative;
-  padding: clamp(40px, 5vw, 72px) 0 clamp(24px, 3vw, 40px);
+/* ── Portada: los clientes preguntan y el globo lima contesta con el titular;
+   su cola cae sobre la demo que el visitante maneja ── */
+.lp-hero__top {
+  padding: clamp(28px, 4vw, 56px) 0 0;
 }
-.lp-hero__copy {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  max-width: 960px;
-  margin: 0 auto;
-  text-align: center;
+.lp-hero__grid {
+  display: grid;
+  grid-template-columns: minmax(215px, 250px) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 52px);
+  align-items: start;
 }
-/* El rótulo tacha CRM y sella ARM: la categoría en un vistazo, en una píldora del panel. */
+/* El rótulo tacha CRM y sella ARM: la categoría en un vistazo. */
 .lp-hero__kicker {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px 12px;
-  margin-bottom: 22px;
-  padding: 5px 14px 5px 5px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  gap: 10px;
+  margin: 8px 0 36px;
   color: var(--muted);
-  font-size: 13.5px;
-  line-height: 1.3;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
 }
 .lp-arm {
   display: inline-flex;
-  align-items: stretch;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 11.5px;
-  letter-spacing: 0.08em;
+  align-items: center;
+  gap: 10px;
   line-height: 1;
 }
 .lp-arm s {
-  padding: 5px 7px;
-  border: 1px solid var(--border-strong);
-  border-right: 0;
   color: var(--muted);
-  text-decoration-thickness: 1.5px;
+  text-decoration-thickness: 2px;
 }
-/* El sello: ARM en lima con su sombra dura cian, y cae sobre la píldora cuando
-   termina de subir el rótulo (el efecto que el usuario pidió conservar). */
+/* El sello: ARM en lima cae sobre el rótulo cuando termina de subir (el efecto
+   que el usuario pidió conservar). */
 .lp-arm b {
-  padding: 5px 8px;
-  border: 1px solid var(--accent-edge);
-  background: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: 3px 3px 0 0 var(--cyan);
+  padding: 5px 10px;
+  border-radius: 9px;
+  background: #e2f80d;
+  color: #0b3a45;
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 .lp-js .lp-arm b {
   animation: lp-stamp 0.45s var(--ease) 0.5s backwards;
@@ -467,41 +526,66 @@
     opacity: 1;
   }
 }
-.lp-hero__accent {
-  color: var(--accent-text);
-  /* La palabra resaltada no se parte entre dos líneas. */
-  white-space: nowrap;
+.lp-asks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 40px;
+}
+.lp-ask {
+  --fill: #e3edec;
+  --b1: 16px;
+  --b2: 34px;
+  --t: 24px;
+  padding: 16px 26px 18px 24px;
+  color: #0b3a45;
+  font: 600 1.38rem/1.15 var(--font-display);
+}
+.lp-ask time {
+  display: block;
+  margin-bottom: 5px;
+  font: 500 13px/1.2 var(--font-sans);
+  color: #3f626a;
+}
+.lp-say {
+  --fill: #e2f80d;
+  --b1: 46px;
+  --b2: 92px;
+  --t: 112px;
+  z-index: 2;
+  margin-bottom: -56px;
+  padding: clamp(34px, 4.4vw, 60px) clamp(28px, 4.6vw, 64px) clamp(34px, 4.2vw, 56px);
 }
 /* Una frase por línea: la escena arriba, la respuesta abajo. */
 .lp-hero__line {
   display: block;
 }
 .lp-hero__sub {
-  margin-top: 20px;
-  max-width: 70ch;
-  color: var(--muted);
-  font-size: clamp(1.05rem, 1rem + 0.35vw, 1.2rem);
+  margin-top: 22px;
+  max-width: 54ch;
+  color: var(--ink);
+  font-size: clamp(1.05rem, 1rem + 0.35vw, 1.18rem);
   line-height: 1.6;
-  text-wrap: balance;
 }
 .lp-hero__cta {
   margin-top: 28px;
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: 12px;
 }
 /* Lo que incluye la prueba, en cuatro piezas que se leen de un vistazo. */
 .lp-hero__proofs {
   list-style: none;
-  margin: 18px 0 0;
+  margin: 22px 0 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px 20px;
-  color: var(--muted);
-  font-size: 14px;
+  gap: 8px 22px;
+  font-size: 15px;
+  font-weight: 600;
   line-height: 1.4;
 }
 .lp-hero__proofs li {
@@ -513,44 +597,78 @@
   flex-shrink: 0;
   color: var(--ok);
 }
-.lp-hero__console {
-  position: relative;
-  margin-top: clamp(36px, 4vw, 52px);
+.lp-hero__stage {
+  padding: 190px 0 clamp(48px, 6vw, 84px);
 }
 .lp-hero__under {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px 24px;
   margin-top: 22px;
 }
 .lp-hero__under p {
   max-width: 54ch;
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--muted);
 }
-/* Pantallas bajas (portátiles): el titular baja un punto para que la demo asome antes. */
+/* Pantallas bajas (portátiles): todo un punto más junto para que la demo asome. */
 @media (min-width: 901px) and (max-height: 800px) {
-  .lp-hero {
-    padding-top: 28px;
+  .lp-hero__top {
+    padding-top: 20px;
   }
   .lp h1 {
-    font-size: clamp(2.3rem, 1rem + 2.9vw, 3.5rem);
+    font-size: clamp(2.3rem, 1rem + 3vw, 3.7rem);
   }
-  .lp-hero__kicker {
-    margin-bottom: 16px;
+  .lp-say {
+    padding-block: 34px;
   }
   .lp-hero__sub {
     margin-top: 14px;
-    font-size: 1.02rem;
+    font-size: 1.03rem;
   }
   .lp-hero__cta {
-    margin-top: 22px;
+    margin-top: 20px;
   }
-  .lp-hero__console {
-    margin-top: 30px;
+}
+@media (max-width: 900px) {
+  .lp-hero__top {
+    padding-top: 12px;
+  }
+  .lp-hero__grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .lp-hero__kicker {
+    margin: 0 0 16px;
+    font-size: 13.5px;
+  }
+  .lp-asks {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 26px 12px;
+    margin-bottom: 26px;
+  }
+  .lp-ask {
+    --b1: 12px;
+    --b2: 20px;
+    --t: 15px;
+    padding: 9px 16px 10px 15px;
+    font-size: 1.02rem;
+  }
+  .lp-ask time {
+    display: none;
+  }
+  .lp-say {
+    --b1: 28px;
+    --b2: 46px;
+    --t: 62px;
+    margin: 0 -8px -34px;
+  }
+  .lp-hero__stage {
+    padding-top: 112px;
   }
 }
 
@@ -640,10 +758,9 @@
   padding: 0 6px;
   background: var(--cyan-soft);
   color: var(--cyan);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-weight: 700;
   font-size: 10px;
-  letter-spacing: 0.04em;
 }
 
 /* ── Qué es ARM: la palabra a la izquierda, la definición a la derecha ── */
@@ -659,28 +776,26 @@
 .lp-arm-def__word {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
-/* Las letras ARM: lima condensada con la sombra dura en cian. Es el único
-   bloque grande de lima de la página, a propósito. */
+/* Las letras ARM con su sombra dura en lima, que se despega al entrar con el
+   scroll (el efecto que el usuario pidió conservar). */
 .lp-arm-def__word > span:first-child {
   font-family: var(--font-display);
-  font-weight: 800;
-  font-stretch: 82%;
-  font-size: clamp(5rem, 2.6rem + 8vw, 10rem);
-  line-height: 0.86;
-  letter-spacing: -0.02em;
-  color: var(--accent-edge);
-  text-shadow: 0.045em 0.045em 0 var(--cyan);
+  font-weight: 700;
+  font-size: clamp(5.4rem, 2.6rem + 9vw, 11.5rem);
+  line-height: 0.82;
+  letter-spacing: -0.045em;
+  color: var(--ink);
+  text-shadow: 0.04em 0.04em 0 var(--accent);
 }
-/* Al entrar con el scroll, la sombra cian se despega de las letras. */
 @keyframes lp-arm-lift {
   from {
-    text-shadow: 0 0 0 var(--cyan);
+    text-shadow: 0 0 0 var(--accent);
     transform: translate(0.02em, 0.02em);
   }
   to {
-    text-shadow: 0.045em 0.045em 0 var(--cyan);
+    text-shadow: 0.04em 0.04em 0 var(--accent);
     transform: none;
   }
 }
@@ -692,46 +807,57 @@
   }
 }
 .lp-arm-def__sub {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.08em;
-  color: var(--cyan);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
 }
 .lp-arm-keys {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
   margin: clamp(40px, 5vw, 64px) 0 0;
-  border-top: 1px solid var(--border);
 }
 .lp-arm-key {
-  padding: 28px 28px 8px 0;
-}
-.lp-arm-key + .lp-arm-key {
-  padding-left: 28px;
-  border-left: 1px solid var(--border);
+  --fill: var(--band);
+  --b1: 20px;
+  --b2: 42px;
+  --t: 32px;
+  padding: 28px 30px 30px;
 }
 .lp-arm-key dt {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   font-family: var(--font-display);
-  font-weight: 650;
-  font-size: clamp(1.15rem, 1.05rem + 0.4vw, 1.35rem);
+  font-weight: 600;
+  font-size: clamp(1.25rem, 1.1rem + 0.5vw, 1.5rem);
   line-height: 1.2;
   color: var(--ink);
 }
 .lp-arm-key dt b {
-  font-size: 1.9em;
-  font-weight: 800;
-  line-height: 0.9;
-  color: var(--accent-text);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
 }
 .lp-arm-key dd {
-  margin: 12px 0 0;
-  max-width: 36ch;
+  margin: 14px 0 0;
   color: var(--muted);
   font-size: 16px;
   line-height: 1.6;
+}
+@media (max-width: 900px) {
+  .lp-arm-def,
+  .lp-arm-keys {
+    grid-template-columns: 1fr;
+  }
+  .lp-arm-keys {
+    gap: 44px;
+  }
 }
 
 /* ── Capacidades: la bandeja grande, legible, con sus notas ── */
@@ -790,7 +916,7 @@
   color: var(--ink);
 }
 .lp-trace__ev {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11.5px;
   padding: 2px 8px;
   background: var(--cyan-soft);
@@ -818,10 +944,9 @@
   flex-shrink: 0;
   margin-top: 1px;
   padding: 2px 6px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.06em;
 }
 .lp-trace--qa .lp-trace__q::before {
   content: "TÚ";
@@ -892,7 +1017,6 @@
   border-color: var(--accent-edge);
   background: var(--accent);
   color: var(--accent-ink);
-  clip-path: var(--chamfer);
 }
 
 /* ── LÉEME: lo que hace Driony, numerado, con una muestra por punto ──
@@ -914,10 +1038,9 @@
   padding: 0 0 10px 14px;
   margin-bottom: 6px;
   border-bottom: 1px solid var(--border);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
   color: var(--muted);
-  letter-spacing: 0.04em;
 }
 .lp-doc__toc ol {
   list-style: none;
@@ -947,7 +1070,7 @@
 }
 .lp-doc__n {
   flex-shrink: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -968,7 +1091,7 @@
   padding: 10px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12.5px;
   color: var(--muted);
 }
@@ -1053,7 +1176,7 @@
 .lp-doc__at {
   flex-shrink: 0;
   min-width: 34px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--muted);
 }
@@ -1075,7 +1198,7 @@
   margin-top: 2px;
   padding-top: 8px;
   border-top: 1px dashed var(--border);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11.5px;
   line-height: 1.5;
 }
@@ -1105,7 +1228,7 @@
 }
 .lp-doc__trace dt {
   padding-top: 2px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11.5px;
   color: var(--cyan);
 }
@@ -1380,7 +1503,7 @@
   font-size: 15px;
 }
 .lp-sim__name input::placeholder {
-  color: #7f8ea1;
+  color: var(--muted);
 }
 .lp-sim__name input:focus-visible {
   outline: none;
@@ -1462,60 +1585,43 @@
   max-width: 56ch;
 }
 
-/* ── Cómo funciona: tres pasos sobre un riel, con lo que tardan ──── */
+/* ── Cómo funciona: tres pasos, con lo que tardan ──── */
 .lp-steps {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: clamp(24px, 4vw, 48px);
-  position: relative;
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.lp-steps::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 23px;
-  height: 1px;
-  background: var(--border);
-}
 .lp-step {
-  position: relative;
+  border-top: 3px solid var(--ink);
+  padding-top: 20px;
 }
 .lp-step__n {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  margin-bottom: 20px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 17px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 4rem;
   line-height: 1;
+  letter-spacing: -0.04em;
   color: var(--ink);
 }
-.lp-step:first-child .lp-step__n {
-  border-color: var(--accent-edge);
-  color: var(--accent-text);
-}
 .lp-step__when {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 13.5px;
+  display: inline-block;
+  margin: 14px 0 12px;
+  padding: 3px 11px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 14px;
   font-weight: 600;
-  color: var(--cyan);
 }
 .lp-step h3 {
   margin-bottom: 8px;
 }
 .lp-step p {
   color: var(--muted);
-  font-size: 15px;
+  font-size: 15.5px;
   line-height: 1.6;
 }
 /* Acción al pie de los pasos: el botón y, al lado, lo que arriesga (nada). */
@@ -1528,57 +1634,86 @@
   color: var(--muted);
   font-size: 15px;
 }
+@media (max-width: 900px) {
+  .lp-steps {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+}
 
-/* ── Antes y después: una tabla del panel, cada problema junto a su solución ── */
+/* ── Antes y después: una conversación, cada problema con su respuesta ── */
 .lp-vs {
-  border: 1px solid var(--border);
-  background: var(--surface-2);
+  display: grid;
+  gap: 34px;
 }
 .lp-vs__row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border-top: 1px solid var(--border);
-}
-.lp-vs__row > span {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 15px 22px;
-  font-size: 15.5px;
-  line-height: 1.5;
-}
-.lp-vs__row > span svg {
-  flex-shrink: 0;
-  margin-top: 3px;
+  gap: 26px;
+  align-items: center;
 }
 .lp-vs__row--head {
-  border-top: 0;
-}
-.lp-vs__row--head > span {
-  padding-block: 14px;
-  font-size: 13.5px;
-  font-weight: 600;
+  margin-bottom: -14px;
+  font: 600 1.15rem/1.2 var(--font-display);
   color: var(--muted);
 }
 .lp-vs__row--head > span:last-child {
-  color: var(--ink);
+  text-align: right;
+  color: var(--accent-text);
+}
+.lp-vs__bad,
+.lp-vs__good {
+  --b1: 16px;
+  --b2: 30px;
+  --t: 22px;
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  padding: 16px 24px;
+  font-size: 16px;
+  line-height: 1.4;
 }
 .lp-vs__bad {
-  color: var(--muted);
-}
-.lp-vs__bad svg {
-  color: var(--border-strong);
-}
-.lp-vs__good,
-.lp-vs__row--head > span:last-child {
-  background: var(--surface);
-  border-left: 1px solid var(--border);
+  --fill: var(--surface-3);
+  justify-self: start;
+  color: var(--ink-dim);
 }
 .lp-vs__good {
-  color: var(--ink);
+  --fill: #ffffff;
+  justify-self: end;
+  color: #0b3a45;
+  font-weight: 600;
+}
+.lp-vs__bad svg {
+  flex-shrink: 0;
+  color: var(--muted);
 }
 .lp-vs__good svg {
-  color: var(--ok);
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 7px;
+  border-radius: 50%;
+  background: #e2f80d;
+  color: #0b3a45;
+}
+@media (max-width: 700px) {
+  .lp-vs {
+    gap: 42px;
+  }
+  .lp-vs__row {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+  .lp-vs__row--head {
+    display: none;
+  }
+  .lp-vs__bad {
+    margin-right: 22px;
+  }
+  .lp-vs__good {
+    margin-left: 22px;
+  }
 }
 
 /* ── Planes ─────────────────────────────────────────────────── */
@@ -1600,10 +1735,9 @@
   background: var(--surface);
   padding: 28px 26px;
 }
-/* El plan recomendado: filete lima y su rótulo, como el KPI que importa en el panel. */
+/* El plan recomendado, en petróleo (lleva .lp-petrol) y con su rótulo en lima. */
 .lp-plan--cloud {
-  border-color: var(--accent-edge);
-  box-shadow: inset 0 0 0 1px var(--accent-edge);
+  border-color: transparent;
 }
 .lp-plan--snap {
   padding: 24px 22px;
@@ -1619,9 +1753,9 @@
   font-weight: 600;
 }
 .lp-plan--cloud .lp-plan__tag {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .lp-plan h3 {
   font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.55rem);
@@ -1750,9 +1884,9 @@
   color: var(--ink);
 }
 .lp-period button[aria-pressed="true"] {
-  background: var(--accent-soft);
-  color: var(--ink);
-  box-shadow: inset 0 -2px 0 var(--accent-edge);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 .lp-period button:focus-visible {
   outline: 2px solid var(--accent-edge);
@@ -1877,12 +2011,12 @@
 }
 .lp-picker__field input[type="range"] {
   width: 100%;
-  accent-color: var(--accent-edge);
+  accent-color: var(--ink);
 }
 .lp-picker__field output {
   min-width: 5.5ch;
   text-align: right;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 14px;
   color: var(--cyan);
 }
@@ -1894,7 +2028,7 @@
   color: var(--ink);
   background: var(--bg);
   border: 1px solid var(--field-border);
-  border-radius: 0;
+  border-radius: var(--r-md);
 }
 .lp-picker__check {
   display: flex;
@@ -1904,7 +2038,7 @@
   color: var(--ink-dim);
 }
 .lp-picker__check input {
-  accent-color: var(--accent-edge);
+  accent-color: var(--ink);
   width: 16px;
   height: 16px;
 }
@@ -2153,50 +2287,55 @@
   max-width: 68ch;
 }
 
-/* ── Cierre: un panel centrado, sin bloque de color ── */
-.lp-cta-band {
-  padding-block: clamp(24px, 4vw, 48px) clamp(72px, 9vw, 120px);
+/* ── Cierre: el globo gigante, cortado por el borde ── */
+.lp-end {
+  position: relative;
+  overflow: hidden;
+  padding-bottom: clamp(150px, 17vw, 236px);
 }
-.lp-cta-band__inner {
-  text-align: center;
-  padding: clamp(40px, 6vw, 72px) clamp(20px, 4vw, 48px);
-  border: 1px solid var(--border);
-  background: var(--surface);
+.lp-end__giant {
+  --fill: #e2f80d;
+  --t: clamp(120px, 16vw, 236px);
+  margin-left: clamp(22px, 9vw, 150px);
+  padding: clamp(56px, 7vw, 104px) clamp(24px, 4vw, 48px) clamp(56px, 7vw, 100px) clamp(28px, 7vw, 108px);
+  border-radius: 0;
 }
-.lp-cta-band h2 {
-  max-width: 22ch;
-  margin: 0 auto 14px;
+.lp-end h2 {
+  max-width: 16ch;
+  font-size: clamp(2.2rem, 1.3rem + 3.6vw, 4.4rem);
+  line-height: 1.02;
 }
-.lp-cta-band p {
-  max-width: 50ch;
-  margin: 0 auto 28px;
-  color: var(--muted);
-  font-size: 17px;
+.lp-end p {
+  max-width: 54ch;
+  margin: 20px 0 28px;
+  color: var(--ink);
+  font-size: 17.5px;
 }
 .lp-cta__row {
   display: flex;
   gap: 12px;
-  justify-content: center;
   flex-wrap: wrap;
 }
-.lp-cta-band__proof {
+.lp-end__proof {
   list-style: none;
   margin: 24px 0 0;
   padding: 0;
   display: flex;
-  justify-content: center;
   flex-wrap: wrap;
   gap: 8px 22px;
-  color: var(--muted);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
 }
-.lp-cta-band__proof li {
+.lp-end__proof li {
   display: inline-flex;
   align-items: center;
   gap: 7px;
 }
-.lp-cta-band__proof svg {
-  color: var(--ok);
+.lp-end__sign {
+  position: absolute;
+  right: max(24px, calc((100vw - var(--maxw)) / 2 + 24px));
+  bottom: clamp(48px, 6vw, 84px);
+  color: #ffffff;
 }
 
 /* ── Pie ────────────────────────────────────────────────────── */
@@ -2361,21 +2500,6 @@
   .lp-burger {
     display: grid;
   }
-  .lp-arm-def {
-    grid-template-columns: 1fr;
-    gap: 24px;
-  }
-  .lp-arm-keys {
-    grid-template-columns: 1fr;
-  }
-  .lp-arm-key {
-    padding: 22px 0;
-  }
-  .lp-arm-key + .lp-arm-key {
-    padding-left: 0;
-    border-left: 0;
-    border-top: 1px solid var(--border);
-  }
   .lp-stage__notes {
     grid-template-columns: 1fr;
     gap: 14px;
@@ -2411,28 +2535,6 @@
     border-top: 1px solid var(--border);
   }
   /* Pasos en vertical: el riel baja por la izquierda. */
-  .lp-steps {
-    grid-template-columns: 1fr;
-    gap: 28px;
-  }
-  .lp-steps::before {
-    left: 23px;
-    right: auto;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    height: auto;
-  }
-  .lp-step {
-    padding-left: 70px;
-    min-height: 46px;
-  }
-  .lp-step__n {
-    position: absolute;
-    left: 0;
-    top: 0;
-    margin: 0;
-  }
 }
 @media (max-width: 760px) {
   .lp-picker {
@@ -2445,40 +2547,9 @@
 }
 @media (max-width: 700px) {
   /* Antes/después: cada pareja apilada, la solución debajo del problema. */
-  .lp-vs__row {
-    grid-template-columns: 1fr;
-  }
-  .lp-vs__row--head {
-    display: none;
-  }
-  .lp-vs__row > span {
-    padding: 12px 18px;
-  }
-  .lp-vs__row > .lp-vs__bad {
-    padding-bottom: 4px;
-    font-size: 14.5px;
-  }
-  .lp-vs__row > .lp-vs__good {
-    padding-top: 6px;
-    border-left: 0;
-    background: none;
-  }
 }
 /* En el celular el titular manda mejor alineado a la izquierda. */
 @media (max-width: 640px) {
-  .lp-hero__copy {
-    align-items: flex-start;
-    text-align: left;
-  }
-  .lp-hero__kicker,
-  .lp-hero__cta,
-  .lp-hero__proofs,
-  .lp-hero__under {
-    justify-content: flex-start;
-  }
-  .lp-hero__sub {
-    text-wrap: pretty;
-  }
   .lp-plans--4 {
     grid-template-columns: 1fr;
   }
@@ -2576,10 +2647,8 @@
 .lp-demo__intent span,
 .lp-demo__night-head,
 .lp-demo__more {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 /* ── Barra ── */
@@ -2873,7 +2942,7 @@
 }
 .lp-demo__conv-top span {
   flex-shrink: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10.5px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -2967,7 +3036,7 @@
   height: 32px;
   border: 1px solid var(--border);
   background: var(--surface-2);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 700;
   color: var(--ink-dim);
@@ -3027,11 +3096,9 @@
 .lp-demo__stage-badge {
   padding: 0 6px;
   border: 1px solid var(--cyan-line);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--cyan);
 }
 .lp-demo[data-phase="done"] .lp-demo__stage-badge {
@@ -3196,7 +3263,7 @@
 }
 .lp-demo__file i::after {
   content: "JPG";
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 8.5px;
   font-weight: 700;
   font-style: normal;
@@ -3209,7 +3276,7 @@
   line-height: 1.3;
 }
 .lp-demo__file b {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 600;
 }
@@ -3401,7 +3468,6 @@
   color: var(--accent-ink);
   font-weight: 700;
   font-size: 14.5px;
-  clip-path: var(--chamfer);
 }
 .lp-demo .lp-demo__go:hover {
   background: var(--accent-hover);
@@ -3439,7 +3505,6 @@
   border-color: var(--accent-edge);
   background: var(--accent);
   color: var(--accent-ink);
-  clip-path: var(--chamfer);
 }
 .lp-demo .lp-demo__btn--primary:hover {
   background: var(--accent-hover);
@@ -3515,7 +3580,7 @@
 }
 .lp-demo__crm-head > span:first-child::before,
 .lp-demo__night-head::before {
-  content: "// ";
+  content: "";
   color: var(--muted);
 }
 .lp-demo__live-tag {
@@ -3666,7 +3731,7 @@
   margin: 0;
   padding: 0;
   min-height: calc(5 * 1.7em);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   line-height: 1.7;
   color: var(--cyan);
@@ -3825,10 +3890,116 @@
   outline-offset: 2px;
 }
 
-/* El gesto del tema claro: la palabra clave del titular, subrayada con rotulador lima. */
-:root[data-theme="light"] .lp-hero__accent {
-  color: var(--ink);
-  background: linear-gradient(transparent 54%, #e2f80d 54% 93%, transparent 93%);
-  padding: 0 0.06em;
-  margin: 0 -0.06em;
+/* ── Esquinas de las cajas ───────────────────────────────────── */
+.lp-partner,
+.lp-chip,
+.lp-plan__tag,
+.lp-period,
+.lp-period__off,
+.lp-demo__tag,
+.lp-demo__badge,
+.lp-demo__topic,
+.lp-demo__stage-badge,
+.lp-demo__wait,
+.lp-demo__seg,
+.lp-demo__live-tag,
+.lp-demo__badge-ch,
+.lp-theme,
+.lp-trace__ev,
+.lp-sec__tab {
+  border-radius: var(--r-pill);
+}
+.lp-skip,
+.lp-burger,
+.lp-menu__close,
+.lp-msg__ai,
+.lp-trace,
+.lp-suggest__text,
+.lp-doc__chat,
+.lp-doc__trace,
+.lp-doc__gaps,
+.lp-doc__gap-btn,
+.lp-doc__code,
+.lp-doc__stage,
+.lp-doc__modes,
+.lp-demo__file,
+.lp-demo__act,
+.lp-demo__trace,
+.lp-demo__pipe,
+.lp-demo__night,
+.lp-demo__secure,
+.lp-demo__more,
+.lp-demo__off,
+.lp-nav__login,
+.lp-nav__links a,
+.lp-suggest__btns > *,
+.lp-doc__toc a,
+.lp-sim__name input,
+.lp-sim__caps li,
+.lp-demo .lp-demo__tabs button,
+.lp-demo .lp-demo__reset,
+.lp-demo .lp-demo__conv,
+.lp-demo__draft textarea,
+.lp-demo__trace-cells > div,
+.lp-demo .lp-demo__go,
+.lp-demo .lp-demo__btn,
+.lp-demo__tiles > div,
+.lp-demo__offer--quick > span {
+  border-radius: var(--r-sm);
+}
+.lp-suggest,
+.lp-doc__body,
+.lp-sim__build,
+.lp-sec__chat,
+.lp-sim__does,
+.lp-ai__ways,
+.lp-demo__divider {
+  border-radius: var(--r-md);
+}
+.lp-shot,
+.lp-plan,
+.lp-pay,
+.lp-picker,
+.lp-oss,
+.lp-demo {
+  border-radius: var(--r-lg);
+}
+.lp-shot,
+.lp-demo,
+.lp-pay,
+.lp-doc__body {
+  overflow: hidden;
+}
+.lp-demo__avatar {
+  border-radius: 50%;
+}
+.lp-sim__goal,
+.lp-demo__pilot {
+  border-radius: var(--r-sm);
+}
+.lp-picker {
+  overflow: hidden;
+}
+/* Los mensajes, con la forma del globo del logo: el cliente a la izquierda, Driony a la derecha. */
+.lp-msg--in .lp-msg__bubble,
+.lp-doc__bubble,
+.lp-demo__bubble,
+.lp-demo__typing {
+  border-radius: 8px 20px 20px 4px;
+}
+.lp-msg--out .lp-msg__bubble,
+.lp-doc__msg--out .lp-doc__bubble,
+.lp-demo__msg--out .lp-demo__bubble {
+  border-radius: 20px 8px 4px 20px;
+}
+.lp-period {
+  overflow: hidden;
+}
+/* La captura de la bandeja sigue al tema. */
+.lp .lp-shot .lp-shot__img--light,
+:root[data-theme="light"] .lp .lp-shot .lp-shot__img--dark {
+  display: none;
+}
+:root[data-theme="light"] .lp .lp-shot .lp-shot__img--light {
+  display: block;
 }

@@ -147,7 +147,7 @@ export function MessagesSkeleton() {
             alignSelf: r.out ? "flex-end" : "flex-start",
             width: r.w,
             height: 38,
-            borderRadius: 12,
+            borderRadius: "var(--r-lg)",
             background: r.out ? "var(--bubble-out)" : "var(--surface-2)",
             opacity: 0.45,
             animation: "chatPulse 1.4s ease-in-out infinite",
@@ -231,7 +231,7 @@ const typingBubble: React.CSSProperties = {
   alignItems: "center",
   gap: 8,
   padding: "8px 12px",
-  borderRadius: "10px 10px 2px 10px",
+  borderRadius: "var(--bubble-out-r)",
   background: "var(--surface-2)",
   color: "var(--muted)",
 };

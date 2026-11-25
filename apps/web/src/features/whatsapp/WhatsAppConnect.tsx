@@ -333,7 +333,7 @@ export function WhatsAppConnect({ hub = false, embedded = false }: { hub?: boole
       )}
 
       {isPending ? (
-        <div className="skeleton" style={{ height: 76, borderRadius: 12 }} />
+        <div className="skeleton" style={{ height: 76, borderRadius: "var(--r-lg)" }} />
       ) : list.length === 0 ? (
         <div style={card}>
           {missingConfig ? (
@@ -488,7 +488,7 @@ export function WhatsAppConnect({ hub = false, embedded = false }: { hub?: boole
 const hubDialog: React.CSSProperties = {
   width: 480,
   maxWidth: "100%",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   background: "var(--panel-2)",
   border: "1px solid var(--border)",
   boxShadow: "var(--shadow-card)",
@@ -787,7 +787,7 @@ function WebhookInfo({ hub }: { hub: boolean }) {
 const avisoModo: React.CSSProperties = {
   marginTop: 12,
   padding: "8px 10px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--warning-border)",
   background: "rgb(var(--amber-rgb) / 0.08)",
   color: "var(--warning)",
@@ -799,7 +799,7 @@ const urlBox: React.CSSProperties = {
   display: "block",
   marginTop: 8,
   padding: "8px 10px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   background: "var(--field)",
   border: "1px solid var(--border)",
   fontSize: 12,
@@ -837,7 +837,7 @@ const fieldLabel: React.CSSProperties = {
 const field: React.CSSProperties = {
   width: "100%",
   padding: "9px 11px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -847,7 +847,7 @@ const field: React.CSSProperties = {
 
 const syncNote: React.CSSProperties = {
   padding: 12,
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
   color: "var(--muted)",
@@ -1021,7 +1021,7 @@ function ChannelRow({
 
 const primaryBtn: React.CSSProperties = {
   padding: "8px 13px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
@@ -1049,7 +1049,7 @@ const routingChip: React.CSSProperties = {
 const errorNote: React.CSSProperties = {
   marginTop: 6,
   padding: "7px 9px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--danger-border)",
   background: "rgb(var(--coral-rgb) / 0.12)",
   color: "var(--danger)",
@@ -1144,7 +1144,7 @@ export function WaIcon() {
 const card: React.CSSProperties = {
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   padding: 22,
   boxShadow: "var(--shadow-card)",
 };
@@ -1156,7 +1156,7 @@ const row: React.CSSProperties = {
   gap: 12,
   padding: "12px 14px",
   border: "1px solid var(--border)",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   background: "rgb(var(--mist-rgb) / 0.02)",
 };
 
@@ -1165,7 +1165,7 @@ const waBtn: React.CSSProperties = {
   alignItems: "center",
   gap: 10,
   padding: "12px 20px",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
@@ -1179,7 +1179,7 @@ const addBtn: React.CSSProperties = {
   alignItems: "center",
   gap: 8,
   padding: "8px 14px",
-  borderRadius: 9,
+  borderRadius: "var(--r-md)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
@@ -1190,7 +1190,7 @@ const addBtn: React.CSSProperties = {
 
 const ghostBtn: React.CSSProperties = {
   padding: "7px 13px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--danger-border)",
   background: "transparent",
   color: "var(--danger)",
@@ -1216,7 +1216,6 @@ function pill(bg: string): React.CSSProperties {
     borderRadius: 999,
     background: bg,
     color: readableInk(bg),
-    textTransform: "uppercase",
     letterSpacing: 0.4,
   };
 }

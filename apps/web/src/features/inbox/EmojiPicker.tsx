@@ -304,7 +304,7 @@ const panel: React.CSSProperties = {
   left: 16,
   marginBottom: 8,
   width: 300,
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   border: "1px solid var(--border)",
   background: "var(--surface, var(--panel))",
   boxShadow: "0 6px 20px rgb(var(--shadow-rgb) / 0.45)",
@@ -347,7 +347,7 @@ const grid: React.CSSProperties = {
 const cell: React.CSSProperties = {
   border: "none",
   background: "transparent",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   padding: "5px 0",
   fontSize: 20,
   lineHeight: 1.2,

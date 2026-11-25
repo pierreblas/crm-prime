@@ -980,7 +980,7 @@ const syncNotice: React.CSSProperties = {
   gap: 10,
   alignItems: "flex-start",
   padding: "10px 12px",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
   fontSize: 12.5,
@@ -1003,7 +1003,7 @@ const empty: React.CSSProperties = {
   color: "var(--muted)",
   fontSize: 14,
   border: "1px dashed var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
 };
 
 const backdrop: React.CSSProperties = {
@@ -1057,7 +1057,7 @@ const previewBox: React.CSSProperties = {
   width: 96,
   height: 96,
   flexShrink: 0,
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   overflow: "hidden",
   background: "var(--field)",
   border: "1px solid var(--border)",
@@ -1071,7 +1071,7 @@ const section: React.CSSProperties = {
   flexDirection: "column",
   gap: 10,
   padding: 14,
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
 };

@@ -414,7 +414,7 @@ const toc: React.CSSProperties = {
   gap: 8,
   marginTop: 22,
   padding: 14,
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   background: "var(--panel)",
   border: "1px solid var(--border)",
 };

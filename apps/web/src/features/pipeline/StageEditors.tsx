@@ -620,7 +620,7 @@ export const autosBox: React.CSSProperties = {
   flexDirection: "column",
   gap: 6,
   padding: "10px 12px",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   border: "1px solid var(--border)",
   background: "color-mix(in oklab, var(--accent) 6%, transparent)",
 };
@@ -644,7 +644,7 @@ const box: React.CSSProperties = {
   maxHeight: "min(86vh, 820px)",
   display: "flex",
   flexDirection: "column",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   background: "var(--panel-2)",
   border: "1px solid var(--border)",
   boxShadow: "var(--shadow-card)",

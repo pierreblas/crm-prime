@@ -41,7 +41,7 @@ export function LanguageSwitcher() {
 
 const select: React.CSSProperties = {
   padding: "5px 8px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",

@@ -745,7 +745,7 @@ const pick: CSSProperties = {
   color: "var(--text)",
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   cursor: "pointer",
 };
 
@@ -759,7 +759,7 @@ const help: CSSProperties = {
   color: "var(--muted)",
   background: "var(--surface)",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
 };
 
 const hint: CSSProperties = { fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 };
@@ -780,7 +780,7 @@ const okBox: CSSProperties = {
   flexDirection: "column",
   gap: 4,
   padding: "10px 12px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
   color: "var(--positive)",
@@ -794,6 +794,6 @@ const removeBox: CSSProperties = {
   marginTop: 6,
   padding: "10px 12px",
   border: "1px solid var(--danger-border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   background: "rgb(var(--coral-rgb) / 0.08)",
 };

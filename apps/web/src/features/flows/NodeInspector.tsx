@@ -49,7 +49,7 @@ const WA_TEXT_MAX = 4096;
 
 const input: React.CSSProperties = {
   padding: "8px 10px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -60,7 +60,7 @@ const input: React.CSSProperties = {
 const lbl: React.CSSProperties = { fontSize: 12, color: "var(--muted)", marginBottom: 4 };
 const ghost: React.CSSProperties = {
   padding: "6px 10px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",
@@ -733,7 +733,7 @@ function ListRowsFields({ rows, onChange }: { rows: FlowButton[]; onChange: (r: 
     <Field label="Opciones (cada una es una salida)">
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {rows.map((r, i) => (
-          <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 4, padding: 8, borderRadius: 8, background: "var(--surface-2)" }}>
+          <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 4, padding: 8, borderRadius: "var(--r-sm)", background: "var(--surface-2)" }}>
             <div style={{ display: "flex", gap: 6 }}>
               <input style={{ ...input, flex: 1 }} value={r.title} maxLength={24} placeholder={`Opción ${i + 1}`} onChange={(e) => set(i, { title: e.target.value })} />
               <button style={miniBtn} title="Quitar opción" onClick={() => onChange(rows.filter((_, j) => j !== i))}>
@@ -782,7 +782,7 @@ function CarouselFields({ data, variables, onChange }: { data: FlowNodeData; var
       </Field>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {cards.map((c, i) => (
-          <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: 10, borderRadius: 8, background: "var(--surface-2)" }}>
+          <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: 10, borderRadius: "var(--r-sm)", background: "var(--surface-2)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <strong style={{ fontSize: 12.5, flex: 1 }}>Tarjeta {i + 1}</strong>
               {cards.length > 2 && (
@@ -1169,7 +1169,7 @@ const issueBox: React.CSSProperties = {
   flexDirection: "column",
   gap: 6,
   padding: "8px 10px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--warning-border)",
   background: "rgb(var(--amber-rgb) / 0.08)",
   color: "var(--warning)",
@@ -1179,7 +1179,7 @@ const issueBox: React.CSSProperties = {
 
 const branchBox: React.CSSProperties = {
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   padding: 10,
   display: "flex",
   flexDirection: "column",

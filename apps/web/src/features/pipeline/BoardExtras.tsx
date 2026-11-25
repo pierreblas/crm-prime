@@ -243,7 +243,7 @@ function ago(iso: string): string {
 
 export function DealHistory({ dealId }: { dealId: string }) {
   const { data = [], isPending, isError } = useQuery({ queryKey: ["deal-events", dealId], queryFn: () => fetchDealEvents(dealId) });
-  if (isPending) return <div className="skeleton" style={{ height: 60, borderRadius: 8 }} />;
+  if (isPending) return <div className="skeleton" style={{ height: 60, borderRadius: "var(--r-sm)" }} />;
   if (isError) return <p className="kb-hist__empty">No se pudo cargar el historial.</p>;
   if (!data.length) return <p className="kb-hist__empty">Sin movimientos registrados todavía.</p>;
   return (

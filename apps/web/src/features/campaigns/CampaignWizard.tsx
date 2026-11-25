@@ -158,7 +158,7 @@ export function CampaignWizard({ onDone, preset }: { onDone: () => void; preset?
             </div>
           </div>
           {template && (
-            <div style={{ marginTop: 10, padding: 12, background: "var(--field)", borderRadius: 8, color: "var(--muted)", fontSize: 13, whiteSpace: "pre-wrap" }}>
+            <div style={{ marginTop: 10, padding: 12, background: "var(--field)", borderRadius: "var(--r-sm)", color: "var(--muted)", fontSize: 13, whiteSpace: "pre-wrap" }}>
               {template.body}
             </div>
           )}

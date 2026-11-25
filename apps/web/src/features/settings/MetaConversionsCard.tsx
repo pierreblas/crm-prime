@@ -332,7 +332,7 @@ const row: React.CSSProperties = {
   alignItems: "center",
   gap: 12,
   padding: "10px 12px",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   border: "1px solid var(--border)",
 };
 const groupTitle: React.CSSProperties = { margin: "0 0 8px", fontSize: 13 };

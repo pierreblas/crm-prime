@@ -122,7 +122,7 @@ const thumb: React.CSSProperties = {
   display: "block",
   maxWidth: "100%",
   maxHeight: 280,
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   cursor: "zoom-in",
   marginBottom: 4,
 };
@@ -146,7 +146,7 @@ const video: React.CSSProperties = {
   display: "block",
   maxWidth: "100%",
   maxHeight: 280,
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   marginBottom: 4,
 };
 
@@ -177,7 +177,7 @@ const overlay: React.CSSProperties = {
 const full: React.CSSProperties = {
   maxWidth: "100%",
   maxHeight: "100%",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
 };
 
 const docRow: React.CSSProperties = {

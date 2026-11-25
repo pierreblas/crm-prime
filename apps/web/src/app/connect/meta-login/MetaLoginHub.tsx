@@ -100,7 +100,7 @@ export function MetaLoginHub({ origin, scopes = "leads" }: { origin: string; sco
 
 const caja: React.CSSProperties = {
   padding: 22,
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   border: "1px solid var(--border)",
   background: "var(--panel)",
   display: "flex",
@@ -110,7 +110,7 @@ const caja: React.CSSProperties = {
 const texto: React.CSSProperties = { margin: 0, color: "var(--muted)", lineHeight: 1.5, fontSize: 14 };
 const boton: React.CSSProperties = {
   padding: "11px 16px",
-  borderRadius: 9,
+  borderRadius: "var(--r-md)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",

@@ -70,7 +70,7 @@ export function AiUsageSettings() {
           </button>
         </p>
       )}
-      {isPending && <div className="skeleton" style={{ height: 260, borderRadius: 12 }} />}
+      {isPending && <div className="skeleton" style={{ height: 260, borderRadius: "var(--r-lg)" }} />}
       {data && <Report data={data} />}
     </div>
   );

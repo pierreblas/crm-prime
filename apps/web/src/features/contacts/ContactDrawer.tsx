@@ -511,7 +511,7 @@ const fieldLabel: React.CSSProperties = {
 const input: React.CSSProperties = {
   width: "100%",
   padding: "9px 11px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field, var(--field))",
   color: "var(--text)",
@@ -536,7 +536,7 @@ const hint: React.CSSProperties = {
 
 const adCard: React.CSSProperties = {
   padding: 12,
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   background: "rgba(122,95,176,0.12)",
   border: "1px solid light-dark(#b9a8dd, #4a3a6a)",
   marginBottom: 12,
@@ -575,7 +575,7 @@ const utmRow: React.CSSProperties = {
   gridTemplateColumns: "90px 1fr",
   gap: 10,
   padding: "5px 9px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   background: "var(--field, var(--field))",
 };
 
@@ -594,7 +594,7 @@ const iconBtn: React.CSSProperties = {
   justifyContent: "center",
   width: 32,
   height: 32,
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",
@@ -603,7 +603,7 @@ const iconBtn: React.CSSProperties = {
 
 const primaryBtn: React.CSSProperties = {
   padding: "9px 16px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent, #25d366)",
   color: "var(--accent-ink, #04210f)",
@@ -613,7 +613,7 @@ const primaryBtn: React.CSSProperties = {
 
 const ghostBtn: React.CSSProperties = {
   padding: "8px 13px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--text)",

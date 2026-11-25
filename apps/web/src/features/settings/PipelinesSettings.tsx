@@ -580,7 +580,7 @@ function StagesEditor({
 }
 
 const muted: React.CSSProperties = { color: "var(--muted)", fontSize: 14, marginTop: 0 };
-const sectionTitle: React.CSSProperties = { fontSize: 12.5, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 };
+const sectionTitle: React.CSSProperties = { fontSize: 12.5, fontWeight: 700, color: "var(--muted)", letterSpacing: 0.4, marginBottom: 8 };
 
 const head: React.CSSProperties = {
   display: "flex",
@@ -595,7 +595,7 @@ const titleBtn: React.CSSProperties = {
   alignItems: "center",
   gap: 9,
   padding: "6px 8px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "transparent",
   color: "var(--text)",

@@ -18,7 +18,7 @@ export const metadata: Metadata = {
       "Agentes de IA que atienden, cotizan y cierran en tu WhatsApp, también a las 11 de la noche. Bandeja en tiempo real, embudo y difusiones. 15 días de Pro gratis, sin tarjeta.",
     type: "website",
     locale: "es_ES",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Driony: convierte WhatsApp en tu mejor vendedor" }],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Driony: tus clientes escriben a medianoche, tu agente responde" }],
   },
 };
 

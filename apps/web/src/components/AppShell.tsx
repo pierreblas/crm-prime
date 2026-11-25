@@ -169,6 +169,6 @@ const userChip: React.CSSProperties = {
   alignItems: "center",
   gap: 9,
   padding: "4px 6px",
-  borderRadius: 9,
+  borderRadius: "var(--r-md)",
   transition: "background 0.12s ease",
 };

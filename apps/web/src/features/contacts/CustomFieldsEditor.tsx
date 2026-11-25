@@ -67,7 +67,7 @@ export function CustomFieldsEditor() {
   return (
     <div className="cfe" data-fields-editor>
       <div className="cfe__list">
-        {isPending && <div className="skeleton" style={{ height: 48, borderRadius: 10 }} />}
+        {isPending && <div className="skeleton" style={{ height: 48, borderRadius: "var(--r-md)" }} />}
         {!isPending && fields.length === 0 && <p className="cfe__hint">Aún no hay campos. Crea el primero abajo.</p>}
         {fields.map((f) => (
           <FieldRow

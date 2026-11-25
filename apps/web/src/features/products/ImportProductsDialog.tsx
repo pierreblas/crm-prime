@@ -545,7 +545,7 @@ const select: React.CSSProperties = {
   flex: 1,
   minWidth: 0,
   padding: "7px 9px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -575,7 +575,7 @@ const td: React.CSSProperties = {
 const errorBox: React.CSSProperties = {
   background: "rgb(var(--coral-rgb) / 0.1)",
   border: "1px solid var(--danger-border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   padding: 10,
   fontSize: 12.5,
   color: "var(--danger)",
@@ -586,7 +586,7 @@ const errorBox: React.CSSProperties = {
 
 const primaryBtn: React.CSSProperties = {
   padding: "9px 16px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
@@ -596,7 +596,7 @@ const primaryBtn: React.CSSProperties = {
 
 const ghostBtn: React.CSSProperties = {
   padding: "9px 14px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",

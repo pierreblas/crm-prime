@@ -355,7 +355,7 @@ const muted: React.CSSProperties = {
 const card: React.CSSProperties = {
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   padding: 14,
 };
 
@@ -368,7 +368,7 @@ const banner: React.CSSProperties = {
 const secretBox: React.CSSProperties = {
   flex: 1,
   padding: "9px 11px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   background: "var(--field)",
   border: "1px solid var(--border)",
   fontSize: 12.5,
@@ -379,7 +379,7 @@ const secretBox: React.CSSProperties = {
 const code: React.CSSProperties = {
   background: "var(--field)",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   padding: 11,
   fontSize: 11.5,
   overflowX: "auto",
@@ -396,7 +396,7 @@ const label: React.CSSProperties = {
 const input: React.CSSProperties = {
   width: "100%",
   padding: "9px 11px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -419,7 +419,7 @@ const scopeRow: React.CSSProperties = {
 
 const primaryBtn: React.CSSProperties = {
   padding: "9px 16px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
@@ -430,7 +430,7 @@ const primaryBtn: React.CSSProperties = {
 
 const ghostBtn: React.CSSProperties = {
   padding: "8px 13px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--text)",
@@ -442,7 +442,7 @@ const ghostBtn: React.CSSProperties = {
 const dangerBtn: React.CSSProperties = {
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--danger-border)",
   background: "transparent",
   color: "var(--danger)",

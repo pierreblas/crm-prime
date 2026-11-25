@@ -332,10 +332,10 @@ function Skeleton() {
     <div className="dash__body">
       <section className="dash__kpis">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="skeleton" style={{ height: 104, borderRadius: 12 }} />
+          <div key={i} className="skeleton" style={{ height: 104, borderRadius: "var(--r-lg)" }} />
         ))}
       </section>
-      <div className="skeleton" style={{ height: 300, borderRadius: 14 }} />
+      <div className="skeleton" style={{ height: 300, borderRadius: "var(--r-lg)" }} />
     </div>
   );
 }

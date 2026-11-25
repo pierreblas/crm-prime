@@ -134,7 +134,7 @@ function tabBtn(active: boolean): React.CSSProperties {
     gap: 9,
     textAlign: "left",
     padding: "10px 12px",
-    borderRadius: 9,
+    borderRadius: "var(--r-md)",
     border: "1px solid transparent",
     background: active ? "var(--surface)" : "transparent",
     color: active ? "var(--text)" : "var(--muted)",

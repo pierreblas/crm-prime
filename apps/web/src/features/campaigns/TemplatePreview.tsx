@@ -58,10 +58,10 @@ export function TemplatePreview({
         </div>
 
         {footer ? (
-          <div style={{ color: "light-dark(#5b6b75, #8fa3bf)", fontSize: 12, marginTop: 6 }}>{footer}</div>
+          <div style={{ color: "light-dark(#5b6b75, #b8d3cc)", fontSize: 12, marginTop: 6 }}>{footer}</div>
         ) : null}
 
-        <div style={{ textAlign: "right", color: "light-dark(#5b6b75, #8fa3bf)", fontSize: 10, marginTop: 4 }}>
+        <div style={{ textAlign: "right", color: "light-dark(#5b6b75, #b8d3cc)", fontSize: 10, marginTop: 4 }}>
           12:00
         </div>
       </div>
@@ -88,20 +88,20 @@ export function TemplatePreview({
 const phone: CSSProperties = {
   background: "light-dark(#efeae2, #0b141a)",
   border: "1px solid var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   padding: 14,
 };
 
 const bubble: CSSProperties = {
   background: "light-dark(#d9fdd3, #005c4b)",
   color: "light-dark(#111b21, #e9f1ff)",
-  borderRadius: "10px 10px 10px 2px",
+  borderRadius: "var(--bubble-in-r)",
   padding: "10px 12px",
 };
 
 const mediaBox: CSSProperties = {
   background: "light-dark(rgba(0,0,0,0.08), rgba(255,255,255,0.12))",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   height: 88,
   marginBottom: 8,
   display: "flex",
@@ -115,7 +115,7 @@ const mediaBox: CSSProperties = {
 const buttonPill: CSSProperties = {
   background: "light-dark(#ffffff, #1f2c34)",
   color: "light-dark(#00699c, #53bdeb)",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   padding: "8px 10px",
   fontSize: 13,
   display: "flex",

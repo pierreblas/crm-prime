@@ -57,7 +57,7 @@ const caja: React.CSSProperties = {
   padding: 28,
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   display: "flex",
   flexDirection: "column",
 };
@@ -65,7 +65,7 @@ const etiqueta: React.CSSProperties = { fontSize: 13, color: "var(--muted)", mar
 const grupo: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   overflow: "hidden",
@@ -83,7 +83,7 @@ const sufijo: React.CSSProperties = { padding: "10px 10px", color: "var(--muted)
 const boton: React.CSSProperties = {
   marginTop: 22,
   padding: "11px 14px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",

@@ -52,20 +52,44 @@ const ratio = (a: string, b: string) => {
   return (x + 0.05) / (y + 0.05);
 };
 
-test("en claro, cada color de texto se lee a 4,5:1 sobre el papel y sobre el panel", () => {
+test("en los dos temas, cada color de texto se lee a 4,5:1 sobre el fondo y sobre el panel", () => {
   const css = fs.readFileSync(path.join(SRC, "app/globals.css"), "utf8").replace(/\r\n/g, "\n");
-  const block = css.slice(css.indexOf(':root[data-theme="light"] {'), css.indexOf("\n}\n", css.indexOf(':root[data-theme="light"] {')));
-  const token = (n: string) => new RegExp(`--${n}: (#[0-9a-f]{6});`).exec(block)?.[1] ?? assert.fail(`falta --${n}`);
-  for (const n of ["muted", "placeholder", "accent-text", "cyan", "positive", "warning", "danger"]) {
-    for (const bg of ["panel", "bg"]) assert.ok(ratio(token(n), token(bg)) >= (n === "placeholder" ? 4.3 : 4.5), `--${n} sobre --${bg}: ${ratio(token(n), token(bg)).toFixed(2)}`);
+  const block = (head: string) => css.slice(css.indexOf(head), css.indexOf("\n}\n", css.indexOf(head)));
+  const dark = block(":root {");
+  const light = block(':root[data-theme="light"] {');
+  const token = (b: string, n: string): string => {
+    const find = (s: string) => new RegExp(`--${n}: (#[0-9a-f]{6}|var\\(--[a-z-]+\\));`).exec(s)?.[1];
+    const v = find(b) ?? find(dark) ?? assert.fail(`falta --${n}`);
+    const ref = /^var\(--([a-z-]+)\)$/.exec(v)?.[1];
+    return ref ? token(b, ref) : v;
+  };
+  for (const [name, b] of [["claro", light], ["oscuro", dark]] as const) {
+    for (const n of ["text", "muted", "placeholder", "accent-text", "cyan", "positive", "warning", "danger"]) {
+      for (const bg of ["panel", "bg"]) {
+        const r = ratio(token(b, n), token(b, bg));
+        assert.ok(r >= 4.5, `${name}: --${n} sobre --${bg}: ${r.toFixed(2)}`);
+      }
+    }
+    assert.ok(ratio(token(b, "danger-ink"), token(b, "danger")) >= 4.5, `${name}: la tinta sobre rojo`);
   }
-  for (const n of ["accent-edge", "field-border"]) assert.ok(ratio(token(n), token("panel")) >= 2.8, `--${n}: ${ratio(token(n), token("panel")).toFixed(2)}`);
-  assert.ok(ratio("#0a0b10", "#e2f80d") > 15, "tinta noir sobre lima");
-  assert.ok(ratio(token("danger-ink"), token("danger")) >= 4.5 || /--danger-ink: #ffffff/.test(block));
+  for (const n of ["accent-edge", "field-border"]) assert.ok(ratio(token(light, n), token(light, "panel")) >= 2.8, `--${n}`);
+  assert.ok(ratio(token(dark, "noir"), token(dark, "lemon")) > 10, "petróleo sobre lima");
+  assert.ok(ratio("#ffffff", token(dark, "noir")) > 12, "blanco sobre petróleo");
+});
+
+test("la portada usa los mismos petróleo y lima que el panel, y no vuelve el estilo anterior", () => {
+  const read = (f: string) => fs.readFileSync(path.join(SRC, f), "utf8");
+  const files = ["app/globals.css", "features/marketing/landing.css", "features/onboarding/setup.css", "app/docs/docs.css"];
+  for (const f of files) {
+    const css = read(f);
+    for (const old of ["#00e5ff", "#0a0b10", "#12141f", "--chamfer", "[ + ]", "text-transform: uppercase"]) assert.ok(!css.includes(old), `${f}: ${old}`);
+  }
+  assert.match(read("features/marketing/landing.css"), /--accent-ink: #0b3a45;/);
+  assert.match(read("app/globals.css"), /--noir: #0b3a45;/);
 });
 
 test("nadie usa un color de la marca suelto en estilos: rompería uno de los dos temas", () => {
-  const loose = /rgba?\(\s*(?:0\s*,\s*229\s*,\s*255|226\s*,\s*248\s*,\s*13|142\s*,\s*158\s*,\s*175|126\s*,\s*226\s*,\s*168|240\s*,\s*180\s*,\s*90)\s*,/;
+  const loose = /rgba?\(\s*(?:0\s*,\s*229\s*,\s*255|134\s*,\s*223\s*,\s*226|142\s*,\s*158\s*,\s*175|165\s*,\s*196\s*,\s*199|126\s*,\s*226\s*,\s*168|246\s*,\s*194\s*,\s*116)\s*,/;
   const bad: string[] = [];
   const walk = (dir: string) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

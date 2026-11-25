@@ -14,7 +14,7 @@ import { readableInk } from "@/lib/readable-ink";
  * cian de los datos y seis más. El selector libre sigue ahí para quien quiera
  * otro.
  */
-const PALETTE = ["#e2f80d", "#00e5ff", "#1fa855", "#f0a84a", "#e8475c", "#8a6cf2", "#2c7be5", "#9aa5b1"];
+const PALETTE = ["#e2f80d", "#86dfe2", "#1fa855", "#f0a84a", "#e8475c", "#8a6cf2", "#2c7be5", "#9aa5b1"];
 const DEFAULT_COLOR = PALETTE[6]!;
 
 /**

@@ -63,7 +63,7 @@ export default async function ConnectWhatsappPage({
 
 const caja: React.CSSProperties = {
   padding: 28,
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   background: "var(--panel)",
   border: "1px solid var(--border)",
 };

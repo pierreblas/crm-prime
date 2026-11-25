@@ -116,7 +116,7 @@ const row: React.CSSProperties = {
   gap: 12,
   padding: "14px 16px",
   border: "1px solid var(--border)",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   background: "var(--panel)",
   boxShadow: "var(--shadow-card)",
 };
@@ -131,7 +131,7 @@ const badge: React.CSSProperties = {
 
 const ghostBtn: React.CSSProperties = {
   padding: "8px 14px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--danger-border)",
   background: "transparent",
   color: "var(--danger)",
@@ -142,7 +142,7 @@ const ghostBtn: React.CSSProperties = {
 
 const revokeAllBtn: React.CSSProperties = {
   padding: "8px 14px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--danger-border)",
   background: "transparent",
   color: "var(--danger)",

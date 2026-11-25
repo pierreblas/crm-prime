@@ -359,7 +359,7 @@ function bubble(bg: string): React.CSSProperties {
     background: bg,
     color: "var(--text)",
     padding: "9px 12px",
-    borderRadius: 10,
+    borderRadius: "var(--r-md)",
     fontSize: 14,
     maxWidth: "85%",
     whiteSpace: "pre-wrap",
@@ -370,7 +370,7 @@ function bubble(bg: string): React.CSSProperties {
 const simActions: React.CSSProperties = {
   marginTop: 7,
   padding: "7px 9px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   background: "rgb(var(--amber-rgb) / 0.10)",
   border: "1px solid var(--warning-border)",
   color: "var(--warning)",
@@ -402,7 +402,7 @@ const composer: React.CSSProperties = {
 const input: React.CSSProperties = {
   flex: 1,
   padding: "10px 12px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -410,7 +410,7 @@ const input: React.CSSProperties = {
 
 const sendBtn: React.CSSProperties = {
   padding: "10px 18px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
@@ -420,7 +420,7 @@ const sendBtn: React.CSSProperties = {
 
 const ghostBtn: React.CSSProperties = {
   padding: "6px 12px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",
@@ -434,7 +434,7 @@ const iconBtn: React.CSSProperties = {
   justifyContent: "center",
   width: 32,
   height: 32,
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",

@@ -396,7 +396,7 @@ function ButtonRow({
         alignItems: "center",
         flexWrap: "wrap",
         border: "1px solid var(--border)",
-        borderRadius: 8,
+        borderRadius: "var(--r-sm)",
         padding: 8,
       }}
     >

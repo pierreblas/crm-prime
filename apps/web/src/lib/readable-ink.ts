@@ -15,6 +15,7 @@ export function readableInk(bg: string): string {
   const full = hex.length === 3 ? [...hex].map((c) => c + c).join("") : hex.slice(0, 6);
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
   const luminance = 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
-  // Blanco frente a noir (#0a0b10, luminancia 0,004): gana el de más contraste.
-  return 1.05 / (luminance + 0.05) >= (luminance + 0.05) / 0.054 ? "#ffffff" : "#0a0b10";
+  // Blanco frente a petróleo casi negro (el de la marca, #0b3a45, se queda corto en los
+  // tonos medios): gana el de más contraste.
+  return 1.05 / (luminance + 0.05) >= (luminance + 0.05) / 0.0568 ? "#ffffff" : "#04161b";
 }

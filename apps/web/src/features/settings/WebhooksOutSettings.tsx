@@ -295,7 +295,7 @@ const muted: React.CSSProperties = {
 const card: React.CSSProperties = {
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   padding: 14,
 };
 
@@ -308,7 +308,7 @@ const banner: React.CSSProperties = {
 const secretBox: React.CSSProperties = {
   flex: 1,
   padding: "9px 11px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   background: "var(--field)",
   border: "1px solid var(--border)",
   fontSize: 12.5,
@@ -319,7 +319,7 @@ const secretBox: React.CSSProperties = {
 const urlBox: React.CSSProperties = {
   display: "block",
   padding: "6px 9px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   background: "var(--field, var(--field))",
   border: "1px solid var(--border)",
   fontSize: 12,
@@ -336,7 +336,7 @@ const label: React.CSSProperties = {
 const input: React.CSSProperties = {
   width: "100%",
   padding: "9px 11px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field, var(--field))",
   color: "var(--text)",
@@ -359,7 +359,7 @@ const eventRow: React.CSSProperties = {
 
 const primaryBtn: React.CSSProperties = {
   padding: "9px 16px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent, #25d366)",
   color: "var(--accent-ink, #04210f)",
@@ -370,7 +370,7 @@ const primaryBtn: React.CSSProperties = {
 
 const ghostBtn: React.CSSProperties = {
   padding: "8px 13px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--text)",
@@ -385,7 +385,7 @@ const dangerBtn: React.CSSProperties = {
   justifyContent: "center",
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--danger-border)",
   background: "transparent",
   color: "var(--danger)",
@@ -408,7 +408,7 @@ function resultBox(ok: boolean): React.CSSProperties {
   return {
     marginTop: 10,
     padding: "8px 10px",
-    borderRadius: 8,
+    borderRadius: "var(--r-sm)",
     fontSize: 12.5,
     background: ok ? "rgb(var(--ok-rgb) / 0.14)" : "rgb(var(--coral-rgb) / 0.14)",
     border: `1px solid ${ok ? "var(--positive-border)" : "var(--danger-border)"}`,

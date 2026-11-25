@@ -451,7 +451,7 @@ const empty: React.CSSProperties = {
   textAlign: "center",
   padding: "80px 24px",
   border: "1px dashed var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
 };
 
 const muted: React.CSSProperties = { color: "var(--muted)", fontSize: 14 };
@@ -460,7 +460,7 @@ function card(active: boolean): React.CSSProperties {
   return {
     textAlign: "left",
     padding: 12,
-    borderRadius: 10,
+    borderRadius: "var(--r-md)",
     border: `1px solid ${active ? "var(--accent-edge)" : "var(--border)"}`,
     background: active ? "var(--accent-soft)" : "var(--panel)",
     cursor: "pointer",

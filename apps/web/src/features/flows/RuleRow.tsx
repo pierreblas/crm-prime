@@ -170,7 +170,7 @@ export function RuleRow({
   })();
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 5, padding: "8px 8px 8px 10px", borderRadius: 8, background: "var(--surface-2)" }} data-rule={rule.id}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 5, padding: "8px 8px 8px 10px", borderRadius: "var(--r-sm)", background: "var(--surface-2)" }} data-rule={rule.id}>
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <select style={{ ...small, flex: 1 }} value={rule.field} onChange={(e) => setField(e.target.value as FlowRule["field"])} aria-label="Qué se mira">
           {CONDITION_GROUPS.map((g) => (
@@ -233,7 +233,7 @@ export function RuleRow({
 
 const input: React.CSSProperties = {
   padding: "8px 10px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -243,7 +243,7 @@ const input: React.CSSProperties = {
 };
 const miniBtn: React.CSSProperties = {
   padding: "3px 6px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",

@@ -56,7 +56,7 @@ export function PlanSettings() {
   if (isPending) {
     return (
       <div className="plan">
-        <div className="skeleton" style={{ height: 160, borderRadius: 12 }} />
+        <div className="skeleton" style={{ height: 160, borderRadius: "var(--r-lg)" }} />
         <div className="skeleton" style={{ height: 220, marginTop: 14 }} />
       </div>
     );

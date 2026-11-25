@@ -33,7 +33,7 @@ export function PasswordField({
 
 const input: React.CSSProperties = {
   padding: "10px 12px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",

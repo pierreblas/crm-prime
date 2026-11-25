@@ -34,7 +34,7 @@ const caja: React.CSSProperties = {
   width: "100%",
   maxWidth: 420,
   padding: 28,
-  borderRadius: 14,
+  borderRadius: "var(--r-lg)",
   background: "var(--panel, #16181d)",
   border: "1px solid var(--border, #262a31)",
 };
@@ -43,7 +43,7 @@ const boton: React.CSSProperties = {
   textAlign: "center",
   marginTop: 22,
   padding: "11px 14px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   background: "var(--accent)",
   color: "var(--accent-ink)",
   fontWeight: 600,

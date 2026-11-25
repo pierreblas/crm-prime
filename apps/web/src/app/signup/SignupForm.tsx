@@ -742,7 +742,7 @@ const caja: React.CSSProperties = {
   width: "100%",
   maxWidth: 400,
   padding: 28,
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   background: "var(--panel)",
   border: "1px solid var(--border)",
   boxShadow: "var(--shadow-card)",
@@ -763,7 +763,6 @@ const overline: React.CSSProperties = {
   fontWeight: 600,
   letterSpacing: "0.6px",
   color: "var(--muted)",
-  textTransform: "uppercase",
 };
 const etiqueta: React.CSSProperties = {
   display: "block",
@@ -775,7 +774,7 @@ const etiqueta: React.CSSProperties = {
 const campo: React.CSSProperties = {
   width: "100%",
   padding: "10px 12px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -803,7 +802,7 @@ const enlaceBoton: React.CSSProperties = {
 const grupoSlug: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   overflow: "hidden",
@@ -825,7 +824,7 @@ const botonPrimario: React.CSSProperties = {
   width: "100%",
   marginTop: 22,
   padding: "11px 14px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
@@ -835,7 +834,7 @@ const botonPrimario: React.CSSProperties = {
 };
 const botonFantasma: React.CSSProperties = {
   padding: "11px 14px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",

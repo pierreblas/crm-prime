@@ -51,7 +51,7 @@ herramienta (bandeja, embudo); ARM es la categoría y el argumento de venta.
 se siente **actual y con ritmo** (no estático ni acartonado) y, sobre todo,
 transmite **control**: el usuario siente que su operación está ordenada y bajo
 mando. La energía se expresa con movimiento intencional y un contraste con oficio
-—**Lemon Tonic y Super Sonic sobre noche, con Sea Angel de matiz** son el ancla de
+—**petróleo, lima y niebla, con el globo de chat del logo como forma** son el ancla de
 identidad; el **verde WhatsApp** queda para señalar lo que es WhatsApp y lo que salió
 bien—, no con ruido.
 

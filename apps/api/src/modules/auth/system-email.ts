@@ -2,7 +2,7 @@ import { env } from "../../common/utils/env";
 
 /**
  * La plantilla de los correos del sistema (los que manda Driony, no una
- * empresa): cabecera noir con el logo, filete lima, tarjeta blanca y pie con el
+ * empresa): cabecera petróleo con el logo, filete lima, tarjeta blanca y pie con el
  * motivo del correo.
  *
  * HTML de correo, no de web: tablas, estilos en línea y nada que dependa de CSS
@@ -12,7 +12,7 @@ import { env } from "../../common/utils/env";
  *
  * El logo es un PNG servido por la web (`/email/driony-logo.png`): Gmail y
  * Outlook no muestran SVG. Con las imágenes bloqueadas queda el texto
- * alternativo «Driony» en lima sobre noir.
+ * alternativo «Driony» en lima sobre petróleo.
  */
 
 export type SystemEmailLocale = "es" | "en";
@@ -50,15 +50,15 @@ export interface RenderedEmail {
 }
 
 const C = {
-  page: "#eceef1",
-  noir: "#0a0b10",
+  page: "#e9f1f0",
+  noir: "#0b3a45",
   lime: "#e2f80d",
   card: "#ffffff",
-  ink: "#0a0b10",
-  body: "#2a313c",
-  muted: "#5b6573",
-  rule: "#e3e6ea",
-  well: "#f3f4f6",
+  ink: "#0b3a45",
+  body: "#23505a",
+  muted: "#48676e",
+  rule: "#cfdddb",
+  well: "#f1f6f5",
   warnBg: "#fff7e6",
   warnRule: "#f0d49a",
 } as const;
@@ -141,14 +141,14 @@ function htmlOf(c: SystemEmailContent): string {
   const button = (a: Action, bg: string, fg: string, border: string) => `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" class="btn">
   <tr>
-    <td align="center" bgcolor="${bg}" style="background:${bg};border:1px solid ${border}">
+    <td align="center" bgcolor="${bg}" style="background:${bg};border:1px solid ${border};border-radius:24px">
       <a href="${e(a.url)}" target="_blank" style="display:inline-block;padding:14px 26px;font-family:${SANS};font-size:15px;line-height:18px;font-weight:700;color:${fg};text-decoration:none">${e(a.label)}</a>
     </td>
   </tr>
 </table>`;
 
   const context = c.context
-    ? `<p style="margin:0 0 10px;font-family:${MONO};font-size:11px;line-height:16px;letter-spacing:0.08em;text-transform:uppercase;color:${C.muted}">${e(c.context)}</p>`
+    ? `<p style="margin:0 0 10px;font-family:${SANS};font-size:13px;line-height:18px;font-weight:600;color:${C.muted}">${e(c.context)}</p>`
     : "";
 
   // El código, en un recuadro aparte y en monoespaciada: que no se confunda un
@@ -157,22 +157,22 @@ function htmlOf(c: SystemEmailContent): string {
     ? `
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:22px 0 0">
   <tr>
-    <td align="center" bgcolor="${C.well}" style="background:${C.well};border:1px solid ${C.rule};border-left:4px solid ${C.lime};padding:20px 12px">
+    <td align="center" bgcolor="${C.well}" style="background:${C.well};border:1px solid ${C.rule};border-left:4px solid ${C.lime};border-radius:12px;padding:20px 12px">
       <span class="code" style="font-family:${MONO};font-size:34px;line-height:40px;font-weight:700;letter-spacing:10px;color:${C.ink}">${e(c.code.value)}</span>
     </td>
   </tr>
 </table>
-${c.code.facts ? `<p style="margin:12px 0 0;font-family:${MONO};font-size:11px;line-height:16px;letter-spacing:0.08em;text-transform:uppercase;color:${C.muted}">${e(c.code.facts)}</p>` : ""}`
+${c.code.facts ? `<p style="margin:12px 0 0;font-family:${SANS};font-size:13px;line-height:18px;font-weight:600;color:${C.muted}">${e(c.code.facts)}</p>` : ""}`
     : "";
 
   const action = c.action
     ? `
 <div style="margin:26px 0 0">${button(c.action, C.lime, C.noir, "#c9dd0a")}</div>
-${c.action.facts ? `<p style="margin:12px 0 0;font-family:${MONO};font-size:11px;line-height:16px;letter-spacing:0.08em;text-transform:uppercase;color:${C.muted}">${e(c.action.facts)}</p>` : ""}
+${c.action.facts ? `<p style="margin:12px 0 0;font-family:${SANS};font-size:13px;line-height:18px;font-weight:600;color:${C.muted}">${e(c.action.facts)}</p>` : ""}
 <p style="margin:26px 0 8px;font-family:${SANS};font-size:13px;line-height:20px;color:${C.muted}">${e(copy.fallback)}</p>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
   <tr>
-    <td bgcolor="${C.well}" style="background:${C.well};border:1px solid ${C.rule};padding:10px 12px;font-family:${MONO};font-size:12px;line-height:18px;color:${C.body};word-break:break-all">
+    <td bgcolor="${C.well}" style="background:${C.well};border:1px solid ${C.rule};border-radius:12px;padding:10px 12px;font-family:${MONO};font-size:12px;line-height:18px;color:${C.body};word-break:break-all">
       <a href="${e(c.action.url)}" target="_blank" style="color:${C.body};text-decoration:underline;word-break:break-all">${e(c.action.url)}</a>
     </td>
   </tr>
@@ -183,7 +183,7 @@ ${c.action.facts ? `<p style="margin:12px 0 0;font-family:${MONO};font-size:11px
     ? `
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:22px 0 0">
   <tr>
-    <td bgcolor="${C.warnBg}" style="background:${C.warnBg};border:1px solid ${C.warnRule};padding:18px 20px">
+    <td bgcolor="${C.warnBg}" style="background:${C.warnBg};border:1px solid ${C.warnRule};border-radius:12px;padding:18px 20px">
       <p style="margin:0 0 6px;font-family:${SANS};font-size:15px;line-height:22px;font-weight:700;color:${C.ink}">${e(c.callout.title)}</p>
       <p style="margin:0;font-family:${SANS};font-size:14px;line-height:22px;color:${C.body}">${e(c.callout.text)}</p>
       ${c.callout.action ? `<div style="margin:16px 0 0">${button(c.callout.action, C.noir, "#ffffff", C.noir)}</div>` : ""}
@@ -216,7 +216,7 @@ ${c.action.facts ? `<p style="margin:12px 0 0;font-family:${MONO};font-size:11px
 <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><style>td,p,a,span{font-family:Arial,Helvetica,sans-serif!important}</style><![endif]-->
 <style>
   body{margin:0!important;padding:0!important;width:100%!important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
-  table,td{border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt}
+  table,td{border-collapse:separate;border-spacing:0;mso-table-lspace:0pt;mso-table-rspace:0pt}
   img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}
   @media only screen and (max-width:600px){
     .shell{padding:16px 0!important}

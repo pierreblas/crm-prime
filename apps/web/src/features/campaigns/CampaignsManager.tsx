@@ -284,7 +284,7 @@ function TabBtn({
       onClick={onClick}
       style={{
         padding: "8px 16px",
-        borderRadius: 8,
+        borderRadius: "var(--r-sm)",
         border: "none",
         background: active ? "var(--accent-soft)" : "transparent",
         color: active ? "var(--text)" : "var(--muted)",
@@ -306,5 +306,5 @@ const empty: React.CSSProperties = {
   textAlign: "center",
   padding: "70px 24px",
   border: "1px dashed var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
 };

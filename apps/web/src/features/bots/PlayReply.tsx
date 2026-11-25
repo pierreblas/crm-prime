@@ -127,7 +127,7 @@ const bubbleStyle: React.CSSProperties = {
   background: "var(--surface-2)",
   color: "var(--text)",
   padding: "9px 12px",
-  borderRadius: 10,
+  borderRadius: "var(--r-md)",
   fontSize: 14,
   whiteSpace: "pre-wrap",
   wordBreak: "break-word",

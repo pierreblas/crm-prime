@@ -356,7 +356,7 @@ const toolBtn: React.CSSProperties = {
   alignItems: "center",
   gap: 7,
   padding: "9px 14px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--text)",
@@ -395,7 +395,7 @@ const table: React.CSSProperties = {
   marginTop: 18,
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   overflow: "hidden",
   boxShadow: "var(--shadow-card)",
 };
@@ -407,7 +407,7 @@ const muted: React.CSSProperties = { color: "var(--muted)", fontSize: 14 };
 const searchInput: React.CSSProperties = {
   flex: 1,
   padding: "10px 12px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -423,7 +423,7 @@ const formBox: React.CSSProperties = {
   padding: 14,
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   flexWrap: "wrap",
 };
 
@@ -431,7 +431,7 @@ const input: React.CSSProperties = {
   flex: 1,
   minWidth: 140,
   padding: "9px 11px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -450,7 +450,7 @@ const miniInput: React.CSSProperties = {
 
 const select: React.CSSProperties = {
   padding: "6px 9px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -460,7 +460,7 @@ const select: React.CSSProperties = {
 
 const primaryBtn: React.CSSProperties = {
   padding: "9px 16px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
@@ -471,7 +471,7 @@ const primaryBtn: React.CSSProperties = {
 
 const ghostBtn: React.CSSProperties = {
   padding: "7px 12px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "transparent",
   color: "var(--muted)",
@@ -501,14 +501,14 @@ const infoBox: React.CSSProperties = {
   padding: 16,
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
 };
 
 const urlBox: React.CSSProperties = {
   display: "block",
   padding: "8px 10px",
   background: "var(--field)",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   fontSize: 13,
   color: "var(--positive)",
@@ -519,7 +519,7 @@ const pre: React.CSSProperties = {
   marginTop: 10,
   padding: 12,
   background: "var(--field)",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   fontSize: 12,
   color: "var(--muted)",

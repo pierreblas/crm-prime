@@ -308,7 +308,7 @@ const userBubble: React.CSSProperties = {
   alignSelf: "flex-end",
   maxWidth: "88%",
   padding: "8px 11px",
-  borderRadius: "10px 10px 2px 10px",
+  borderRadius: "var(--bubble-out-r)",
   background: "var(--accent)",
   color: "var(--accent-ink)",
   fontSize: 12.5,
@@ -319,7 +319,7 @@ const botBubble: React.CSSProperties = {
   alignSelf: "flex-start",
   maxWidth: "94%",
   padding: "9px 11px",
-  borderRadius: "10px 10px 10px 2px",
+  borderRadius: "var(--bubble-in-r)",
   background: "var(--surface)",
   border: "1px solid var(--border)",
   color: "var(--text)",
@@ -330,7 +330,7 @@ const botBubble: React.CSSProperties = {
 const card: React.CSSProperties = {
   marginTop: 9,
   padding: 10,
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
 };
@@ -344,7 +344,7 @@ function applyBtn(applied: boolean): React.CSSProperties {
     marginTop: 9,
     width: "100%",
     padding: "7px 10px",
-    borderRadius: 7,
+    borderRadius: "var(--r-sm)",
     border: applied ? "1px solid var(--border)" : "none",
     background: applied ? "transparent" : "var(--accent)",
     color: applied ? "var(--muted)" : "var(--accent-ink)",
@@ -385,7 +385,7 @@ const exampleBtn: React.CSSProperties = {
   textAlign: "left",
   padding: "8px 10px",
   marginBottom: 6,
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
   color: "var(--text)",
@@ -405,7 +405,7 @@ const composer: React.CSSProperties = {
 const textarea: React.CSSProperties = {
   width: "100%",
   padding: "8px 10px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -417,7 +417,7 @@ const textarea: React.CSSProperties = {
 
 const sendBtn: React.CSSProperties = {
   padding: "8px 12px",
-  borderRadius: 7,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",

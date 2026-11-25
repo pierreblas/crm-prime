@@ -208,7 +208,7 @@ export function CampaignDetail({ campaign: c, onClose }: { campaign: CampaignDto
           </div>
 
           {isPending ? (
-            <div className="skeleton" style={{ height: 120, borderRadius: 10 }} />
+            <div className="skeleton" style={{ height: 120, borderRadius: "var(--r-md)" }} />
           ) : shown.length === 0 ? (
             <p className="cd__note">{rows.length ? "Nadie en este filtro." : "Todavía no se ha enviado a nadie."}</p>
           ) : (

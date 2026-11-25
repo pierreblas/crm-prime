@@ -38,7 +38,7 @@ export function FlowEdge(props: EdgeProps) {
     targetY,
     sourcePosition,
     targetPosition,
-    borderRadius: 14,
+    borderRadius: 16,
   });
 
 

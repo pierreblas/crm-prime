@@ -1,54 +1,44 @@
 ---
 name: Driony
 colors:
+  petrol: "#0b3a45"
+  petrol-night: "#07303a"
+  petrol-deep: "#06272f"
   lemon: "#e2f80d"
-  lemon-hover: "#eefc4a"
-  lemon-press: "#c9dd0a"
-  lemon-ink: "#0a0b10"
-  on-lemon-dim: "#1c2000"
-  on-lemon-muted: "#3d4300"
-  cyan: "#00e5ff"
-  cyan-soft: "#00e5ff1a"
-  bubble-out: "#0b3a45"
-  smoke: "#8e9eaf"
-  green: "#1f6b3b"
+  lemon-hover: "#edff45"
+  lemon-press: "#cfe500"
+  lemon-ink: "#0b3a45"
+  mist: "#e3edec"
+  mist-bg: "#edf4f3"
+  aqua: "#86dfe2"
+  aqua-ink: "#0a6672"
+  smoke: "#a5c4c7"
   whatsapp: "#25d366"
   positive: "#7ee2a8"
-  positive-soft: "#7ee2a81f"
-  warning: "#f0b45a"
-  warning-soft: "#f0b45a1f"
-  danger: "#ff3355"
-  danger-soft: "#ff33551f"
-  bg: "#0a0b10"
-  bg-landing: "#0a0b10"
-  panel: "#12141f"
-  panel-2: "#1a1d2e"
-  line: "#25293e"
-  line-strong: "#3b4160"
-  sidebar: "#12141f"
-  field: "#0a0b10"
-  surface: "#8e9eaf12"
-  surface-2: "#8e9eaf1f"
-  surface-3: "#8e9eaf2e"
-  bubble-in: "#1a1d2e"
-  ink: "#e9edf2"
-  muted: "#8e9eaf"
-  placeholder: "#7f8ea1"
+  warning: "#f6c274"
+  danger: "#ffa5ae"
+  line: "#1c5462"
+  line-light: "#cfdddb"
+  bubble-out: "#15545f"
+  bubble-in: "#0e424d"
+  bubble-out-light: "#eefaa6"
+  ink: "#eef6f5"
+  muted: "#a9c7ca"
 typography:
   display:
-    fontFamily: "Bricolage Grotesque, Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "clamp(2.4rem, 1.4rem + 3.1vw, 4rem)"
-    fontWeight: 700
-    lineHeight: 1.06
-    letterSpacing: "-0.02em"
+    fontFamily: "Gabarito, Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "clamp(2.4rem, 1.4rem + 3vw, 4.1rem)"
+    fontWeight: 600
+    lineHeight: 1.02
+    letterSpacing: "-0.022em"
   headline:
-    fontFamily: "Bricolage Grotesque, Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem)"
-    fontWeight: 700
-    lineHeight: 1.14
-    letterSpacing: "-0.015em"
+    fontFamily: "Gabarito, Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "clamp(1.95rem, 1.3rem + 2.4vw, 3.1rem)"
+    fontWeight: 600
+    lineHeight: 1.06
+    letterSpacing: "-0.022em"
   title:
-    fontFamily: "Bricolage Grotesque, Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Gabarito, Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
     fontSize: "16px"
     fontWeight: 700
     lineHeight: 1.25
@@ -60,28 +50,25 @@ typography:
     lineHeight: 1.5
     letterSpacing: "normal"
   label:
-    fontFamily: "JetBrains Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
-    fontSize: "11px"
-    fontWeight: 500
-    lineHeight: 1.4
-    letterSpacing: "0.08em"
-  overline:
-    fontFamily: "Hanken Grotesk, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
-    fontSize: "10.5px"
+    fontFamily: "Hanken Grotesk, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "12.5px"
     fontWeight: 600
-    lineHeight: 1.3
-    letterSpacing: "1.2px"
-  mono:
+    lineHeight: 1.4
+    letterSpacing: "normal"
+  code:
     fontFamily: "JetBrains Mono, ui-monospace, SF Mono, Menlo, Consolas, monospace"
     fontSize: "12.5px"
-    fontWeight: 700
-    lineHeight: 1.2
-    letterSpacing: "0.08em"
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: "normal"
 rounded:
-  control: "0"
-  surface: "0"
-  dialog: "0"
-  pill: "0"
+  sm: "8px"
+  md: "12px"
+  lg: "16px"
+  xl: "22px"
+  pill: "999px"
+  bubble-in: "8px 20px 20px 4px"
+  bubble-out: "20px 8px 4px 20px"
   circle: "50%"
 spacing:
   xs: "4px"
@@ -89,553 +76,228 @@ spacing:
   md: "12px"
   lg: "16px"
   xl: "24px"
-components:
-  button-primary:
-    backgroundColor: "{colors.lemon}"
-    textColor: "{colors.lemon-ink}"
-    rounded: "{rounded.control}"
-    padding: "9px 16px"
-  button-primary-hover:
-    backgroundColor: "{colors.lemon-hover}"
-    textColor: "{colors.lemon-ink}"
-  button-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.control}"
-    padding: "9px 14px"
-  button-soft:
-    backgroundColor: "{colors.cyan-soft}"
-    textColor: "{colors.cyan}"
-    rounded: "{rounded.control}"
-    padding: "9px 14px"
-  button-danger:
-    backgroundColor: "transparent"
-    textColor: "{colors.danger}"
-    rounded: "{rounded.control}"
-    padding: "9px 14px"
-  input:
-    backgroundColor: "{colors.field}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.control}"
-    padding: "9px 11px"
-  card:
-    backgroundColor: "{colors.panel}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.surface}"
-    padding: "18px"
-  chip:
-    backgroundColor: "{colors.surface-3}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.pill}"
-    padding: "2px 8px"
-  chip-positive:
-    backgroundColor: "{colors.positive-soft}"
-    textColor: "{colors.positive}"
-    rounded: "{rounded.pill}"
-    padding: "2px 8px"
-  nav-item:
-    backgroundColor: "transparent"
-    textColor: "{colors.muted}"
-    rounded: "{rounded.surface}"
-    padding: "9px 12px"
-  nav-item-active:
-    backgroundColor: "{colors.lemon}"
-    textColor: "{colors.lemon-ink}"
-    rounded: "{rounded.surface}"
-    padding: "9px 12px"
-  segmented:
-    backgroundColor: "{colors.field}"
-    textColor: "{colors.muted}"
-    rounded: "{rounded.control}"
-    padding: "3px"
-  bubble-out:
-    backgroundColor: "{colors.bubble-out}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.surface}"
-    padding: "9px 12px"
-  bubble-in:
-    backgroundColor: "{colors.bubble-in}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.surface}"
-    padding: "9px 12px"
-  dialog:
-    backgroundColor: "{colors.panel}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.dialog}"
-    padding: "22px"
-  toast:
-    backgroundColor: "{colors.panel}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.surface}"
-    padding: "12px 14px"
 ---
 
 # Design System: Driony
 
 ## 1. Overview
 
-**Creative North Star: "Una marca en lima ácido, un solo estilo: Noir telemetría"**
+**Creative North Star: «Conversación»**
 
-Driony vende en la landing y opera en el panel, y desde el 2026-11-14 las dos
-caras hablan el mismo idioma visual. La landing «Ácido» (bloques de lima a
-sangre, píxeles, titulares condensados en mayúsculas, botones mono con franja de
-peligro y sombra cian) se retiró porque saturaba: el usuario prefirió el panel,
-«limpio y hermoso». El **Lima Ácido** (#e2f80d) sigue siendo la marca, pero en la
-landing solo actúa (el botón principal, lo seleccionado, el foco) y pinta una
-sola palabra del titular, más el efecto de ARM (el sello del hero y las letras
-ARM con sombra cian), que el usuario pidió conservar.
+El hueco de la D del logo es un globo de chat con cola y una estrella dentro. De ahí
+sale todo: **el cliente pregunta en un globo y Driony contesta en lima**. La misma
+idea vive en la tarjeta (pregunta en una cara, respuesta en la otra), en el muro de
+un stand, en una publicación, en la portada de la web y en la bandeja.
 
-La **landing** usa el mismo noir con rejilla, los mismos paneles con filete, los
-mismos botones (Hanken 600, el primario con bisel) y titulares en Bricolage 700
-de ancho y caja normales. Explica con producto real: la demo de la bandeja, las
-capturas y las tarjetas de capacidades. Sin fotos de escenas, sin banda, sin
-rótulos sobre cada título.
+Desde el 2026-11-24 sustituye a «Noir telemetría» (negro, lima, cian neón, 0 px,
+bisel, rejilla y letra mono), que se leía cyberpunk y no funcionaba en papelería,
+stands ni publicaciones. La aplicación fuera de pantalla está en
+`Documentos/Driony marca`.
 
-El **panel «Noir telemetría»** es un instrumento: negro azulado (#0a0b10) con una
-rejilla muy baja cada 24px, paneles planos (#12141f) separados por filete
-(#25293e), nada de cristal ni sombras difusas, esquinas a 0px y bisel (esquina
-cortada) en KPI y botón primario. El lima solo actúa; el **Cian Neón** (#00e5ff)
-pinta datos, presencia y lo que está en marcha; el **Humo** (#8e9eaf) es el texto
-secundario y los neutros. Etiquetas, horas, estados y ejes van en JetBrains Mono
-en mayúsculas: se lee como un panel de instrumentos, no como un formulario.
-
-El sistema sigue siendo **denso pero legible**: muchos hilos, tarjetas y métricas
-a la vez, con jerarquía y aire suficiente. Rechaza el **SaaS genérico de
-plantilla**, lo **colorido/infantil** y lo **corporativo frío/anticuado**. Si una
-pantalla pudiera ser de cualquier otro SaaS, falló.
+La **landing** alterna secciones en petróleo, niebla y blanco, con el globo lima en el
+titular y el globo gigante, cortado por el borde, en el cierre. El **panel** es denso
+pero legible: los mismos colores, superficies planas con filete y esquinas suaves.
 
 **Key Characteristics:**
-- Un solo lima y un solo estilo para las dos caras; el cian mide en las dos.
-- Landing y panel: noir con rejilla, paneles planos con filete, 0px, bisel en el primario (y en los KPI del panel), mono solo para la telemetría.
-- En la landing el lima es escaso a propósito: botones principales, lo seleccionado y la palabra clave del titular. Nunca bloques de color.
-- Lima actúa, cian mide, humo matiza. Un color no hace el trabajo de otro.
-- El verde sigue siendo señal de WhatsApp y de estado positivo; el Rojo Neón es peligro.
-- Tres familias con oficio: Bricolage titula, Hanken trabaja, JetBrains Mono mide.
+- Petróleo de fondo y de tinta; lima para lo que se pulsa y para lo que Driony responde.
+- El globo del logo: una esquina chica, las otras grandes y la cola. Es la forma firma.
+- Gabarito titula (se parece a las letras del logo), Hanken trabaja, JetBrains Mono solo es código.
+- Esquinas siempre de las fichas `--r-*`. Superficies planas: ni bisel, ni rejilla, ni halos.
+- Claro y oscuro con las mismas reglas. Sin elegir, oscuro.
 - Estados siempre explícitos (color + icono o palabra), nunca solo color.
 
 ## 2. Colors
 
-Negro de escenario y tres colores que no se pisan el oficio. El contraste decide
-quién va sobre quién, y las cifras de abajo están medidas.
+Los nombres de las fichas CSS `--noir`, `--cyan` y `--smoke` son de la marca anterior y
+se quedan (miles de usos): hoy valen petróleo, aguamarina y niebla.
 
 ### Primary
-- **Lima Ácido** (#e2f80d): acción y selección. Botón primario, ítem activo del
-  menú, enlaces, foco, marcador de la fila activa, segunda serie de los gráficos,
-  el KPI que importa, y en la landing el primario, lo seleccionado y la palabra
-  clave del titular. 17:1 sobre Noir.
-- **Lima Claro** (#eefc4a) y **Lima Hundido** (#c9dd0a): hover y `:active` del
-  botón primario. Nunca como colores sueltos.
-- **Tinta Noir** (#0a0b10): el texto que va encima de lima, cian y humo. Dentro de
-  un bloque lima, los grises son **#1c2000** (texto) y **#3d4300** (rótulos, 9,4:1).
+- **Lima** (#e2f80d): el botón principal, lo elegido, el ítem activo del menú, el foco en
+  oscuro y la respuesta de Driony en la landing. 10,4:1 con petróleo encima.
+  Hover #edff45, `:active` #cfe500.
+- **Petróleo** (#0b3a45): la tinta sobre lima y en claro, el panel en oscuro y las
+  secciones oscuras de la landing. Blanco encima, 12,3:1.
 
 ### Secondary
-- **Cian Neón** (#00e5ff): datos, presencia y lo que está en marcha. Primera serie
-  de los gráficos, KPI de volumen, pulso de «en vivo», botón suave (Copiloto,
-  Asistente, Probar), foco de los campos, tintes de selección de datos. 12,8:1
-  sobre Noir: vale hasta como texto. En la landing, igual: la insignia «IA», el
-  borrador sugerido, la etapa del embudo de la demo, los chips de evento, las
-  barras, las capacidades del simulador y las lecturas del selector de plan.
-  **Nunca para actuar.**
-- **Cian Tenue** (cian al 10 %): fondo del botón suave y de lo seleccionado en listas.
-- **Burbuja Saliente** (#0b3a45): cian hondo, para leer largo: blanco 9:1.
-- **Humo** (#8e9eaf): texto secundario, etiquetas y neutros, 6,9:1 sobre Noir. Las
-  Capas 1/2/3 son humo al 7 %, 12 % y 18 %. También el tercer bloque de KPI, con
-  tinta noir encima.
-- **Verde Circuito** (#1f6b3b): era el segundo tono de los píxeles de la landing,
-  retirados el 2026-11-14. Nunca como texto ni como acción.
-- **Verde WhatsApp** (#25d366): exclusivo de lo que es WhatsApp. Es herencia, no acento.
-- **Verde Vital** (#7ee2a8) y **Verde Tenue**: estado positivo (entregado, ganado, opt-in).
+- **Aguamarina** (#86dfe2; en claro #0a6672 como texto): datos, presencia y lo que está en
+  marcha. Primera serie de los gráficos, IA activa, botón suave. **Nunca para actuar.**
+- **Niebla** (#e3edec, fondo claro #edf4f3; en oscuro, el texto secundario #a9c7ca): los
+  neutros y el globo del cliente.
 
 ### Tertiary (estados)
-- **Ámbar** (#f0b45a) y **Ámbar Tenue**: advertencia y pendiente.
-- **Rojo Neón** (#ff3355) y **Rojo Tenue**: error, perder, opt-out, destructivo. 5,5:1 sobre Noir.
+- **Verde** (#7ee2a8 / claro #0a6b3d), **Ámbar** (#f6c274 / #845000) y **Rojo** (#ffa5ae /
+  #b3122f). El **verde WhatsApp** (#25d366) solo dice «esto es WhatsApp».
 
 ### Neutral
-- **Noir** (#0a0b10): el lienzo del panel, con la rejilla de telemetría encima.
-- La landing usa el mismo Noir y la misma rejilla desde el 2026-11-14 (el Negro
-  Ácido #08090b se retiró con el estilo «Ácido»).
-- **Panel** (#12141f): tarjetas, barras, cajones y diálogos, opacos. **Panel Alto**
-  (#1a1d2e) para filas en hover y burbuja entrante.
-- **Filete** (#25293e) y **Filete Fuerte** (#3b4160): hairline de toda superficie;
-  el fuerte en hover.
-- **Campo** (#0a0b10 con filete #30365a): el interior de inputs y selects.
-- **Tinta** (#e9edf2): texto principal, 16:1 sobre el panel.
-- **Placeholder** (#7f8ea1): el mínimo legible dentro de un campo (5,8:1).
+- Oscuro: lienzo #07303a, panel #0b3a45, barra lateral #06272f, filete #1c5462, texto #eef6f5.
+- Claro: lienzo #edf4f3, panel #ffffff, filete #cfdddb, texto #0b3a45, secundario #3f626a.
 
 ### Named Rules
-**La Regla de los Tres Oficios.** Lima actúa, cian mide, humo matiza. Si dos cosas
-lima compiten por atención, una de las dos no debería ser lima.
+**La Regla de la Respuesta.** La lima grande (un bloque) solo aparece cuando Driony
+contesta: el globo del titular y el del cierre de la landing. En noviembre se quitaron
+los bloques lima porque saturaban; no vuelven en ningún otro sitio.
 
-**La Regla de la Tinta Noir.** Sobre lima, cian y humo el texto va siempre en Tinta
-Noir, nunca en blanco. Dentro de un bloque lima, los grises son #1c2000 y #3d4300.
+**La Regla de la Tinta Petróleo.** Sobre lima se escribe en petróleo, nunca en blanco.
 
-**La Regla del Lavado Bajo.** Lima translúcido sobre oscuro se vuelve oliva: solo
-se usa como lavado de selección al 6–8 %. Los tintes de datos y foco son de cian;
-los neutros, de humo. Un primario desactivado va en Capa 2 con texto humo.
+**La Regla del Lavado Bajo.** Lima translúcida sobre petróleo se vuelve oliva: solo se usa
+como lavado de selección al 10 % (34 % en claro). Un primario desactivado va en Capa 2.
 
-**La Regla del Bloque Legible.** Dentro de un bloque de color pleno cada tono
-redefine sus tokens (`--text`, `--muted`, `--positive`, `--danger`) para que todo
-lea a 4,5:1. Sobre cian y sobre humo escribe la tinta.
+**La Regla Sin Oliva.** En claro, la lima no se oscurece para leerse: como texto va en
+petróleo azulado (`--accent-text` #0a5c69) y como línea o foco, en petróleo
+(`--accent-edge` #0b3a45).
 
-**La Regla de la Tinta Automática.** Las etiquetas y fuentes llevan colores que
-elige el usuario: el texto encima lo decide `readableInk()` (`lib/readable-ink.ts`),
-nunca un color fijo.
+**La Regla del Bloque Legible.** Dentro de un bloque de color cada tono redefine sus fichas
+(`--text`, `--muted`, `--positive`…) para que todo lea a 4,5:1. En la landing lo hacen las
+zonas `.lp-petrol` y `.lp-lime`.
 
-**La Regla del Verde Reservado.** El verde solo dice dos cosas: «esto es WhatsApp»
-o «esto salió bien». En la landing, «hecho» es Verde Vital (los checks de las pruebas,
-de los planes y del registro de la demo).
+**La Regla de la Tinta Automática.** Los colores que elige el usuario llevan encima la tinta
+de `readableInk()` (`lib/readable-ink.ts`), nunca una fija.
 
-**La Regla del Cian que Mide.** El cian nunca actúa: ni botones, ni enlaces, ni
-selección. En la landing, igual que en el panel.
+**La Regla del Estado Doble.** Ningún estado se comunica solo con color.
 
-**La Regla del Estado Doble.** Ningún estado se comunica solo con color: siempre
-color **+** icono o palabra.
+**La Regla de la Ficha.** Nunca un color suelto en un componente: una ficha,
+`rgb(var(--cyan-rgb) / 0.1)` para los tintes o `light-dark(claro, oscuro)`. Lo vigila
+`test:theme`.
 
-### Tema claro
-
-Desde el 24-11-2026 hay **Claro / Oscuro / Automático** (cookie `driony_theme`,
-`lib/theme.ts`). Sin elegir, oscuro: es la cara de Driony. El claro es **papel
-técnico**: lienzo `#f3f5f8` (blanco en la landing), paneles blancos, el mismo
-filete, la misma rejilla, 0px y bisel.
-
-**La Regla del Rotulador.** Sobre blanco el lima no se lee (1,1:1): solo **rellena**
-(botón, selección, lo activo) con Tinta Noir encima. Como texto es «tinta lima»
-(`--accent-text` #4a5400, 8:1) y como línea, foco o icono, `--accent-edge` #7b8700.
-En el titular de la landing la palabra clave va subrayada con rotulador lima.
-
-- El cian se parte en dos: `--cyan-fill` (neón, relleno con tinta encima) y `--cyan`
-  (#00707f, texto y líneas). Verde #0a6b3d, ámbar #845000 y rojo #bd0f2c, todos a 4,5:1.
-- **Nunca** un color suelto en un componente: una ficha, o `rgb(var(--cyan-rgb) / 0.1)`
-  para los tintes. Lo que no tenga ficha, con `light-dark(claro, oscuro)`.
-- Los KPI de color pleno y las vistas de otros (correo, WhatsApp) siguen sus reglas.
+### Claro y oscuro
+Cookie `driony_theme` (`lib/theme.ts`): Claro, Oscuro o Automático. La landing usa las mismas
+fichas bajo `.lp`; las zonas en petróleo y en lima son iguales en los dos.
 
 ## 3. Typography
 
-**Display Font:** Bricolage Grotesque, variable con ejes `opsz` y `wdth`. Titula
-en toda la web, a 700, ancho normal y en caja normal (la landing dejó la
-condensada en mayúsculas el 2026-11-14).
-**Body Font:** Hanken Grotesk (400/500/600/700). Todo lo que no es titular ni
-telemetría.
-**Mono Font:** JetBrains Mono (400/500/700). La telemetría del panel (etiquetas de
-KPI, horas, estados, ejes, chips de la consola) y, en la landing, solo el sello
-CRM/ARM, el subtítulo de ARM y la telemetría de la demo (horas, iniciales,
-registro). Botones, nav y chips de la landing van en Hanken.
-
-**Character:** tres familias cargadas una vez en `app/fonts.ts` y expuestas como
-`--font-display`, `--font-sans` y `--font-mono`. La display aparece solo donde hay
-titular; la mono solo donde se lee como instrumento; Hanken en todo lo demás, para
-que el paso de la landing a `/register` no cambie de voz. Si la descarga falla en
-el build, el CSS cae al stack del sistema sin romper nada.
+**Display:** Gabarito (variable), geométrica y redonda como las letras del logo.
+**Body:** Hanken Grotesk (400/500/600/700).
+**Mono:** JetBrains Mono, **solo** código, claves y lo que se copia tal cual.
 
 ### Hierarchy
-- **Display** (700, clamp(2.4rem, 1.4rem + 3.1vw, 4rem), 1.06, -0.02em): el titular
-  del hero de la landing, en dos líneas a 1440px. La palabra clave («venden») en lima,
-  sin bloque.
-- **Headline** (700, clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem), 1.14, -0.015em): títulos de
-  sección de la landing. Los h3 de tarjetas y planes a 650, 1.1–1.3rem.
-- **Title** (700, 16px, 1.25, -0.01em): título de página en la cabecera de la app,
-  títulos de tarjeta y de cajón. En la app la escala es fija, no fluida y sin mayúsculas.
-- **Body** (400, 14px, 1.5): texto general, mensajes, filas. Prosa a 65–75ch; en la
-  landing el cuerpo sube a 17px/1.6.
-- **Label** (mono 500, 11px, 0.08em, mayúsculas): etiquetas de KPI, cabeceras de
-  tabla, chips de la consola, leyendas y ejes.
-- **Overline** (600, 10.5px, +1.2px, mayúsculas): **solo** los rótulos de grupo de
-  la barra lateral («Ventas», «Automatización»).
+- **Display** (600, hasta 4,1rem, 1.02): el titular de la landing, una frase por línea.
+- **Headline** (600, hasta 3,1rem): títulos de sección. El del cierre llega a 4,4rem.
+- **Title** (700, 16px): título de página y de tarjeta en la app. Escala fija.
+- **Body** (400, 14px, 1.5): la app. En la landing, 17px/1.6 y 54–64ch.
+- **Label** (600, 12,5px): etiquetas, cabeceras de tabla y leyendas, en caja normal y con
+  cifras tabulares.
 
 ### Named Rules
-**La Regla de las Tres Familias.** Bricolage titula, Hanken trabaja, JetBrains Mono
-mide. Prohibida la display en botones, campos o datos; prohibida la mono en
-párrafos; prohibida Hanken en el h1 del hero.
+**La Regla de la Caja Normal.** Nada va en mayúsculas por estilo: ni etiquetas, ni grupos del
+menú, ni cabeceras. Solo las siglas (CRM, ARM, IA).
 
-**La Regla del Overline Confinado.** En la app, las mayúsculas tracked viven en los
-rótulos de grupo del nav y en la telemetría; no son un eyebrow para poner sobre
-cada sección. En la landing tampoco: los títulos de sección van sin rótulo encima.
-
-**La Regla del Titular Sólido.** Los titulares se enfatizan con peso, tamaño o un
-solo color plano (una palabra en lima). Nunca con degradado en el texto.
+**La Regla del Titular Sólido.** Se enfatiza con tamaño y con el globo, nunca con degradado ni
+con una palabra de otro color.
 
 ## 4. Elevation
 
-Sistema **plano y biselado**: la profundidad la dan el tono y el filete, no la
-transparencia ni el desenfoque. Fondo (noir con rejilla) → panel (un punto más
-claro, con filete) → lo que flota (panel con filete y una sombra corta y dura).
-Las esquinas van a 0px; el bisel de 10px (esquina cortada arriba a la derecha) es
-la única forma «especial», reservada a los KPI y al botón primario.
+Plano. Una superficie se separa por tono y filete de 1px; lo que flota lleva
+`--shadow-overlay` (filete y una sombra corta). Ni cristal, ni halos, ni luz en los botones.
 
-### Shadow Vocabulary
-- **Filete** (`0 0 0 1px #25293e`): cómo se separa cualquier superficie.
-- **Sombra de overlay** (`0 0 0 1px #25293e, 0 18px 40px -22px rgba(0,0,0,.9)`):
-  menús, popovers y diálogos: filete y una sombra corta y dura.
-- **Sombra de cajón** (`-1px 0 0 #25293e, -24px 0 60px -30px rgba(0,0,0,.9)`):
-  paneles laterales.
-- **Destello lima** (`0 0 0 1px #e2f80d, 0 0 16px rgba(226,248,13,.55)`): el
-  primario en hover y pulsación, y el KPI que importa (`.dash__kpi.is-hot`).
-- **Anillo de foco** (`0 0 0 3px rgba(0,229,255,.22), 0 0 22px -6px rgba(0,229,255,.7)`):
-  foco de campos, en cian, con el borde cian.
-- **Bisel** (`clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)`):
-  KPI y botón primario. `clip-path` recorta sombras y outline, así que el foco del
-  primario va por dentro (`outline-offset: -4px`).
-
-### Named Rules
-**La Regla del Cero.** Esquinas a 0px en todo, incluidos los radios en línea
-(`globals.css` los fuerza con `[style*="border-radius"]`). Los círculos (avatares,
-puntos de estado, 50 %) se quedan. El bisel solo en KPI y botón primario.
-
-**La Regla del Filete.** Una superficie se separa por tono y filete, nunca por
-`backdrop-filter` ni por sombra difusa. Lo que flota lleva filete y una sombra
-corta y dura. Nada de cristal: `--glass-blur` es 0 y se queda así.
-
-**La Regla del Destello con Sentido.** El destello lima solo aparece en el primario
-en hover y en el KPI que importa. Un destello en algo que no se puede pulsar miente.
+**La Regla del Radio.** Todo radio sale de una ficha: `--r-sm` 8 (miniaturas, filas pequeñas),
+`--r-md` 12 (botones, campos, tarjetas pequeñas), `--r-lg` 16 (tarjetas, diálogos),
+`--r-xl` 22 y `--r-pill` (filtros, etiquetas, interruptores). En la landing, botones en
+píldora. Los mensajes llevan `--bubble-in-r` y `--bubble-out-r`.
 
 ## 5. Components
 
-Carácter general: **de instrumento**. El hover aviva, la pulsación hunde 1px, el
-foco enciende un anillo cian en campos y un contorno lima en lo pulsable. Sin
-floritura; una herramienta que responde.
+Carácter: **cercano y preciso**. El hover aviva, la pulsación hunde 1px y el foco enciende un
+contorno de 2px.
+
+### El globo (firma)
+`.lp-bub` (cliente, cola a la izquierda) y `.lp-bub--out` (Driony, a la derecha) en la landing;
+la cola es una máscara SVG (`--tail`) pintada con el color del globo (`--fill`), y el tamaño va
+en `--b1`, `--b2` y `--t`. En la bandeja los mensajes usan la misma forma sin cola.
 
 ### Buttons
-- **Shape:** 0px en todo; el primario con bisel, también en la landing.
-- **Primary:** lima plano con Tinta Noir, peso 600, padding 9px 16px, bisel. Hover:
-  Lima Claro con destello; `:active` Lima Hundido. En la app muchos botones llevan
-  el fondo inline (`background: var(--accent)`); `globals.css` los reconoce por ese
-  estilo en sus dos formas (con espacio, del navegador, y sin espacio, del HTML del
-  servidor) y les fuerza la tinta y el bisel.
-- **Ghost:** transparente, Filete, texto Tinta; hover rellena y sube a Filete Fuerte.
-- **Soft:** Cian Tenue con texto y borde cian. Para lo que está en marcha o ayuda
-  (Copiloto, Asistente, Probar el agente).
-- **Danger:** transparente con texto y borde rojo; hover tiñe de Rojo Tenue. Los
-  botones inline se reconocen por `var(--danger-border)`.
-- **Focus:** contorno 2px lima con offset 2px en todo lo pulsable; en el primario,
-  contorno noir por dentro.
-- **Disabled:** Capa 2 con texto humo en el primario (Regla del Lavado Bajo); 55 %
-  de opacidad en el resto.
-- **Landing:** los mismos botones, en Hanken 600 a 14,5px (15,5px los grandes):
-  primario lima con tinta y bisel, secundario fantasma. Sin bloques lima ya no
-  hay botón invertido.
+- **Primary:** lima plana, tinta petróleo, peso 600. En la app muchos llevan el fondo inline
+  (`background: var(--accent)`); `globals.css` los reconoce y les fuerza la tinta. Dentro de
+  un bloque lima se invierte solo (petróleo con blanco).
+- **Ghost:** transparente con filete. **Soft:** aguamarina tenue, para lo que ayuda (Copiloto,
+  Asistente, Probar). **Danger:** texto y borde rojos.
+- **Disabled:** Capa 2 con texto secundario en el primario; 55 % en el resto.
 
-### Chips
-- **Style:** 0px, mono 11px en mayúsculas en la consola; en la app y en la landing
-  11–13px Hanken. Neutro = Capa 3 con texto Tinta. Positivo = Verde Tenue + Verde
-  Vital. Advertencia = Ámbar Tenue + Ámbar. Etiquetas y fuentes = su color propio a
-  tono pleno, con `readableInk()`.
-- **State:** filtro seleccionado = lima pleno con Tinta Noir; no seleccionado =
-  transparente + Filete, texto humo.
+### Chips y filtros
+Píldora. Neutro = Capa 3; positivo, ámbar y rojo en sus tenues; etiquetas y fuentes, su color
+propio con `readableInk()`. El filtro elegido, lima llena.
 
-### Cards / Containers
-- **Corner Style:** 0px en todo.
-- **Background:** Panel opaco sobre Noir.
-- **Shadow Strategy:** ninguna en reposo; filete de 1px. Lo que flota, sombra de overlay.
-- **Internal Padding:** 18px (tarjeta) / 16px (paneles compactos).
-
-### KPI del panel (componente firma)
-La fila de métricas de `/dashboard`: tres bloques de color pleno y el resto en Panel,
-todos con bisel y la etiqueta en mono. Conversaciones en cian (volumen), Ventas
-ganadas en lima (el dinero, lo que más se mira), Primera respuesta en humo
-(velocidad). Se pintan con `data-tone`, que redefine los tokens dentro del bloque
-(Regla del Bloque Legible): tinta noir en los tres. Es la única rejilla de tarjetas
-con color de fondo: fuera de aquí, el bloque pleno no se usa en la app.
+### KPI del panel
+Tres bloques y el resto en panel: Conversaciones en petróleo (claro) o niebla (oscuro), Ventas
+ganadas en lima y Primera respuesta en niebla o petróleo claro. Se pintan con `data-tone`, que
+redefine las fichas de dentro. Es la única rejilla de tarjetas con color de fondo.
 
 ### Gráficos
-Dos series: cian (`--chart-1`) y lima (`--chart-2`). El verde solo para ventas
-ganadas, por significado. Mapa de calor y embudo en tintes de cian. Ejes, leyendas
-y rejilla en mono humo. Nunca otro color entre medias.
+Dos series: aguamarina (`--chart-1`) y lima (`--chart-2`). El verde, solo para ventas ganadas.
+
+### Campos
+Fondo Campo, filete `--field-border`, `--r-md`, sin sombra. Foco: borde y anillo de 3px en
+`--accent-soft`. El select lleva su flecha y su lista es opaca.
+
+### Navegación
+Barra lateral con grupos en 12px sin mayúsculas. Activo = lima llena con tinta petróleo; su
+insignia se invierte. Alrededor del avatar va el consumo de IA del mes en un anillo de 2px
+(aguamarina, ámbar desde el 80 %, rojo al tope); el botón «Copiloto» lleva el mismo anillo con
+las preguntas gratis del mes, que se vacía. En el celular el menú sale como cajón (portal).
 
 ### Correo
-Filas planas con filete, como Fuentes: la marca del buzón es un cuadro cian (mide y
-está en marcha) que pasa a rojo si el servidor rechazó el acceso. Los envíos de hoy,
-los pesos y las horas van en mono. Los avisos (hueco en blanco, persona dada de
-baja) son cajas ámbar. La **vista previa del correo va en claro** (papel blanco,
-tinta #1f2430): es lo único del panel que no es noir, porque enseña cómo lo verá
-quien lo reciba. Nada de editor con formato: el cuerpo es texto, y el HTML que sale
-son párrafos y enlaces.
+Los del sistema (`system-email.ts`): cabecera petróleo, filete lima, tarjeta blanca y botón lima
+en píldora. La **vista previa** de los de cada empresa va siempre en claro: así la verá quien lo
+reciba.
 
-### Simulador de conversaciones
-Segundo modo del cajón «Probar agente». Los clientes a simular son filas con casilla
-(lavado y filete cian al marcarlas). El gasto estimado y el botón quedan pegados al
-pie del cajón. Las conversaciones se pintan como en la bandeja: cliente a la
-izquierda en Panel Alto, agente a la derecha en Burbuja Saliente; el estado de cada
-una en mono y mayúsculas (cian en curso, ámbar si pasó a una persona, rojo si falló).
-
-### Franja de ventana (seguimientos del agente)
-En el editor de seguimientos (`FollowUpsEditor.tsx`, clases `fu-*`), una franja
-de 36px que pone la secuencia sobre la ventana de 24 h de WhatsApp: el primer 68 %
-es la ventana (lavado cian y filete cian de 2px en el cierre) y el resto, lo que
-viene después (solo plantilla). Cada toque es una marca cuadrada de 22px con su
-número en mono: cian con tinta noir si cae dentro, Panel con filete si cae fuera
-con plantilla, rojo con tinta noir si tiene un problema. La misma marca encabeza la
-tarjeta del toque, para que franja y tarjeta se lean juntas. Dentro de la ventana
-las marcas van a escala y se separan lo justo para no pisarse; fuera van en orden,
-porque pueden ser días. Etiquetas de zona y eje en mono 11px.
-
-### Inputs / Fields
-- **Style:** fondo Campo, filete #30365a, 0px, texto Tinta. Placeholder #7f8ea1. El
-  select lleva su propia flecha y la lista desplegada es opaca (#12141f).
-- **Focus:** borde cian + anillo cian de 3px + resplandor corto. Caret lima.
-- **Hover:** borde sube a Filete Fuerte.
-- **Error / Disabled:** error en Rojo Neón; disabled al 60 % con `not-allowed`.
-- **Segmentado:** contenedor Campo; el segmento activo es Capa 2.
-
-### Navigation
-- **Style:** barra lateral de 226px en Panel, con filete a la derecha; grupos con
-  Overline; ítem = icono de línea (18px, trazo 1.75) + etiqueta 14px/500, 0px.
-- **States:** default humo; hover Tinta + Capa; **activo** = lima pleno con Tinta
-  Noir y peso 600. La insignia sobre el activo se invierte (noir con texto lima).
-- **Píxeles:** en pantallas de más de 1040px de alto asoman al pie del menú, en
-  cian y filete, detrás de todo.
-- **Cabecera:** Panel opaco con filete abajo; título en la display; avatar lima con
-  Tinta Noir. Alrededor del avatar va el consumo de IA del mes en un anillo de 2px:
-  cian mientras mide, ámbar desde el 80 %, rojo al tope; punteado en filete cuando la
-  empresa usa su propia clave (no hay cupo que llenar) y sin anillo si no hay IA.
-  El botón «Copiloto» lleva el mismo anillo en pequeño (22px) con las preguntas
-  gratis del mes: se **vacía** a medida que se gastan, cian; ámbar cuando quedan 20;
-  pista ámbar sin arco al acabarse. Al abrir el panel, la misma cifra en palabras
-  («Te quedan 163 de 200 preguntas gratis este mes») encima de donde se escribe.
-- **Móvil:** el menú se pliega y sale como cajón opaco (montado con portal).
+### Franja de ventana y simulador
+La franja de 24 h (`fu-*`) y las conversaciones simuladas (`sim-*`) usan las mismas fichas:
+aguamarina dentro de la ventana o en curso, ámbar si pasó a una persona, rojo si falló. Los
+mensajes, con la forma del globo.
 
 ### Marca
 `components/BrandMark.tsx` e `app/icon.svg`: el logo de noviembre de 2026, la «D» en
 lima con la chispa dentro y «riony» en minúsculas. Las letras van en `currentColor`
-(blanco sobre noir, tinta sobre lima, negro al imprimir); la D en lima, salvo sobre lima o
+(blanco sobre petróleo, petróleo sobre lima y en claro); la D en lima, salvo sobre lima o
 en papel, donde el contenedor pone `--wordmark-mark` en tinta para que no desaparezca. Los
 trazados vienen del archivo original recortados a su caja (432 × 122; la D sola,
 124 × 122), nunca con el lienzo tamaño carta alrededor. La D sola es el favicon, sobre
-una loseta noir redondeada para verse en pestañas claras. Se lee como «Driony»
+una loseta petróleo redondeada para verse en pestañas claras. Se lee como «Driony»
 (`role="img"`). El producto se sigue escribiendo «Driony» en el texto corrido.
 
-### Píxeles
-Un racimo de cuadrados al pie del menú del panel, en cian y filete
-(`.side-nav::after`), dibujado con gradientes CSS. En la landing se retiraron el
-2026-11-14 junto con los bloques lima. Nunca detrás de texto.
+### Portada
+Dos columnas: los globos de los clientes con su hora y el globo lima con el titular, el texto y
+los botones; su cola cae sobre la demo (`HeroDemo.tsx`), que el visitante maneja y va con la
+etiqueta «Datos de ejemplo». En el celular los globos van en fila y el titular debajo. El rótulo
+«CRM tachado → ARM» cae con el sello. La captura de la bandeja sigue al tema
+(`bandeja.webp` / `bandeja-claro.webp`).
 
-### Burbuja de mensaje
-El corazón de la bandeja. Saliente = Burbuja Saliente (cian hondo) con texto
-blanco, a la derecha; entrante = Panel Alto, a la izquierda; 0px. Estado de
-entrega con icono (check, doble check, reloj); leído en lima. Fila de conversación:
-avatar con iniciales, vista previa, contador lima con Tinta Noir y chip de espera
-que pasa a ámbar a la hora; la fila activa lleva lavado de cian y el marcador lima
-de 3px. La demo del hero de la landing usa las mismas burbujas (cian hondo y
-Panel Alto), la insignia «IA» en cian tenue y el registro con checks en Verde Vital.
+### Qué es ARM
+Las letras ARM en tinta con la sombra dura en lima, que se despega con el scroll, y las tres
+claves en globos de niebla.
 
-### Cierre (landing)
-Sin banda: la marquesina lima se retiró el 2026-11-14. El cierre es un panel
-centrado (Panel con filete) con el titular, el lede en humo, el primario y un
-fantasma, y las garantías con check en Verde Vital. La página de precios usa el
-mismo cierre.
+### Antes y después
+Una conversación en petróleo: «WhatsApp a mano» a la izquierda, «ARM con Driony» a la derecha en
+blanco con el visto en lima. Sigue siendo una tabla para lectores de pantalla.
 
-### Hero (landing)
-Sobre noir, sin bloque de color. Arriba, centrado: el **rótulo ARM** en una píldora
-de Panel con filete («CRM» tachado en humo y el sello «ARM» en lima pleno con tinta
-y sombra dura cian, en mono, que cae con `lp-stamp` cuando termina de subir el rótulo; seguido de «Agentic Relationship Management» en Hanken humo), el titular en
-dos líneas con «venden» en lima, el sub en humo, el primario y un fantasma
-(«Cómo funciona», a la sección ARM) y las cuatro garantías con check en Verde
-Vital. En el celular todo va a la izquierda.
+### Planes
+Tarjetas blancas (o panel); el recomendado en petróleo con su rótulo en lima.
 
-Debajo, con su filete y sin sombra, la **demo de la bandeja** (`HeroDemo.tsx`):
-una barra de título como la cabecera del panel («**Bandeja** Demo interactiva» y la
-etiqueta cian «Datos de ejemplo») y tres columnas con la forma de la bandeja real.
-A la izquierda las conversaciones (tres casos B2B; cada fila con su estado, «Sin
-responder» o «Atendido», y su etapa; la abierta lleva lavado cian y marcador
-lima, como en la bandeja). Al centro el chat, con el contador de espera y el
-segmentado Autopilot / Copilot (el activo en Capa 2, como el segmentado del
-panel) y la acción pegada al último mensaje: es el único lima de la demo. A la
-derecha «Detalles · lo que hizo el agente»: el embudo (la etapa actual en cian),
-la ficha y el registro. Bajo 1024px la lista pasa a una fila de chips y bajo 760px las columnas se
-apilan. La demo es guionada y lleva la etiqueta «Datos de ejemplo»; nada corre
-solo y las alturas son fijas para que nada salte. Debajo quedan el distintivo de
-Meta y la nota de que en la cuenta real responde la IA.
-
-### Sección «Qué es ARM» (landing)
-La primera sección tras el hero define el término en el que se basa el
-producto: a la izquierda las letras **ARM** grandes (display 800 condensada al 82 %,
-hasta 10rem, en lima con sombra dura cian de 0.045em que se despega al entrar con el
-scroll: es el efecto que el usuario pidió conservar y el único bloque grande de lima)
-y debajo «Agentic // Relationship // Management» en mono cian;
-a la derecha el h2 («Un CRM guarda lo que pasó con el cliente. Un ARM pone
-agentes a atenderlo.») y el lede. Debajo, las tres claves **A · Agentes,
-R · Relación, M · Mando** en una fila separada por filetes (sin tarjetas): la
-letra en lima, el título en display 650 y el texto en humo a 36ch. En columna
-(≤900px) se apilan con filete arriba. ARM aparece además en el nav («Qué es ARM»),
-la cabecera de la comparativa («ARM con Driony»), la primera pregunta del FAQ, el
-pie y los metadatos de la portada.
-
-### Tarjetas de capacidades (landing)
-Rejilla de seis columnas con tarjetas del panel (Panel con filete, sin número,
-sin bisel, sin cruceta). La primera, a todo el ancho, pone el texto a la izquierda
-y la captura del editor de agentes a la derecha. Los h3 van en caja normal. Las
-tarjetas 02 y 03 son el **copiloto** en sus dos caras: en el chat (`.lp-suggest`:
-la respuesta sugerida en cian hondo con filete discontinuo cian, las acciones
-pendientes como chips y los botones Enviar/Editar/Descartar, el primero lima con
-bisel) y para quien administra (`.lp-trace--qa`: una pregunta con marca «TÚ» y la
-respuesta con marca «IA» en cian).
-
-### Planes (landing)
-La sección de planes responde al «cobro por conversación» de la competencia sin
-nombrarla. Arriba de las tarjetas, un panel de tres celdas separadas por filete
-(`.lp-pay`): «Pagas» (rótulo en lima), «No pagas» y «Aparte, y no pasa por
-Driony», cada una con su cifra en display 700. El plan recomendado lleva filete
-lima doble y su rótulo en lima tenue, como el KPI que importa; ningún plan va en
-lima pleno. Debajo, el selector «Cuál me toca» (`.lp-picker`): formulario a la
-izquierda (rangos con `accent-color` lima y lecturas mono en cian) y resultado a
-la derecha en Capa más honda, con el nombre del plan en display, el precio y los
-hechos con un cuadrito cian. El plan sale de `PLANS`: nunca una promesa escrita a
-mano.
-
-### Kit HUD (solo panel)
-En el panel quedan la cruceta «[ + ]» en las tarjetas y el punto hexagonal en
-tarjetas y KPI (abajo a la derecha, porque el bisel corta la esquina de arriba).
-En la landing el kit (biseles en todo, puntos hexagonales, crucetas, etiquetas
-«[ 02 // … ] >>>», primario con franja de peligro y sombra cian, consola de
-comparación, rejilla de puntos y líneas de barrido) se retiró el 2026-11-14.
+### Cierre
+`.lp-end`: petróleo con el globo gigante lima cortado por el borde derecho y el logo abajo.
 
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** usar lima (#e2f80d) para acción, foco y selección, siempre con Tinta Noir encima.
-- **Do** usar cian para datos, presencia y lo que la IA hace, y humo para el texto secundario.
-- **Do** redefinir los tokens dentro de un bloque de color y medir el contraste (Regla del
-  Bloque Legible).
+- **Do** usar lima para actuar, para lo elegido y para la respuesta, con tinta petróleo encima.
+- **Do** redefinir las fichas dentro de un bloque de color y medir el contraste.
 - **Do** pasar los colores que elige el usuario por `readableInk()`.
-- **Do** reservar el verde (#25d366 / #7ee2a8) a lo que es WhatsApp y a los estados positivos.
 - **Do** comunicar todo estado con color **+** icono o palabra.
-- **Do** separar por filete; sombra corta y dura solo en lo que flota.
-- **Do** montar con portal cualquier cosa `position: fixed` que nazca dentro de un elemento con
-  `clip-path` u `overflow`.
-- **Do** dar respuesta táctil: hover que aviva, `:active` que hunde 1px, contorno de foco lima.
-- **Do** titular con Bricolage, trabajar con Hanken y medir con JetBrains Mono (mayúsculas,
-  tracking 0.06–0.12em).
-- **Do** texto de cuerpo a ≥4.5:1; placeholders a #7f8ea1, nunca gris fantasma.
-- **Do** usar iconos SVG de línea (18px, trazo 1.75); los emojis solo dentro de los mensajes.
-- **Do** respetar `prefers-reduced-motion`: toda animación tiene alternativa.
-- **Do** mover con el scroll desde CSS (`animation-timeline: view()` / `scroll()`) y dejar el
-  observador de JS solo como respaldo: el hilo de progreso cian bajo la barra y los reveals
-  de cada bloque. Nunca librerías de scroll suave.
-- **Do** hero centrado sobre noir (titular en dos líneas, botones y pruebas centrados; a la
-  izquierda en el celular) y debajo la demo (`HeroDemo.tsx`) a todo el ancho, con su filete. La
-  demo tiene la forma de la bandeja real en tres columnas: conversaciones (el visitante elige el
-  caso), chat (Autopilot responde solo; Copilot sugiere y él edita, envía o descarta) y detalles
-  (embudo, ficha y registro). Guionada, con la etiqueta «Datos de ejemplo»; nada corre solo;
-  alturas fijas; la acción va pegada al último mensaje para que el primer botón quede a la vista.
-- **Do** explicar la landing con producto real (capturas y la demo). El orden es: hero, Qué es
-  ARM, Capacidades, Arma tu agente, Puesta en marcha, Antes y después, Planes, cierre.
+- **Do** texto de cuerpo a ≥4,5:1 en los dos temas; los campos vacíos también.
+- **Do** iconos SVG de línea (18px, trazo 1.75); los emojis solo dentro de los mensajes.
+- **Do** respetar `prefers-reduced-motion` y mover con el scroll desde CSS
+  (`animation-timeline`), con el observador de JS solo como respaldo.
+- **Do** explicar la landing con producto real (capturas y la demo).
+- **Do** montar con portal lo `position: fixed` que nazca dentro de algo con `overflow`.
 
 ### Don't:
-- **Don't** caer en **SaaS genérico de plantilla**: rejillas de tarjetas idénticas o todo gris.
-  La fila de KPI con color es la excepción y no se copia a otras pantallas.
-- **Don't** volverlo **colorido/infantil**: arcoíris de colores ni emojis por todos lados.
-- **Don't** parecer **corporativo frío/anticuado**: azules rígidos ni tablas de los 2000.
-- **Don't** usar lima translúcido por encima del 8 % ni en estados desactivados: sobre oscuro
-  es oliva.
-- **Don't** escribir en lima ni en cian sobre humo, ni en blanco sobre lima o cian.
-- **Don't** usar cristal (`backdrop-filter`) ni sombras difusas en ninguna superficie.
-- **Don't** redondear nada: 0px es la regla; los círculos solo en avatares y puntos de estado.
-- **Don't** usar degradado en el texto de titulares ni en la marca.
-- **Don't** poner rótulos sobre los títulos de sección de la landing (ni numerados ni en mono):
-  el h2 y el lede bastan.
-- **Don't** volver a llenar la landing de lima (bloques a sangre, banda, plan en lima pleno) ni
-  a poner fotos de escenas: se retiraron el 2026-11-14 porque saturaban y «se veía mal».
-- **Don't** usar `border-left`/`border-right` mayor de 1px como raya decorativa. Las únicas
-  son el marcador de la fila activa de la bandeja y la cita dentro de una burbuja.
-- **Don't** usar el verde en botones primarios, titulares o adornos, ni el cian para actuar.
-- **Don't** animar propiedades de layout salvo el pliegue del menú; las transiciones son de
-  120–250 ms y comunican estado, no decoran.
+- **Don't** volver a lo cyberpunk: negro puro, cian neón, rejilla, bisel, crucetas «[ + ]»,
+  hexágonos, halos ni letra mono de adorno.
+- **Don't** poner más bloques lima que el titular y el cierre.
+- **Don't** escribir en blanco sobre lima ni en lima sobre blanco.
+- **Don't** usar lima oscurecida (oliva) ni lima translúcida por encima del lavado.
+- **Don't** usar un radio que no sea de las fichas.
+- **Don't** caer en **SaaS genérico de plantilla**, en lo **colorido/infantil** ni en lo
+  **corporativo frío**.
+- **Don't** usar mayúsculas de estilo ni rótulos sobre los títulos.
+- **Don't** usar el verde ni la aguamarina para actuar.
+- **Don't** animar propiedades de layout; las transiciones son de 120–250 ms y comunican estado.

@@ -294,7 +294,7 @@ const modal: React.CSSProperties = {
   flexDirection: "column",
   background: "var(--panel-2)",
   border: "1px solid var(--border)",
-  borderRadius: 14,
+  borderRadius: "var(--r-lg)",
   boxShadow: "var(--shadow-overlay)",
   zIndex: 1061,
 };

@@ -541,7 +541,6 @@ function liveChip(connected: boolean): React.CSSProperties {
     color: connected ? "var(--positive)" : "var(--muted)",
     fontSize: 10.5,
     fontWeight: 600,
-    textTransform: "uppercase",
     letterSpacing: 0.4,
     flexShrink: 0,
   };
@@ -614,7 +613,7 @@ function chip(active: boolean): React.CSSProperties {
 
 const statusSelect: React.CSSProperties = {
   padding: "6px 8px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",

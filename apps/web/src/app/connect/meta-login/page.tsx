@@ -30,7 +30,7 @@ export default async function MetaLoginPage({
         {allowed ? (
           <MetaLoginHub origin={origin!} scopes={scopes === "messaging" ? "messaging" : "leads"} />
         ) : (
-          <div style={{ padding: 20, borderRadius: 12, border: "1px solid var(--border)", background: "var(--panel)" }}>
+          <div style={{ padding: 20, borderRadius: "var(--r-lg)", border: "1px solid var(--border)", background: "var(--panel)" }}>
             <h1 style={{ margin: 0, fontSize: 20 }}>Enlace no válido</h1>
             <p style={{ color: "var(--muted)", lineHeight: 1.5 }}>
               Esta ventana solo se abre desde el panel de una empresa de Driony. Vuelve a Ajustes › Canales y pulsa

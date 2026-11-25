@@ -186,7 +186,7 @@ const wrap: React.CSSProperties = {
 const card: React.CSSProperties = {
   background: "var(--panel)",
   border: "1px solid var(--border)",
-  borderRadius: 12,
+  borderRadius: "var(--r-lg)",
   padding: 20,
   boxShadow: "var(--shadow-card)",
 };
@@ -211,7 +211,7 @@ const label: React.CSSProperties = {
 const input: React.CSSProperties = {
   width: "100%",
   padding: "9px 11px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--text)",
@@ -221,7 +221,7 @@ const input: React.CSSProperties = {
 
 const readonly: React.CSSProperties = {
   padding: "9px 11px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "1px solid var(--border)",
   background: "var(--field)",
   color: "var(--muted)",
@@ -236,7 +236,7 @@ const actions: React.CSSProperties = {
 
 const primaryBtn: React.CSSProperties = {
   padding: "9px 18px",
-  borderRadius: 8,
+  borderRadius: "var(--r-sm)",
   border: "none",
   background: "var(--accent)",
   color: "var(--accent-ink)",
