@@ -494,12 +494,14 @@ export class AgentImproveService implements OnModuleInit {
           // Sin texto (pasó el chat a una persona) no hay nada que añadir a lo hablado.
           if (step.agent.reply) {
             history.push({ role: "assistant", content: step.agent.options?.length ? `${step.agent.reply}\n${optionsNote(step.agent.options)}` : step.agent.reply });
+          } else if (step.agent.silent) {
+            history.push({ role: "assistant", content: step.agent.sent });
           }
         }
         if (step.ended) {
           ended = step.ended;
           error = step.error;
-        } else if (!step.agent?.reply) {
+        } else if (!step.agent?.reply && !step.agent?.silent) {
           ended = "error";
           error = "El agente no respondió.";
         }

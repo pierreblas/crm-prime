@@ -178,20 +178,22 @@ export function ConversationSimulator({
             history.push({ role: "user", content: step.customer });
           }
           if (step.agent) {
-            added.push({ who: "agent", text: step.agent.reply, meta: step.agent });
+            added.push({ who: "agent", text: step.agent.reply ?? (step.agent.silent ? step.agent.sent : null), meta: step.agent });
             // Sin texto (pasó el chat a una persona) no hay nada que añadir a lo hablado.
             if (step.agent.reply)
               history.push({
                 role: "assistant",
                 content: step.agent.options?.length ? `${step.agent.reply}\n${optionsNote(step.agent.options)}` : step.agent.reply,
               });
+            // Solo mandó un archivo, una foto o los métodos de pago: eso es lo que leyó el cliente.
+            else if (step.agent.silent) history.push({ role: "assistant", content: step.agent.sent });
           }
           said.push(...added);
           patch(run.key, (r) => ({ ...r, lines: [...r.lines, ...added], tokens: r.tokens + step.tokens }));
           if (step.ended) {
             state = step.ended;
             error = step.error;
-          } else if (!step.agent?.reply) {
+          } else if (!step.agent?.reply && !step.agent?.silent) {
             // Sin respuesta y sin motivo de cierre: no tiene sentido seguir preguntando.
             state = "error";
             error = "El agente no respondió.";

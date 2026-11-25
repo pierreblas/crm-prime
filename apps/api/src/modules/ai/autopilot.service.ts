@@ -300,6 +300,13 @@ export class AutopilotService {
 
       const res = await this.agent.suggest(conversationId);
 
+      // Mandó lo que tocaba (un archivo, una foto, los métodos de pago) y no hay
+      // nada más que decir: no es que se quedara sin respuesta, el chat sigue con él.
+      if (res.silent && !res.escalate) {
+        this.logger.log(`Autopilot no añadió texto en ${conversationId}: ya estaba todo dicho`);
+        return;
+      }
+
       if (res.escalate || !res.suggestion || !res.windowOpen) {
         // La IA se rinde: alguien fuera puede querer enterarse (avisar a un
         // supervisor, abrir un ticket…).

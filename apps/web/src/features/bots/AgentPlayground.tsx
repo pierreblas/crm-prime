@@ -90,7 +90,9 @@ export function AgentPlayground({
             reply.reply ??
             (reply.escalate
               ? "(El agente recomendó pasar a un humano y no generó respuesta)"
-              : "(Sin respuesta)"),
+              : reply.silent
+                ? reply.sent
+                : "(Sin respuesta)"),
           meta: reply,
           escalated: reply.escalate,
         },

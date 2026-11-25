@@ -25,7 +25,7 @@ export function improveLine(agent: PlaygroundReply): SimulationReviewLine {
   ].slice(0, 12);
   return {
     who: "agent",
-    text: (agent.reply ?? "").slice(0, 4000),
+    text: (agent.reply ?? agent.sent ?? "").slice(0, 4000),
     consulted,
     options: (agent.options ?? []).slice(0, 10).map((o) => o.slice(0, 40)),
     handoff: agent.escalate ? (agent.escalationReason ?? "sin motivo").slice(0, 400) : null,

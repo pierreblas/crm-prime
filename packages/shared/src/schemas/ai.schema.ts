@@ -40,6 +40,8 @@ export const aiSuggestionSchema = z.object({
   pendingActions: z.array(pendingActionSchema),
   /** Opciones para pulsar debajo de la respuesta (botones o lista); vacío si es solo texto. */
   options: z.array(z.string()).default([]),
+  /** Sin texto a propósito: con lo que ya le mandó (archivo, foto, métodos de pago) está todo dicho. */
+  silent: z.boolean().default(false),
 });
 export type AiSuggestion = z.infer<typeof aiSuggestionSchema>;
 
@@ -123,6 +125,10 @@ export const playgroundReplySchema = z.object({
   splitReplies: z.boolean().default(false),
   /** Opciones para pulsar debajo de la respuesta (botones o lista); vacío si es solo texto. */
   options: z.array(z.string()).default([]),
+  /** Sin texto a propósito: con lo que le mandaría (archivo, foto, métodos de pago) está todo dicho. */
+  silent: z.boolean().default(false),
+  /** Con «silent»: lo que le llegaría, como queda en el historial. */
+  sent: z.string().default(""),
   inputTokens: z.number(),
   outputTokens: z.number(),
   costUsd: z.number(),

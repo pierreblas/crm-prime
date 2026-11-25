@@ -37,6 +37,7 @@ import { buttonsSummary, knowledgeCall, traceToolCall } from "./playground-trace
 import { agentPrice, DEFAULT_DISCOUNT_TIME_ZONE } from "./product-agent-price";
 import { consultedProductNames, followUpDraftAsk, productFactLine } from "./follow-up.rules";
 import { AUTO_SENT_RULE, HISTORY_MAX, openHistory, repliedToAutomatic } from "./agent-history";
+import { checkReply, NO_REPLY_RULE, repeatedAction, REPLY_RULE, retryNote, SENDING_TOOLS } from "./agent-reply";
 import { missingFilesNote, productDetails } from "./product-details";
 import { buttonRules, endsWithQuestion, parseReplyOptions, REPLY_OPTIONS_SYSTEM, replyOptionsInput } from "./reply-options";
 import { groundReview, parseSimulationReview, SIMULATION_REVIEW_MODEL, SIMULATION_REVIEW_SYSTEM, simulationReviewInput } from "./simulation-review";
@@ -59,6 +60,19 @@ import { isActionTool, resolveTools } from "./tools.registry";
 /** Coste estimado en USD de una llamada. 0 si el modelo no tiene precio conocido. */
 export function estimateCostUsd(model: string, input: number, output: number): number {
   return estimateAiCost(model, input, output) ?? 0;
+}
+
+/** El texto de una respuesta del modelo, sin sus llamadas a herramientas. */
+function textOf(content: LlmContentBlock[]): string {
+  return content
+    .filter((b): b is Extract<LlmContentBlock, { type: "text" }> => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+}
+
+/** En la prueba nada sale: si la acción le mandaría algo al cliente (sin métodos de pago para su país, no). */
+function wouldSend(tu: LlmToolUseBlock, output: string): boolean {
+  return SENDING_TOOLS.has(tu.name) && output.startsWith("(simulado");
 }
 
 // Conversaciones anteriores del contacto que entran como contexto.
@@ -115,6 +129,8 @@ export class AgentService {
       channel: conversation.channelKind,
       paymentTool: tools.some((t) => t.name === PAYMENT_METHODS_TOOL),
       autoSent,
+      // En copiloto no: las acciones salen al enviar el texto, y tiene que haber uno.
+      canStaySilent: conversation.aiMode === "AUTOPILOT" && tools.some((t) => SENDING_TOOLS.has(t.name)),
     });
     // En autopilot la IA aplica sus acciones sola; en copilot quedan
     // pendientes hasta que el humano envía la respuesta.
@@ -150,6 +166,7 @@ export class AgentService {
         toolsUsed: [],
         pendingActions: [],
         options: [],
+        silent: false,
       };
     }
 
@@ -172,6 +189,7 @@ export class AgentService {
         toolsUsed: [],
         pendingActions: [],
         options: [],
+        silent: false,
       };
     }
 
@@ -212,10 +230,15 @@ export class AgentService {
     let model = config?.model ?? "claude-opus-4-8";
     const toolsUsed: string[] = [];
 
-    // Llamadas ya hechas (herramienta + argumentos). Sin esto, un modelo que
-    // no encuentra lo que busca repite la misma consulta hasta agotar las
-    // iteraciones: visto en producción, 12.500 tokens para responder "gracias".
-    const seenCalls = new Set<string>();
+    // Llamadas ya hechas (herramienta + argumentos) y qué devolvieron. Sin esto,
+    // un modelo que no encuentra lo que busca repite la misma consulta hasta agotar
+    // las iteraciones: visto en producción, 12.500 tokens para responder "gracias".
+    const seenCalls = new Map<string, string>();
+    // Lo que ya le mandó al cliente en este turno (sus textos), y si ya se le pidió
+    // otra vez el mensaje por haber escrito algo que no lo era.
+    const sent: string[] = [];
+    let silent = false;
+    let retried = false;
 
     try {
       for (let i = 0; i < maxIterations; i++) {
@@ -248,12 +271,17 @@ export class AgentService {
         );
 
         if (toolUses.length === 0) {
-          suggestion = stripOptionsNote(
-            res.content
-              .filter((b) => b.type === "text")
-              .map((b) => (b as { text: string }).text)
-              .join(""),
-          );
+          const raw = stripOptionsNote(textOf(res.content));
+          const checked = checkReply(raw, sent.length ? sent : null);
+          if (checked.kind === "note" && !retried && !escalate && i < maxIterations - 1) {
+            retried = true;
+            this.logger.warn(`El agente escribió algo que no es un mensaje para el cliente en ${conversationId}: se le pide otra vez`);
+            messages.push({ role: "assistant", content: raw || "…" }, { role: "user", content: retryNote(sent.length > 0) });
+            continue;
+          }
+          if (checked.kind === "text") suggestion = checked.text;
+          // Sin texto, pero ya le mandó lo que pedía: no hay nada que pasar a nadie.
+          else silent = sent.length > 0;
           status = "COMPLETED";
           break;
         }
@@ -261,29 +289,22 @@ export class AgentService {
         // Añadir el turno del asistente con sus bloques (text + tool_use).
         messages.push({ role: "assistant", content: res.content });
 
-        // ¿Está repitiendo consultas que ya hizo? Entonces no va a avanzar:
-        // se le devuelve el aviso y se le pide que responda con lo que tiene.
-        const repeated = toolUses.filter((tu) =>
-          seenCalls.has(this.callKey(tu)),
-        );
-        if (repeated.length === toolUses.length) {
-          messages.push({ role: "assistant", content: res.content });
-          messages.push({
-            role: "user",
-            content: toolUses.map((tu) => ({
-              type: "tool_result" as const,
-              tool_use_id: tu.id,
-              content:
-                "Ya consultaste esto y el resultado no ha cambiado. Responde al cliente con la información que ya tienes, o usa handoff_to_human si no puedes resolverlo.",
-            })),
-          });
-          for (const tu of toolUses) seenCalls.add(this.callKey(tu));
-          continue;
-        }
-
         const results: LlmToolResultBlock[] = [];
         for (const tu of toolUses) {
-          seenCalls.add(this.callKey(tu));
+          // ¿Repite algo que ya hizo en este turno? No se hace otra vez (mandaría el
+          // archivo dos veces): se le dice y se le pide que responda con lo que tiene.
+          const key = this.callKey(tu);
+          const before = seenCalls.get(key);
+          if (before !== undefined) {
+            results.push({
+              type: "tool_result",
+              tool_use_id: tu.id,
+              content: isActionTool(tu.name)
+                ? repeatedAction(before)
+                : "Ya consultaste esto y el resultado no ha cambiado. Responde al cliente con la información que ya tienes, o usa handoff_to_human si no puedes resolverlo.",
+            });
+            continue;
+          }
           toolsUsed.push(tu.name);
           const { output, escalated, reason } = await this.runTool(
             run.id,
@@ -291,7 +312,9 @@ export class AgentService {
             tu,
             autoApply,
             conversationId,
+            (t) => sent.push(t),
           );
+          seenCalls.set(key, output);
           if (escalated) {
             escalate = true;
             escalationReason = reason ?? "Escalado por la IA.";
@@ -418,6 +441,7 @@ export class AgentService {
       ],
       pendingActions,
       options: suggestion ? replyOptions : [],
+      silent: silent && !suggestion,
     };
   }
 
@@ -495,6 +519,7 @@ export class AgentService {
       paymentTool: tools.some((t) => t.name === PAYMENT_METHODS_TOOL),
       // Solo lo de la empresa antes de este mensaje: el cliente contesta a una bienvenida.
       autoSent: input.history.length > 0 && input.history.every((h) => h.role === "assistant"),
+      canStaySilent: tools.some((t) => SENDING_TOOLS.has(t.name)),
     });
     // En el playground las acciones no se aplican: solo se listan.
     const simulatedActions: string[] = [];
@@ -523,6 +548,10 @@ export class AgentService {
     // La búsqueda automática en el conocimiento, primero: es lo primero que lee el modelo.
     const rag = knowledge.length ? knowledgeCall(input.message, knowledge) : null;
     const toolCalls: PlaygroundToolCall[] = rag ? [traceToolCall("search_knowledge", rag.input, rag.output)] : [];
+    // Igual que en un chat real: lo que le mandaría, si calla y si ya se le pidió otra vez.
+    const sent: string[] = [];
+    let silent = false;
+    let retried = false;
 
     try {
       for (let i = 0; i < maxIterations; i++) {
@@ -553,12 +582,15 @@ export class AgentService {
         );
 
         if (toolUses.length === 0) {
-          reply = stripOptionsNote(
-            res.content
-              .filter((b) => b.type === "text")
-              .map((b) => (b as { text: string }).text)
-              .join(""),
-          );
+          const raw = stripOptionsNote(textOf(res.content));
+          const checked = checkReply(raw, sent.length ? sent : null);
+          if (checked.kind === "note" && !retried && !escalate && i < maxIterations - 1) {
+            retried = true;
+            messages.push({ role: "assistant", content: raw || "…" }, { role: "user", content: retryNote(sent.length > 0) });
+            continue;
+          }
+          if (checked.kind === "text") reply = checked.text;
+          else silent = sent.length > 0;
           break;
         }
 
@@ -574,6 +606,7 @@ export class AgentService {
             null,
           );
           if (isActionTool(tu.name)) simulatedActions.push(output);
+          if (wouldSend(tu, output)) sent.push(String(tu.input?.caption ?? "").trim());
           toolCalls.push(traceToolCall(tu.name, tu.input, output));
           if (escalated) {
             escalate = true;
@@ -621,6 +654,8 @@ export class AgentService {
       toolCalls,
       splitReplies,
       options: reply ? replyOptions : [],
+      silent: silent && !reply,
+      sent: silent && !reply ? sent.map((t) => t || "[documento]").join("\n") : "",
       inputTokens,
       outputTokens,
       costUsd: this.cost(model, inputTokens, outputTokens),
@@ -873,7 +908,13 @@ export class AgentService {
 
   // Identidad de una llamada a herramienta: mismo nombre y mismos argumentos.
   private callKey(tu: LlmToolUseBlock): string {
-    return `${tu.name}:${JSON.stringify(tu.input ?? {})}`;
+    if (!SENDING_TOOLS.has(tu.name)) return `${tu.name}:${JSON.stringify(tu.input ?? {})}`;
+    // Con otro texto, u otras mayúsculas, sigue siendo el mismo archivo.
+    const what = Object.entries(tu.input ?? {})
+      .filter(([k]) => k !== "caption")
+      .map(([k, v]) => `${k}=${fold(String(v)).trim()}`)
+      .sort();
+    return `${tu.name}:${what.join("&")}`;
   }
 
   private confidence(c: Classification): number {
@@ -900,6 +941,8 @@ export class AgentService {
     tu: LlmToolUseBlock,
     autoApply: boolean,
     conversationId: string | null,
+    /** Con el texto de lo que la acción le mandó al cliente, cuando ya salió. */
+    onSent?: (text: string) => void,
   ): Promise<{ output: string; escalated: boolean; reason?: string }> {
     let output = "";
     let escalated = false;
@@ -909,7 +952,7 @@ export class AgentService {
 
     // ── Acciones que escriben en el CRM ──────────────────────────
     if (isActionTool(tu.name)) {
-      return this.runAction(aiRunId, contact.id, conversationId, tu, autoApply, contact.phone);
+      return this.runAction(aiRunId, contact.id, conversationId, tu, autoApply, contact.phone, onSent);
     }
 
     if (tu.name === "search_contact") {
@@ -1116,6 +1159,7 @@ export class AgentService {
     autoApply: boolean,
     /** Teléfono del cliente de la prueba: de él sale el país de los métodos de pago. */
     phone: string | null = null,
+    onSent?: (text: string) => void,
   ): Promise<{ output: string; escalated: boolean; reason?: string }> {
     const summary = this.actions.summarize(tu.name, tu.input);
 
@@ -1153,6 +1197,7 @@ export class AgentService {
         tu.input,
         contactId,
         conversationId,
+        { aiRunId, onSent },
       );
       await this.actions.record(aiRunId, tu.name, tu.input, "EXECUTED", result);
       return { output: result, escalated: false };
@@ -1188,6 +1233,8 @@ export class AgentService {
       source?: string | null;
       /** send_payment_methods está activada y hay métodos cargados. */
       paymentTool?: boolean;
+      /** Puede mandar algo (archivo, foto, métodos de pago) y no escribir después. */
+      canStaySilent?: boolean;
     } = {},
   ): { system: string; systemDynamic: string } {
     const country = countryFromPhone(contact.phone);
@@ -1256,6 +1303,8 @@ export class AgentService {
         ? "\n\nBotones: cuando termines con una pregunta para que el cliente elija (sí o no, o entre pocas opciones), haz una sola pregunta al final y nombra en ella las opciones («¿Prefieres transferencia o Yape?», «¿Te separo un cupo?»): al cliente le llegarán como botones para pulsar. Si tus instrucciones dicen qué botones usar en un caso, haz la pregunta y no escribas el texto de los botones: salen solos. Cuando pulsa uno, te llega su texto como un mensaje más."
         : "",
       "\n\nDevuelve únicamente el texto de la respuesta sugerida, sin prefijos como 'Respuesta:'.",
+      REPLY_RULE,
+      extra.canStaySilent ? NO_REPLY_RULE : "",
     ].join("");
     const systemDynamic = [
       `\n\n## Este contacto\nContacto actual: ${contact.name ?? "(sin nombre)"} (${contact.phone}).${where}`,
@@ -1364,7 +1413,8 @@ export class AgentService {
       .trim()
       .replace(/^["«]|["»]$/g, "")
       .trim();
-    return text || null;
+    const checked = checkReply(text, null);
+    return checked.kind === "text" ? checked.text : null;
   }
 
   /** El historial que lee el agente y si el cliente contesta a un mensaje automático. */

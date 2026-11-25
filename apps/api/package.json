@@ -46,6 +46,7 @@
     "test:sendfailed": "tsx --test test/send-failed.test.ts",
     "test:templateheader": "tsx --test test/template-header.test.ts",
     "test:agenthistory": "tsx --test test/agent-history.test.ts",
+    "test:agentreply": "tsx --test test/agent-reply.test.ts",
     "test:inboxorder": "tsx --test test/inbox-order.test.ts",
     "test:correction": "tsx --test test/agent-correction.test.ts",
     "test:chatreview": "tsx --test test/chat-review.test.ts",

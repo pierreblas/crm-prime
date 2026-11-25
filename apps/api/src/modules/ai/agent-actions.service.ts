@@ -29,6 +29,14 @@ import { isActionTool, type ToolContext } from "./tools.registry";
 // Lo que se guarda en AiToolCall.input para poder re-ejecutar tras aprobar.
 type ActionInput = Record<string, unknown>;
 
+/** Para las acciones que le mandan algo al cliente. */
+export interface SendContext {
+  /** La respuesta de la IA a la que pertenece: «¿Por qué respondió esto?» y saber que lo mandó el agente. */
+  aiRunId?: string;
+  /** Con el texto que llevaba (vacío si iba sin él), cuando ya salió. */
+  onSent?: (text: string) => void;
+}
+
 /**
  * Ejecuta las acciones que la IA pide sobre el CRM (etiquetar, mover de
  * etapa, actualizar la ficha, asignar vendedor) y gestiona su aprobación.
@@ -43,6 +51,9 @@ const LEAD_LABEL: Record<string, string> = { potential: "potencial", purchase: "
 /** Lo que el agente lee tras enviar los métodos: que no repita (ni reescriba) un número. */
 const PAYMENT_SENT_HINT =
   "El cliente ya tiene los datos exactos en un mensaje aparte: no los repitas ni escribas tú ningún número, cuenta o enlace. Sigue con lo demás (por ejemplo, dile que te envíe el comprobante cuando pague).";
+
+/** Para que el modelo sepa qué texto ya leyó el cliente. */
+const sentWith = (caption: string | undefined) => (caption ? ` con el texto «${caption}»: el cliente ya lo leyó, no lo escribas otra vez` : "");
 
 @Injectable()
 export class AgentActionsService {
@@ -180,12 +191,13 @@ export class AgentActionsService {
     contactId: string,
     // Solo lo necesitan las acciones que mandan mensajes al cliente.
     conversationId: string | null = null,
+    send: SendContext = {},
   ): Promise<string> {
     // Lo que cambie en las oportunidades queda firmado como «agente de IA».
-    return runAsActor("ai", () => this.dispatch(tool, input, contactId, conversationId));
+    return runAsActor("ai", () => this.dispatch(tool, input, contactId, conversationId, send));
   }
 
-  private async dispatch(tool: string, input: ActionInput, contactId: string, conversationId: string | null): Promise<string> {
+  private async dispatch(tool: string, input: ActionInput, contactId: string, conversationId: string | null, send: SendContext): Promise<string> {
     switch (tool) {
       case "add_tag":
         return this.addTag(contactId, String(input.tag ?? ""));
@@ -200,11 +212,11 @@ export class AgentActionsService {
       case "update_contact":
         return this.updateContact(contactId, input);
       case "send_product_image":
-        return this.sendProductImage(conversationId, input);
+        return this.sendProductImage(conversationId, input, send);
       case "send_product_file":
-        return this.sendProductFile(conversationId, input);
+        return this.sendProductFile(conversationId, input, send);
       case "send_payment_methods":
-        return this.sendPaymentMethods(contactId, conversationId, input);
+        return this.sendPaymentMethods(contactId, conversationId, input, send);
       case "book_appointment":
         return this.bookings.agentBook(contactId, conversationId, input);
       case "reschedule_appointment":
@@ -420,6 +432,7 @@ export class AgentActionsService {
   private async sendProductImage(
     conversationId: string | null,
     input: ActionInput,
+    send: SendContext,
   ): Promise<string> {
     if (!conversationId) {
       throw new Error("No hay conversación a la que enviar la imagen");
@@ -434,16 +447,10 @@ export class AgentActionsService {
       throw new Error(`"${name}" no tiene imagen cargada`);
     }
 
-    await this.messaging.queueOutbound(
-      {
-        conversationId,
-        type: MessageType.IMAGE,
-        mediaUrl: product.imageUrl,
-        caption: String(input.caption ?? "").trim() || undefined,
-      },
-      MessageAuthor.AI,
-    );
-    return `Foto de "${product.name}" enviada.`;
+    const caption = String(input.caption ?? "").trim() || undefined;
+    await this.messaging.queueOutbound({ conversationId, type: MessageType.IMAGE, mediaUrl: product.imageUrl, caption }, MessageAuthor.AI, { aiRunId: send.aiRunId });
+    send.onSent?.(caption ?? "");
+    return `Foto de "${product.name}" enviada${sentWith(caption)}.`;
   }
 
   // ── Archivos de producto ────────────────────────────────────
@@ -477,7 +484,7 @@ export class AgentActionsService {
    * que se pueda enviar, o el canal no admite documentos, sale el enlace en texto
    * y el modelo se entera, para que no diga que mandó un archivo.
    */
-  private async sendProductFile(conversationId: string | null, input: ActionInput): Promise<string> {
+  private async sendProductFile(conversationId: string | null, input: ActionInput, send: SendContext): Promise<string> {
     if (!conversationId) throw new Error("No hay conversación a la que enviar el archivo");
     const wanted = String(input.product ?? "").trim();
     const product = await this.prisma.product.findFirst({
@@ -509,7 +516,7 @@ export class AgentActionsService {
     const documents = channel === "whatsapp" || channel === "messenger";
     const caption = String(input.caption ?? "").trim() || undefined;
     const { label, file } = pick;
-    const sent = `Archivo «${label}» de "${product.name}" enviado. No pegues enlaces ni repitas lo que dice: sigue con lo demás.`;
+    const sent = `Archivo «${label}» de "${product.name}" enviado${sentWith(caption)}. No pegues enlaces ni repitas lo que dice: sigue con lo demás.`;
 
     if (file.kind === "stored") {
       const stored = await this.storage.read(parseStorageRef(file.ref)!);
@@ -527,7 +534,9 @@ export class AgentActionsService {
           caption,
         },
         MessageAuthor.AI,
+        { aiRunId: send.aiRunId },
       );
+      send.onSent?.(caption ?? "");
       return sent;
     }
 
@@ -541,10 +550,14 @@ export class AgentActionsService {
           caption,
         },
         MessageAuthor.AI,
+        { aiRunId: send.aiRunId },
       );
+      send.onSent?.(caption ?? "");
       return sent;
     }
-    await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text: `${label} de ${product.name}: ${file.ref}` }, MessageAuthor.AI);
+    const link = `${label} de ${product.name}: ${file.ref}`;
+    await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text: link }, MessageAuthor.AI, { aiRunId: send.aiRunId });
+    send.onSent?.(link);
     return `No se pudo enviar «${label}» como archivo (el enlace ${check.reason.replace(/^el enlace /, "")}): al cliente le llegó el enlace en un mensaje aparte. No digas que le mandaste un archivo ni vuelvas a pegar el enlace.`;
   }
 
@@ -593,15 +606,16 @@ export class AgentActionsService {
     return `(simulado, no se envió) El cliente recibiría${plan.country ? ` (${plan.country.name})` : ""}:\n${plan.text}${photos}\n\n${PAYMENT_SENT_HINT}`;
   }
 
-  private async sendPaymentMethods(contactId: string, conversationId: string | null, input: ActionInput): Promise<string> {
+  private async sendPaymentMethods(contactId: string, conversationId: string | null, input: ActionInput, send: SendContext): Promise<string> {
     if (!conversationId) throw new Error("No hay conversación a la que enviar los métodos de pago");
     const contact = await this.prisma.contact.findUnique({ where: { id: contactId }, select: { phone: true } });
     const plan = await this.planPaymentMethods(contact?.phone ?? null, input);
     // No es un error de la acción: es lo que el agente tiene que saber para no inventar.
     if (plan.problem) return plan.problem;
-    await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text: plan.text }, MessageAuthor.AI);
+    await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text: plan.text }, MessageAuthor.AI, { aiRunId: send.aiRunId });
+    send.onSent?.(plan.text);
     for (const img of plan.images) {
-      await this.messaging.queueOutbound({ conversationId, type: MessageType.IMAGE, mediaUrl: img.url, caption: img.name }, MessageAuthor.AI);
+      await this.messaging.queueOutbound({ conversationId, type: MessageType.IMAGE, mediaUrl: img.url, caption: img.name }, MessageAuthor.AI, { aiRunId: send.aiRunId });
     }
     return `Enviado al cliente${plan.country ? ` (${plan.country.name})` : ""}: ${plan.names.join(", ")}. ${PAYMENT_SENT_HINT}`;
   }
