@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { JwtService } from "@nestjs/jwt";
 import type { Queue } from "bullmq";
@@ -39,6 +39,7 @@ import {
   QUEUE_WEBHOOK,
 } from "../../infra/queue/queue.constants";
 import { PrismaService } from "../../infra/prisma/prisma.service";
+import { STORAGE_PROVIDER, type StorageProvider } from "../../infra/storage/storage.provider";
 import { runUnscoped } from "../../infra/tenant/tenant.context";
 import { AiSettingsService } from "../ai/ai-settings.service";
 
@@ -71,6 +72,7 @@ export class PlatformService {
     @InjectQueue(QUEUE_META_MESSAGING) private readonly qMetaMessaging: Queue,
     @InjectQueue(QUEUE_TIKTOK) private readonly qTikTok: Queue,
     @InjectQueue(QUEUE_PRODUCT_SYNC) private readonly qProductSync: Queue,
+    @Optional() @Inject(STORAGE_PROVIDER) private readonly storage?: StorageProvider,
   ) {}
 
   private base(): { base: string; protocolo: string } {
@@ -559,6 +561,8 @@ export class PlatformService {
         }
       }),
     );
+    // Dónde se guardan los archivos y si responde (con R2: una petición, guardada un minuto).
+    const storage = await this.storage?.health().catch(() => undefined);
     return runUnscoped("consola de plataforma: salud", async () => {
       const numbers = await this.prisma.$queryRaw<
         Array<{ orgId: string; orgName: string; orgSlug: string; id: string; label: string | null; number: string | null; reason: string | null; since: Date }>
@@ -603,6 +607,7 @@ export class PlatformService {
           since: r.since.toISOString(),
         })),
         outbound24h: { failed: n(media?.failed24), sent: n(media?.sent24) },
+        storage,
         failedByOrg: failed.map((r) => ({ orgId: r.orgId, orgName: r.orgName, orgSlug: r.orgSlug, count: n(r.count), lastError: r.lastError })),
         webhooksFailing: webhooks.map((w) => ({
           orgId: w.orgId,

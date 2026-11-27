@@ -18,8 +18,21 @@ export interface ReadFile {
   fileName: string;
 }
 
+/** Cómo está el almacén, para la consola de la plataforma. */
+export interface StorageHealth {
+  /** "local" = el disco del servidor; "s3" = un almacén externo (R2, S3…). */
+  kind: "local" | "s3";
+  /** Dónde se guarda, dicho para una persona: «Cloudflare R2 · driony-media». */
+  target: string;
+  ok: boolean;
+  /** Si no está bien, por qué. */
+  detail: string | null;
+  /** Archivos que hay en el disco del servidor (con un almacén externo: los que faltan por trasladar). */
+  onDisk: number | null;
+}
+
 export interface StorageProvider {
-  /** Nombre legible para logs/diagnóstico ("local"). */
+  /** Nombre legible para logs/diagnóstico ("local", "s3"). */
   readonly name: string;
 
   save(buffer: Buffer, mimeType: string, originalName: string): Promise<StoredFile>;
@@ -28,6 +41,8 @@ export interface StorageProvider {
 
   /** Borra el fichero; si no existe, no pasa nada. */
   remove(id: string): Promise<void>;
+
+  health(): Promise<StorageHealth>;
 }
 
 /** Referencia interna que se guarda en `Message.mediaUrl` para ficheros propios. */

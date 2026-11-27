@@ -531,6 +531,36 @@ function HealthPanel({ health, loading, error, onOpen }: { health?: PlatformHeal
         </div>
       </section>
 
+      {health.storage && (
+        <section className="pc-panel" data-storage>
+          <div className="pc-panel__head">
+            <h2>Archivos</h2>
+            <span className="pc-muted" style={{ fontSize: 12.5 }}>Fotos, audios y documentos de los chats, archivos de productos y grabaciones.</span>
+          </div>
+          <div className="pc-queues">
+            <div className={`pc-queue${health.storage.ok ? "" : " is-bad"}`}>
+              <span className="pc-queue__name">
+                {health.storage.target}
+                {!health.storage.ok && <span className="pc-danger" style={{ marginLeft: 6 }}>con problemas</span>}
+              </span>
+              <span className="pc-queue__nums">
+                <span>{health.storage.ok ? "Responde" : "No responde"}</span>
+                {health.storage.onDisk !== null && (
+                  <span title={health.storage.kind === "s3" ? "Se siguen viendo desde el CRM. «storage migrate» los sube al almacén." : undefined}>
+                    <b>{health.storage.onDisk.toLocaleString("es")}</b> {health.storage.kind === "s3" ? "todavía en el disco" : "archivos"}
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+          {health.storage.detail && (
+            <p className={health.storage.ok ? "pc-muted" : "pc-danger"} style={{ margin: "10px 0 0", fontSize: 13, lineHeight: 1.5 }}>
+              {health.storage.detail}
+            </p>
+          )}
+        </section>
+      )}
+
       <section className="pc-panel">
         <div className="pc-panel__head">
           <h2>Números con error · {health.numbersWithError.length}</h2>

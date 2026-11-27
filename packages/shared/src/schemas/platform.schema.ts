@@ -255,6 +255,17 @@ export const platformHealthSchema = z.object({
     }),
   ),
   outbound24h: z.object({ failed: z.number(), sent: z.number() }),
+  /** Dónde se guardan los archivos (disco del servidor o R2/S3) y si responde. */
+  storage: z
+    .object({
+      kind: z.enum(["local", "s3"]),
+      target: z.string(),
+      ok: z.boolean(),
+      detail: z.string().nullable(),
+      /** Archivos en el disco del servidor; con un almacén externo, los que faltan por trasladar. */
+      onDisk: z.number().nullable(),
+    })
+    .optional(),
   failedByOrg: z.array(
     z.object({ orgId: z.string(), orgName: z.string(), orgSlug: z.string(), count: z.number(), lastError: z.string().nullable() }),
   ),

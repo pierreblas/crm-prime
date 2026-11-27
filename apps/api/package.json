@@ -6,6 +6,8 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main.js",
+    "storage": "tsx src/scripts/storage.ts",
+    "test:storage": "tsx --test test/storage.test.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -84,6 +86,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
+    "@aws-sdk/client-s3": "^3.1178.0",
     "@crm/shared": "*",
     "@nestjs/bullmq": "^10.2.3",
     "@nestjs/common": "^10.4.15",

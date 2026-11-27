@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Injectable } from "@nestjs/common";
-import type { ReadFile, StorageProvider, StoredFile } from "../storage.provider";
+import type { ReadFile, StorageHealth, StorageProvider, StoredFile } from "../storage.provider";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -22,8 +22,17 @@ interface Metadata {
 export class LocalStorageProvider implements StorageProvider {
   readonly name = "local";
 
-  private readonly dir = process.env.MEDIA_DIR ?? process.env.STORAGE_DIR ?? join(process.cwd(), "storage");
+  private dir = process.env.MEDIA_DIR ?? process.env.STORAGE_DIR ?? join(process.cwd(), "storage");
   private ready: Promise<void> | null = null;
+  /** Algo que la consola debe enseñar aunque el disco funcione (un almacén externo mal configurado). */
+  notice: string | null = null;
+
+  /** El mismo almacén sobre otra carpeta: para las pruebas. En la app la carpeta sale de MEDIA_DIR. */
+  static at(dir: string): LocalStorageProvider {
+    const provider = new LocalStorageProvider();
+    provider.dir = dir;
+    return provider;
+  }
 
   private ensureDir(): Promise<void> {
     if (!this.ready) this.ready = mkdir(this.dir, { recursive: true }).then(() => undefined);
@@ -71,5 +80,20 @@ export class LocalStorageProvider implements StorageProvider {
   async remove(id: string): Promise<void> {
     if (!UUID_RE.test(id)) return;
     await Promise.all([unlink(this.binPath(id)).catch(() => undefined), unlink(this.metaPath(id)).catch(() => undefined)]);
+  }
+
+  /** Los ids de todos los ficheros que hay en el disco (los que tienen sus metadatos). */
+  async ids(): Promise<string[]> {
+    await this.ensureDir();
+    const names = await readdir(this.dir);
+    return names.filter((n) => n.endsWith(".json") && UUID_RE.test(n.slice(0, -5))).map((n) => n.slice(0, -5));
+  }
+
+  async health(): Promise<StorageHealth> {
+    try {
+      return { kind: "local", target: "El disco del servidor", ok: !this.notice, detail: this.notice, onDisk: (await this.ids()).length };
+    } catch (e) {
+      return { kind: "local", target: "El disco del servidor", ok: false, detail: `No se puede leer la carpeta de archivos: ${(e as Error).message}`, onDisk: null };
+    }
   }
 }
