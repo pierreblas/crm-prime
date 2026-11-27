@@ -13,6 +13,16 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_COMPANY_NAME=$NEXT_PUBLIC_COMPANY_NAME \
     NEXT_PUBLIC_CONTACT_EMAIL=$NEXT_PUBLIC_CONTACT_EMAIL
 
+# La dirección pública de la web, para las páginas que se escriben en el build
+# (documentación, blog, mapa del sitio): con ella salen bien el canónico y la
+# imagen al compartir. Solo viven en esta etapa; en ejecución mandan las del compose.
+ARG NEXT_PUBLIC_SITE_URL
+ARG SAAS_BASE_DOMAIN
+ARG AUTH_URL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
+    SAAS_BASE_DOMAIN=$SAAS_BASE_DOMAIN \
+    AUTH_URL=$AUTH_URL
+
 # Instalar dependencias del workspace
 COPY package*.json ./
 COPY packages/shared/package*.json packages/shared/

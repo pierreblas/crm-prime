@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 
 /**
- * Lo que comparten todas las páginas públicas (landing, precios): cabecera con
+ * Lo que comparten todas las páginas públicas (landing, precios, blog): cabecera con
  * su menú móvil, pie, logotipos e iconos. Las páginas ponen el contenido.
  */
 
@@ -81,6 +81,9 @@ export function MarketingHeader({ active, home = false }: { active?: string | nu
             <Link href="/precios" aria-current={active === "precios" ? "true" : undefined}>
               Precios
             </Link>
+            <Link href="/blog" aria-current={active === "blog" ? "true" : undefined}>
+              Blog
+            </Link>
             <Link href="/docs">Docs</Link>
           </nav>
           <div className="lp-nav__cta">
@@ -125,6 +128,7 @@ export function MarketingFooter({ home = false }: { home?: boolean }) {
         <nav className="lp-foot__links" aria-label="Pie de página">
           <a href={sectionHref("capacidades", home)}>Capacidades</a>
           <Link href="/precios">Precios</Link>
+          <Link href="/blog">Blog</Link>
           <Link href="/docs">Documentación</Link>
           <a href={GITHUB} target="_blank" rel="noopener noreferrer">
             GitHub
@@ -184,6 +188,9 @@ function MobileMenu({ home, onClose }: { home: boolean; onClose: () => void }) {
         ))}
         <Link href="/precios" onClick={onClose}>
           Precios
+        </Link>
+        <Link href="/blog" onClick={onClose}>
+          Blog
         </Link>
         <Link href="/docs" onClick={onClose}>
           Docs

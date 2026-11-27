@@ -6,8 +6,12 @@ import { I18nProvider } from "@/i18n/I18nProvider";
 import { getLocale, getMessages } from "@/i18n/server";
 import { cookies } from "next/headers";
 import { serverTheme, THEME_COOKIE, THEME_SCRIPT, themeFrom } from "@/lib/theme";
+import { siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
+  // Con esto el canónico y la imagen al compartir llevan la dirección pública
+  // completa; sin ello Next los escribe contra localhost.
+  metadataBase: new URL(siteUrl()),
   title: "Driony — Sell on WhatsApp with AI agents",
   description:
     "The CRM with AI agents that replies, qualifies and books your leads in seconds, 24/7, straight from your WhatsApp number.",

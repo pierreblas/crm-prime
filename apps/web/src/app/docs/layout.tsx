@@ -28,6 +28,9 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
           </Link>
           <span style={{ flex: 1 }} />
           <ThemeButton className="docs-theme" />
+          <Link href="/blog" className="docs-top__link">
+            Blog
+          </Link>
           <a
             href="https://github.com/jusiho/crm-prime"
             target="_blank"

@@ -121,6 +121,12 @@ services:
         NEXT_PUBLIC_WHATSAPP_CONFIG_ID: ${NEXT_PUBLIC_WHATSAPP_CONFIG_ID}
         NEXT_PUBLIC_COMPANY_NAME: ${NEXT_PUBLIC_COMPANY_NAME:-Driony}
         NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL}
+        # La dirección pública, para lo que se escribe en el build (blog,
+        # documentación, mapa del sitio). Sale de las que ya tienes; solo si
+        # tu web pública vive en otra dirección, pon NEXT_PUBLIC_SITE_URL.
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-}
+        SAAS_BASE_DOMAIN: ${SAAS_BASE_DOMAIN:-}
+        AUTH_URL: ${AUTH_URL:-}
     container_name: crm-web
     restart: unless-stopped
     networks: [default, proxy]

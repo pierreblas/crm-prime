@@ -1,0 +1,822 @@
+/* Blog público. Va dentro de .lp y usa sus fichas (landing.css): petróleo,
+   niebla y lima, titulares en Gabarito y texto en Hanken, en los dos temas.
+   La lima queda para lo que se pulsa (reproducir) y para el cierre. */
+
+.lp .bl-stack {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(44px, 6vw, 84px);
+}
+.lp .bl-hero h1 {
+  max-width: 13ch;
+}
+.lp .bl-heading {
+  margin-bottom: clamp(22px, 3vw, 36px);
+  font-size: clamp(1.7rem, 1.15rem + 2vw, 2.6rem);
+  letter-spacing: -0.025em;
+}
+.lp .bl-stack > .bl-stack > .bl-heading {
+  margin-bottom: 0;
+}
+.bl-kicker {
+  margin: 0 0 6px;
+  color: var(--accent-text);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+/* ── Pestañas: todo, tutoriales, artículos ── */
+.bl-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: calc(-1 * clamp(8px, 2vw, 28px));
+}
+.bl-tabs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 2px solid var(--border);
+  border-radius: var(--r-pill);
+  color: var(--ink-dim);
+  font-size: 15px;
+  font-weight: 600;
+  transition:
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+.bl-tabs a span {
+  min-width: 24px;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
+}
+.bl-tabs a[aria-current="page"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
+}
+.bl-tabs a[aria-current="page"] span {
+  background: transparent;
+  color: inherit;
+  opacity: 0.75;
+}
+@media (hover: hover) {
+  .bl-tabs a:not([aria-current="page"]):hover {
+    border-color: var(--border-strong);
+    color: var(--ink);
+  }
+}
+
+/* ── Tarjeta de una entrada ── */
+.bl-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(28px, 3.2vw, 44px) clamp(20px, 2.4vw, 32px);
+}
+.bl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--ink);
+}
+.bl-cover {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+  background: var(--surface-3);
+}
+.bl-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s var(--ease);
+}
+/* Sin imagen: petróleo con el globo lima, en los dos temas. */
+.bl-cover--blank {
+  border-color: #0b3a45;
+  background: #0b3a45;
+}
+.bl-cover__bub {
+  --fill: #e2f80d;
+  --b1: 10px;
+  --b2: 24px;
+  --t: 22px;
+  position: absolute;
+  left: 9%;
+  top: 24%;
+  max-width: 76%;
+  padding: 12px 20px;
+  color: #0b3a45;
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 0.8rem + 0.9vw, 1.5rem);
+  font-weight: 650;
+  line-height: 1.15;
+}
+.bl-cover__play {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #e2f80d;
+  color: #0b3a45;
+  transition: transform 0.2s var(--ease);
+}
+.bl-cover__play svg {
+  margin-left: 2px;
+}
+.bl-cover__time,
+.bl-video__time {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: rgb(4 30 37 / 0.82);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.bl-cover__draft,
+.bl-post__draft {
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: #ffc861;
+  color: #3a2600;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.bl-cover__draft {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+}
+.bl-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bl-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.bl-kind {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.lp .bl-card__title {
+  font-size: clamp(1.18rem, 1.08rem + 0.4vw, 1.36rem);
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+.bl-card__desc {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 15.5px;
+  line-height: 1.5;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.bl-card__date {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+@media (hover: hover) {
+  .bl-card:hover .bl-cover img {
+    transform: scale(1.035);
+  }
+  .bl-card:hover .bl-cover__play {
+    transform: scale(1.1);
+  }
+  .bl-card:hover .bl-card__title {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
+}
+
+/* La destacada: imagen grande a un lado y el texto al otro. */
+.bl-card--big {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(22px, 3.6vw, 52px);
+}
+.bl-card--big .bl-card__body {
+  gap: 12px;
+}
+.lp .bl-card--big .bl-card__title {
+  font-size: clamp(1.7rem, 1.1rem + 2.2vw, 2.8rem);
+  line-height: 1.05;
+  letter-spacing: -0.028em;
+}
+.bl-card--big .bl-card__desc {
+  font-size: 17px;
+  -webkit-line-clamp: 4;
+}
+
+/* ── Serie de tutoriales ── */
+.bl-series {
+  scroll-margin-top: calc(var(--nav-h) + 20px);
+}
+.bl-series__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-bottom: clamp(20px, 2.6vw, 30px);
+}
+.lp .bl-series__title {
+  font-size: clamp(1.6rem, 1.15rem + 1.7vw, 2.4rem);
+  font-weight: 600;
+  line-height: 1.06;
+  letter-spacing: -0.025em;
+}
+.bl-series__meta {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 15px;
+}
+.bl-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+.bl-more:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.bl-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  padding: clamp(28px, 4vw, 48px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  color: var(--ink-dim);
+  font-size: 18px;
+}
+
+/* ── Página de una entrada ── */
+.bl-post__head {
+  padding-block: clamp(34px, 5vw, 60px) clamp(40px, 5.4vw, 68px);
+}
+.bl-post--media .bl-post__head {
+  padding-bottom: calc(var(--lift) + clamp(34px, 4.4vw, 56px));
+}
+.bl-post {
+  /* Lo que el video (o la portada) se mete en la banda del título. */
+  --lift: clamp(72px, 11vw, 170px);
+}
+.bl-crumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 9px;
+  margin-bottom: clamp(18px, 2.4vw, 28px);
+  color: var(--muted);
+  font-size: 14.5px;
+  font-weight: 500;
+}
+.bl-crumb a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+}
+.bl-crumb a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.lp .bl-post__head h1 {
+  max-width: 21ch;
+  font-size: clamp(2.15rem, 1.2rem + 3.6vw, 4.2rem);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+.bl-post__lede {
+  max-width: 62ch;
+  margin-top: clamp(14px, 1.8vw, 22px);
+  color: var(--ink-dim);
+  font-size: clamp(1.06rem, 1rem + 0.4vw, 1.26rem);
+  line-height: 1.5;
+}
+.bl-post__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 0;
+  margin-top: clamp(16px, 2vw, 24px);
+  color: var(--muted);
+  font-size: 14.5px;
+}
+.bl-post__meta > * + *::before {
+  content: "·";
+  margin-inline: 10px;
+  color: var(--muted);
+}
+.bl-post__meta > .bl-post__draft + *::before {
+  content: none;
+}
+.bl-post__draft {
+  margin-right: 12px;
+}
+
+.bl-post__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 330px);
+  align-items: start;
+  gap: clamp(28px, 4.4vw, 68px);
+  padding-block: clamp(34px, 4.6vw, 60px) clamp(60px, 8vw, 110px);
+}
+.bl-post__layout--single {
+  grid-template-columns: minmax(0, 860px);
+}
+.bl-post--media .bl-post__layout {
+  margin-top: calc(-1 * var(--lift));
+  padding-top: 0;
+}
+.bl-post__main {
+  min-width: 0;
+}
+
+.bl-video,
+.bl-post__cover {
+  position: relative;
+  margin: 0;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: #04222a;
+  box-shadow: 0 30px 60px -34px rgb(2 20 26 / 0.7);
+}
+.bl-video iframe,
+.bl-video video,
+.bl-video img,
+.bl-post__cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
+}
+.bl-video video {
+  object-fit: contain;
+}
+.bl-video__start {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.bl-video__play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: clamp(64px, 9vw, 92px);
+  height: clamp(64px, 9vw, 92px);
+  border-radius: 50%;
+  background: #e2f80d;
+  color: #0b3a45;
+  transform: translate(-50%, -50%);
+  transition: transform 0.2s var(--ease);
+}
+.bl-video__play svg {
+  margin-left: 4px;
+}
+.bl-video__start:hover .bl-video__play {
+  transform: translate(-50%, -50%) scale(1.08);
+}
+.bl-video__start:focus-visible {
+  outline: 3px solid #e2f80d;
+  outline-offset: -6px;
+}
+.bl-video__time {
+  right: 16px;
+  bottom: 16px;
+  font-size: 13.5px;
+}
+/* Un video dentro del texto. */
+.bl-prose .bl-video {
+  margin-block: 1.8em;
+  box-shadow: none;
+}
+
+/* ── El texto ── */
+.bl-prose {
+  max-width: 70ch;
+  margin-top: clamp(30px, 4vw, 48px);
+  color: var(--ink-dim);
+  font-size: 18px;
+  line-height: 1.7;
+  overflow-wrap: break-word;
+}
+.bl-post:not(.bl-post--media) .bl-prose {
+  margin-top: 0;
+}
+.bl-prose > :first-child {
+  margin-top: 0;
+}
+.bl-prose p {
+  margin: 0 0 1.15em;
+}
+.lp .bl-prose h2 {
+  margin: 1.9em 0 0.6em;
+  font-size: clamp(1.5rem, 1.25rem + 1vw, 1.95rem);
+  line-height: 1.14;
+  letter-spacing: -0.02em;
+  scroll-margin-top: calc(var(--nav-h) + 20px);
+}
+.lp .bl-prose h3 {
+  margin: 1.7em 0 0.5em;
+  font-size: 1.22rem;
+  scroll-margin-top: calc(var(--nav-h) + 20px);
+}
+.bl-anchor {
+  color: inherit;
+}
+.bl-prose :is(p, li, td, figcaption, blockquote) a {
+  color: var(--accent-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+.bl-prose strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+.bl-prose ul,
+.bl-prose ol {
+  margin: 0 0 1.3em;
+  padding-left: 1.3em;
+}
+.bl-prose li {
+  margin: 0.4em 0;
+}
+.bl-prose li > p {
+  margin: 0;
+}
+.bl-prose ul li::marker {
+  color: var(--accent-text);
+}
+/* Los pasos: cada número en un globo pequeño. */
+.bl-prose ol {
+  padding-left: 0;
+  list-style: none;
+  counter-reset: paso;
+}
+.bl-prose ol > li {
+  position: relative;
+  min-height: 36px;
+  margin: 0 0 16px;
+  padding-left: 52px;
+  counter-increment: paso;
+}
+.bl-prose ol > li::before {
+  content: counter(paso);
+  position: absolute;
+  left: 0;
+  top: -2px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px 18px 18px 3px;
+  background: var(--surface-3);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1;
+}
+.bl-prose ol ol,
+.bl-prose ol ul {
+  margin: 0.5em 0 0;
+}
+/* Una cita es un globo de la conversación. */
+.bl-quote {
+  --fill: var(--surface-3);
+  --b1: 10px;
+  --b2: 24px;
+  --t: 22px;
+  margin: 1.7em 0 calc(1.7em + 20px);
+  padding: 18px 24px;
+  color: var(--ink);
+}
+.bl-quote p:last-child {
+  margin-bottom: 0;
+}
+.bl-figure {
+  margin: 1.9em 0;
+}
+.bl-figure img,
+.bl-inline-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.bl-figure figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.bl-prose code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+}
+.bl-prose pre {
+  margin: 0 0 1.4em;
+  padding: 16px 18px;
+  overflow-x: auto;
+  border-radius: var(--r-md);
+  background: #06272f;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.bl-prose pre code {
+  padding: 0;
+  background: none;
+  color: #e8f0f3;
+  font-size: inherit;
+}
+.bl-table {
+  margin: 0 0 1.5em;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.bl-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15.5px;
+  line-height: 1.5;
+}
+.bl-prose th,
+.bl-prose td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.bl-prose th {
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 700;
+}
+.bl-prose tr:last-child td {
+  border-bottom: 0;
+}
+.bl-prose hr {
+  margin: 2.2em 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Debajo del texto: la guía, los temas y los episodios vecinos ── */
+.bl-docs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  max-width: 70ch;
+  margin-top: clamp(28px, 3.6vw, 44px);
+  padding: 18px 22px;
+  border: 2px solid var(--border);
+  border-radius: var(--r-lg);
+  color: var(--ink);
+  transition: border-color 0.16s ease;
+}
+.bl-docs > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bl-docs strong {
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  font-weight: 650;
+}
+.bl-docs span span {
+  color: var(--muted);
+  font-size: 15px;
+}
+.bl-docs svg {
+  flex: none;
+}
+.bl-docs:hover {
+  border-color: var(--border-strong);
+}
+.bl-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 70ch;
+  margin: clamp(22px, 3vw, 32px) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.bl-tags li {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.bl-pager {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  max-width: 70ch;
+  margin-top: clamp(30px, 4vw, 48px);
+  padding-top: clamp(22px, 3vw, 32px);
+  border-top: 1px solid var(--border);
+}
+.bl-pager__link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--ink);
+  transition: border-color 0.16s ease;
+}
+.bl-pager__link span {
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.bl-pager__link strong {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+.bl-pager__link--next {
+  grid-column: 2;
+  text-align: right;
+}
+.bl-pager__link:hover {
+  border-color: var(--border-strong);
+}
+
+/* ── Al lado: los episodios de la serie o el índice del artículo ── */
+.bl-post__side {
+  position: sticky;
+  top: calc(var(--nav-h) + 20px);
+  min-width: 0;
+}
+.bl-list {
+  padding: 20px 14px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.bl-list .bl-kicker,
+.bl-list__title {
+  padding-inline: 10px;
+}
+.bl-list__title {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 650;
+  line-height: 1.15;
+}
+.bl-list ol {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bl-list a {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  color: var(--ink-dim);
+  font-size: 15px;
+  line-height: 1.35;
+}
+.bl-list--toc a {
+  grid-template-columns: minmax(0, 1fr);
+}
+.bl-list__n,
+.bl-list__time {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.bl-list__n {
+  font-weight: 700;
+}
+.bl-list a:hover {
+  background: rgb(var(--smoke-rgb) / 0.08);
+  color: var(--ink);
+}
+.bl-list a[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+.bl-list a[aria-current="page"] .bl-list__n {
+  color: var(--accent-text);
+}
+
+.lp .bl-related .bl-heading {
+  font-size: clamp(1.6rem, 1.15rem + 1.7vw, 2.3rem);
+}
+
+/* ── Pantallas medianas y móvil ── */
+@media (max-width: 1000px) {
+  .bl-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .bl-post__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .bl-post__side {
+    position: static;
+    max-width: 70ch;
+  }
+}
+@media (max-width: 760px) {
+  .bl-card--big {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 620px) {
+  .bl-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .bl-prose {
+    font-size: 17px;
+  }
+  .bl-pager {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .bl-pager__link--next {
+    grid-column: auto;
+    text-align: left;
+  }
+  .bl-cover,
+  .bl-video,
+  .bl-post__cover {
+    border-radius: var(--r-md);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bl-cover img,
+  .bl-cover__play,
+  .bl-video__play {
+    transition: none;
+  }
+}

@@ -387,6 +387,7 @@
 .lp-nav__login {
   display: inline-flex;
   align-items: center;
+  white-space: nowrap;
   min-height: 40px;
   padding: 0 12px;
   color: var(--ink);
@@ -2587,8 +2588,14 @@
 }
 /* Justo por encima del menú plegado no caben todos los enlaces: «Docs» sigue
    en el pie y en el menú del celular. */
-@media (min-width: 901px) and (max-width: 1040px) {
+/* Con «Blog» en el menú, en anchos justos ceden primero Docs y luego «Planes» (ya está Precios). */
+@media (min-width: 901px) and (max-width: 1090px) {
   .lp-nav__links a[href="/docs"] {
+    display: none;
+  }
+}
+@media (min-width: 901px) and (max-width: 1010px) {
+  .lp-nav__links a[href$="#planes"] {
     display: none;
   }
 }
