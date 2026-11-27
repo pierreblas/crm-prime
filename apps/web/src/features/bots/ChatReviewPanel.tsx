@@ -27,6 +27,7 @@ const FINDING: Record<SimulationFindingKind, { icon: IconName; label: string }> 
   no_next_step: { icon: "arrow-right", label: "Sin siguiente paso" },
   handoff: { icon: "user", label: "Pasar a una persona" },
   tone: { icon: "message", label: "Forma" },
+  off_script: { icon: "flow", label: "No siguió sus instrucciones" },
   good: { icon: "check", label: "Bien" },
 };
 

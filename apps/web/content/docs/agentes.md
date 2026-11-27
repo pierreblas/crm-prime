@@ -272,7 +272,7 @@ No se envía nada por WhatsApp ni se crea o cambia ningún contacto. Sí **gasta
 
 ## Revisión de chats y corregir al agente
 
-En **Agentes IA › Revisión de chats**, la IA revisa las conversaciones que atendió tu agente y marca las que hay que mirar: si inventó un dato, si no respondió o si no propuso el siguiente paso. De cada una puedes **Corregir al agente**:
+En **Agentes IA › Revisión de chats**, la IA revisa las conversaciones que atendió tu agente y marca las que hay que mirar: si inventó un dato, si no respondió, si no propuso el siguiente paso o si no siguió sus propias instrucciones (un paso de su flujo, una plantilla, botones donde no iban). De cada una puedes **Corregir al agente**:
 
 1. Pulsa **Corregir al agente** en un chat, o marca varios del mismo agente (hasta 8) y pulsa **Corregir juntos**: sale un solo cambio que los cubre.
 2. Si quieres, escribe **qué debió hacer** con tus palabras. Manda sobre lo que marcó la revisión, y los datos que pongas ahí se pueden usar. En un chat que salió bien hace falta escribirlo.

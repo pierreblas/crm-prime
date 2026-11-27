@@ -64,6 +64,13 @@ function setup(opts: { customerSays?: string; customerFails?: string; agent?: Pa
   return { service, llmCalls, agentCalls };
 }
 
+test("el revisor mira si el agente siguió sus propias instrucciones", () => {
+  assert.match(SIMULATION_REVIEW_SYSTEM, /«off_script» y di qué paso o qué regla no siguió/);
+  assert.match(SIMULATION_REVIEW_SYSTEM, /invented\|unanswered\|no_next_step\|handoff\|tone\|off_script\|good/);
+  const parsed = parseSimulationReview('{"verdict":"review","summary":"No siguió el paso 4.","goal":false,"findings":[{"kind":"off_script","note":"En el Paso 4 debía pedir el comprobante.","quote":null}]}');
+  assert.equal(parsed?.findings[0]?.kind, "off_script");
+});
+
 test("el primer paso: el cliente simulado escribe según su escenario y el agente le responde", async () => {
   const s = setup();
   const r = await s.service.simulateTurn({ botId: "bot1", scenario, history: [], maxTurns: 6 });
@@ -214,7 +221,7 @@ test("el revisor recibe las instrucciones, la situación y la conversación con 
   assert.match(text, /Lo que le devolvió el sistema al consultar \(no lo dijo el agente\):\n    - Consultar tus productos .*\n      Devolvió: .*"missingDetails":\["Certificado"\]/);
   assert.match(text, /Botones que ofreció: Sí, sepárame · Tengo dudas/);
   // Unas instrucciones larguísimas se recortan.
-  assert.match(simulationReviewInput(input, "x".repeat(9000)), /Instrucciones del agente \(recortadas\)/);
+  assert.match(simulationReviewInput(input, "x".repeat(12000)), /Instrucciones del agente \(recortadas\)/);
   assert.equal(simulateReviewRequestSchema.safeParse({ scenario, lines: [] }).success, false, "sin conversación no hay nada que revisar");
   assert.doesNotMatch(text, /Lo que el agente sabe del cliente/, "sin cliente de prueba no se dice nada");
 });

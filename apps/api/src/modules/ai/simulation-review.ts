@@ -15,8 +15,12 @@ import {
  * un precio, una fecha o un dato de pago salió de ahí o se lo inventó.
  */
 
-/** Cuánto de las instrucciones del agente se le pasa: los datos válidos suelen estar ahí. */
-const INSTRUCTIONS_MAX = 6000;
+/**
+ * Cuánto de las instrucciones del agente se le pasa: los datos válidos suelen
+ * estar ahí, y unas instrucciones por pasos (con sus plantillas y ejemplos)
+ * rondan los 6.000 caracteres; recortadas, el revisor no vería los últimos pasos.
+ */
+const INSTRUCTIONS_MAX = 9000;
 
 /**
  * El modelo que revisa: uno que razona comprueba mucho mejor si un dato salió
@@ -36,11 +40,12 @@ export const SIMULATION_REVIEW_SYSTEM = [
   "2. Preguntas del cliente sin responder, o respuestas vagas cuando el dato sí estaba.",
   "3. Siguiente paso: si el cliente mostró interés, ¿le propuso avanzar (inscribirse, pagar, agendar)? Revisa todos sus mensajes antes de decir que no lo hizo.",
   "4. Pasar a una persona: ¿lo hizo cuando tocaba (lo pidió, está molesto, faltaba un dato importante)? ¿O lo pasó sin necesidad?",
-  "5. Forma: mensajes demasiado largos o robóticos para WhatsApp, repetir lo mismo, no adaptarse a lo que dice el cliente.",
-  "6. Buen fin: ¿la conversación terminó como le conviene al negocio, dado lo que quería el cliente? Sí («goal»: true) si quedó encaminada una venta, una cita o un pago, o si pasó el chat a una persona cuando tocaba. No («goal»: false) si el cliente se fue sin siguiente paso, molesto o con su duda sin resolver.",
+  "5. Sus propias instrucciones: si las instrucciones del agente dicen de forma explícita qué hacer en ese momento (un paso con un mensaje que se copia tal cual, una herramienta que se usa ahí, en qué única pregunta van los botones, un dato que no debe pedir, cuándo pedir el comprobante o pasar el chat) y el agente hizo otra cosa, márcalo como «off_script» y di qué paso o qué regla no siguió. Juzga aquí solo lo que el cliente ve: el mensaje, la pregunta con la que cierra, los botones, los datos que le pide y si le pasó el chat a una persona (cuenta como pasado si debajo dice «Pasó el chat a una persona»). Lo que el agente anota por dentro (marcar al cliente, mover su etapa, etiquetarlo, guardar sus datos) NO se juzga: no siempre aparece en lo que lees. Solo cuando la instrucción es clara y el momento encaja sin duda: adaptar las palabras al cliente no cuenta, y si las instrucciones no hablan de ese momento, no lo marques.",
+  "6. Forma: mensajes demasiado largos o robóticos para WhatsApp, repetir lo mismo, no adaptarse a lo que dice el cliente.",
+  "7. Buen fin: ¿la conversación terminó como le conviene al negocio, dado lo que quería el cliente? Sí («goal»: true) si quedó encaminada una venta, una cita o un pago, o si pasó el chat a una persona cuando tocaba. No («goal»: false) si el cliente se fue sin siguiente paso, molesto o con su duda sin resolver.",
   "Veredicto: «bad» si inventó algún dato o trató mal al cliente; «review» si hay algo que mejorar; «ok» si atendió bien.",
   "Hallazgos: como mucho 4, los más importantes, en español sencillo para alguien que no es técnico; cada nota, de 25 palabras como mucho. Si citas al agente, copia su frase exacta (corta). Si estuvo bien, incluye un hallazgo «good» con lo que hizo bien.",
-  'Responde solo con JSON: {"verdict": "ok|review|bad", "summary": "una frase", "goal": true|false, "findings": [{"kind": "invented|unanswered|no_next_step|handoff|tone|good", "note": "…", "quote": "…" o null}]}',
+  'Responde solo con JSON: {"verdict": "ok|review|bad", "summary": "una frase", "goal": true|false, "findings": [{"kind": "invented|unanswered|no_next_step|handoff|tone|off_script|good", "note": "…", "quote": "…" o null}]}',
 ].join("\n");
 
 const END_TEXT: Record<string, string> = {

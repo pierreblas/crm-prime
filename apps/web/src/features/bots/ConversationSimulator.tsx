@@ -41,12 +41,13 @@ interface Run {
 }
 
 export const VERDICT_LABEL: Record<SimulationVerdict, string> = { ok: "Bien", review: "Revisar", bad: "Mal" };
-export const FINDING: Record<SimulationFindingKind, { icon: "alert" | "check" | "question" | "arrow-right" | "user" | "message"; label: string }> = {
+export const FINDING: Record<SimulationFindingKind, { icon: "alert" | "check" | "question" | "arrow-right" | "user" | "message" | "flow"; label: string }> = {
   invented: { icon: "alert", label: "Inventó un dato" },
   unanswered: { icon: "question", label: "No respondió" },
   no_next_step: { icon: "arrow-right", label: "Sin siguiente paso" },
   handoff: { icon: "user", label: "Pasar a una persona" },
   tone: { icon: "message", label: "Forma" },
+  off_script: { icon: "flow", label: "No siguió sus instrucciones" },
   good: { icon: "check", label: "Bien" },
 };
 

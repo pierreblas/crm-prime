@@ -765,3 +765,17 @@ test("si la IA se queda sin tokens a mitad, la medición se detiene con lo que l
   assert.equal(run2.status, "done");
   assert.deepEqual([run2.variants[0]!.score!.conversations, run2.variants[0]!.score!.failed], [2, 1]);
 });
+
+test("un cambio no trae una herramienta que las instrucciones no usan", () => {
+  const base = "## PASO 1\n- Usa search_products antes de dar un precio.";
+  const anchor = "- Usa search_products antes de dar un precio.";
+  const r = applyProposal(base, [
+    { what: "Enviar pagos", why: "", caseTitle: null, action: "add", anchor, text: "- Usa send_payment_methods cuando quiera pagar." },
+    { what: "Consultar antes", why: "", caseTitle: null, action: "add", anchor, text: "- Vuelve a usar search_products si cambia de producto." },
+  ]);
+  assert.equal(r.changes.length, 1);
+  assert.match(r.skipped[0]!, /send_payment_methods\) que tus instrucciones no usan/);
+  assert.match(r.instructions, /Vuelve a usar search_products/);
+  assert.doesNotMatch(r.instructions, /send_payment_methods/);
+});
+

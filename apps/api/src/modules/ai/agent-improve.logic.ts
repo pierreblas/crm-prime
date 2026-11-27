@@ -59,10 +59,13 @@ export const EDIT_RULES = [
   "- Si dos fallos se arreglan con la misma regla, es un solo cambio. Menos cambios y mejor puestos valen más que muchos.",
   "- Si una línea de las instrucciones empuja al fallo (por ejemplo, pide respuestas largas y el fallo es que escribe demasiado), corrige esa línea en vez de añadir otra que la contradiga.",
   "- Pon cada regla nueva en la sección de las instrucciones donde corresponde (junto a las reglas de cómo atender, no entre los datos del negocio).",
+  "- Si las instrucciones van por pasos («## PASO 1», «## PASO 2»…), el cambio va dentro del paso donde ocurrió el fallo. Una conducta que vale para toda la conversación va en sus reglas críticas, si tiene esa sección. No abras una sección nueva ni dejes reglas sueltas al final.",
+  "- Si el agente no siguió un paso que ya está bien escrito, no lo repitas con otras palabras: hazlo más claro en ese mismo paso (cuándo aplica, que va en el mismo mensaje, que es una sola vez).",
+  "- El mensaje que sigue a «responde EXACTAMENTE» y los textos de los botones son del dueño: no los cambies, salvo que el fallo sea justo ese mensaje.",
 ];
 export const EDIT_LIMITS = [
   "- Nunca añadas datos del negocio que no estén ya en las instrucciones: precios, fechas, horarios, plazos, descuentos, garantías, formas de pago, políticas, nombres. Si falta un dato, la regla dice qué hacer cuando no se sabe; no lo inventes.",
-  "- No toques los datos entre « » (como «Precio»), los huecos entre corchetes (como [Oferta]) ni los nombres de las herramientas (como search_products).",
+  "- No toques los datos entre « » (como «Precio»), los huecos entre corchetes (como [Oferta]) ni los nombres de las herramientas (como search_products). Tampoco nombres una herramienta que las instrucciones no usen ya: el agente podría no tenerla.",
   "- No cambies lo que funciona ni el tono del dueño.",
 ];
 export const EDITS_FORMAT = [
@@ -112,6 +115,7 @@ const FINDING_TEXT: Record<string, string> = {
   no_next_step: "sin siguiente paso",
   handoff: "pasar a una persona",
   tone: "forma",
+  off_script: "no siguió sus instrucciones",
   good: "bien hecho",
 };
 /** Cuánto de cada conversación de ejemplo se le pasa. */
@@ -317,6 +321,11 @@ export function applyProposal(base: string, edits: ProposedEdit[], allowed = "")
     const offer = e.action === "remove" ? null : newOffer(`${base}\n${allowed}`, e.text);
     if (offer) {
       skip(`hacía que ofreciera ${offer}, y tus instrucciones no dicen que lo tengas.`);
+      continue;
+    }
+    const tool = e.action === "remove" ? null : (distinct(e.text, TOOL_RE).find((t) => !`${base}\n${allowed}`.includes(t)) ?? null);
+    if (tool) {
+      skip(`nombraba una herramienta (${tool}) que tus instrucciones no usan.`);
       continue;
     }
     const lines = e.text.split("\n").map((l) => l.trimEnd());

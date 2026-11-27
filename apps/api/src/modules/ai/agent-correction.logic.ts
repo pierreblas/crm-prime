@@ -10,7 +10,7 @@ import { plain } from "./simulation-review";
 
 // ── Qué momento se repite ────────────────────────────────────
 /** De más a menos grave: si hay varios fallos, se repite la respuesta del peor. */
-const SEVERITY: SimulationFinding["kind"][] = ["invented", "unanswered", "handoff", "tone", "no_next_step"];
+const SEVERITY: SimulationFinding["kind"][] = ["invented", "unanswered", "off_script", "handoff", "tone", "no_next_step"];
 /** Con el comienzo de la cita basta: el revisor suele recortarla. */
 const QUOTE_MATCH = 60;
 
@@ -122,6 +122,7 @@ const FINDING_TEXT: Record<string, string> = {
   no_next_step: "sin siguiente paso",
   handoff: "pasar a una persona",
   tone: "forma",
+  off_script: "no siguió sus instrucciones",
 };
 
 function marked(summary: string, findings: SimulationFinding[]): string {

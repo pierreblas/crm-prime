@@ -271,7 +271,9 @@ export function estimateSimulationTokens(promptChars: number, turns: number): nu
 
 export const simulationVerdicts = ["ok", "review", "bad"] as const;
 export type SimulationVerdict = (typeof simulationVerdicts)[number];
-export const simulationFindingKinds = ["invented", "unanswered", "no_next_step", "handoff", "tone", "good"] as const;
+// «off_script»: sus instrucciones decían qué hacer en ese momento (un paso, una plantilla, cuándo van
+// los botones) y el agente hizo otra cosa.
+export const simulationFindingKinds = ["invented", "unanswered", "no_next_step", "handoff", "tone", "off_script", "good"] as const;
 export type SimulationFindingKind = (typeof simulationFindingKinds)[number];
 
 export const simulationReviewLineSchema = z.object({
