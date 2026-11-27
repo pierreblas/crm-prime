@@ -106,12 +106,60 @@ test("el horario cubre los días elegidos y avisa fuera de él", () => {
 test("las instrucciones sin IA llevan sus datos y solo las herramientas activas", () => {
   const p = base({ description: "Ropa deportiva", answers: { envios: "A todo el país en 3 días" } });
   const prompt = localAgentPrompt(p, "Acme", ["search_knowledge", "handoff_to_human"]);
-  assert.match(prompt, /^ROL E IDENTIDAD\nEres Sofía, asistente por WhatsApp de Acme/);
+  assert.match(prompt, /^# ROL\nEres Sofía, asistente por WhatsApp de Acme/);
   assert.match(prompt, /Envíos: A todo el país en 3 días/);
   assert.match(prompt, /search_knowledge/);
   assert.doesNotMatch(prompt, /search_products/);
   assert.match(prompt, /asesor, humano, persona, reclamo/);
   assert.doesNotMatch(prompt, /\.\./, "sin dobles puntos");
+});
+
+test("el borrador va por pasos, con los botones solo en el cierre y los datos reales de la cuenta", () => {
+  const p = base({ businessType: "educacion", goal: "vender" });
+  const tools = ["search_products", "search_knowledge", "handoff_to_human", "mark_lead", "move_deal_stage", "reply_with_buttons"];
+  const facts = { stages: ["Entrantes", "Contactado", "Interesado", "Matrícula en proceso", "Inscrito", "Perdido"], products: 3, productFields: ["Horario"], productFiles: [] };
+  const prompt = localAgentPrompt(p, "Acme", tools, facts);
+  assert.match(prompt, /# REGLAS CRÍTICAS[\s\S]*# FLUJO DE LA CONVERSACIÓN[\s\S]*## PASO 5/);
+  assert.match(prompt, /BOTONES: solo usas botones cuando preguntas «¿Te gustaría separar tu cupo\?», y son exactamente «Sí, sepárame» y «Tengo dudas»/);
+  assert.match(prompt, /responde EXACTAMENTE:\n\n\*«Nombre»\*\n«Descripción»\n💰 «Precio»\n• Horario: «Horario»\n\n¿Te gustaría separar tu cupo\?/);
+  assert.match(prompt, /Usa mark_lead con «potential» y move_deal_stage a «Matrícula en proceso»\./);
+  assert.match(prompt, /Luego usa handoff_to_human y mark_lead con «purchase»\./);
+  assert.doesNotMatch(prompt, /send_payment_methods|send_product_file/, "sin las herramientas que no tiene");
+  assert.match(prompt, /Tu objetivo: que el cliente separe su cupo y envíe su comprobante\./);
+  assert.doesNotMatch(prompt, /\n\n\n/, "sin dobles líneas en blanco");
+  assert.match(prompt, /1\. PLANTILLAS: cuando un paso dice «responde EXACTAMENTE»[^\n]*sin las comillas « »/);
+  assert.match(prompt, /Responde su duda en 1 a 3 frases[^\n]*y, en ese mismo mensaje, termina con «¿Te gustaría separar tu cupo\?»/);
+  assert.match(prompt, /- mark_lead: Solo en los pasos que lo indican/, "lo que se anota en el CRM lo dicen los pasos");
+  assert.match(prompt, /# EJEMPLOS\nCliente: Hola, quiero información\nSofía: \[usa search_products y responde como dice el Paso 1\]/);
+  assert.match(prompt, /\[botones: Sí, sepárame \/ Tengo dudas\]/);
+  assert.match(prompt, /Ejemplo INCORRECTO \(no hagas esto\):\nSofía: .*botones fuera del único caso permitido\./);
+
+  // Sin catálogo ni embudo de seis etapas: pauta en vez de plantilla, y sin nombrar una etapa.
+  const bare = localAgentPrompt(p, "Acme", tools);
+  assert.match(bare, /Preséntalo en pocas líneas/);
+  assert.doesNotMatch(bare, /move_deal_stage a «/);
+
+  // Quien agenda de usted no recibe emojis ni tuteo en las frases para el cliente.
+  const formal = localAgentPrompt(base({ businessType: "salud", goal: "agendar", tone: "formal" }), "Acme", ["search_knowledge", "handoff_to_human"]);
+  assert.match(formal, /Trata siempre de usted/);
+  assert.doesNotMatch(formal, /BOTONES/);
+  assert.match(formal, /termina con «¿Le agendo una cita\?»/, "la pregunta de cierre, también de usted");
+  const booked = localAgentPrompt(base({ businessType: "salud", goal: "agendar", tone: "formal" }), "Acme", ["book_appointment", "mark_lead", "move_deal_stage", "reply_with_buttons"], {
+    stages: ["Entrantes", "Contactado", "Interesado", "Cita agendada", "Atendido", "Perdido"], products: 0, productFields: [], productFiles: [],
+  });
+  assert.match(booked, /«Sí, agéndeme» y «Tengo dudas»/);
+  assert.match(booked, /Usa mark_lead con «purchase» y move_deal_stage a «Cita agendada» cuando la cita quede confirmada\./);
+  assert.match(formal, /## PASO 4 — Elige día y hora\nDile que una persona del equipo le confirmará la cita y usa handoff_to_human\./);
+});
+
+test("el encargo cuenta cómo avanza una venta en su rubro y que el saludo ya sale solo", () => {
+  const brief = composeBrief(base({ businessType: "educacion", goal: "vender", welcome: true }), "Acme", { draft: true });
+  assert.match(brief, /separa su cupo → paga y envía el comprobante/);
+  assert.match(brief, /Pregunta de cierre: «¿Te gustaría separar tu cupo\?»[\s\S]*«Sí, sepárame» y «Tengo dudas»/);
+  assert.match(brief, /El agente NO lo envía ni lo repite/);
+  assert.match(brief, /El texto actual es un borrador[\s\S]*sin hacer preguntas/);
+  // Quien da soporte no cierra una venta: sin pregunta de cierre.
+  assert.doesNotMatch(composeBrief(base({ goal: "soporte" }), "Acme"), /Pregunta de cierre/);
 });
 
 test("el encargo al redactor lleva el horario y pide no preguntar", () => {

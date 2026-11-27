@@ -6,10 +6,13 @@ import { AgentActionsService } from "./agent-actions.service";
 import { LLM_PROVIDER, type LLMProvider } from "./llm.provider";
 import { availableTools } from "./tools.registry";
 import {
+  PROPOSAL_FIX_ATTEMPTS,
   buildSystem,
   buildUserTurn,
   fallbackTemplate,
+  fixRequest,
   parseReply,
+  proposalIssues,
   type PromptContext,
 } from "./prompt-assistant.prompt";
 
@@ -73,8 +76,44 @@ export class PromptAssistantService {
       return { ...fb, model, provider: this.llm.name };
     }
 
-    const parsed = parseReply(raw);
+    let parsed = parseReply(raw);
+    // Unas instrucciones que nombran una herramienta que el agente no tiene, o
+    // una etapa que no existe, se le devuelven una vez para que las corrija.
+    if (input.target === "systemPrompt") {
+      for (let i = 0; i < PROPOSAL_FIX_ATTEMPTS && parsed.proposal; i++) {
+        const issues = proposalIssues(parsed.proposal, ctx);
+        if (!issues.length) break;
+        this.logger.warn(`La propuesta nombra lo que la cuenta no tiene (${issues.length}); se pide corregir`);
+        try {
+          const res = await this.llm.generate({
+            feature: "prompt_assistant",
+            system,
+            messages: [...messages, { role: "assistant" as const, content: raw }, { role: "user" as const, content: fixRequest(issues) }],
+            effort: "high",
+            maxTokens: 4000,
+          });
+          const fixedRaw = res.content
+            .filter((b) => b.type === "text")
+            .map((b) => (b as { text: string }).text)
+            .join("")
+            .trim();
+          const fixed = parseReply(fixedRaw);
+          if (fixed.proposal && proposalIssues(fixed.proposal, ctx).length < issues.length) {
+            parsed = fixed;
+            raw = fixedRaw;
+          }
+        } catch (e) {
+          this.logger.warn(`No se pudo corregir la propuesta: ${(e as Error).message}`);
+          break;
+        }
+      }
+    }
     return { ...parsed, model, provider: this.llm.name };
+  }
+
+  /** Lo que unas instrucciones nombran y este agente no tiene (herramientas, etapas). Vacío = bien. */
+  async issues(proposal: string, enabledTools: string[]): Promise<string[]> {
+    return proposalIssues(proposal, await this.loadContext(enabledTools));
   }
 
   // ── Contexto real del workspace ─────────────────────────────

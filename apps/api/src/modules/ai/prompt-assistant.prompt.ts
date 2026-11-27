@@ -42,44 +42,281 @@ export const EMPTY_PROMPT_CONTEXT: PromptContext = {
   tools: [],
 };
 
+/**
+ * Instrucciones de muestra con la forma que mejor resultado da en producción:
+ * reglas críticas arriba y un flujo por pasos con la plantilla y la herramienta
+ * de cada uno. El redactor las ve como referencia de forma, no de contenido.
+ *
+ * Se arman con lo que tiene ESTA cuenta: una línea que nombra una herramienta
+ * solo sale si está habilitada, y la etapa es una del embudo real. Con un
+ * ejemplo fijo, los modelos pequeños copiaban herramientas y etapas que la
+ * empresa no tenía.
+ */
+export function referencePrompt(ctx: PromptContext): string {
+  const on = new Set(ctx.tools.filter((t) => t.enabled).map((t) => t.name));
+  const has = (...names: string[]) => names.every((n) => on.has(n));
+  const pass = has("handoff_to_human") ? " y usa handoff_to_human" : "";
+  const lookup = [has("search_products") ? "search_products" : null, has("search_knowledge") ? "search_knowledge" : null].filter(Boolean).join(" o ");
+  const buttons = has("reply_with_buttons");
+  // Etapa «propuesta» del embudo (la cuarta de seis): donde queda quien ya decidió y aún no paga.
+  const stage = ctx.stages.length === 6 ? ctx.stages[3]! : null;
+  const only = (items: (string | null)[]) => items.filter((i): i is string => i !== null);
+  const crm4 = only([has("mark_lead") ? "mark_lead con «potential»" : null, has("move_deal_stage") && stage ? `move_deal_stage a «${stage}»` : null]);
+  const crm5 = only([has("handoff_to_human") ? "handoff_to_human" : null, has("mark_lead") ? "mark_lead con «purchase»" : null]);
+  const close = `«¿Te gustaría separar tu cupo?»${buttons ? " (aquí sí van los botones)" : ""}`;
+  const say = (text: string, action: string | null) => (action ? `[usa ${action}] ${text}` : text);
+  const one = `una sola pregunta${buttons ? ", sin botones" : ""}`;
+
+  const rules = [
+    buttons
+      ? "BOTONES: solo usas botones cuando preguntas si quiere separar su cupo, y son exactamente «Sí, sepárame» y «Tengo dudas». En cualquier otro mensaje está prohibido usar botones u opciones para pulsar (tampoco para temario, horario, fechas, formas de pago, nombre o correo)."
+      : null,
+    "PLANTILLAS: cuando un paso trae una plantilla, cópiala tal cual, en el mismo orden y con los mismos emojis. Lo que va entre « » es un dato: escribe su valor en ese lugar, sin las comillas « ». No agregues frases, saludos ni preguntas antes o después.",
+    `DATOS: precios, fechas, horarios y condiciones salen SOLO de ${lookup || "los datos del negocio de abajo"}. Si un dato no aparece, no lo inventes ni muestres corchetes al cliente: borra esa línea de la plantilla o di «Déjame confirmarlo con el equipo y te escribo 🙌»${pass}.`,
+    has("send_payment_methods") ? "PAGOS: las formas de pago se envían siempre con send_payment_methods. No las escribas ni pegues enlaces a mano." : null,
+    "Una pregunta por mensaje. Tutea siempre.",
+    "No repitas información que ya enviaste. Antes de responder, revisa el historial.",
+  ].filter((r): r is string => r !== null);
+
+  const lines: (string | null)[] = [
+    "# ROL",
+    "Eres Vale, asesora de ventas de Academia Nova, que ofrece cursos en vivo por videollamada para profesionales. Atiendes por WhatsApp a personas interesadas en inscribirse. Tu objetivo es que el cliente separe su cupo y envíe su comprobante.",
+    "",
+    "# REGLAS CRÍTICAS (tienen prioridad sobre todo lo demás)",
+    ...rules.map((r, i) => `${i + 1}. ${r}`),
+    "",
+    "# FLUJO DE LA CONVERSACIÓN",
+    "Identifica en qué paso está el cliente y responde SOLO con lo que corresponde a ese paso.",
+    "",
+    "## PASO 1 — Llega interesado en un curso (pregunta por un curso o su precio, o viene de un anuncio)",
+    has("search_products")
+      ? `- Usa search_products con el nombre del curso. Si no sabes cuál es, pregúntale cuál le interesa (${one}).`
+      : `- Si no sabes qué curso le interesa, pregúntaselo (${one}).`,
+    "- Si la información del curso YA se envió en la conversación (por ti o por una campaña), no la envíes de nuevo: responde lo que pregunte.",
+    "- Si no se ha enviado, responde EXACTAMENTE:",
+    "",
+    "Te cuento sobre *«Nombre»* 🚀",
+    "«Descripción»",
+    "💰 Precio regular: «Precio normal»",
+    "🔥 Hoy: «Precio»",
+    "",
+    "¿Te gustaría separar tu cupo?",
+    "",
+    "## PASO 2 — Pide un detalle (temario, fechas, horario)",
+    has("send_product_file") ? "- Temario: envíalo con send_product_file y escribe «Aquí tienes el temario 👇 Revísalo con calma y me avisas si tienes dudas 😊»." : null,
+    `- Lo demás: respóndelo en una o dos líneas con lo que devuelva ${lookup || "la información del negocio"} y, en ese mismo mensaje, termina con ${close}.`,
+    "",
+    "## PASO 3 — Tiene dudas u objeciones",
+    `Responde su duda en 1 a 3 frases${has("search_knowledge") ? " con lo que devuelva search_knowledge" : ""} y, en ese mismo mensaje, termina con ${close}.${buttons ? " Si elige «Tengo dudas», pregúntale cuál es su duda, sin botones." : ""}`,
+    "",
+    "## PASO 4 — Quiere separar su cupo o inscribirse",
+    "- No pidas nombre, correo ni ningún otro dato.",
+    has("send_payment_methods") ? "- Usa send_payment_methods y luego responde EXACTAMENTE:" : "- Indícale cómo pagar con lo que diga la información del negocio y luego responde EXACTAMENTE:",
+    "",
+    "Listo 🙌 Cuando realices el pago, envíame tu comprobante por aquí para confirmar tu cupo. ¿Tienes alguna duda adicional?",
+    "",
+    crm4.length ? `- Usa ${crm4.join(" y ")}.` : null,
+    "",
+    "## PASO 5 — Envía el comprobante o dice que ya pagó",
+    "Responde EXACTAMENTE:",
+    "",
+    "¡Gracias! 🙌 Una persona del equipo validará tu pago y te confirmará tu inscripción.",
+    "",
+    crm5.length ? `Luego usa ${crm5.join(" y ")}.` : null,
+    "",
+    `# CUÁNDO PASAR A UNA PERSONA${has("handoff_to_human") ? " (handoff_to_human)" : ""}`,
+    "- Pide hablar con un asesor o una persona: «Entendido, te paso con una persona del equipo. Un momento 🙌».",
+    "- Está molesto o hace un reclamo.",
+    "- Pide descuentos, cuotas o condiciones especiales que no están en tu información.",
+    "- Pregunta algo que no puedes responder con lo que tienes.",
+    "- Envía su comprobante (Paso 5).",
+    "",
+    "# HERRAMIENTAS",
+    has("search_products") ? "- search_products: los datos de cada curso. Úsala antes de dar cualquier dato de un curso." : null,
+    has("search_knowledge") ? "- search_knowledge: políticas, certificado y preguntas frecuentes." : null,
+    has("send_product_file") ? "- send_product_file: el temario del curso (Paso 2)." : null,
+    has("send_payment_methods") ? "- send_payment_methods: las formas de pago (Paso 4)." : null,
+    crm4.length ? `- ${crm4.map((c) => c.split(" ")[0]).join(" y ")}: solo en el Paso 4${has("mark_lead") ? " y en el 5" : ""}, una sola vez por cambio.` : null,
+    has("handoff_to_human") ? "- handoff_to_human: los casos de la sección anterior." : null,
+    "",
+    "# ESTILO",
+    "Fuera de las plantillas: de 1 a 3 frases, máximo 4 líneas. Cercana y profesional, máximo 2 emojis por mensaje. Sin negritas, tablas ni listas largas. Solo hablas de los cursos de Academia Nova.",
+    "",
+    "# EJEMPLOS",
+    "Cliente: Hola, quiero info del curso de Excel",
+    `Vale: [${has("search_products") ? "usa search_products «Excel» y " : ""}envía la plantilla del Paso 1]`,
+    "",
+    "Cliente: ¿Dan certificado?",
+    `Vale: ${say("Sí 😊 Al terminar recibes un certificado digital. ¿Te gustaría separar tu cupo?", has("search_knowledge") ? "search_knowledge" : null)}${buttons ? " [botones: Sí, sepárame / Tengo dudas]" : ""}`,
+    "",
+    "Cliente: Sí, sepárame",
+    `Vale: ${say("Listo 🙌 Cuando realices el pago, envíame tu comprobante por aquí para confirmar tu cupo. ¿Tienes alguna duda adicional?", has("send_payment_methods") ? "send_payment_methods" : null)}`,
+    "",
+    "Cliente: [envía la foto de su comprobante]",
+    `Vale: ¡Gracias! 🙌 Una persona del equipo validará tu pago y te confirmará tu inscripción.${has("handoff_to_human") ? " [usa handoff_to_human]" : ""}`,
+    "",
+    "Ejemplo INCORRECTO (no hagas esto):",
+    buttons
+      ? "Vale: ¿Qué quieres revisar? [botones: Temario / Horario / Precio] ← botones fuera del único caso permitido."
+      : "Vale: El curso cuesta 300 y empieza el lunes. ← precio y fecha escritos de memoria, sin consultarlos.",
+  ];
+  // Una línea en blanco de más cuando un bloque condicional no sale.
+  return lines
+    .filter((l): l is string => l !== null)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
+/** Cuántas veces se le pide al modelo que corrija un texto que nombra lo que la cuenta no tiene. */
+export const PROPOSAL_FIX_ATTEMPTS = 1;
+
+/**
+ * Lo que unas instrucciones nombran y esta cuenta no tiene: herramientas no
+ * habilitadas y etapas que no están en su embudo. Un agente con instrucciones
+ * así promete acciones que no puede hacer (enviar los datos de pago, mover a
+ * una etapa inventada). Vacío = se pueden usar.
+ */
+export function proposalIssues(proposal: string, ctx: Pick<PromptContext, "tools" | "stages">): string[] {
+  const issues: string[] = [];
+  for (const t of ctx.tools) {
+    if (t.enabled) continue;
+    if (new RegExp(`\\b${t.name}\\b`).test(proposal)) issues.push(`Nombra ${t.name}, que no está habilitada en este agente: quita esa herramienta y resuelve ese paso sin ella.`);
+  }
+  if (ctx.stages.length) {
+    const known = new Set(ctx.stages.map((s) => s.toLocaleLowerCase("es")));
+    for (const m of proposal.matchAll(/move_deal_stage[^\n«»]{0,60}«([^»\n]{1,80})»/g)) {
+      const stage = m[1]!.trim();
+      if (!known.has(stage.toLocaleLowerCase("es"))) {
+        issues.push(`Mueve la oportunidad a «${stage}», que no es una etapa del embudo (${ctx.stages.join(", ")}): usa una de esas, con su nombre exacto.`);
+      }
+    }
+  }
+  return [...new Set(issues)];
+}
+
+/** El turno con el que se le pide al modelo que arregle su propuesta. */
+export function fixRequest(issues: string[]): string {
+  return `Tu propuesta tiene problemas que impiden usarla:\n${issues.map((i) => `- ${i}`).join("\n")}\nDevuelve el texto completo corregido, con el mismo formato de salida.`;
+}
+
 /** Cómo se llama cada campo de cara al modelo y qué forma debe tener. */
 export const TARGET_META: Record<PromptAssistantTarget, { label: string; rules: string }> = {
   systemPrompt: {
     label: "Instrucciones del agente (system prompt)",
-    rules: `## Cómo es un buen system prompt para vender por WhatsApp
-Estructura recomendada, con títulos cortos en mayúsculas (sin markdown pesado):
-1. ROL E IDENTIDAD: nombre del agente, negocio, qué vende y a quién.
-2. OBJETIVO DE LA CONVERSACIÓN: qué debe conseguir (vender, calificar y agendar, resolver dudas)
-   y los pasos: saludar → entender la necesidad → recomendar → cerrar, agendar o derivar.
-3. TONO Y FORMATO PARA WHATSAPP: mensajes cortos (1 a 3 frases, máximo 4 líneas), una sola
-   pregunta por mensaje, sin listas largas ni markdown (WhatsApp no lo muestra), emojis con
-   moderación, tuteo o usted según el negocio.
-4. INFORMACIÓN DEL NEGOCIO: horarios, cobertura, medios de pago, envíos, políticas. Solo lo
-   que se sepa: donde falte, deja un marcador entre corchetes como [HORARIO] para que lo
-   rellene el dueño. Nunca inventes datos.
-5. HERRAMIENTAS: cuándo usar cada herramienta habilitada, por su nombre exacto (por ejemplo
-   "antes de dar un precio usa search_products"). No menciones herramientas no habilitadas.
-6. PRESENTACIÓN DE UN PRODUCTO (si hay catálogo y search_products está habilitada): el speech
-   que envía la primera vez que muestra un producto, como plantilla para WhatsApp con los datos
-   del producto entre « » (*«Nombre»*, «Precio», los del descuento —«Precio normal», «Descuento»,
-   «Descuento hasta», que solo salen si el producto está rebajado— y los campos del catálogo que vengan al caso),
-   una línea por dato y un cierre con una sola pregunta. Parte del speech sugerido de abajo y
-   adáptalo al negocio y al tono. Añade cómo responder a "es caro" y a "lo voy a pensar" sin
-   inventar descuentos.
-7. LÍMITES: no inventar precios, stock ni promociones; no prometer plazos que no consten; no
-   pedir datos sensibles; no hablar mal de la competencia; no salirse del tema del negocio.
-8. CUÁNDO PASAR A UNA PERSONA: reclamos, cuando el cliente pide hablar con alguien, casos fuera
-   de alcance. Si handoff_to_human está habilitada, indica que la use.
-9. EJEMPLOS: dos o tres pares breves "Cliente: … / Agente: …" que enseñen el tono.
+    rules: `## Cómo son unas buenas instrucciones para un agente de WhatsApp
+Un agente responde bien cuando sus instrucciones le dicen QUÉ HACER EN CADA MOMENTO, no cuando
+describen cómo debería ser. Escribe un procedimiento: pocas reglas que mandan sobre todo lo
+demás y un flujo por pasos, con el mensaje de cada paso y la herramienta que toca.
+
+Estructura, con estos títulos tal cual (con «# » o «## » delante) y en este orden:
+
+# ROL
+Dos o tres frases: quién es (su nombre), de qué negocio, qué vende y a quién, que atiende por
+WhatsApp, y su objetivo dicho como un resultado que se puede comprobar («que el cliente separe
+su cupo y envíe su comprobante», «que quede con una cita agendada», «que su duda quede resuelta»).
+
+# REGLAS CRÍTICAS (tienen prioridad sobre todo lo demás)
+De 4 a 7 reglas numeradas, cada una con su etiqueta. Según lo que tenga el agente:
+- PLANTILLAS: si un paso trae una plantilla, se copia tal cual, en el mismo orden y con los
+  mismos emojis; lo que va entre « » es un dato y se escribe con su valor, sin las comillas
+  « »; sin frases, saludos ni preguntas de más.
+- DATOS: precios, fechas, horarios, existencias y condiciones salen SOLO de las herramientas de
+  consulta habilitadas. Si un dato no aparece, no se inventa ni se le muestran al cliente
+  corchetes o marcadores: se quita esa línea de la plantilla, o se le dice que se confirma con
+  el equipo y se pasa el chat.
+- Una sola pregunta por mensaje, y el trato (de tú o de usted) del tono pedido.
+- No repetir lo que ya se envió en la conversación: antes de responder se revisa el historial.
+- BOTONES (solo si reply_with_buttons está habilitada): di en qué ÚNICA pregunta salen botones
+  (la que cierra: separar el cupo, hacer el pedido, agendar) y con qué textos exactos entre « »,
+  de 1 a 3 palabras y 20 caracteres como mucho (por ejemplo «Sí, sepárame» y «Tengo dudas»); y
+  que en cualquier otro mensaje está prohibido usar botones u opciones para pulsar. Escribe
+  la palabra «botones» en esas frases: el sistema las lee para decidir cuándo ponerlos.
+- PAGOS (solo si send_payment_methods está habilitada): los datos de pago se envían siempre con
+  send_payment_methods; nunca se escriben ni se pegan a mano.
+
+# FLUJO DE LA CONVERSACIÓN
+Primera línea: «Identifica en qué paso está el cliente y responde SOLO con lo que corresponde a
+ese paso.» Después, de 4 a 6 pasos titulados «## PASO N — cuándo ocurre», en el orden en que de
+verdad avanza una conversación en ESTE negocio. Cada paso dice:
+- qué lo dispara: lo que el cliente escribe, pide o envía;
+- qué herramienta se usa antes de responder, por su nombre exacto;
+- el mensaje: una PLANTILLA lista para WhatsApp cuando ese mensaje es siempre el mismo
+  (precedida de «Responde EXACTAMENTE:»), o una pauta («en 1 a 3 frases, con lo que devuelva
+  search_knowledge») cuando depende de lo que pregunten;
+- con qué pregunta cierra para pasar al paso siguiente, dentro del MISMO mensaje que la respuesta
+  («responde su duda y, en ese mismo mensaje, termina con «…»»);
+- qué se anota en el CRM en ese momento, solo con herramientas habilitadas y con valores
+  reales: mark_lead («potential», «purchase», «lost»), move_deal_stage con el nombre EXACTO de
+  una etapa del embudo de abajo, add_tag con una etiqueta que exista, update_contact.
+Si un paso puede haber ocurrido ya (la información ya se envió, por el agente o por una
+campaña), dilo: no se repite y se responde solo lo que pregunte.
+
+Qué pasos poner, según el objetivo del agente:
+- VENDER: 1) llega interesado (pregunta por algo o por su precio, o viene de un anuncio):
+  consulta el catálogo y lo presenta con la plantilla; 2) pide un detalle (ficha, temario, foto,
+  horario, envío): lo envía o lo responde en dos líneas; 3) dudas u objeciones («es caro», «lo
+  voy a pensar»): respuesta corta y la pregunta de cierre; 4) quiere comprar, reservar o separar:
+  datos de pago y pedir el comprobante; 5) envía el comprobante o dice que ya pagó: agradece y
+  pasa el chat a una persona para validarlo.
+- AGENDAR: 1) llega interesado: entiende qué servicio necesita; 2) informa el servicio y su
+  precio; 3) propone horarios reales; 4) reserva y confirma día, hora y lugar; 5) cambios o
+  cancelaciones.
+- DAR SOPORTE: 1) entiende el problema con una pregunta; 2) busca y responde; 3) confirma si
+  quedó resuelto; 4) lo que no puede resolver lo pasa a una persona, con el resumen.
+- CAPTAR DATOS: 1) pregunta qué necesita; 2) pide los datos de a uno y los guarda; 3) confirma
+  que alguien del equipo lo contactará y lo deja asignado.
+Pon solo los pasos que el negocio necesita y con sus palabras (cupo, pedido, cita, reserva,
+cotización). Sin herramienta para un paso (no hay catálogo, no hay métodos de pago, no hay
+agenda), ese paso se resuelve con la información de la petición o pasando el chat.
+
+Las plantillas de los pasos:
+- Texto listo para WhatsApp: una línea por dato, los emojis del tono, sin markdown pesado.
+- Los datos del producto van entre « » con el nombre exacto con que llegan del catálogo
+  («Nombre», «Precio», «Precio normal» y los campos propios que aparecen abajo). Usa SOLO datos
+  que este catálogo tenga: si el ejemplo de referencia nombra uno que aquí no existe, no lo pongas.
+  La plantilla que presenta un producto parte del speech sugerido de abajo.
+- Lo que solo el dueño sabe y falta, entre corchetes y en MAYÚSCULAS ([DIRECCIÓN]). Nunca para
+  datos del catálogo, etapas, etiquetas ni herramientas: esos ya están abajo, con su nombre.
+
+# CUÁNDO PASAR A UNA PERSONA (handoff_to_human)
+Lista corta: pide hablar con alguien (con la frase que se le dice antes de pasarlo), está
+molesto o reclama, pide descuentos o condiciones que no constan, pregunta algo que no está en
+las herramientas, y las palabras o casos que indique la petición.
+
+# HERRAMIENTAS
+Una línea por herramienta HABILITADA: su nombre exacto y cuándo se usa en este negocio. Ninguna
+que no esté habilitada.
+
+# ESTILO
+Fuera de las plantillas: mensajes de 1 a 3 frases, máximo 4 líneas; el tono pedido; emojis con
+moderación; sin negritas, tablas ni listas largas. Solo habla del negocio; no habla mal de la
+competencia; no pide documentos, claves ni datos de tarjetas.
+
+# DATOS DEL NEGOCIO (solo si la petición trae datos que el agente no puede consultar)
+Horario de atención, dirección, cobertura o políticas que vengan en la petición, tal cual. Lo
+que está en el catálogo o en la base de conocimiento no se copia aquí: se consulta.
+
+# EJEMPLOS
+Un intercambio corto por cada paso («Cliente: …» y, con el nombre del agente, su respuesta),
+con lo que hace entre corchetes y en minúsculas: [usa search_products «…» y envía la plantilla
+del Paso 1], [botones: Sí, sepárame / Tengo dudas]. Sin precios ni fechas escritos: en los
+ejemplos van entre « ». Termina con un «Ejemplo INCORRECTO (no hagas esto):» que enseñe el
+error más probable (botones donde no van, un dato inventado, repetir la información).
 
 Reglas del texto:
-- Usa esos títulos en mayúsculas, en ese orden, cada uno seguido de su contenido: así el
-  dueño del negocio encuentra y edita cada parte sin releerlo todo.
-- Va dirigido al agente en segunda persona ("Eres…", "Cuando el cliente…").
-- Entre 250 y 700 palabras normalmente; más largo solo si el negocio lo pide.
-- Usa la información real del negocio que tienes abajo. Lo que no esté, marcador o pregunta.
-- Si ya hay un texto actual, mejóralo respetando lo que el usuario decidió, salvo que te pida
-  cambiarlo.`,
+- Va dirigido al agente en segunda persona («Eres…», «Cuando el cliente…»).
+- Entre 500 y 1000 palabras: lo que haga falta para que ningún paso quede ambiguo.
+- Usa la información real del negocio que tienes abajo.
+- Si ya hay un texto actual, mejóralo respetando lo que el usuario decidió y la estructura que
+  ya tiene, salvo que te pida cambiarla.
+
+## Ejemplo de referencia
+Instrucciones que funcionan bien en una academia de cursos en vivo. Míralas por la forma y el
+nivel de detalle; los pasos, las plantillas y las palabras se adaptan al negocio de la
+petición. No copies sus datos; las herramientas y la etapa que nombra sí son las de esta cuenta.
+"""
+{{REFERENCIA}}
+"""`,
   },
   welcomeMessage: {
     label: "Mensaje de bienvenida (se envía solo al primer mensaje del cliente)",
@@ -124,7 +361,7 @@ pidan otro idioma), de forma directa y concreta, sin relleno ni frases genérica
 
 Campo que estás redactando: ${meta.label}.
 
-${meta.rules}
+${meta.rules.replace("{{REFERENCIA}}", () => referencePrompt(ctx))}
 
 ## Cómo trabajar con el usuario
 - Si falta lo esencial (por ejemplo, qué vende el negocio), pregunta lo mínimo (máximo 3
@@ -169,10 +406,10 @@ function buildContextBlock(ctx: PromptContext): string {
     if (p.files?.length) {
       lines.push(`Archivos que puede tener cada producto: ${p.files.join(", ")}. El agente los manda como archivo con send_product_file (solo si está habilitada); no los cites como datos ni pidas que pegue enlaces.`);
     }
-    // El speech de producto con los campos reales del catálogo: la sección
-    // PRESENTACIÓN parte de aquí en vez de inventar nombres de datos.
+    // El speech de producto con los campos reales del catálogo: la plantilla
+    // del paso de presentación parte de aquí en vez de inventar nombres de datos.
     lines.push(
-      `Speech sugerido para presentar un producto (adáptalo; usa estos nombres de datos tal cual, entre « »):\n${productPitchTemplate(p.fields, { photo: p.withImage > 0, files: p.files })}`,
+      `Speech sugerido para presentar un producto (es la base de la plantilla del paso en que se presenta: adáptalo al negocio y al tono, sin su título, y usa estos nombres de datos tal cual, entre « »):\n${productPitchTemplate(p.fields, { photo: p.withImage > 0, files: p.files })}`,
     );
     if (p.hiddenFields.length) {
       lines.push(`Campos del catálogo que el agente NO ve (apagados para la IA): ${p.hiddenFields.join(", ")}. No le pidas usarlos.`);

@@ -26,6 +26,7 @@ import { availableTools } from "./tools.registry";
 import {
   SETUP_HANDOFF_KEYWORDS,
   SETUP_KNOWLEDGE_SOURCE,
+  type SetupFacts,
   businessHoursFor,
   composeBrief,
   isValidTimeZone,
@@ -184,28 +185,35 @@ export class BusinessSetupService {
     const orgName = await this.orgName();
     const tools = toolsForGoal(profile.goal, availableTools(await this.actions.loadContext()));
 
-    // Con IA, las redacta el modelo con todo el contexto real (catálogo,
-    // conocimiento recién creado, embudo). Sin IA, o si la respuesta no
-    // sirve, la plantilla: el agente queda bien configurado igualmente.
+    // Primero el borrador: los pasos de su rubro con las herramientas, las
+    // etapas y los datos de catálogo que la cuenta tiene de verdad. Con IA, el
+    // modelo lo pule con las palabras del negocio; si lo que devuelve nombra
+    // algo que la cuenta no tiene, o no hay IA, queda el borrador: el agente
+    // sale bien configurado igualmente.
+    const draft = localAgentPrompt(profile, orgName, tools, await this.facts());
     let prompt: string | null = null;
     const ai = await this.aiSettings.status();
     if (ai.ready) {
       try {
         const reply = await this.assistant.run({
-          prompt: composeBrief(profile, orgName),
+          prompt: composeBrief(profile, orgName, { draft: true }),
           target: "systemPrompt",
-          current: "",
+          current: draft,
           botName: profile.agentName,
           enabledTools: tools,
           history: [],
         });
-        if (reply.provider !== "fake" && reply.proposal && reply.proposal.length >= 200) prompt = reply.proposal;
+        if (reply.provider !== "fake" && reply.proposal && reply.proposal.length >= 200) {
+          const issues = await this.assistant.issues(reply.proposal, tools);
+          if (issues.length) this.logger.warn(`Las instrucciones redactadas nombran lo que la cuenta no tiene (${issues.length}); se usa el borrador`);
+          else prompt = reply.proposal;
+        }
       } catch (e) {
         this.logger.warn(`No se pudieron redactar las instrucciones con IA: ${(e as Error).message}`);
       }
     }
     const writtenBy = prompt ? "ai" : "template";
-    prompt ??= localAgentPrompt(profile, orgName, tools);
+    prompt ??= draft;
 
     const bot =
       (await this.prisma.agentConfig.findFirst({ where: { isDefault: true } })) ??
@@ -246,6 +254,24 @@ export class BusinessSetupService {
       welcome: saved.welcomeEnabled,
       hours: saved.businessHoursEnabled,
       tools: tools.length,
+    };
+  }
+
+  /** Lo que la cuenta tiene hoy y sus instrucciones pueden nombrar: etapas y datos del catálogo. */
+  private async facts(): Promise<SetupFacts> {
+    const [pipeline, products, fields] = await Promise.all([
+      this.prisma.pipeline.findFirst({
+        where: { isDefault: true },
+        select: { stages: { select: { name: true }, orderBy: { order: "asc" } } },
+      }),
+      this.prisma.product.count({ where: { isActive: true } }),
+      this.prisma.productField.findMany({ where: { aiVisible: true }, orderBy: { order: "asc" }, select: { label: true, type: true } }),
+    ]);
+    return {
+      stages: pipeline?.stages.map((s) => s.name) ?? [],
+      products,
+      productFields: fields.filter((f) => f.type !== "file").map((f) => f.label),
+      productFiles: fields.filter((f) => f.type === "file").map((f) => f.label),
     };
   }
 

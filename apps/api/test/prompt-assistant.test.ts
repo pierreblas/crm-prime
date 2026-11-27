@@ -12,6 +12,9 @@ import {
   fallbackTemplate,
   parseReply,
   type PromptContext,
+  referencePrompt,
+  proposalIssues,
+  fixRequest,
 } from "../src/modules/ai/prompt-assistant.prompt";
 
 const ctx: PromptContext = {
@@ -42,10 +45,38 @@ test("el system prompt lleva el contexto real y separa herramientas habilitadas"
   assert.match(s, /"proposal"/);
 });
 
+test("el ejemplo de referencia solo nombra lo que la cuenta tiene", () => {
+  const tool = (name: string, enabled: boolean) => ({ name, description: "", enabled, unavailable: null });
+  const full = { ...ctx, stages: ["Entrantes", "Contactado", "Interesado", "Matrícula en proceso", "Inscrito", "Perdido"], tools: ["search_products", "search_knowledge", "handoff_to_human", "mark_lead", "move_deal_stage", "send_payment_methods", "send_product_file", "reply_with_buttons"].map((n) => tool(n, true)) };
+  const all = referencePrompt(full);
+  assert.match(all, /1\. BOTONES: solo usas botones cuando preguntas si quiere separar su cupo/);
+  assert.match(all, /Usa send_payment_methods y luego responde EXACTAMENTE/);
+  assert.match(all, /move_deal_stage a «Matrícula en proceso»/);
+
+  const few = referencePrompt({ ...ctx, stages: ["A", "B", "C"], tools: [tool("search_knowledge", true), tool("handoff_to_human", true), tool("send_payment_methods", false), tool("reply_with_buttons", false), tool("move_deal_stage", true)] });
+  assert.doesNotMatch(few, /send_payment_methods|send_product_file|search_products|botones|move_deal_stage/, "ni herramientas que no tiene ni una etapa inventada");
+  assert.match(few, /Indícale cómo pagar con lo que diga la información del negocio/);
+  assert.doesNotMatch(few, /\n\n\n/);
+  // El redactor lo recibe ya armado, sin el hueco.
+  assert.doesNotMatch(buildSystem(full, "systemPrompt"), /\{\{REFERENCIA\}\}/);
+  assert.match(buildSystem(full, "systemPrompt"), /Eres Vale, asesora de ventas de Academia Nova/);
+});
+
+test("se detecta lo que unas instrucciones nombran y la cuenta no tiene", () => {
+  const tool = (name: string, enabled: boolean) => ({ name, description: "", enabled, unavailable: null });
+  const c = { stages: ["Nuevo", "Contactado", "Ganado"], tools: [tool("search_products", true), tool("move_deal_stage", true), tool("send_payment_methods", false)] };
+  assert.deepEqual(proposalIssues("Usa search_products y move_deal_stage a «contactado».", c), []);
+  const issues = proposalIssues("Usa send_payment_methods. Luego move_deal_stage a «Matrícula en proceso» y otra vez send_payment_methods.", c);
+  assert.equal(issues.length, 2);
+  assert.match(issues[0]!, /send_payment_methods, que no está habilitada/);
+  assert.match(issues[1]!, /«Matrícula en proceso», que no es una etapa del embudo \(Nuevo, Contactado, Ganado\)/);
+  assert.match(fixRequest(issues), /Devuelve el texto completo corregido/);
+});
+
 test("cada campo tiene sus propias reglas de formato", () => {
   assert.match(buildSystem(ctx, "welcomeMessage"), /menos de 300 caracteres/);
-  assert.match(buildSystem(ctx, "systemPrompt"), /ROL E IDENTIDAD/);
-  assert.doesNotMatch(buildSystem(ctx, "welcomeMessage"), /ROL E IDENTIDAD/);
+  assert.match(buildSystem(ctx, "systemPrompt"), /# FLUJO DE LA CONVERSACIÓN/);
+  assert.doesNotMatch(buildSystem(ctx, "welcomeMessage"), /# FLUJO DE LA CONVERSACIÓN/);
 });
 
 test("el turno del usuario incluye el texto actual cuando existe", () => {
@@ -109,7 +140,7 @@ test("el asistente sabe qué trae cada producto y pide consultarlo, no copiarlo"
   assert.match(s, /nombre, precio, descripción y SKU, y además: Talla, Garantía \(meses\)/);
   assert.match(s, /NUNCA copies esos valores ni dejes marcadores como \[Precio\]/);
   assert.match(s, /nómbralos con su nombre exacto entre comillas angulares/, "así el editor los marca como datos del producto");
-  assert.match(s, /6\. PRESENTACIÓN DE UN PRODUCTO/, "pide el speech de producto");
+  assert.match(s, /La plantilla que presenta un producto parte del speech sugerido/, "pide el speech de producto");
   assert.match(s, /Speech sugerido para presentar un producto[\s\S]*• Talla: «Talla»/, "con los campos reales del catálogo");
   assert.match(s, /varias monedas \(PEN, USD\)/);
   assert.match(s, /2 producto\(s\) tienen foto/);
