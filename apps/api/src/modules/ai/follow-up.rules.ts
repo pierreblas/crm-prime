@@ -5,7 +5,8 @@ import {
   type BusinessHours,
   type FollowUps,
 } from "@crm/shared";
-import { firstOpenAtOrAfter, lastOpenAtOrBefore } from "../../common/utils/business-hours";
+import { firstMomentAtOrAfter, isWithinHours, lastMomentAtOrBefore } from "../../common/utils/business-hours";
+import { isQuietAt, type QuietClock } from "../../common/utils/quiet-hours";
 
 /**
  * Reglas de los seguimientos que no tocan base de datos ni proveedor, para
@@ -40,6 +41,36 @@ export interface FollowUpPlan {
 }
 
 /**
+ * Cuándo puede salir un toque en un chat: dentro del horario de atención del
+ * agente (si lo tiene activado) y fuera del horario de descanso de los
+ * seguimientos (si lo tiene), mirado con el reloj de ese cliente.
+ */
+export interface SendTimes {
+  hours: BusinessHours | null;
+  quiet: QuietClock | null;
+}
+
+/** Sin horario de atención ni de descanso: sale a cualquier hora. */
+export const ANY_TIME: SendTimes = { hours: null, quiet: null };
+
+export function canSendAt(times: SendTimes, at: Date): boolean {
+  return (!times.hours || isWithinHours(times.hours, at)) && (!times.quiet || !isQuietAt(times.quiet, at));
+}
+
+/** Hasta cuánto se mira hacia delante buscando un momento en que se pueda enviar. */
+const WAIT_SCAN_MS = 7 * 24 * 60 * 60_000;
+
+/**
+ * El primer momento desde `at` en que se puede enviar. Devuelve `at` si se
+ * puede a cualquier hora o si no se encuentra ninguno en una semana (un
+ * horario sin ningún día abierto): entonces decide el barrido al vencer.
+ */
+export function nextSendable(times: SendTimes, at: Date): Date {
+  if (!times.hours && !times.quiet) return at;
+  return firstMomentAtOrAfter((d) => canSendAt(times, d), at, new Date(at.getTime() + WAIT_SCAN_MS)) ?? at;
+}
+
+/**
  * Qué toque queda programado, y para cuándo, tras un mensaje nuestro enviado
  * en `from`.
  *
@@ -54,24 +85,26 @@ export interface FollowUpPlan {
  *  - «Tras X de silencio» con `keepInWindow`: si es de texto o de IA y saldría
  *    con la ventana cerrada, se adelanta al último momento en que aún cabe.
  *    Si no cabe ninguno, se queda donde estaba y al vencer se omite.
- *
- * `hours` es el horario de atención del agente si lo tiene activado.
+ *  - Un toque que cae cuando no se puede enviar (`times`: fuera del horario de
+ *    atención o en horario de descanso) queda programado para el primer
+ *    momento en que sí: es la hora que ve el equipo en la bandeja.
  */
 export function planFollowUp(
   cfg: FollowUps,
   step: number,
   from: Date,
   windowExpiresAt: Date | null,
-  hours: BusinessHours | null = null,
+  times: SendTimes = ANY_TIME,
 ): FollowUpPlan {
   const skipped: FollowUpPlan["skipped"] = [];
   if (step < 0) return { step, dueAt: null, skipped, movedUp: false };
   const open = !!windowExpiresAt && windowExpiresAt > from;
   const earliest = new Date(from.getTime() + FOLLOW_UP_MIN_GAP_MINUTES * 60_000);
+  const ok = times.hours || times.quiet ? (d: Date) => canSendAt(times, d) : null;
   /** El último momento, sin pasar de `at`, en que se puede enviar. */
   const lastSendable = (at: Date): Date | null => {
     if (at < earliest) return null;
-    return hours ? lastOpenAtOrBefore(hours, at, earliest) : at;
+    return ok ? lastMomentAtOrBefore(ok, at, earliest) : at;
   };
 
   for (let i = Math.max(0, step); i < cfg.steps.length; i++) {
@@ -92,14 +125,14 @@ export function planFollowUp(
     const due = new Date(from.getTime() + s.afterMinutes * 60_000);
     if (cfg.keepInWindow && s.kind !== "template" && open) {
       const limit = new Date(windowExpiresAt!.getTime() - FOLLOW_UP_BEFORE_CLOSE_MIN * 60_000);
-      // Cuándo saldría de verdad: fuera de horario, el toque espera a que abra.
-      const real = due > limit ? null : hours ? firstOpenAtOrAfter(hours, due, limit) : due;
+      // Cuándo saldría de verdad: fuera de horario o en horario de descanso, el toque espera.
+      const real = due > limit ? null : ok ? firstMomentAtOrAfter(ok, due, limit) : due;
       if (!real) {
         const moved = lastSendable(due < limit ? due : limit);
         if (moved) return { step: i, dueAt: moved, skipped, movedUp: true };
       }
     }
-    return { step: i, dueAt: due, skipped, movedUp: false };
+    return { step: i, dueAt: nextSendable(times, due), skipped, movedUp: false };
   }
   return { step: Math.max(step, cfg.steps.length), dueAt: null, skipped, movedUp: false };
 }
@@ -137,6 +170,12 @@ export function consultedProductNames(outputs: unknown[]): string[] {
     if (names.length >= 1 && names.length <= SPECIFIC_MAX) return names;
   }
   return [];
+}
+
+/** «A», «A y B», «A, B y C»: varios nombres en una frase, para el hueco de una plantilla. */
+export function listText(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} y ${names[names.length - 1]}`;
 }
 
 const amount = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));

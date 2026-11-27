@@ -22,7 +22,7 @@ export function isWithinHours(hours: BusinessHours, at: Date = new Date()): bool
 const clocks = new Map<string, Intl.DateTimeFormat>();
 
 /** Día de la semana y hora («HH:MM») en la zona; null si la zona no existe. */
-function localClock(tz: string, at: Date): { day: (typeof WEEKDAYS)[number]; time: string } | null {
+export function localClock(tz: string, at: Date): { day: (typeof WEEKDAYS)[number]; time: string } | null {
   try {
     let fmt = clocks.get(tz);
     if (!fmt) {
@@ -49,8 +49,11 @@ const SCAN_MINUTES = 15;
  */
 const OPEN_SLACK_MINUTES = 10;
 
-function opensWithSlack(hours: BusinessHours, t: number): boolean {
-  return isWithinHours(hours, new Date(t)) && isWithinHours(hours, new Date(t + OPEN_SLACK_MINUTES * 60_000));
+/** Una regla de «a esta hora se puede»: el horario de atención, el de descanso de los seguimientos o los dos. */
+export type TimeRule = (at: Date) => boolean;
+
+function okWithSlack(ok: TimeRule, t: number): boolean {
+  return ok(new Date(t)) && ok(new Date(t + OPEN_SLACK_MINUTES * 60_000));
 }
 
 /**
@@ -59,16 +62,26 @@ function opensWithSlack(hours: BusinessHours, t: number): boolean {
  * y con margen: el resultado queda entre 10 y 25 min antes del cierre del día.
  */
 export function lastOpenAtOrBefore(hours: BusinessHours, at: Date, notBefore: Date): Date | null {
+  return lastMomentAtOrBefore((d) => isWithinHours(hours, d), at, notBefore);
+}
+
+/** Lo mismo con cualquier regla: el último momento, sin pasar de `at`, en que se puede. */
+export function lastMomentAtOrBefore(ok: TimeRule, at: Date, notBefore: Date): Date | null {
   for (let t = at.getTime(); t >= notBefore.getTime(); t -= SCAN_MINUTES * 60_000) {
-    if (opensWithSlack(hours, t)) return new Date(t);
+    if (okWithSlack(ok, t)) return new Date(t);
   }
   return null;
 }
 
 /** El primer momento dentro de horario desde `at`, sin pasar de `notAfter`. null si no abre antes. */
 export function firstOpenAtOrAfter(hours: BusinessHours, at: Date, notAfter: Date): Date | null {
+  return firstMomentAtOrAfter((d) => isWithinHours(hours, d), at, notAfter);
+}
+
+/** Lo mismo con cualquier regla: el primer momento desde `at` en que se puede. */
+export function firstMomentAtOrAfter(ok: TimeRule, at: Date, notAfter: Date): Date | null {
   for (let t = at.getTime(); t <= notAfter.getTime(); t += SCAN_MINUTES * 60_000) {
-    if (opensWithSlack(hours, t)) return new Date(t);
+    if (okWithSlack(ok, t)) return new Date(t);
   }
   return null;
 }

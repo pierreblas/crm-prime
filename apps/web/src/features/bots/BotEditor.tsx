@@ -24,6 +24,7 @@ import {
   type FlowRule,
   normalizeKeywordTrigger,
   DEFAULT_FOLLOW_UPS,
+  DEFAULT_FOLLOW_UP_QUIET,
   type FollowUps,
   AI_TOKENS_PER_CONVERSATION,
   formatTokens,
@@ -820,6 +821,11 @@ export function BotEditor({
                     // Una secuencia nueva nace con los toques dentro de la ventana; las que ya
                     // estaban guardadas siguen como estaban hasta que su dueño lo marque.
                     keepInWindow: v && form.followUps.steps.length === 0 ? true : form.followUps.keepInWindow,
+                    // Y con el descanso de noche puesto, a la hora del cliente.
+                    quiet:
+                      v && form.followUps.steps.length === 0
+                        ? { ...DEFAULT_FOLLOW_UP_QUIET, timezone: form.businessHours?.timezone || DEFAULT_FOLLOW_UP_QUIET.timezone }
+                        : form.followUps.quiet,
                   })
                 }
                 label={form.followUps.enabled ? "Activado" : "Desactivado"}

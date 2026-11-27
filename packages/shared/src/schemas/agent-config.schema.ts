@@ -140,6 +140,56 @@ export const FOLLOW_UP_BEFORE_CLOSE_MIN = 15;
 /** «Antes del cierre»: como mucho con esta antelación. */
 export const FOLLOW_UP_BEFORE_CLOSE_MAX = WHATSAPP_WINDOW_MINUTES - 60;
 
+/** «HH:MM», de 00:00 a 23:59. */
+const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "pon la hora como HH:MM");
+
+/** Con qué reloj se mira el horario de descanso: el del cliente (por el país de su número) o el del negocio. */
+export const followUpQuietClocks = ["contact", "business"] as const;
+export type FollowUpQuietClock = (typeof followUpQuietClocks)[number];
+
+/**
+ * Horario de descanso de los seguimientos: en esa franja no sale ningún toque,
+ * tampoco las plantillas; el que cae ahí espera a que termine. No toca cuándo
+ * responde el agente (eso es su horario de atención). `from` mayor que `to`
+ * cruza la medianoche: de 21:00 a 08:00.
+ */
+export const followUpQuietSchema = z.object({
+  enabled: z.boolean().default(false),
+  from: clockTime.default("21:00"),
+  to: clockTime.default("08:00"),
+  clock: z.enum(followUpQuietClocks).default("contact"),
+  /** Zona del negocio: rige con clock=business y cuando no se reconoce el país del cliente. */
+  timezone: z.string().min(1).max(60).default("America/Lima"),
+});
+export type FollowUpQuiet = z.infer<typeof followUpQuietSchema>;
+/** Lo que trae una secuencia nueva: de 9 de la noche a 8 de la mañana, hora del cliente. */
+export const DEFAULT_FOLLOW_UP_QUIET: FollowUpQuiet = { enabled: true, from: "21:00", to: "08:00", clock: "contact", timezone: "America/Lima" };
+/** Lo guardado antes de existir el horario de descanso: apagado. */
+export const FOLLOW_UP_QUIET_OFF: FollowUpQuiet = { ...DEFAULT_FOLLOW_UP_QUIET, enabled: false };
+
+/** Con qué se rellena un hueco de la plantilla de un toque. */
+export const followUpVarSources = ["contact_name", "product", "static"] as const;
+export type FollowUpVarSource = (typeof followUpVarSources)[number];
+
+export const followUpVarSchema = z.object({
+  /** Qué hueco es: 1 para {{1}} o para la primera variable con nombre. */
+  index: z.number().int().min(1).max(30),
+  source: z.enum(followUpVarSources),
+  /** static: el texto. product: lo que va si el cliente no consultó ningún producto. */
+  value: z.string().max(200).default(""),
+});
+export type FollowUpVar = z.infer<typeof followUpVarSchema>;
+
+/** Otra plantilla para el cliente que está en una etapa concreta del embudo. */
+export const followUpStageTemplateSchema = z.object({
+  stageId: z.string().min(1),
+  templateId: z.string().nullable().default(null),
+  vars: z.array(followUpVarSchema).max(30).default([]),
+});
+export type FollowUpStageTemplate = z.infer<typeof followUpStageTemplateSchema>;
+/** Plantillas por etapa en un mismo toque. */
+export const FOLLOW_UP_MAX_STAGE_TEMPLATES = 6;
+
 export const followUpStepSchema = z.object({
   /** Lo guardado antes de existir «antes del cierre» no trae este campo: cuenta como «after». */
   timing: z.enum(followUpTimings).default("after"),
@@ -152,8 +202,34 @@ export const followUpStepSchema = z.object({
   text: z.string().max(2000).default(""),
   /** kind=template: plantilla aprobada por Meta. */
   templateId: z.string().nullable().default(null),
+  /** kind=template: con qué se rellena cada hueco. Sin esto, el primero lleva el nombre del contacto. */
+  vars: z.array(followUpVarSchema).max(30).default([]),
+  /** kind=template: otra plantilla para quien esté en una etapa concreta del embudo; los demás reciben `templateId`. */
+  byStage: z.array(followUpStageTemplateSchema).max(FOLLOW_UP_MAX_STAGE_TEMPLATES).default([]),
 });
 export type FollowUpStep = z.infer<typeof followUpStepSchema>;
+
+/**
+ * Con qué se rellena cada hueco de una plantilla de `count` variables: lo
+ * configurado y, si no se eligió nada para el primero, el nombre del contacto
+ * (así salían antes de poder elegirlo). null en el hueco que queda sin valor:
+ * con uno así, Meta rechaza el envío.
+ */
+export function followUpTemplateVars(count: number, vars: FollowUpVar[]): (FollowUpVar | null)[] {
+  return Array.from(
+    { length: count },
+    (_, i) => vars.find((v) => v.index === i + 1) ?? (i === 0 ? { index: 1, source: "contact_name" as const, value: "" } : null),
+  );
+}
+
+/** La plantilla, con sus huecos, que le toca a un cliente según la etapa del embudo en que está. */
+export function followUpTemplateFor(
+  step: Pick<FollowUpStep, "templateId" | "vars" | "byStage">,
+  stageId: string | null,
+): { templateId: string | null; vars: FollowUpVar[] } {
+  const hit = stageId ? step.byStage.find((s) => s.stageId === stageId) : undefined;
+  return hit ? { templateId: hit.templateId, vars: hit.vars } : { templateId: step.templateId, vars: step.vars };
+}
 
 /** Dónde cae un toque contando desde el último mensaje del cliente. */
 export interface FollowUpMoment {
@@ -206,9 +282,21 @@ export const followUpsSchema = z
      * enciende al activar los seguimientos por primera vez.
      */
     keepInWindow: z.boolean().default(false),
+    /**
+     * Horario de descanso. Apagado en lo guardado antes de existir la opción;
+     * el editor lo enciende al activar los seguimientos por primera vez.
+     */
+    quiet: followUpQuietSchema.default(FOLLOW_UP_QUIET_OFF),
   })
   .superRefine((v, ctx) => {
     if (!v.enabled) return;
+    if (v.quiet.enabled && v.quiet.from === v.quiet.to) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["quiet", "to"],
+        message: "el horario de descanso tiene que terminar a una hora distinta de la que empieza",
+      });
+    }
     followUpTimeline(v.steps).forEach((t, i) => {
       const s = v.steps[i]!;
       if (t.late) {
@@ -228,14 +316,34 @@ export const followUpsSchema = z
       if (s.kind === "template" && !s.templateId) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["steps", i, "templateId"], message: "elige la plantilla" });
       }
+      if (s.kind === "template") {
+        const checkVars = (vars: FollowUpVar[], path: (string | number)[]) =>
+          vars.forEach((x, k) => {
+            if (x.source === "contact_name" || x.value.trim()) return;
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [...path, k, "value"],
+              message: x.source === "product" ? "pon qué va si el cliente no consultó ningún producto" : "escribe el texto de esta variable de la plantilla",
+            });
+          });
+        checkVars(s.vars, ["steps", i, "vars"]);
+        s.byStage.forEach((b, k) => {
+          const path = ["steps", i, "byStage", k];
+          if (!b.templateId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [...path, "templateId"], message: "elige la plantilla de esta etapa" });
+          if (s.byStage.findIndex((x) => x.stageId === b.stageId) !== k) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: [...path, "stageId"], message: "esta etapa ya tiene su plantilla en este toque" });
+          }
+          checkVars(b.vars, [...path, "vars"]);
+        });
+      }
       if (s.kind === "text" && !s.text.trim()) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["steps", i, "text"], message: "escribe el mensaje" });
       }
     });
   });
 export type FollowUps = z.infer<typeof followUpsSchema>;
-/** Lo que trae un agente nuevo: apagado, y con los toques dentro de la ventana para cuando se active. */
-export const DEFAULT_FOLLOW_UPS: FollowUps = { enabled: false, steps: [], includeHuman: false, keepInWindow: true };
+/** Lo que trae un agente nuevo: apagado, y con los toques dentro de la ventana y el descanso de noche para cuando se active. */
+export const DEFAULT_FOLLOW_UPS: FollowUps = { enabled: false, steps: [], includeHuman: false, keepInWindow: true, quiet: DEFAULT_FOLLOW_UP_QUIET };
 
 // Configuración del agente que devuelve la API (compat: bot por defecto).
 export const agentConfigSchema = z.object({
@@ -409,7 +517,7 @@ export const followUpPreviewSchema = z.object({
   total: z.number(),
   dueAt: z.string(),
   kind: z.enum(followUpKinds),
-  /** El mensaje exacto (texto fijo, o la plantilla con el nombre del cliente); null si lo redacta la IA. */
+  /** El mensaje exacto (texto fijo, o la plantilla con sus huecos ya rellenos); null si lo redacta la IA. */
   message: z.string().nullable(),
   /** kind=ai: lo que debe conseguir, si se configuró. */
   goal: z.string().nullable(),

@@ -7,12 +7,25 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { followUpTimeline, followUpsSchema, type BusinessHours, type FollowUpStep, type FollowUps } from "@crm/shared";
-import { FOLLOW_UP_CANCELLED, followUpAllowed, parseFollowUps, planFollowUp } from "../src/modules/ai/follow-up.rules";
-import { firstOpenAtOrAfter, lastOpenAtOrBefore } from "../src/common/utils/business-hours";
+import {
+  COUNTRIES,
+  DEFAULT_FOLLOW_UPS,
+  FOLLOW_UP_QUIET_OFF,
+  followUpTemplateFor,
+  followUpTemplateVars,
+  followUpTimeline,
+  followUpsSchema,
+  type BusinessHours,
+  type FollowUpQuiet,
+  type FollowUpStep,
+  type FollowUps,
+} from "@crm/shared";
+import { FOLLOW_UP_CANCELLED, canSendAt, followUpAllowed, listText, nextSendable, parseFollowUps, planFollowUp, type SendTimes } from "../src/modules/ai/follow-up.rules";
+import { firstOpenAtOrAfter, lastOpenAtOrBefore, localClock } from "../src/common/utils/business-hours";
+import { COUNTRY_ZONES, isQuietAt, quietClockFor } from "../src/common/utils/quiet-hours";
 import { FollowUpService } from "../src/modules/ai/follow-up.service";
 
-const base = { timing: "after" as const, beforeCloseMinutes: 60, text: "", templateId: null };
+const base = { timing: "after" as const, beforeCloseMinutes: 60, text: "", templateId: null, vars: [], byStage: [] };
 const ai = (afterMinutes: number): FollowUpStep => ({ ...base, afterMinutes, kind: "ai" });
 const text = (afterMinutes: number): FollowUpStep => ({ ...base, afterMinutes, kind: "text", text: "¿Pudiste verlo?" });
 const template = (afterMinutes: number): FollowUpStep => ({ ...base, afterMinutes, kind: "template", templateId: "tpl_1" });
@@ -23,6 +36,7 @@ const seq = (steps: FollowUpStep[], extra: Partial<FollowUps> = {}): FollowUps =
   steps,
   includeHuman: false,
   keepInWindow: false,
+  quiet: FOLLOW_UP_QUIET_OFF,
   ...extra,
 });
 
@@ -42,6 +56,14 @@ const HOURS: BusinessHours = {
     sun: null,
   },
 };
+const IN_HOURS: SendTimes = { hours: HOURS, quiet: null };
+
+/** Descanso de 21:00 a 08:00 con la hora del cliente; si no se reconoce su país, la de Lima. */
+const QUIET: FollowUpQuiet = { enabled: true, from: "21:00", to: "08:00", clock: "contact", timezone: "America/Lima" };
+const PERU = "+51987654321";
+const SPAIN = "+34612345678";
+/** Solo el descanso de un cliente de Perú, sin horario de atención. */
+const NIGHT_PE: SendTimes = { hours: null, quiet: quietClockFor(QUIET, PERU) };
 
 test("parseFollowUps: solo cuenta lo activado y con toques", () => {
   assert.equal(parseFollowUps(null), null);
@@ -65,6 +87,111 @@ test("parseFollowUps: lo guardado antes de «antes del cierre» sigue valiendo, 
   assert.equal(old?.steps[0]?.timing, "after");
   assert.equal(old?.steps[0]?.beforeCloseMinutes, 60);
   assert.equal(old?.keepInWindow, false);
+  // Ni horario de descanso: lo que ya estaba guardado sigue saliendo como salía.
+  assert.equal(old?.quiet.enabled, false);
+});
+
+test("descanso: un agente nuevo lo trae activado; el fin tiene que ser distinto del inicio", () => {
+  assert.deepEqual(DEFAULT_FOLLOW_UPS.quiet, { enabled: true, from: "21:00", to: "08:00", clock: "contact", timezone: "America/Lima" });
+  const issues = (quiet: Partial<FollowUpQuiet>) => {
+    const r = followUpsSchema.safeParse({ enabled: true, steps: [ai(120)], quiet: { ...QUIET, ...quiet } });
+    return r.success ? [] : r.error.issues.map((i) => i.path.join("."));
+  };
+  assert.deepEqual(issues({}), []);
+  assert.deepEqual(issues({ from: "08:00", to: "08:00" }), ["quiet.to"]);
+  assert.deepEqual(issues({ from: "9 pm" }), ["quiet.from"]);
+  // Apagado no se valida.
+  assert.deepEqual(issues({ enabled: false, from: "08:00", to: "08:00" }), []);
+});
+
+test("descanso: se mira con la hora del cliente, que sale del país de su número", () => {
+  const pe = quietClockFor(QUIET, PERU)!;
+  assert.deepEqual(pe.zones, ["America/Lima"]);
+  // 21:00 de Lima (UTC-5): empieza. 07:59: sigue. 08:00 en punto: ya se puede.
+  assert.equal(isQuietAt(pe, at("2026-10-21T01:59:00Z")), false);
+  assert.equal(isQuietAt(pe, at("2026-10-21T02:00:00Z")), true);
+  assert.equal(isQuietAt(pe, at("2026-10-21T12:59:00Z")), true);
+  assert.equal(isQuietAt(pe, at("2026-10-21T13:00:00Z")), false);
+  // A esa misma hora (15:00 de Lima) en España son las 22:00: su cliente descansa.
+  const es = quietClockFor(QUIET, SPAIN)!;
+  assert.equal(isQuietAt(pe, at("2026-10-21T20:00:00Z")), false);
+  assert.equal(isQuietAt(es, at("2026-10-21T20:00:00Z")), true);
+  // Un país con varias zonas: se respeta el descanso de todas. A las 9:00 de
+  // Nueva York en Los Ángeles son las 6:00.
+  const us = quietClockFor(QUIET, "+13105550100")!;
+  assert.deepEqual(us.zones, ["America/New_York", "America/Los_Angeles"]);
+  assert.equal(isQuietAt(us, at("2026-10-21T13:00:00Z")), true);
+  assert.equal(isQuietAt(us, at("2026-10-21T15:00:00Z")), false);
+  // Una franja que no cruza la medianoche (la siesta).
+  const nap = quietClockFor({ ...QUIET, from: "13:00", to: "15:00" }, PERU)!;
+  assert.equal(isQuietAt(nap, at("2026-10-21T18:30:00Z")), true);
+  assert.equal(isQuietAt(nap, at("2026-10-21T20:00:00Z")), false);
+});
+
+test("descanso: sin país reconocido o con «la hora del negocio», rige la zona elegida; apagado, nada", () => {
+  const madrid = { ...QUIET, timezone: "Europe/Madrid" };
+  // Un número de la India, un cliente de Instagram y uno sin teléfono.
+  assert.deepEqual(quietClockFor(madrid, "+919876543210")?.zones, ["Europe/Madrid"]);
+  assert.deepEqual(quietClockFor(madrid, "IG.1234567")?.zones, ["Europe/Madrid"]);
+  assert.deepEqual(quietClockFor(madrid, null)?.zones, ["Europe/Madrid"]);
+  // Con la hora del negocio no importa de dónde sea el cliente.
+  assert.deepEqual(quietClockFor({ ...madrid, clock: "business" }, PERU)?.zones, ["Europe/Madrid"]);
+  // Un usuario de WhatsApp sin número lleva su país en el identificador.
+  assert.deepEqual(quietClockFor(QUIET, "PE.13491208655302741918")?.zones, ["America/Lima"]);
+  assert.equal(quietClockFor({ ...QUIET, enabled: false }, PERU), null);
+  assert.equal(quietClockFor(undefined, PERU), null);
+});
+
+test("descanso: cada país que Driony reconoce por el prefijo tiene su zona, y existe", () => {
+  for (const c of COUNTRIES) {
+    assert.ok(COUNTRY_ZONES[c.code]?.length, `falta la zona horaria de ${c.name} (${c.code})`);
+  }
+  for (const [code, zones] of Object.entries(COUNTRY_ZONES)) {
+    for (const tz of zones) assert.ok(localClock(tz, new Date()), `la zona ${tz} de ${code} no existe`);
+  }
+});
+
+test("plan con descanso: un toque que cae de noche espera a la mañana, también si es plantilla", () => {
+  // El cliente escribió a las 20:00 de Lima y le respondimos al momento.
+  const from = at("2026-10-21T01:00:30Z");
+  const window = at("2026-10-22T01:00:00Z");
+  // A las 2 h serían las 22:00: sale a las 8:00, con la ventana aún abierta.
+  assert.deepEqual(planFollowUp(seq([ai(120)]), 0, from, window, NIGHT_PE), { step: 0, dueAt: at("2026-10-21T13:00:30Z"), skipped: [], movedUp: false });
+  // Una plantilla a los 3 días cae a las 20:00, fuera del descanso: no se mueve.
+  assert.equal(iso(planFollowUp(seq([template(4320)]), 0, from, window, NIGHT_PE).dueAt), "2026-10-24T01:00:30.000Z");
+  // A las 30 h serían las 2:00 de la madrugada: espera a las 8:00.
+  assert.equal(iso(planFollowUp(seq([template(1800)]), 0, from, window, NIGHT_PE).dueAt), "2026-10-22T13:00:30.000Z");
+  // De día sale a su hora.
+  assert.equal(iso(planFollowUp(seq([ai(120)]), 0, at("2026-10-21T15:00:00Z"), window, NIGHT_PE).dueAt), "2026-10-21T17:00:00.000Z");
+  assert.equal(canSendAt(NIGHT_PE, at("2026-10-21T13:00:30Z")), true);
+  assert.equal(iso(nextSendable(NIGHT_PE, at("2026-10-21T03:10:00Z"))), "2026-10-21T13:10:00.000Z");
+});
+
+test("plan con descanso: si esperar a la mañana cierra la ventana, con keepInWindow sale antes del descanso", () => {
+  // El cliente escribió a las 3:00 de la madrugada de Lima: la ventana cierra a las 3:00 del día siguiente.
+  const window = at("2026-10-22T08:00:00Z");
+  // Nuestro último mensaje salió a las 12:00; el toque va a las 10 h: las 22:00, de noche.
+  const from = at("2026-10-21T17:00:00Z");
+  const cfg = seq([text(600)], { keepInWindow: true });
+  // A las 8:00 la ventana ya cerró: sale a las 20:45, antes del descanso.
+  assert.deepEqual(planFollowUp(cfg, 0, from, window, NIGHT_PE), { step: 0, dueAt: at("2026-10-22T01:45:00Z"), skipped: [], movedUp: true });
+  // Sin keepInWindow espera a la mañana y al vencer se omite (ventana cerrada).
+  assert.deepEqual(planFollowUp({ ...cfg, keepInWindow: false }, 0, from, window, NIGHT_PE), {
+    step: 0,
+    dueAt: at("2026-10-22T13:00:00Z"),
+    skipped: [],
+    movedUp: false,
+  });
+});
+
+test("plan con descanso: «antes del cierre» de madrugada sale justo antes de que empiece el descanso", () => {
+  // El cliente escribió a las 6:00 de Lima: la ventana cierra mañana a las 6:00, y una hora antes es de noche.
+  const window = at("2026-10-22T11:00:00Z");
+  const plan = planFollowUp(seq([beforeClose(60)]), 0, at("2026-10-21T11:00:30Z"), window, NIGHT_PE);
+  assert.deepEqual(plan, { step: 0, dueAt: at("2026-10-22T01:45:00Z"), skipped: [], movedUp: false });
+  // Con horario de atención además (hasta las 18:00): manda el que cierra antes.
+  const both = planFollowUp(seq([beforeClose(60)]), 0, at("2026-10-21T11:00:30Z"), window, { ...NIGHT_PE, hours: HOURS });
+  assert.equal(iso(both.dueAt), "2026-10-21T22:45:00.000Z");
 });
 
 test("plan: «tras X de silencio» cuenta desde nuestro mensaje; al acabar o cancelado, nada", () => {
@@ -150,25 +277,25 @@ test("plan con horario: «antes del cierre» fuera de horario sale al final del 
   // El cliente escribió el martes a las 20:00 de Lima: la ventana cierra el miércoles a las 20:00.
   const window = at("2026-10-22T01:00:00Z");
   const from = at("2026-10-21T01:00:30Z");
-  const plan = planFollowUp(seq([beforeClose(60)]), 0, from, window, HOURS);
+  const plan = planFollowUp(seq([beforeClose(60)]), 0, from, window, IN_HOURS);
   // 19:00 del miércoles ya es fuera de horario: sale a las 17:45.
   assert.deepEqual(plan, { step: 0, dueAt: at("2026-10-21T22:45:00Z"), skipped: [], movedUp: false });
   // Sábado 17:50: la ventana cierra el domingo, que no se atiende, y hoy ya no queda margen.
-  const sat = planFollowUp(seq([beforeClose(60)]), 0, at("2026-10-24T22:50:30Z"), at("2026-10-25T22:50:00Z"), HOURS);
+  const sat = planFollowUp(seq([beforeClose(60)]), 0, at("2026-10-24T22:50:30Z"), at("2026-10-25T22:50:00Z"), IN_HOURS);
   assert.deepEqual(sat.skipped, [{ step: 0, reason: "no_time" }]);
 });
 
 test("plan con horario y keepInWindow: si no vuelve a abrir antes del cierre, sale antes de cerrar hoy", () => {
   // Miércoles 9:00 de Lima; la ventana cierra a las 17:00. El toque iría a las 21:00.
-  const wed = planFollowUp(seq([ai(120), text(720)], { keepInWindow: true }), 1, at("2026-10-21T14:00:00Z"), at("2026-10-21T22:00:00Z"), HOURS);
+  const wed = planFollowUp(seq([ai(120), text(720)], { keepInWindow: true }), 1, at("2026-10-21T14:00:00Z"), at("2026-10-21T22:00:00Z"), IN_HOURS);
   assert.deepEqual(wed, { step: 1, dueAt: at("2026-10-21T21:45:00Z"), skipped: [], movedUp: true });
   // Martes 17:00: el toque iría a las 19:00, fuera de horario, pero el
-  // miércoles abre a las 9:00 con la ventana aún abierta: espera, no se adelanta.
-  const tue = planFollowUp(seq([ai(120)], { keepInWindow: true }), 0, at("2026-10-20T22:00:20Z"), at("2026-10-21T22:00:00Z"), HOURS);
-  assert.deepEqual(tue, { step: 0, dueAt: at("2026-10-21T00:00:20Z"), skipped: [], movedUp: false });
+  // miércoles abre a las 9:00 con la ventana aún abierta: espera a esa hora, no se adelanta.
+  const tue = planFollowUp(seq([ai(120)], { keepInWindow: true }), 0, at("2026-10-20T22:00:20Z"), at("2026-10-21T22:00:00Z"), IN_HOURS);
+  assert.deepEqual(tue, { step: 0, dueAt: at("2026-10-21T14:00:20Z"), skipped: [], movedUp: false });
   // Sábado 17:30: el domingo no se atiende y la ventana cierra el domingo.
   // Sale hoy antes de cerrar, no a las 19:30.
-  const sat = planFollowUp(seq([text(120)], { keepInWindow: true }), 0, at("2026-10-24T22:30:20Z"), at("2026-10-25T22:30:00Z"), HOURS);
+  const sat = planFollowUp(seq([text(120)], { keepInWindow: true }), 0, at("2026-10-24T22:30:20Z"), at("2026-10-25T22:30:00Z"), IN_HOURS);
   assert.deepEqual(sat, { step: 0, dueAt: at("2026-10-24T22:45:20Z"), skipped: [], movedUp: true });
 });
 
@@ -253,7 +380,14 @@ function setup(cfg: FollowUps, convoPatch: Record<string, unknown> = {}, botPatc
   };
   const sent: string[] = [];
   const notes: string[] = [];
-  const templates = new Map([["tpl_1", { name: "recordatorio_curso", body: "Hola {{1}}, ¿seguimos con tu inscripción?" }]]);
+  /** Con qué se rellenó cada plantilla enviada: «contact_name» o el texto que va. */
+  const fills: string[][] = [];
+  const templates = new Map([
+    ["tpl_1", { name: "recordatorio_curso", body: "Hola {{1}}, ¿seguimos con tu inscripción?" }],
+    ["tpl_interes", { name: "sigues_interesado", body: "Hola {{1}}, ¿sigues interesado en {{2}}? Te guardo la información." }],
+    ["tpl_pago", { name: "pago_pendiente", body: "Hola {{nombre}}, tu cupo en {{curso}} sigue separado. ¿Te ayudo con el pago?" }],
+  ]);
+  const patch = convoPatch as { stageId?: string; consulted?: string[]; discontinued?: string[] };
   const prisma = {
     conversation: {
       findUnique: async () => ({ ...convo }),
@@ -264,16 +398,29 @@ function setup(cfg: FollowUps, convoPatch: Record<string, unknown> = {}, botPatc
         return { count: 1 };
       },
     },
-    message: { findFirst: async () => ({ direction: "OUTBOUND" }) },
-    deal: { findFirst: async () => null },
+    // Cuándo salió nuestro último mensaje: se prueba pasando `sentAt` en el parche de la conversación.
+    message: { findFirst: async () => ({ direction: "OUTBOUND", createdAt: (convoPatch as { sentAt?: Date }).sentAt }) },
+    // La etapa del cliente: se prueba pasando `stageId` en el parche de la conversación.
+    deal: { findFirst: async () => (patch.stageId ? { stageId: patch.stageId, stage: { isWon: false } } : null) },
+    // Lo que el agente buscó en el catálogo en este chat (`consulted`), y lo que ya no se vende (`discontinued`).
+    aiToolCall: {
+      findMany: async () => (patch.consulted ? [{ output: { result: JSON.stringify({ products: patch.consulted.map((name) => ({ name })) }) } }] : []),
+    },
+    product: {
+      findMany: async ({ where }: { where: { name: { in: string[] } } }) =>
+        where.name.in.filter((n) => !(patch.discontinued ?? []).includes(n)).map((name) => ({ name })),
+    },
     // La baja del contacto: se prueba pasando `optIn: false` en el parche de la conversación.
-    contact: { findUnique: async () => ({ name: "Ana Torres", optIn: (convoPatch as { optIn?: boolean } | undefined)?.optIn ?? true }) },
+    contact: { findUnique: async () => ({ name: "Ana Torres", phone: "+51987654321", optIn: (convoPatch as { optIn?: boolean } | undefined)?.optIn ?? true }) },
     user: { findFirst: async () => ({ id: "u1" }) },
     template: { findUnique: async ({ where }: { where: { id: string } }) => templates.get(where.id) ?? null },
   };
   const messaging = {
     queueOutbound: async (input: { text: string }) => void sent.push(`texto: ${input.text}`),
-    sendTemplateMessage: async (input: { templateId: string }) => void sent.push(`plantilla: ${input.templateId}`),
+    sendTemplateMessage: async (input: { templateId: string; fill: { body: { source: string; value?: string }[] } }) => {
+      sent.push(`plantilla: ${input.templateId}`);
+      fills.push(input.fill.body.map((v) => (v.source === "static" ? (v.value ?? "") : v.source)));
+    },
     addNote: async (_conversationId: string, _authorId: string, body: string) => void notes.push(body),
   };
   const bots = {
@@ -284,7 +431,7 @@ function setup(cfg: FollowUps, convoPatch: Record<string, unknown> = {}, botPatc
   const events = { emit: () => true };
   const service = new FollowUpService(prisma as never, messaging as never, bots as never, agentDouble as never, aiSettings as never, events as never);
   const schedule = (author: string) => (service as unknown as { schedule(id: string, author: string): Promise<void> }).schedule("cv1", author);
-  return { service, schedule, convo, sent, notes, templates, now };
+  return { service, schedule, convo, sent, notes, fills, templates, now };
 }
 
 /** Diferencia en minutos entre una fecha del plan y un momento, redondeada. */
@@ -354,6 +501,54 @@ test("servicio: fuera de horario el toque espera; si además la ventana ya cerr�
   assert.equal(lost.convo.followUpDueAt, null);
 });
 
+/** «HH:MM» en UTC de un momento desplazado `hours` horas desde ahora, al minuto. */
+const utcClock = (hours: number) => new Date(Date.now() + hours * HOUR).toISOString().slice(11, 16);
+/** Un descanso que está en marcha ahora mismo y termina dentro de `endsInHours`, con la hora del negocio en UTC. */
+const quietNow = (endsInHours: number): FollowUpQuiet => ({ enabled: true, from: utcClock(-2), to: utcClock(endsInHours), clock: "business", timezone: "UTC" });
+
+test("servicio: en horario de descanso el toque no sale y queda para cuando termine", async () => {
+  const s = setup(seq([text(120), template(1440)], { quiet: quietNow(3) }));
+  await s.service.fire("cv1");
+  assert.deepEqual(s.sent, []);
+  assert.deepEqual(s.notes, []);
+  assert.equal(s.convo.followUpStep, 0, "sigue siendo el mismo toque");
+  // Termina en 3 h: sale entonces (el barrido va a saltos de 15 min).
+  const wait = minutesFrom(s.convo.followUpDueAt, s.now);
+  assert.ok(wait >= 179 && wait <= 196, `esperaba unas 3 h y son ${wait} min`);
+  // Una plantilla tampoco sale de noche.
+  const tpl = setup(seq([template(120)], { quiet: quietNow(3) }));
+  await tpl.service.fire("cv1");
+  assert.deepEqual(tpl.sent, []);
+  // Fuera del descanso sale con normalidad.
+  const day = setup(seq([text(120)], { quiet: { ...quietNow(3), from: utcClock(5), to: utcClock(8) } }));
+  await day.service.fire("cv1");
+  assert.deepEqual(day.sent, ["texto: ¿Pudiste verlo?"]);
+});
+
+test("servicio: al programar, un toque que caería en el descanso queda para cuando termine", async () => {
+  // El toque va a los 30 min y el descanso (en marcha) termina en 3 h.
+  const s = setup(seq([text(30)], { quiet: quietNow(3) }), { followUpDueAt: null });
+  await s.schedule("AI");
+  const wait = minutesFrom(s.convo.followUpDueAt, s.now);
+  assert.ok(wait >= 179 && wait <= 196, `esperaba unas 3 h y son ${wait} min`);
+});
+
+test("servicio: si el descanso deja al toque fuera de la ventana, la nota lo dice", async () => {
+  // Nuestro mensaje salió hace 4 h y el toque iba a las 2 h: le tocó hace 2 h, de noche
+  // (el descanso empezó hace 3 h y acabó hace media hora). La ventana cerró hace una hora.
+  const quiet: FollowUpQuiet = { enabled: true, from: utcClock(-3), to: utcClock(-0.5), clock: "business", timezone: "UTC" };
+  const s = setup(seq([text(120)], { quiet }), { windowExpiresAt: new Date(Date.now() - HOUR), sentAt: new Date(Date.now() - 4 * HOUR) });
+  await s.service.fire("cv1");
+  assert.deepEqual(s.sent, []);
+  assert.deepEqual(s.notes, [
+    "🤖 Seguimiento: el toque 1 de 1 no se envió: le tocaba en el horario de descanso y la ventana de 24 h se cerró antes de que terminara; este toque no es una plantilla.",
+  ]);
+  // Sin descanso de por medio (nuestro mensaje ya salió con la ventana casi cerrada), la nota de siempre.
+  const late = setup(seq([text(120)], { quiet }), { windowExpiresAt: new Date(Date.now() - HOUR), sentAt: new Date(Date.now() - 2.5 * HOUR) });
+  await late.service.fire("cv1");
+  assert.deepEqual(late.notes, ["🤖 Seguimiento: el toque 1 de 1 no se envió: la ventana de 24 h ya estaba cerrada y este toque no es una plantilla."]);
+});
+
 test("servicio: una respuesta partida en varios mensajes mueve el plan y anota una sola vez", async () => {
   const s = setup(seq([beforeClose(60), template(1440)]), { windowExpiresAt: null, followUpDueAt: null });
   await Promise.all([s.schedule("AI"), s.schedule("AI"), s.schedule("AI")]);
@@ -380,6 +575,115 @@ test("servicio: un cliente que pidió la baja no recibe seguimientos", async () 
   await s.service.fire("cv1");
   assert.deepEqual(s.sent, []);
   assert.equal(s.convo.followUpDueAt, null, "se quita del plan");
+});
+
+// ── La plantilla con contexto: qué va en sus huecos y cuál se elige según la etapa ──
+const interest = (vars: FollowUpStep["vars"]): FollowUpStep => ({ ...template(60), templateId: "tpl_interes", vars });
+
+test("plantilla: lo guardado antes de poder elegir los huecos sigue llevando el nombre en el primero", () => {
+  const old = parseFollowUps({ enabled: true, steps: [{ afterMinutes: 1440, kind: "template", text: "", templateId: "tpl_1" }] });
+  assert.deepEqual(old?.steps[0]?.vars, []);
+  assert.deepEqual(old?.steps[0]?.byStage, []);
+  assert.deepEqual(followUpTemplateVars(1, []), [{ index: 1, source: "contact_name", value: "" }]);
+  // El segundo hueco no tiene de dónde salir: queda sin valor.
+  assert.deepEqual(followUpTemplateVars(2, [])[1], null);
+  assert.deepEqual(followUpTemplateVars(0, []), []);
+  assert.equal(listText(["Power BI"]), "Power BI");
+  assert.equal(listText(["Power BI", "Excel"]), "Power BI y Excel");
+  assert.equal(listText(["Power BI", "Excel", "SQL"]), "Power BI, Excel y SQL");
+});
+
+test("plantilla: va lo que el cliente consultó en el catálogo; si no consultó nada, el texto de respaldo", async () => {
+  const vars: FollowUpStep["vars"] = [{ index: 2, source: "product", value: "nuestros cursos" }];
+  const asked = setup(seq([interest(vars)]), { consulted: ["Power BI"] });
+  await asked.service.fire("cv1");
+  assert.deepEqual(asked.sent, ["plantilla: tpl_interes"]);
+  assert.deepEqual(asked.fills, [["contact_name", "Power BI"]]);
+  // Buscó dos cosas a la vez.
+  const two = setup(seq([interest(vars)]), { consulted: ["Power BI", "Excel"] });
+  await two.service.fire("cv1");
+  assert.deepEqual(two.fills, [["contact_name", "Power BI y Excel"]]);
+  // No consultó nada, o lo que consultó ya no se vende.
+  const none = setup(seq([interest(vars)]));
+  await none.service.fire("cv1");
+  assert.deepEqual(none.fills, [["contact_name", "nuestros cursos"]]);
+  const gone = setup(seq([interest(vars)]), { consulted: ["Power BI"], discontinued: ["Power BI"] });
+  await gone.service.fire("cv1");
+  assert.deepEqual(gone.fills, [["contact_name", "nuestros cursos"]]);
+  // Un texto fijo, y el nombre en otro hueco que no es el primero.
+  const fixed = setup(seq([interest([{ index: 1, source: "static", value: "de nuevo" }, { index: 2, source: "contact_name", value: "" }])]));
+  await fixed.service.fire("cv1");
+  assert.deepEqual(fixed.fills, [["de nuevo", "contact_name"]]);
+});
+
+test("plantilla: con un hueco sin valor no se envía y la nota dice cuál falta", async () => {
+  const s = setup(seq([interest([])]));
+  await s.service.fire("cv1");
+  assert.deepEqual(s.sent, []);
+  assert.deepEqual(s.notes, ["🤖 Seguimiento: el toque 1 de 1 no se envió: a su plantilla le falta el valor de {{2}} (se elige en el agente, en Seguimientos)."]);
+  // Con variables con nombre, se dice por su nombre.
+  const named = setup(seq([{ ...template(60), templateId: "tpl_pago" }]));
+  await named.service.fire("cv1");
+  assert.match(named.notes[0]!, /le falta el valor de \{\{curso\}\}/);
+});
+
+test("plantilla por etapa: quien está en esa etapa recibe la suya; los demás, la general", async () => {
+  const step: FollowUpStep = {
+    ...interest([{ index: 2, source: "product", value: "nuestros cursos" }]),
+    byStage: [{ stageId: "st_pago", templateId: "tpl_pago", vars: [{ index: 2, source: "product", value: "tu curso" }] }],
+  };
+  assert.deepEqual(followUpTemplateFor(step, "st_pago").templateId, "tpl_pago");
+  assert.deepEqual(followUpTemplateFor(step, "st_otra").templateId, "tpl_interes");
+  assert.deepEqual(followUpTemplateFor(step, null).templateId, "tpl_interes");
+
+  const paying = setup(seq([step]), { stageId: "st_pago", consulted: ["Power BI"] });
+  await paying.service.fire("cv1");
+  assert.deepEqual(paying.sent, ["plantilla: tpl_pago"]);
+  assert.deepEqual(paying.fills, [["contact_name", "Power BI"]]);
+  // En otra etapa, o sin oportunidad: la general.
+  const other = setup(seq([step]), { stageId: "st_nuevo" });
+  await other.service.fire("cv1");
+  assert.deepEqual(other.sent, ["plantilla: tpl_interes"]);
+  const noDeal = setup(seq([step]));
+  await noDeal.service.fire("cv1");
+  assert.deepEqual(noDeal.sent, ["plantilla: tpl_interes"]);
+});
+
+test("plantilla: la secuencia no se guarda con un hueco de texto vacío ni con una etapa repetida o sin plantilla", () => {
+  const issues = (step: FollowUpStep) => {
+    const r = followUpsSchema.safeParse({ enabled: true, steps: [step] });
+    return r.success ? [] : r.error.issues.map((i) => i.path.join("."));
+  };
+  assert.deepEqual(issues(interest([{ index: 2, source: "product", value: "nuestros cursos" }])), []);
+  assert.deepEqual(issues(interest([{ index: 2, source: "product", value: " " }])), ["steps.0.vars.0.value"]);
+  assert.deepEqual(issues(interest([{ index: 2, source: "static", value: "" }])), ["steps.0.vars.0.value"]);
+  assert.deepEqual(issues({ ...template(60), byStage: [{ stageId: "st_1", templateId: null, vars: [] }] }), ["steps.0.byStage.0.templateId"]);
+  assert.deepEqual(
+    issues({ ...template(60), byStage: [{ stageId: "st_1", templateId: "tpl_pago", vars: [] }, { stageId: "st_1", templateId: "tpl_1", vars: [] }] }),
+    ["steps.0.byStage.1.stageId"],
+  );
+  // En un toque que no es plantilla no se mira: quedó de cuando lo era.
+  assert.deepEqual(issues({ ...text(60), vars: [{ index: 2, source: "static", value: "" }] }), []);
+});
+
+test("vista previa: la plantilla se ve con lo que consultó el cliente y con la de su etapa", async () => {
+  const step: FollowUpStep = {
+    ...interest([{ index: 2, source: "product", value: "nuestros cursos" }]),
+    byStage: [{ stageId: "st_pago", templateId: "tpl_pago", vars: [{ index: 2, source: "product", value: "tu curso" }] }],
+  };
+  const asked = await setup(seq([step]), { consulted: ["Power BI"] }).service.preview("cv1");
+  assert.deepEqual({ name: asked!.templateName, message: asked!.message, blocked: asked!.blocked }, {
+    name: "sigues_interesado",
+    message: "Hola Ana Torres, ¿sigues interesado en Power BI? Te guardo la información.",
+    blocked: null,
+  });
+  const paying = await setup(seq([step]), { stageId: "st_pago" }).service.preview("cv1");
+  assert.equal(paying!.templateName, "pago_pendiente");
+  assert.equal(paying!.message, "Hola Ana Torres, tu cupo en tu curso sigue separado. ¿Te ayudo con el pago?");
+  // Con un hueco sin valor avisa, y el hueco se queda a la vista.
+  const broken = await setup(seq([interest([])])).service.preview("cv1");
+  assert.equal(broken!.message, "Hola Ana Torres, ¿sigues interesado en {{2}}? Te guardo la información.");
+  assert.match(broken!.blocked!, /le falta el valor de \{\{2\}\}/);
 });
 
 // ── Qué va a enviar el próximo seguimiento (lo que ve el equipo en el chat) ──

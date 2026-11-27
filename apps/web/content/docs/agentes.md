@@ -231,14 +231,22 @@ En cada toque eliges qué se envía:
 
 - **Lo redacta la IA**: una o dos frases que retoman lo último que hablaban («¿te decidiste por la talla 42?»). Puedes darle un objetivo («recordarle la cotización»). Cuesta una llamada breve al modelo.
 - **Un texto fijo**: siempre el mismo, sin IA.
-- **Una plantilla aprobada por Meta**: obligatoria cuando han pasado 24 h o más desde el último mensaje del cliente, porque WhatsApp no permite otra cosa. Si la plantilla tiene `{{1}}`, va el nombre del contacto.
+- **Una plantilla aprobada por Meta**: obligatoria cuando han pasado 24 h o más desde el último mensaje del cliente, porque WhatsApp no permite otra cosa.
+
+El texto de una plantilla es fijo: lo aprobó Meta y la IA no puede cambiarlo. Aun así puede llevar el contexto del chat, de dos formas:
+
+- **Qué va en cada variable.** Al elegir la plantilla aparece una fila por cada hueco (`{{1}}`, `{{2}}`…) para decidir qué lleva: el nombre del cliente, **lo que consultó en el catálogo** (el producto que buscó con el agente en ese chat; si no consultó ninguno, va el texto que dejes escrito) o un texto fijo. Debajo ves cómo le llega. Con una plantilla como «Hola {{1}}, ¿sigues interesado en {{2}}?», cada cliente recibe el nombre de lo suyo.
+- **Otra plantilla según la etapa.** Con **Otra plantilla según la etapa del cliente** eliges una plantilla distinta para quien esté en una etapa concreta del embudo (por ejemplo, una que recuerde el pago a quien ya recibió los métodos de pago). Los demás reciben la plantilla general.
+
+Un consejo: pon botones de respuesta rápida en la plantilla («Sí, sigo interesado»). En cuanto el cliente toca uno se abren otras 24 h y el agente retoma con todo el historial. Las plantillas con una variable en el encabezado o con un botón de enlace que cambia en cada envío no sirven para seguimientos.
 
 Lo que no hace falta configurar:
 
 - Se detiene en cuanto el cliente responde, si la oportunidad se gana o si cierras el chat. Si una persona del equipo escribe, la secuencia vuelve a empezar desde el primer toque.
 - Por defecto solo actúa en los chats que atiende la IA. Marca **También en los chats que lleva una persona** para que haga seguimiento cuando un vendedor escribió y el cliente no contestó.
 - Con horario de atención activo, los toques esperan a que abra.
-- Un toque de texto o de IA que caiga fuera de la ventana de 24 h se salta; el siguiente que sea plantilla sí sale.
+- **Horario de descanso**: marca la franja en la que no quieres que salga ningún toque, tampoco las plantillas (al activar los seguimientos viene puesta de 21:00 a 08:00). El que cae ahí espera a que termine. Se mira con la hora del cliente, que Driony saca del país de su número (un cliente de España descansa con la hora de España), o con la de tu negocio si lo prefieres. No cambia cuándo responde el agente: eso es su horario de atención. En los agentes que ya tenían seguimientos está apagado hasta que lo marques.
+- Un toque de texto o de IA que caiga fuera de la ventana de 24 h se salta; el siguiente que sea plantilla sí sale. Con **Adelantar los toques** marcado, el que se quedaría fuera por esperar al horario o al descanso sale antes.
 - En la bandeja, el chat muestra «Seguimiento 2 en 3 h»; con la × lo cancelas para ese cliente hasta que vuelva a escribir.
 
 El gasto aparece en **Consumo de IA** como «Seguimientos automáticos».

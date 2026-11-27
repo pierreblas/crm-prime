@@ -3909,6 +3909,9 @@ code {
 }
 .fu-step__cost { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
 
+.fu-var { flex: none; padding: 3px 7px; border: 1px solid var(--border); background: var(--panel); color: var(--cyan); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; line-height: 1.3; }
+.fu-stage { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); background: var(--panel); }
+
 .fu-meta { padding: 10px 12px; border: 1px solid var(--border); color: var(--muted); font-size: 12.5px; line-height: 1.5; }
 .fu-meta summary { cursor: pointer; color: var(--text); font-size: 13px; font-weight: 600; }
 .fu-meta ul { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 0; padding-left: 18px; }
@@ -7024,6 +7027,8 @@ button[style*="background:var(--accent)"]:focus-visible {
 .pay__preview,
 .reset-link,
 .fu-meta,
+.fu-stage,
+.fu-var,
 .pf-side,
 .prompt-rail__pitch,
 .prompt-rail__convert,

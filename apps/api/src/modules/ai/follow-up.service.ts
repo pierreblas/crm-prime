@@ -1,22 +1,47 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
 import { MessageAuthor, MessageType } from "@prisma/client";
-import type { BusinessHours, FollowUpPreview, FollowUpStep } from "@crm/shared";
+import {
+  fillTemplateText,
+  followUpTemplateFor,
+  followUpTemplateVars,
+  namedTemplateVars,
+  templateVarCount,
+  type BusinessHours,
+  type FollowUpPreview,
+  type FollowUpStep,
+  type FollowUpVar,
+  type FollowUps,
+  type VariableValue,
+} from "@crm/shared";
 import { env } from "../../common/utils/env";
 import { isWithinHours } from "../../common/utils/business-hours";
+import { isQuietAt, quietClockFor } from "../../common/utils/quiet-hours";
 import { PrismaService } from "../../infra/prisma/prisma.service";
 import { runInOrg, runUnscoped } from "../../infra/tenant/tenant.context";
 import { MessagingService } from "../messaging/messaging.service";
 import { AgentService } from "./agent.service";
 import { AiSettingsService } from "./ai-settings.service";
 import { BotService } from "./bot.service";
-import { FOLLOW_UP_CANCELLED, followUpAllowed, parseFollowUps, planFollowUp, type FollowUpPlan } from "./follow-up.rules";
+import {
+  ANY_TIME,
+  FOLLOW_UP_CANCELLED,
+  canSendAt,
+  consultedProductNames,
+  followUpAllowed,
+  listText,
+  nextSendable,
+  parseFollowUps,
+  planFollowUp,
+  type FollowUpPlan,
+  type SendTimes,
+} from "./follow-up.rules";
 import type { MessageOutboundEvent } from "./flow-triggers.service";
 import { customerTextFor } from "./contact-vars";
 
 const SWEEP_EVERY_MS = 60_000;
 const BATCH = 50;
-/** Fuera de horario de atención: se vuelve a mirar pasado este rato. */
+/** No se puede enviar ahora y no se sabe cuándo se podrá: se vuelve a mirar pasado este rato. */
 const RETRY_MINUTES = 15;
 
 /** Un toque que no salió y por qué, para dejarlo anotado en el chat. */
@@ -39,11 +64,18 @@ interface Unsent {
  *    tocando: chat abierto, cliente callado, oportunidad no ganada, horario.
  *
  * Qué se envía lo decide cada toque: texto fijo, plantilla aprobada o un
- * mensaje que redacta la IA con el contexto del chat. Cuándo, las reglas de
+ * mensaje que redacta la IA con el contexto del chat. La plantilla es un
+ * texto fijo que aprobó Meta; el contexto le entra por dos sitios: cuál se
+ * elige (una por etapa del embudo, si se configuró) y qué va en sus huecos
+ * (el nombre, lo que el cliente consultó en el catálogo o un texto). Cuándo, las reglas de
  * follow-up.rules.ts: tras un rato de silencio o un rato antes de que se
  * cierre la ventana del canal (en WhatsApp, 24 h desde el último mensaje del
  * cliente). Con la ventana cerrada solo cabe plantilla: un toque de texto o
  * de IA que caiga ahí no sale, y queda anotado en el chat para el equipo.
+ *
+ * Ningún toque sale fuera del horario de atención del agente ni en el horario
+ * de descanso de los seguimientos (la noche, con la hora del cliente): espera
+ * al primer momento en que se pueda.
  */
 @Injectable()
 export class FollowUpService implements OnModuleInit, OnModuleDestroy {
@@ -108,9 +140,9 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     // canceló desde la bandeja, sigue cancelada hasta que el cliente escriba.
     const step = author === MessageAuthor.HUMAN && convo.followUpStep !== FOLLOW_UP_CANCELLED ? 0 : convo.followUpStep;
     const applies = !!cfg && convo.status !== "CLOSED" && followUpAllowed(cfg, convo);
-    const hours = hoursOf(bot);
+    const times = applies ? await this.sendTimes(bot, cfg!, convo.contactId) : ANY_TIME;
     const plan: FollowUpPlan = applies
-      ? planFollowUp(cfg!, step, new Date(), convo.windowExpiresAt, hours)
+      ? planFollowUp(cfg!, step, new Date(), convo.windowExpiresAt, times)
       : { step, dueAt: null, skipped: [], movedUp: false };
     if (plan.step === convo.followUpStep && sameInstant(plan.dueAt, convo.followUpDueAt)) return;
     // Varios mensajes nuestros seguidos (una respuesta partida) llegan casi a
@@ -127,7 +159,7 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
       await this.noteUnsent(
         convo,
         cfg.steps.length,
-        plan.skipped.map((s) => ({ step: s.step, ...skipText(s.reason, !!hours) })),
+        plan.skipped.map((s) => ({ step: s.step, ...skipText(s.reason, times) })),
       );
     }
     this.events.emit("inbox.changed", { conversationId: convo.id, orgId: convo.orgId });
@@ -153,14 +185,23 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
         : "No va a salir: para entonces la ventana para escribirle estará cerrada.";
 
     if (step.kind === "template") {
-      const template = step.templateId ? await this.prisma.template.findUnique({ where: { id: step.templateId }, select: { name: true, body: true } }) : null;
-      if (!template) return { ...base, blocked: step.templateId ? "No va a salir: su plantilla ya no existe." : "No va a salir: no tiene una plantilla elegida." };
+      const pick = followUpTemplateFor(step, await this.stageOf(convo.contactId));
+      const template = pick.templateId ? await this.prisma.template.findUnique({ where: { id: pick.templateId }, select: { name: true, body: true } }) : null;
+      if (!template) return { ...base, blocked: pick.templateId ? "No va a salir: su plantilla ya no existe." : "No va a salir: no tiene una plantilla elegida." };
       const contact = await this.prisma.contact.findUnique({ where: { id: convo.contactId }, select: { name: true } });
+      const filled = await this.templateValues(convo.id, template.body, pick.vars);
+      // Los huecos sin valor se quedan a la vista ({{2}}): es lo que hay que arreglar.
+      const values = filled.slots.map((v) => (!v ? undefined : v.source === "contact_name" ? contact?.name?.trim() || "…" : (v.value ?? "")));
       return {
         ...base,
         templateName: template.name,
-        message: template.body.replace(/\{\{\s*1\s*\}\}/g, contact?.name?.trim() || "…"),
-        blocked: convo.channelKind !== "whatsapp" ? `No va a salir: las plantillas solo existen en WhatsApp y este chat es de ${convo.channelKind}.` : null,
+        message: fillTemplateText(template.body, values as string[], namedTemplateVars(template.body)),
+        blocked:
+          convo.channelKind !== "whatsapp"
+            ? `No va a salir: las plantillas solo existen en WhatsApp y este chat es de ${convo.channelKind}.`
+            : filled.missing
+              ? `No va a salir: a su plantilla le falta el valor de ${filled.missing}.`
+              : null,
       };
     }
     if (step.kind === "ai") return { ...base, goal: step.text?.trim() || null, blocked: windowOpen ? null : closed };
@@ -284,21 +325,21 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     if (!bot || !cfg || !step) return clear("el agente ya no tiene seguimientos");
     if (convo.status === "CLOSED") return clear("chat cerrado");
     if (!followUpAllowed(cfg, convo)) return clear("el chat lo lleva una persona");
-    const contact = await this.prisma.contact.findUnique({ where: { id: convo.contactId }, select: { optIn: true } });
+    const contact = await this.prisma.contact.findUnique({ where: { id: convo.contactId }, select: { optIn: true, phone: true } });
     if (contact && !contact.optIn) return clear("el cliente pidió la baja");
 
     // Lo normal es que un mensaje del cliente ya haya limpiado el plan; por si acaso.
     const last = await this.prisma.message.findFirst({
       where: { conversationId: convo.id },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      select: { direction: true },
+      select: { direction: true, createdAt: true },
     });
     if (!last || last.direction !== "OUTBOUND") return clear("el cliente ya respondió");
 
     const deal = await this.prisma.deal.findFirst({
       where: { contactId: convo.contactId, discardedAt: null },
       orderBy: { updatedAt: "desc" },
-      select: { stage: { select: { isWon: true } } },
+      select: { stageId: true, stage: { select: { isWon: true } } },
     });
     if (deal?.stage.isWon) return clear("oportunidad ganada");
 
@@ -306,18 +347,23 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     // no puede salir: no tiene sentido hacerle esperar al horario de atención.
     const windowOpen = !!convo.windowExpiresAt && convo.windowExpiresAt > now;
     const blocked = step.kind !== "template" && !windowOpen;
-    const hours = hoursOf(bot);
-    if (!blocked && hours && !isWithinHours(hours, now)) {
+    const times = await this.sendTimes(bot, cfg, convo.contactId, contact?.phone ?? null);
+    if (!blocked && !canSendAt(times, now)) {
+      // Fuera del horario de atención o en horario de descanso (cambiaron
+      // después de programar el toque): espera al primer momento en que se pueda.
+      const next = nextSendable(times, now);
+      const known = next > now;
       await this.prisma.conversation.update({
         where: { id: convo.id },
-        data: { followUpDueAt: new Date(now.getTime() + RETRY_MINUTES * 60_000) },
+        data: { followUpDueAt: known ? next : new Date(now.getTime() + RETRY_MINUTES * 60_000) },
       });
+      if (known) this.events.emit("inbox.changed", { conversationId: convo.id, orgId: convo.orgId });
       return;
     }
 
     // Primero se avanza el plan y luego se envía: si el envío falla, no se
     // reintenta cada minuto (queda en el registro y anotado en el chat).
-    const plan = planFollowUp(cfg, i + 1, now, convo.windowExpiresAt, hours);
+    const plan = planFollowUp(cfg, i + 1, now, convo.windowExpiresAt, times);
     await this.prisma.conversation.update({
       where: { id: convo.id },
       data: { followUpStep: plan.step, followUpDueAt: plan.dueAt },
@@ -326,16 +372,10 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     const total = cfg.steps.length;
     const unsent: Unsent[] = [];
     if (blocked) {
-      unsent.push({
-        step: i,
-        why:
-          convo.channelKind === "whatsapp"
-            ? "la ventana de 24 h ya estaba cerrada y este toque no es una plantilla"
-            : "la ventana para escribirle ya estaba cerrada",
-      });
+      unsent.push({ step: i, why: closedWhy(convo.channelKind, delayedBy(step, last.createdAt, convo.windowExpiresAt, times)) });
     } else {
       try {
-        const why = await this.send(convo.id, convo.channelKind, step);
+        const why = await this.send(convo.id, convo.channelKind, step, deal?.stageId ?? null);
         if (why) unsent.push({ step: i, why });
       } catch (e) {
         const message = (e as Error).message.slice(0, 200);
@@ -343,7 +383,7 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
         unsent.push({ step: i, why: `falló el envío (${message})` });
       }
     }
-    for (const s of plan.skipped) unsent.push({ step: s.step, ...skipText(s.reason, !!hours) });
+    for (const s of plan.skipped) unsent.push({ step: s.step, ...skipText(s.reason, times) });
 
     const mine = unsent.find((u) => u.step === i);
     this.logger.log(`Seguimiento ${i + 1}/${total} (${step.kind}) en ${convo.id}: ${mine ? `no enviado, ${mine.why}` : "enviado"}`);
@@ -352,16 +392,20 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Envía el toque. Devuelve null si salió, o por qué no había nada que enviar. */
-  private async send(conversationId: string, channelKind: string, step: FollowUpStep): Promise<string | null> {
+  private async send(conversationId: string, channelKind: string, step: FollowUpStep, stageId: string | null): Promise<string | null> {
     if (step.kind === "template") {
-      if (!step.templateId) return "no tiene una plantilla elegida";
+      // La de la etapa en que está el cliente, si el toque tiene una para ella.
+      const pick = followUpTemplateFor(step, stageId);
+      if (!pick.templateId) return "no tiene una plantilla elegida";
       // Messenger, Instagram y TikTok no tienen plantillas.
       if (channelKind !== "whatsapp") return `las plantillas solo existen en WhatsApp y este chat es de ${channelKind}`;
-      const template = await this.prisma.template.findUnique({ where: { id: step.templateId }, select: { body: true } });
+      const template = await this.prisma.template.findUnique({ where: { id: pick.templateId }, select: { body: true } });
       if (!template) return "su plantilla ya no existe";
-      const body = /\{\{\s*1\s*\}\}/.test(template.body) ? [{ index: 1, source: "contact_name" as const }] : [];
+      const filled = await this.templateValues(conversationId, template.body, pick.vars);
+      // Con un hueco vacío Meta rechaza el mensaje entero: mejor decir cuál falta.
+      if (filled.missing) return `a su plantilla le falta el valor de ${filled.missing} (se elige en el agente, en Seguimientos)`;
       await this.messaging.sendTemplateMessage(
-        { conversationId, templateId: step.templateId, fill: { body, urlButtons: [] } },
+        { conversationId, templateId: pick.templateId, fill: { body: filled.slots as VariableValue[], urlButtons: [] } },
         MessageAuthor.AI,
       );
       return null;
@@ -371,6 +415,71 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     if (!text?.trim()) return step.kind === "ai" ? "la IA no redactó el mensaje (cupo agotado o respuesta vacía)" : "no tiene texto";
     await this.messaging.queueOutbound({ conversationId, type: MessageType.TEXT, text: text.trim() }, MessageAuthor.AI);
     return null;
+  }
+
+  /**
+   * Los valores de cada hueco de la plantilla para este chat, en su orden.
+   * `missing` nombra el primero que se queda sin valor («{{2}}»), si hay alguno.
+   */
+  private async templateValues(conversationId: string, body: string, vars: FollowUpVar[]): Promise<{ slots: (VariableValue | null)[]; missing: string | null }> {
+    const picked = followUpTemplateVars(templateVarCount(body), vars);
+    const product = picked.some((v) => v?.source === "product") ? await this.consultedProduct(conversationId) : "";
+    const slots = picked.map((v, i): VariableValue | null => {
+      if (!v) return null;
+      if (v.source === "contact_name") return { index: i + 1, source: "contact_name" };
+      // Si el cliente no consultó nada, va lo que el dueño dejó escrito para ese caso.
+      return { index: i + 1, source: "static", value: v.source === "product" ? product || v.value : v.value };
+    });
+    const gap = slots.findIndex((v) => !v);
+    const name = gap >= 0 ? namedTemplateVars(body)[gap] : undefined;
+    return { slots, missing: gap >= 0 ? `{{${name ?? gap + 1}}}` : null };
+  }
+
+  /**
+   * Lo que el cliente consultó en el catálogo en este chat, en una frase
+   * («Power BI», «Power BI y Excel»): los productos de la última búsqueda
+   * concreta del agente que siguen a la venta. Vacío si no consultó ninguno.
+   */
+  private async consultedProduct(conversationId: string): Promise<string> {
+    const calls = await this.prisma.aiToolCall.findMany({
+      where: { toolName: "search_products", aiRun: { conversationId } },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: { output: true },
+    });
+    const names = consultedProductNames(calls.map((c) => c.output));
+    if (!names.length) return "";
+    const active = await this.prisma.product.findMany({ where: { isActive: true, name: { in: names } }, select: { name: true } });
+    return listText(names.filter((n) => active.some((p) => p.name === n)));
+  }
+
+  /** La etapa del embudo en que está el cliente (la de su oportunidad más reciente), si tiene. */
+  private async stageOf(contactId: string): Promise<string | null> {
+    const deal = await this.prisma.deal.findFirst({
+      where: { contactId, discardedAt: null },
+      orderBy: { updatedAt: "desc" },
+      select: { stageId: true },
+    });
+    return deal?.stageId ?? null;
+  }
+
+  /**
+   * Cuándo puede salir un toque en este chat: el horario de atención del
+   * agente y el horario de descanso. Este último se mira con el reloj del
+   * cliente, que sale del país de su teléfono: si no viene dado, se busca.
+   */
+  private async sendTimes(
+    bot: { businessHoursEnabled: boolean; businessHours: unknown } | null,
+    cfg: FollowUps,
+    contactId: string,
+    phone?: string | null,
+  ): Promise<SendTimes> {
+    const hours = hoursOf(bot);
+    if (!cfg.quiet.enabled) return { hours, quiet: null };
+    if (phone === undefined && cfg.quiet.clock === "contact") {
+      phone = (await this.prisma.contact.findUnique({ where: { id: contactId }, select: { phone: true } }))?.phone ?? null;
+    }
+    return { hours, quiet: quietClockFor(cfg.quiet, phone) };
   }
 
   /**
@@ -410,12 +519,37 @@ function hoursOf(bot: { businessHoursEnabled: boolean; businessHours: unknown } 
 }
 
 /** Por qué se saltó un toque «antes del cierre», en palabras para la nota del chat. */
-function skipText(reason: FollowUpPlan["skipped"][number]["reason"], withHours: boolean): { why: string; whyMany: string } {
+function skipText(reason: FollowUpPlan["skipped"][number]["reason"], times: SendTimes): { why: string; whyMany: string } {
+  const when = [times.hours ? "dentro del horario de atención" : "", times.quiet ? "fuera del horario de descanso" : ""].filter(Boolean).join(" y ");
   const rest =
     reason === "window_closed"
       ? "antes del cierre de la ventana y la ventana ya estaba cerrada"
-      : `antes del cierre de la ventana y ya no quedaba tiempo${withHours ? " dentro del horario de atención" : ""}`;
+      : `antes del cierre de la ventana y ya no quedaba tiempo${when ? ` ${when}` : ""}`;
   return { why: `iba ${rest}`, whyMany: `iban ${rest}` };
+}
+
+/**
+ * Qué retrasó un toque «tras X de silencio» que por su espera cabía en la
+ * ventana y llegó con ella cerrada: el horario de descanso o el de atención.
+ * null si no fue eso (nuestro mensaje ya había salido tarde).
+ */
+function delayedBy(step: FollowUpStep, sentAt: Date | undefined, windowExpiresAt: Date | null, times: SendTimes): "quiet" | "hours" | null {
+  if (step.timing !== "after" || !sentAt || !windowExpiresAt) return null;
+  const due = new Date(sentAt.getTime() + step.afterMinutes * 60_000);
+  if (due >= windowExpiresAt) return null;
+  if (times.quiet && isQuietAt(times.quiet, due)) return "quiet";
+  if (times.hours && !isWithinHours(times.hours, due)) return "hours";
+  return null;
+}
+
+/** Por qué no salió un toque de texto o de IA con la ventana cerrada, para la nota del chat. */
+function closedWhy(channelKind: string, delayed: "quiet" | "hours" | null): string {
+  const whatsapp = channelKind === "whatsapp";
+  const window = whatsapp ? "la ventana de 24 h" : "la ventana para escribirle";
+  const tail = whatsapp ? "; este toque no es una plantilla" : "";
+  if (delayed === "quiet") return `le tocaba en el horario de descanso y ${window} se cerró antes de que terminara${tail}`;
+  if (delayed === "hours") return `le tocaba fuera del horario de atención y ${window} se cerró antes de que abriera${tail}`;
+  return whatsapp ? "la ventana de 24 h ya estaba cerrada y este toque no es una plantilla" : "la ventana para escribirle ya estaba cerrada";
 }
 
 /** Mismo instante con margen de unos segundos (el evento llega un poco después de programar). */
